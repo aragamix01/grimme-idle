@@ -2,6 +2,7 @@ import { chance, createRng, int, pick, type Rng } from './rng';
 import { clamp, kill, log, makePlan as plan, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
+import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
@@ -14,7 +15,7 @@ export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_
 const TOWN_SIZE = 30;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE
 const MIN_ADVENTURERS = 10; // below this, newcomers come as adventurers
-const ADVENTURE_CHANCE = 0.1; // solo dungeon trips; most adventuring now goes through guild quests
+const ADVENTURE_CHANCE = 0.04; // solo dungeon trips are rare and risky; most adventuring goes through quests
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
 const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
@@ -61,10 +62,12 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   world.day++;
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
-    if (world.day % 365 === 0) npc.age++;
-    live(world, npc, rng);
+    if (isBirthday(world, npc)) birthday(world, npc, rng);
+    if (npc.alive) live(world, npc, rng);
   }
   socialize(world, rng);
+  romance(world, rng);
+  births(world, rng);
   updateGuilds(world, rng);
   updateQuests(world, rng);
   for (const d of world.dungeons) {
@@ -72,7 +75,11 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
     if (d.power >= STAMPEDE_POWER) {
       log(world, 'disaster', `มอนสเตอร์ล้นออกจาก ${d.name}!`);
       d.power = 30;
-      for (const npc of world.npcs) if (npc.alive && chance(rng, 0.1)) kill(world, npc, 'ถูกมอนสเตอร์ล้มลง');
+      // Children are hidden indoors; adventurers stand and fight, so they're the ones who fall.
+      for (const npc of world.npcs) {
+        if (!npc.alive || isChild(npc)) continue;
+        if (chance(rng, isAdventurer(npc) ? 0.08 : 0.04)) kill(world, npc, 'ถูกมอนสเตอร์ล้มลง');
+      }
     }
   }
   // Travellers walk in through the west gate while the town is below its starting size.
@@ -136,6 +143,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
 // ---------- daily life: walk to where the plan is, then act there ----------
 
 function live(world: WorldState, npc: Npc, rng: Rng): void {
+  if (isChild(npc)) return childDay(world, npc, rng);
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
   if (npc.inside !== undefined) return delve(world, npc, rng);
   npc.plan ??= choosePlan(world, npc, rng);
@@ -157,7 +165,10 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
 }
 
 function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
-  const home = PLACES.homes[npc.id % PLACES.homes.length];
+  const home = homeOf(npc, world);
+  // Someone sweet on another drifts to wherever they are.
+  const crush = crushOf(world, npc);
+  if (crush && crush.inside === undefined && chance(rng, 0.3)) return plan('idle', crush, int(rng, 2, 5));
   const idle = () =>
     plan('idle', pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild]), int(rng, 3, 8));
 
@@ -232,7 +243,7 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
       npc.level++;
       log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
     }
-  } else if (chance(rng, 0.15)) {
+  } else if (chance(rng, 0.08)) {
     return kill(world, npc, `หายไปใน ${d.name}`);
   }
   npc.plan = plan('return', PLACES.guild, 0);

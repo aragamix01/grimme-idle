@@ -17,7 +17,7 @@ const EMBLEMS = ['หมาป่า', 'มังกร', 'กุหลาบ', 
 const COLOURS = ['เงิน', 'ทอง', 'แดง', 'ดำ', 'ขาว', 'คราม', 'มรกต', 'อำพัน'];
 
 const memberOf = (world: WorldState, g: Guild) => world.npcs.filter((n) => n.alive && n.guildId === g.id);
-const fits = (n: Npc, kind: GuildKind) => (kind === 'thieves' ? n.job === 'thief' : isAdventurer(n));
+const fits = (n: Npc, kind: GuildKind) => (kind === 'thieves' ? n.job === 'thief' && n.age >= 16 : isAdventurer(n));
 
 export function updateGuilds(world: WorldState, rng: Rng): void {
   for (const g of [...world.guilds]) succession(world, g);

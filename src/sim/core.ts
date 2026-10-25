@@ -14,6 +14,12 @@ export function kill(world: WorldState, npc: Npc, reason: string): void {
   npc.alive = false;
   npc.plan = undefined;
   log(world, 'death', `${npc.name} ${reason}`, npc.id);
+  // Their gold goes to the spouse and children.
+  const heirs = world.npcs.filter((o) => o.alive && (o.id === npc.spouseId || o.parentIds?.includes(npc.id)));
+  if (!heirs.length || npc.gold <= 0) return;
+  const share = Math.floor(npc.gold / heirs.length);
+  for (const h of heirs) h.gold += share;
+  npc.gold -= share * heirs.length;
 }
 
 export function makePlan(kind: PlanKind, at: Spot, days: number, target?: number): Plan {

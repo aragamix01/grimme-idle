@@ -21,6 +21,9 @@ export interface Npc {
   renown?: number; // earned from finished quests; drives rank-ups
   questId?: number; // quest this NPC is signed up for
   guildId?: number; // guild this NPC belongs to
+  spouseId?: number; // kept after the spouse dies, so the card can remember them
+  parentIds?: number[]; // set for NPCs born in town
+  retired?: boolean; // elders who have hung up their sword
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)

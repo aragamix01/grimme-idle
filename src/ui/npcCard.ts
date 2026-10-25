@@ -1,4 +1,4 @@
-import { COMMAND_COST, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, COMMAND_COST, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -34,16 +34,21 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   const doing = activity(world, npc);
   const ties = topTies(world, npc.id);
   const guild = world.guilds.find((g) => g.id === npc.guildId);
-  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, ties, guild?.name, guild?.leaderId]);
+  const fam = family(world, npc);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
-  card.replaceChildren(header(npc, doing, membership), stats(npc), relations(world, ties), powers(npc, world.faith));
+  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world.faith));
 }
 
 // What the NPC is up to, in words the player can follow on the map.
 function activity(world: WorldState, npc: Npc): string {
   if (!npc.alive) return 'จากไปแล้ว';
+  if (npc.age < ADULT_AGE) {
+    const parent = world.npcs.find((n) => n.id === npc.plan?.target);
+    return parent ? `เดินตาม${parent.name}` : 'วิ่งเล่นอยู่ในเมือง';
+  }
   const dungeon = (id?: number) => world.dungeons.find((d) => d.id === id)?.name ?? 'ดันเจี้ยน';
   const quest = world.quests.find((q) => q.id === npc.questId);
   if (quest) {
@@ -72,6 +77,36 @@ function activity(world: WorldState, npc: Npc): string {
   }
 }
 
+interface Kin {
+  role: string;
+  npc: Npc;
+}
+
+function family(world: WorldState, npc: Npc): Kin[] {
+  const out: Kin[] = [];
+  const find = (id?: number) => world.npcs.find((n) => n.id === id);
+  const spouse = find(npc.spouseId);
+  if (spouse) out.push({ role: 'คู่ชีวิต', npc: spouse });
+  for (const id of npc.parentIds ?? []) {
+    const p = find(id);
+    if (p) out.push({ role: 'พ่อแม่', npc: p });
+  }
+  for (const c of world.npcs) if (c.parentIds?.includes(npc.id)) out.push({ role: 'ลูก', npc: c });
+  return out;
+}
+
+function familyBlock(kin: Kin[]): HTMLElement {
+  if (!kin.length) return el('div');
+  const rows = kin.map(({ role, npc }) => {
+    const name = el('button', { type: 'button', className: 'rel__name', textContent: npc.name });
+    if (!npc.alive) name.classList.add('rel__name--dead');
+    name.onclick = () => handlers.onSelect(npc.id);
+    const note = npc.alive ? `${npc.age} ปี` : 'ล่วงลับ';
+    return el('li', { className: 'rel' }, name, el('span', { className: 'rel__label', textContent: role }), el('span', { className: 'rel__label', textContent: note }));
+  });
+  return el('div', { className: 'npc__rels' }, el('h4', { textContent: 'ครอบครัว' }), el('ul', {}, ...rows));
+}
+
 function relations(world: WorldState, ties: { id: number; value: number }[]): HTMLElement {
   const rows: HTMLElement[] = [];
   for (const { id, value } of ties) {
@@ -89,15 +124,17 @@ function relations(world: WorldState, ties: { id: number; value: number }[]): HT
 
 function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean }): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
-  portrait.style.backgroundImage = `url(/assets/sprites/characters/${npc.job}.png)`;
+  const look = npc.age < ADULT_AGE ? 'child' : npc.job;
+  portrait.style.backgroundImage = `url(/assets/sprites/characters/${look}.png)`;
   const chips = el(
     'div',
     { className: 'npc__chips' },
-    el('span', { className: 'chip', textContent: JOB_TH[npc.job] }),
-    el('span', { className: 'chip', textContent: `LV ${npc.level}` }),
+    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : JOB_TH[npc.job] }),
+    ...(npc.age >= ADULT_AGE ? [el('span', { className: 'chip', textContent: `LV ${npc.level}` })] : []),
     ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
     ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),
-    el('span', { className: 'chip', textContent: `${npc.age} ปี` }),
+    el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
+    ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: 'จากไปแล้ว' })] : []),
   );
@@ -152,6 +189,7 @@ function powerButton(name: string, label: string, cost: number, enabled: boolean
 
 function powers(npc: Npc, faith: number): HTMLElement {
   const can = (cost: number) => npc.alive && faith >= cost;
+  const grown = npc.age >= ADULT_AGE;
   const row = el(
     'div',
     { className: 'powers' },
@@ -161,7 +199,7 @@ function powers(npc: Npc, faith: number): HTMLElement {
     powerButton('curse', 'สาปแช่ง', COMMAND_COST.curse, can(COMMAND_COST.curse), () =>
       handlers.onCommand({ type: 'curse', npcId: npc.id }),
     ),
-    powerButton('dream', 'ส่งความฝัน', COMMAND_COST.dream, can(COMMAND_COST.dream), () => {
+    powerButton('dream', 'ส่งความฝัน', COMMAND_COST.dream, can(COMMAND_COST.dream) && grown, () => {
       choosingDream = !choosingDream;
       lastKey = '';
       card.dispatchEvent(new Event('rerender'));

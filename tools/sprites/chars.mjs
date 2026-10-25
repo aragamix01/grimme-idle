@@ -320,12 +320,50 @@ const MONSTERS_FROM_BODY = {
   },
 };
 
+// Children: same head size as adults (that's what makes them read as small), short body, feet on the same baseline.
+const CHILD = [
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '.....hhhhhh.....',
+  '....hhhhhhhh....',
+  '....hssssssh....',
+  '....ssssssss....',
+  '....sskssksS....',
+  '....sskssksS....',
+  '....spssssps....',
+  '.....ssSSss.....',
+  '......ssss......',
+  '.....GGGGGG.....',
+  '....sGGGGGGs....',
+  '.....GGyyGG.....',
+  '.....GGGGGG.....',
+  '.....NN..NN.....',
+  '................',
+  '................',
+];
+const CHILD_LEGS_B = ['.....NN..GG.....', '..........NN....'];
+
+function child(frame) {
+  const g = Grid.from(CHILD, 'child');
+  if (frame === 1) g.stamp(CHILD_LEGS_B, 0, 20);
+  return g.shade(SHADE).outline('o');
+}
+
 export function characters() {
-  return Object.entries(JOBS).map(([name, def]) => ({
-    name,
-    group: 'characters',
-    frames: [build({ ...def, frame: 0 }), build({ ...def, frame: 1 })],
-  }));
+  return [
+    ...Object.entries(JOBS).map(([name, def]) => ({
+      name,
+      group: 'characters',
+      frames: [build({ ...def, frame: 0 }), build({ ...def, frame: 1 })],
+    })),
+    { name: 'child', group: 'characters', frames: [child(0), child(1)] },
+  ];
 }
 
 export function bodyMonsters() {

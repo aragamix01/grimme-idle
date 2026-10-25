@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import type { Npc, WorldState } from '../../sim';
+import { ADULT_AGE, type Npc, type WorldState } from '../../sim';
 import manifest from '../sprite-manifest.json';
 
 export const TILE = 16;
@@ -175,11 +175,12 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private syncNpc(npc: Npc): void {
+    const look = npc.age < ADULT_AGE ? 'child' : npc.job; // children share one sprite until they pick a calling
     let sprite = this.npcSprites.get(npc.id);
     const px = npc.x * TILE + TILE / 2;
     const py = npc.y * TILE + TILE;
     if (!sprite) {
-      sprite = this.add.sprite(px, py, npc.job).setOrigin(0.5, 1).play(`${npc.job}-walk`);
+      sprite = this.add.sprite(px, py, look).setOrigin(0.5, 1).play(`${look}-walk`);
       sprite.anims.setProgress(Math.random());
       this.npcSprites.set(npc.id, sprite);
     }
@@ -190,7 +191,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     sprite.setVisible(true);
-    if (sprite.texture.key !== npc.job) sprite.setTexture(npc.job).play(`${npc.job}-walk`);
+    if (sprite.texture.key !== look) sprite.setTexture(look).play(`${look}-walk`);
     if (px !== sprite.x) sprite.setFlipX(px < sprite.x);
     this.tweens.add({
       targets: sprite,

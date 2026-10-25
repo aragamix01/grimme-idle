@@ -15,6 +15,11 @@ export function getTie(world: WorldState, a: number, b: number): number {
   return world.ties[key(a, b)] ?? 0;
 }
 
+// Set a tie quietly, for bonds people are born with.
+export function setTie(world: WorldState, a: number, b: number, value: number): void {
+  world.ties[key(a, b)] = clamp(value, -100, 100);
+}
+
 // Adjust a tie and tell the chronicle when two people become best friends or enemies.
 export function addTie(world: WorldState, a: Npc, b: Npc, delta: number): void {
   if (a.id === b.id || !delta) return;

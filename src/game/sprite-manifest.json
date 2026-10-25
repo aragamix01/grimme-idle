@@ -55,6 +55,13 @@
     "frameHeight": 24,
     "frames": 2
   },
+  "child": {
+    "file": "assets/sprites/characters/child.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
   "goblin": {
     "file": "assets/sprites/monsters/goblin.png",
     "group": "monsters",

@@ -20,7 +20,7 @@ const ESCORT_CHANCE = 0.002; // per merchant with savings per day
 const GUILD_CUT = 0.1; // share of a claimed quest's reward kept by the guild
 export const DIVINE_QUEST_COST = 10;
 
-export const isAdventurer = (npc: Npc) => npc.job === 'swordsman' || npc.job === 'mage';
+export const isAdventurer = (npc: Npc) => (npc.job === 'swordsman' || npc.job === 'mage') && npc.age >= 16;
 export const rankName = (rank = 0) => RANKS[clamp(rank, 0, RANKS.length - 1)];
 export const isActive = (q: Quest) => q.stage === 'recruiting' || q.stage === 'travelling' || q.stage === 'inside';
 
@@ -223,6 +223,7 @@ function recruit(world: WorldState, q: Quest, rng: Rng): void {
     (n) =>
       n.alive &&
       isAdventurer(n) &&
+      !n.retired &&
       n.questId === undefined &&
       n.inside === undefined &&
       n.plan?.kind !== 'adventure' &&

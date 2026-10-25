@@ -1,0 +1,174 @@
+// Growing up, growing old, falling in love and raising a family.
+import { chance, int, pick, type Rng } from './rng';
+import { atSpot, kill, log, makePlan, stepToward } from './core';
+import { JOB_TH } from './names';
+import { PLACES } from './places';
+import { addTie, getTie, setTie } from './ties';
+import type { Job, Npc, Trait, WorldState } from './types';
+
+export const ADULT_AGE = 16;
+export const ELDER_AGE = 58; // adventurers retire; everyone starts to feel their years
+const MARRY_TIE = 55; // how close two people must be before they'll marry
+const COURT_TIE = 40; // close enough to seek each other out
+const MARRY_CHANCE = 0.02; // per eligible couple per day
+const BIRTH_CHANCE = 0.0015; // per couple per day
+const MAX_CHILDREN = 3;
+const POPULATION_CAP = 42; // families stop growing when the town is this full
+const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
+
+export const isChild = (n: Npc) => n.age < ADULT_AGE;
+export const isElder = (n: Npc) => n.age >= ELDER_AGE;
+const single = (world: WorldState, n: Npc) => {
+  const s = world.npcs.find((x) => x.id === n.spouseId);
+  return !s?.alive;
+};
+const byId = (world: WorldState, id?: number) => world.npcs.find((n) => n.id === id);
+
+// Birthdays are spread over the year so the town doesn't age all at once.
+export const isBirthday = (world: WorldState, n: Npc) => (world.day + n.id * 37) % 365 === 0;
+
+export function birthday(world: WorldState, n: Npc, rng: Rng): void {
+  n.age++;
+  if (n.age === ADULT_AGE) comeOfAge(world, n, rng);
+  if (n.age === ELDER_AGE && n.rank !== undefined && !n.retired) {
+    n.retired = true;
+    log(world, 'world', `${n.name} ปลดเกษียณจากการผจญภัยด้วยวัย ${n.age} ปี`, n.id);
+  }
+  // Odds of not seeing another year climb steeply after 55 (about 1 in 11 at 60, nearly half at 70).
+  const frailty = Math.max(0, (n.age - 55) / 25);
+  if (chance(rng, Math.min(0.9, frailty ** 1.5))) kill(world, n, `จากไปอย่างสงบด้วยวัย ${n.age} ปี`);
+}
+
+// At sixteen a child picks a calling, usually a parent's.
+function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
+  const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p);
+  n.job = parents.length && chance(rng, 0.6) ? pick(rng, parents).job : pick(rng, JOBS);
+  if (n.job === 'swordsman' || n.job === 'mage') {
+    n.rank = 0;
+    n.renown = 0;
+  }
+  n.plan = undefined;
+  log(world, 'world', `${n.name} เติบโตเป็นผู้ใหญ่ และเลือกเป็น${JOB_TH[n.job]}`, n.id);
+}
+
+// Who this NPC is sweet on: their closest single adult friend, if close enough.
+export function crushOf(world: WorldState, n: Npc): Npc | undefined {
+  if (isChild(n) || !single(world, n)) return undefined;
+  let best: Npc | undefined;
+  let bestTie = COURT_TIE - 1;
+  for (const o of world.npcs) {
+    if (o === n || !o.alive || isChild(o) || !single(world, o) || related(n, o)) continue;
+    const t = getTie(world, n.id, o.id);
+    if (t > bestTie) {
+      bestTie = t;
+      best = o;
+    }
+  }
+  return best;
+}
+
+const related = (a: Npc, b: Npc) =>
+  a.parentIds?.includes(b.id) ||
+  b.parentIds?.includes(a.id) ||
+  (!!a.parentIds && !!b.parentIds && a.parentIds.some((p) => b.parentIds!.includes(p)));
+
+// Close friends who are both single may marry; married couples keep growing closer.
+export function romance(world: WorldState, rng: Rng): void {
+  const adults = world.npcs.filter((n) => n.alive && !isChild(n));
+  for (const a of adults) {
+    const spouse = byId(world, a.spouseId);
+    if (spouse?.alive) {
+      if (a.id < spouse.id && chance(rng, 0.1)) addTie(world, a, spouse, 1);
+      continue;
+    }
+    if (a.age > 60) continue;
+    const b = crushOf(world, a);
+    if (!b || a.id > b.id || b.age > 60 || crushOf(world, b) !== a) continue; // it has to be mutual
+    if (getTie(world, a.id, b.id) < MARRY_TIE || Math.abs(a.morality - b.morality) > 80 || !chance(rng, MARRY_CHANCE)) continue;
+    a.spouseId = b.id;
+    b.spouseId = a.id;
+    log(world, 'bond', `${a.name} และ${b.name} แต่งงานกัน`, a.id);
+  }
+}
+
+// Couples in their child-raising years sometimes welcome a child.
+export function births(world: WorldState, rng: Rng): void {
+  const living = world.npcs.filter((n) => n.alive).length;
+  if (living >= POPULATION_CAP) return;
+  for (const a of world.npcs) {
+    const b = byId(world, a.spouseId);
+    if (!a.alive || !b?.alive || a.id > b.id || a.age > 45 || b.age > 45) continue;
+    const kids = world.npcs.filter((n) => n.alive && n.parentIds?.includes(a.id) && n.parentIds.includes(b.id)).length;
+    if (kids >= MAX_CHILDREN || !chance(rng, BIRTH_CHANCE)) continue;
+    const child = bornTo(world, a, b, rng);
+    world.npcs.push(child);
+    log(world, 'bond', `${a.name} และ${b.name} ต้อนรับลูกคนใหม่ ชื่อ${child.name}`, child.id);
+  }
+}
+
+function bornTo(world: WorldState, a: Npc, b: Npc, rng: Rng): Npc {
+  // One trait from each parent, with a chance of something all their own.
+  const traits = new Set<Trait>([pick(rng, a.traits), pick(rng, b.traits)]);
+  if (chance(rng, 0.2)) traits.add(pick(rng, ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'] as const));
+  const home = homeOf(a);
+  const child: Npc = {
+    id: world.nextId++,
+    name: freshName(world, rng),
+    age: 0,
+    job: a.job, // placeholder until they come of age
+    level: 1,
+    gold: 0,
+    morality: Math.round((a.morality + b.morality) / 2 / 2), // kids start gentler than their parents
+    traits: [...traits].slice(0, 2),
+    x: home.x,
+    y: home.y,
+    alive: true,
+    blessed: false,
+    parentIds: [a.id, b.id],
+  };
+  setTie(world, child.id, a.id, 50);
+  setTie(world, child.id, b.id, 50);
+  for (const sib of world.npcs) if (sib.alive && sib.parentIds?.includes(a.id)) setTie(world, child.id, sib.id, 30);
+  return child;
+}
+
+function freshName(world: WorldState, rng: Rng): string {
+  // Reuse the town's own naming so children feel local; numbered if every name is taken.
+  const taken = new Set(world.npcs.filter((n) => n.alive).map((n) => n.name));
+  const pool = ['ลิลลี่', 'ทอม', 'เมย์', 'ฟินน์', 'โรส', 'เบน', 'แอนนา', 'ซาช่า', 'ไมโล', 'เอมมี่', 'โนอาห์', 'ไลลา', 'เจค', 'ปิ่น', 'ต้นข้าว', 'ใบเตย', 'ดาว', 'ฟ้า', 'ภูผา', 'น้ำใส'];
+  const free = pool.filter((n) => !taken.has(n));
+  if (free.length) return pick(rng, free);
+  const base = pick(rng, pool);
+  let i = 2;
+  while (taken.has(`${base} ที่ ${i}`)) i++;
+  return `${base} ที่ ${i}`;
+}
+
+// A married couple shares the home of whichever of them settled first.
+export function homeOf(n: Npc, world?: WorldState): { x: number; y: number } {
+  const spouse = world && byId(world, n.spouseId);
+  const anchor = spouse && spouse.id < n.id ? spouse.id : n.id;
+  const parent = n.parentIds?.[0];
+  return PLACES.homes[(n.age < ADULT_AGE && parent !== undefined ? parent : anchor) % PLACES.homes.length];
+}
+
+// Children tag along after a parent or play in the square.
+export function childDay(world: WorldState, n: Npc, rng: Rng): void {
+  const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p?.alive && p.inside === undefined);
+  if (!n.plan || n.plan.days <= 0) {
+    if (parents.length && chance(rng, 0.6)) {
+      const p = pick(rng, parents);
+      n.plan = makePlan('idle', p, int(rng, 2, 5), p.id);
+    } else {
+      n.plan = makePlan('idle', chance(rng, 0.5) ? PLACES.square : homeOf(n, world), int(rng, 3, 6));
+    }
+  }
+  const p = n.plan;
+  const following = p.target !== undefined ? byId(world, p.target) : undefined;
+  if (following?.alive) {
+    p.x = following.x;
+    p.y = following.y + 1;
+  }
+  if (!atSpot(n, p, following ? 1 : 0)) stepToward(world, n, p, rng);
+  else p.days--;
+}
