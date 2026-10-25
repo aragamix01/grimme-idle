@@ -2,6 +2,7 @@
 import { chance, type Rng } from './rng';
 import type { EventKind, Npc, Plan, PlanKind, WorldState } from './types';
 import type { Spot } from './places';
+import { walk } from './nav';
 
 const CHRONICLE_LIMIT = 500;
 
@@ -32,8 +33,10 @@ export function clamp(v: number, min: number, max: number): number {
 
 export const atSpot = (npc: Npc, s: Spot, slack = 0) => Math.abs(npc.x - s.x) + Math.abs(npc.y - s.y) <= slack;
 
-// One tile a day, mostly along the longer axis so paths look deliberate rather than diagonal-jittery.
+// One tile a day along the town's roads and around whatever is in the way.
 export function stepToward(world: WorldState, npc: Npc, to: Spot, rng: Rng): void {
+  if (walk(world, npc, to, rng)) return;
+  // Boxed in (an old save standing inside a wall): push straight through to get free.
   const dx = Math.sign(to.x - npc.x);
   const dy = Math.sign(to.y - npc.y);
   const preferX = Math.abs(to.x - npc.x) >= Math.abs(to.y - npc.y);

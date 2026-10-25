@@ -3,6 +3,7 @@
 import { chance, int, next, type Rng } from './rng';
 import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
 import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
+import { snap } from './nav';
 import { FRIEND, addTie, getTie } from './ties';
 import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type WorldState } from './types';
 
@@ -386,7 +387,7 @@ export function questDay(world: WorldState, npc: Npc, rng: Rng): boolean {
   const slot = Math.max(0, q.partyIds.indexOf(npc.id));
   const base = q.stage === 'recruiting' ? PLACES.guild : destination(world, q);
   // Fan the party out so they don't stand on one tile.
-  const spot = { x: clamp(base.x - 1 + (slot % 3), 0, world.width - 1), y: clamp(base.y + (slot >= 3 ? 1 : 0), 0, world.height - 1) };
+  const spot = snap(world, { x: base.x - 1 + (slot % 3), y: base.y + (slot >= 3 ? 1 : 0) });
   if (!atSpot(npc, spot)) stepToward(world, npc, spot, rng);
   return true;
 }

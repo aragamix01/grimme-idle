@@ -6,6 +6,8 @@ import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, roman
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
+import { snap, walkable } from './nav';
+import { WALL } from './town';
 import type { Command, Dungeon, Job, Npc, Plan, Trait, WorldState } from './types';
 
 const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
@@ -129,8 +131,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
     gold: int(rng, 5, 30),
     morality: int(rng, -20, 40),
     traits: t1 === t2 ? [t1] : [t1, t2],
-    x: int(rng, 2, 17),
-    y: int(rng, 4, 22),
+    ...snap(world, { x: int(rng, WALL.x0 + 1, WALL.x1 - 1), y: int(rng, WALL.y0 + 1, WALL.y1 - 1) }),
     alive: true,
     blessed: false,
   };
@@ -227,8 +228,12 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       // Mill about near the spot, then pick something new.
       if (--p.days <= 0) npc.plan = undefined;
       else if (chance(rng, 0.4)) {
-        npc.x = clamp(npc.x + int(rng, -1, 1), 0, world.width - 1);
-        npc.y = clamp(npc.y + int(rng, -1, 1), 0, world.height - 1);
+        const x = npc.x + int(rng, -1, 1);
+        const y = npc.y + int(rng, -1, 1);
+        if (walkable(world, x, y)) {
+          npc.x = x;
+          npc.y = y;
+        }
         p.x = npc.x;
         p.y = npc.y;
       }
@@ -276,7 +281,7 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
   } else {
     addTie(world, victim, npc, -25); // caught in the act
   }
-  const hideout = { x: int(rng, 0, 17), y: int(rng, 12, 24) };
+  const hideout = snap(world, { x: int(rng, 0, 26), y: int(rng, 18, 24) }); // out past the fields
   npc.plan = plan('flee', hideout, 0);
 }
 

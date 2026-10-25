@@ -139,6 +139,34 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "crops": {
+    "file": "assets/sprites/tiles/crops.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "wall-top": {
+    "file": "assets/sprites/tiles/wall-top.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "town-wall": {
+    "file": "assets/sprites/props/town-wall.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "gate-tower": {
+    "file": "assets/sprites/props/gate-tower.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 40,
+    "frames": 1
+  },
   "tree": {
     "file": "assets/sprites/props/tree.png",
     "group": "props",
@@ -169,6 +197,20 @@
   },
   "house": {
     "file": "assets/sprites/buildings/house.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-red": {
+    "file": "assets/sprites/buildings/house-red.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-blue": {
+    "file": "assets/sprites/buildings/house-blue.png",
     "group": "buildings",
     "frameWidth": 32,
     "frameHeight": 32,

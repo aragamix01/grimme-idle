@@ -1,10 +1,9 @@
 import * as Phaser from 'phaser';
 import { ADULT_AGE, type Npc, type WorldState } from '../../sim';
+import { MAP_H, MAP_W, townLayout, type Placed } from '../../sim/town';
 import manifest from '../sprite-manifest.json';
 
 export const TILE = 16;
-const MAP_W = 40;
-const MAP_H = 25;
 
 interface SpriteEntry {
   file: string;
@@ -15,25 +14,13 @@ interface SpriteEntry {
 }
 const SPRITES = manifest as Record<string, SpriteEntry>;
 
-// Hand-placed town on the west side; the dungeon sits in the eastern forest (set by the sim).
-const TOWN: [key: string, tx: number, ty: number][] = [
-  ['castle', 1, 0],
-  ['guild', 6, 1],
-  ['inn', 10, 1],
-  ['church', 14, 0],
-  ['house', 2, 6],
-  ['shop', 5, 6],
-  ['house', 8, 6],
-  ['house', 11, 6],
-];
-
 export class WorldScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private npcSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private blessMarks = new Map<number, Phaser.GameObjects.Sprite>();
   private selectRing!: Phaser.GameObjects.Graphics;
   private selectedId: number | null = null;
-  private dungeonPlaced = false;
+  private townBuilt = false;
   private lastKey = '';
   tickMs = 500;
   onSelect: (id: number | null) => void = () => {};
@@ -59,12 +46,6 @@ export class WorldScene extends Phaser.Scene {
     }
     this.anims.create({ key: 'water-flow', frames: this.anims.generateFrameNumbers('water', {}), frameRate: 2, repeat: -1 });
     this.anims.create({ key: 'sparkle-twinkle', frames: this.anims.generateFrameNumbers('sparkle', {}), frameRate: 8, repeat: -1, yoyo: true });
-    this.buildGround();
-    for (const [key, tx, ty] of TOWN) {
-      const img = this.placeProp(key, tx, ty);
-      if (key === 'guild') this.guildBounds = img.getBounds();
-    }
-
     // Gold ring under the selected NPC's feet.
     this.selectRing = this.add.graphics().setVisible(false);
     this.selectRing.lineStyle(2, 0x3b2416).strokeEllipse(0, 0, 18, 8);
@@ -120,7 +101,7 @@ export class WorldScene extends Phaser.Scene {
     const key = w ? `${w.day}:${w.chronicleSeq}` : '';
     if (!w || key === this.lastKey) return;
     this.lastKey = key;
-    if (!this.dungeonPlaced) this.placeDungeons(w);
+    if (!this.townBuilt) this.buildTown(w);
     for (const npc of w.npcs) this.syncNpc(npc);
     // The sim prunes long-dead NPCs; drop their sprites too.
     if (this.npcSprites.size > w.npcs.length) {
@@ -135,36 +116,27 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private buildGround(): void {
+  // The town comes from the same layout the sim walks on, built once the world
+  // (and so where its dungeons are) is known.
+  private buildTown(w: WorldState): void {
+    const town = townLayout(w.dungeons);
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
-        const onPath = y === 5 || y === 10 || (x === 18 && y >= 5);
-        const inPond = x >= 2 && x <= 6 && y >= 14 && y <= 17;
-        if (inPond) this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow');
-        else if (onPath) this.add.image(x * TILE, y * TILE, 'path', Math.floor(rand() * 2)).setOrigin(0);
-        else if (rand() < 0.06) this.add.image(x * TILE, y * TILE, 'flowers').setOrigin(0);
-        else this.add.image(x * TILE, y * TILE, 'grass', Math.floor(rand() * 3)).setOrigin(0);
+        const g = town.ground[y * MAP_W + x];
+        const px = x * TILE;
+        const py = y * TILE;
+        if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).play('water-flow');
+        else if (g === 'road') this.add.image(px, py, 'path', Math.floor(rand() * 2)).setOrigin(0);
+        else if (g === 'crops') this.add.image(px, py, 'crops', (x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0).setOrigin(0);
+        else if (rand() < 0.06) this.add.image(px, py, 'flowers').setOrigin(0);
+        else this.add.image(px, py, 'grass', Math.floor(rand() * 3)).setOrigin(0);
       }
-    // Forest along the north and east edges, leaving the town and paths open.
-    for (let i = 0; i < 70; i++) {
-      const x = 20 + Math.floor(rand() * 20);
-      const y = Math.floor(rand() * MAP_H);
-      if (y === 10) continue;
-      this.placeProp(rand() < 0.8 ? 'tree' : 'bush', x, y);
+    for (const p of town.props) {
+      const img = this.placeProp(p);
+      if (p.key === 'guild') this.guildBounds = img.getBounds();
     }
-    for (let x = 0; x < 18; x += 1) if (x % 4 !== 2) this.placeProp('fence', x, 11);
-    this.placeProp('rock', 7, 16);
-  }
-
-  private placeProp(key: string, tx: number, ty: number): Phaser.GameObjects.Image {
-    const img = this.add.image(tx * TILE, ty * TILE, key).setOrigin(0);
-    img.setDepth(img.y + img.height);
-    return img;
-  }
-
-  private placeDungeons(w: WorldState): void {
     for (const d of w.dungeons) {
       const img = this.add.image(d.x * TILE + TILE, (d.y + 2) * TILE, 'dungeon').setOrigin(0.5, 1);
       img.setDepth(img.y);
@@ -172,7 +144,18 @@ export class WorldScene extends Phaser.Scene {
       this.add.sprite(img.x - 28, img.y + 8, 'slime').setOrigin(0.5, 1).setDepth(img.y + 8).play('slime-walk');
       this.add.sprite(img.x + 24, img.y - 30, 'bat').setOrigin(0.5, 1).setDepth(img.y + 40).play('bat-walk');
     }
-    this.dungeonPlaced = true;
+    this.townBuilt = true;
+  }
+
+  private placeProp(p: Placed): Phaser.GameObjects.Image {
+    // Flat tiles (the side walls) lie under everyone; anything standing sorts by its base.
+    if (p.key === 'wall-top') return this.add.image(p.x * TILE, p.y * TILE, p.key).setOrigin(0).setDepth(0);
+    const img =
+      p.anchor === 'top'
+        ? this.add.image(p.x * TILE, p.y * TILE, p.key).setOrigin(0)
+        : this.add.image(p.x * TILE, (p.y + 1) * TILE, p.key).setOrigin(0, 1);
+    img.setDepth(img.getBounds().bottom);
+    return img;
   }
 
   private syncNpc(npc: Npc): void {

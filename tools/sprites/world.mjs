@@ -55,6 +55,57 @@ function stoneWall() {
   return g;
 }
 
+// Tilled rows; frame 1 is the same field gone gold at harvest.
+function crops(ripe) {
+  const g = new Grid(16, 16, 'N');
+  for (let y = 0; y < 16; y += 4) {
+    g.hline(0, y + 3, 16, 'M');
+    for (let x = (y / 4) % 2 ? 1 : 3; x < 16; x += 4) {
+      if (ripe) g.vline(x, y, 3, 'Y').set(x, y, 'y').set(x + 1, y, 'y');
+      else g.set(x, y + 1, 'G').set(x - 1, y, 'j').set(x + 1, y, 'G');
+    }
+  }
+  return g;
+}
+
+// The side walls seen from above: a walkway between two rows of merlons.
+function wallTop() {
+  const g = new Grid(16, 16, 'x');
+  g.rect(4, 0, 8, 16, 'X');
+  for (let y = 0; y < 16; y += 8) {
+    g.rect(0, y, 4, 5, 'z').hline(0, y + 5, 4, 'X');
+    g.rect(12, y, 4, 5, 'z').hline(12, y + 5, 4, 'X');
+  }
+  for (let y = 3; y < 16; y += 4) g.hline(5, y, 6, 'l');
+  g.vline(0, 0, 16, 'o').vline(15, 0, 16, 'o');
+  return g;
+}
+
+// The north and south walls face the viewer: battlements over a stone face.
+function townWall() {
+  const g = new Grid(16, 24);
+  for (const x of [0, 8]) g.rect(x, 1, 5, 4, 'x').hline(x, 1, 5, 'z');
+  g.rect(0, 5, 16, 3, 'x').hline(0, 5, 16, 'z');
+  wall(g, 0, 8, 16, 15, 'stone');
+  g.hline(0, 8, 16, 'X');
+  g.hline(0, 23, 16, 'l');
+  return g.outline('o');
+}
+
+// Round tower with a pointed roof, on the corners and either side of each gate.
+function gateTower() {
+  const g = new Grid(16, 40);
+  g.vline(8, 0, 4, 'M').rect(9, 0, 4, 3, 'r').set(12, 2, '.');
+  g.tri(7.5, 3, 8, 11, 'b');
+  g.hline(0, 13, 16, 'B');
+  for (const x of [0, 6, 12]) g.rect(x, 14, 4, 3, 'x').hline(x, 14, 4, 'z');
+  g.rect(0, 17, 16, 2, 'x');
+  wall(g, 1, 19, 14, 20, 'stone');
+  g.rect(7, 23, 2, 5, 'k').set(7, 23, 'X');
+  g.hline(1, 39, 14, 'l');
+  return g.outline('o');
+}
+
 const TREE = [
   '................',
   '.....GGGGGG.....',
@@ -143,6 +194,10 @@ export function tiles() {
     { name: 'water', group: 'tiles', frames: [water(0), water(1)] },
     { name: 'flowers', group: 'tiles', frames: [flowers()] },
     { name: 'stone-wall', group: 'tiles', frames: [stoneWall()] },
+    { name: 'crops', group: 'tiles', frames: [crops(false), crops(true)] },
+    { name: 'wall-top', group: 'tiles', frames: [wallTop()] },
+    { name: 'town-wall', group: 'props', frames: [townWall()] },
+    { name: 'gate-tower', group: 'props', frames: [gateTower()] },
     { name: 'tree', group: 'props', frames: [tree] },
     { name: 'bush', group: 'props', frames: [prop(BUSH, 'bush')] },
     { name: 'fence', group: 'props', frames: [prop(FENCE, 'fence')] },
@@ -216,10 +271,10 @@ function flag(g, x, y, c) {
 
 const finishBuilding = (g) => g.outline('o');
 
-function house() {
+function house(roofKind = 'brown') {
   const g = new Grid(32, 32);
   g.rect(22, 0, 4, 6, 'x').hline(22, 0, 4, 'X');
-  roof(g, 1, 3, 30, 15, 'brown');
+  roof(g, 1, 3, 30, 15, roofKind);
   g.rect(22, 0, 4, 4, 'x').hline(21, 0, 6, 'X');
   wall(g, 3, 18, 26, 12);
   door(g, 13, 22, 6, 8);
@@ -348,6 +403,8 @@ function dungeon() {
 export function buildings() {
   return [
     { name: 'house', group: 'buildings', frames: [house()] },
+    { name: 'house-red', group: 'buildings', frames: [house('red')] },
+    { name: 'house-blue', group: 'buildings', frames: [house('blue')] },
     { name: 'shop', group: 'buildings', frames: [shop()] },
     { name: 'inn', group: 'buildings', frames: [inn()] },
     { name: 'guild', group: 'buildings', frames: [guild()] },
