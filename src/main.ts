@@ -2,7 +2,7 @@ import * as Phaser from 'phaser';
 import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
-import { renderRealmCard } from './ui/realm';
+import { initRealmCard, renderRealmCard } from './ui/realm';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
 import { renderFeed, renderStats } from './ui/feed';
@@ -45,7 +45,7 @@ let tab: Tab = 'log';
 // while a press is held in the panels, only the header counters update.
 let pressing = false;
 let stale = false;
-addEventListener('pointerdown', (e) => (pressing = !!(e.target as Element).closest?.('#side, dialog')), true);
+addEventListener('pointerdown', (e) => (pressing = !!(e.target as Element).closest?.('#side, dialog, #realm-card')), true);
 const release = () => {
   if (!pressing) return;
   setTimeout(() => {
@@ -69,6 +69,11 @@ function render(): void {
   renderStats(world);
   renderEra(world);
   renderMiracles(world);
+  // The open realm card follows the world, so a miracle's effect shows at once.
+  if (shownRealm !== null && !document.getElementById('realm-card')!.hidden) {
+    const r = world.realms?.find((x) => x.id === shownRealm);
+    if (r) renderRealmCard(r, world);
+  }
   renderNpcCard(world, selected);
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
@@ -129,20 +134,22 @@ initEra({
 });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
-initBubbles((id) => scene.npcScreenPos(id));
+let onMap = false; // the world map is up in the town's place
+initBubbles((id) => (onMap ? null : scene.npcScreenPos(id)));
 const zoom = document.getElementById('zoom')!;
 zoom.onclick = () => zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
 
 // The world map takes the town's place on the canvas; the town sleeps meanwhile.
 const mapBtn = document.getElementById('worldmap')!;
-let onMap = false;
 mapBtn.onclick = () => {
   onMap = !onMap;
   mapBtn.setAttribute('aria-pressed', String(onMap));
   zoom.hidden = onMap;
   const game = scene.game;
   if (onMap) {
-    game.scene.sleep('world');
+    // A town still loading would ignore the sleep, so wait for it to finish starting.
+    if (scene.sys.settings.status < Phaser.Scenes.RUNNING) scene.events.once('create', () => onMap && game.scene.sleep('world'));
+    else game.scene.sleep('world');
     game.scene.run('worldmap');
   } else {
     game.scene.sleep('worldmap');
@@ -150,7 +157,12 @@ mapBtn.onclick = () => {
     renderRealmCard(null, world);
   }
 };
-mapScene.onRealm = (realm) => renderRealmCard(realm, world);
+let shownRealm: number | null = null;
+mapScene.onRealm = (realm) => {
+  shownRealm = realm?.id ?? null;
+  renderRealmCard(realm, world);
+};
+initRealmCard((realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }));
 
 // Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
 const sound = document.getElementById('sound')!;

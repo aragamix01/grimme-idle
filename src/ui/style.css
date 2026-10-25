@@ -41,6 +41,9 @@ img, canvas { image-rendering: pixelated; }
 .realm-card__rel { margin: 4px 0 0; font-size: 13px; font-weight: 600; }
 .realm-card__rel--bad { color: var(--danger); }
 .realm-card__rel--good { color: var(--success); }
+.realm-card__acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.realm-card__acts .chip { display: inline-flex; align-items: center; gap: 4px; }
+.realm-card__acts .chip:disabled { opacity: 0.45; }
 .sound-btn[aria-pressed="true"] { background: var(--paper); }
 
 /* Flat paper panel: solid fills, one outline, hard offset shadow. No stretched sprites. */

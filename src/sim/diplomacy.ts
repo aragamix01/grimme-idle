@@ -23,12 +23,12 @@ const BREAK_AT = 20; // ...and below which it lapses
 
 export const distanceOf = (r: Realm) => Math.abs(r.x - HOME.x) + Math.abs(r.y - HOME.y);
 export const tripDays = (r: Realm) => 6 + Math.round(distanceOf(r) * 0.4);
-export const visitable = (r: Realm) => r.relation > -50 && !r.war;
+export const visitable = (r: Realm) => r.relation > -50 && !r.war && !r.fallen; // plague doesn't close a road, only makes it risky
 
 // The best partner for a caravan carrying `spare` goods, or coming for grain if `buying`.
 export function tradePartner(world: WorldState, spare: Good[], buying: boolean): Realm | undefined {
   const score = (r: Realm) =>
-    r.relation / 10 + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) ? 4 : 0) + (r.pact ? 2 : 0) - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
+    r.relation / 10 + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) ? 4 : 0) + (r.pact ? 2 : 0) - ((r.plagueUntil ?? 0) > world.day ? 4 : 0) - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
   return (world.realms ?? []).filter(visitable).sort((a, b) => score(b) - score(a))[0];
 }
 
@@ -43,8 +43,9 @@ export function diplomacy(world: WorldState, rng: Rng): void {
   const k = king(world);
   const realms = world.realms ?? [];
   if (!k || !realms.length) return;
-  for (const r of realms) theirMove(world, k, r, rng);
-  ourMove(world, k, realms, rng);
+  const standing = realms.filter((r) => !r.fallen);
+  for (const r of standing) theirMove(world, k, r, rng);
+  ourMove(world, k, standing, rng);
 }
 
 // The neighbours act first: kind rulers send gifts, greedy strong ones demand tribute.

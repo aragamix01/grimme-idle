@@ -1,7 +1,8 @@
 // The god's hand: blessings that fade, curses that bite, dreams that change a heart, and
 // miracles worked on the whole world, from kind rain to plague and eclipse.
-import { chance, pick, type Rng } from './rng';
-import { clamp, kill, log, perkLevel } from './core';
+import { pick, type Rng } from './rng';
+import { clamp, log, perkLevel } from './core';
+import { plagueStrike } from './worldevents';
 import { CULT_NAMES, sway } from './cult';
 import { getTie, setTie } from './ties';
 import { isAdventurer } from './quests';
@@ -183,22 +184,10 @@ function work(world: WorldState, k: MiracleKind, rng: Rng): boolean {
     case 'wanderers':
       for (let i = 0; i < 4; i++) traveller(world, rng);
       return true;
-    case 'plague': {
-      const priests = grown.filter((n) => n.job === 'priest').length;
-      const care = 1 - Math.min(0.5, priests * 0.1);
-      let dead = 0;
-      for (const n of world.npcs) {
-        if (!n.alive || n.inside !== undefined) continue;
-        const risk = (n.age >= 58 ? 0.3 : n.age < 16 ? 0.04 : 0.08) * care;
-        if (chance(rng, risk)) {
-          kill(world, n, 'สิ้นใจด้วยโรคระบาด');
-          dead++;
-        }
-      }
+    case 'plague':
+      plagueStrike(world, rng, 1, 'โรคระบาดแพร่ไปทั่วเมือง');
       sway(world, -2);
-      log(world, 'disaster', `โรคระบาดแพร่ไปทั่วเมือง คร่าชีวิตไป ${dead} คน${priests ? ` นักบวช ${priests} คนช่วยรักษาผู้ป่วย` : ''}`);
       return true;
-    }
     case 'cult': {
       if (world.cult) return false;
       const pool = grown.filter((n) => !n.cultist && !n.hero && n.job !== 'king' && n.job !== 'priest' && n.questId === undefined && n.inside === undefined);

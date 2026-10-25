@@ -67,9 +67,10 @@ export function ensureRealms(world: WorldState, rng: Rng): void {
 export function realmsDay(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== 3) return;
   for (const r of world.realms ?? []) {
+    if (r.fallen) continue; // under the demon lord nothing grows
     r.gold = Math.max(0, r.gold + Math.round(r.people * 0.4) - r.army * 4 + int(rng, -40, 40));
-    r.army = clamp(r.army + (r.gold > r.army * 15 ? 1 : -1), 5, 200);
-    r.people = clamp(r.people + int(rng, -5, 8), 50, 2000);
+    r.army = clamp(r.army + (r.gold > r.army * 15 ? 1 : -1), 5, Math.max(5, Math.round(r.people / 8))); // a realm can only field so many of its people
+    r.people = clamp(Math.round(r.people * (1 + 0.015 * (1 - r.people / 900))) + int(rng, -5, 5), 50, 2000); // grows toward what the land can feed
     const lean = temperOf(r.ruler.traits);
     r.relation = clamp(Math.round(r.relation + (lean - r.relation) * 0.05 + int(rng, -2, 2)), -100, 100);
     if (world.day % 365 < 30) {

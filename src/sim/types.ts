@@ -198,7 +198,12 @@ export interface Realm {
   trades?: number; // caravans that came back from them
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
+  plagueUntil?: number;
+  fallen?: boolean; // taken by the demon lord
+  miracleAt?: number; // day the god last worked a miracle on them
 }
+
+export type RealmMiracle = 'bless' | 'blight';
 
 export type WarAct = 'bless' | 'storm' | 'peace';
 
@@ -313,4 +318,5 @@ export type Command =
   | { type: 'hero'; npcId?: number }
   | { type: 'perk'; perk: Perk }
   | { type: 'miracle'; kind: MiracleKind }
-  | { type: 'war'; act: WarAct };
+  | { type: 'war'; act: WarAct }
+  | { type: 'realm'; realmId: number; kind: RealmMiracle };

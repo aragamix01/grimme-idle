@@ -10,6 +10,7 @@ import { might } from './market';
 import { afterStampede, loyaltyOf } from './politics';
 import { isAdventurer, legend } from './quests';
 import { enthrone, king, leaveTrade } from './society';
+import { liberateRealms } from './worldevents';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -266,6 +267,7 @@ function slay(world: WorldState, lord: DemonLord, hero: Npc): void {
   sway(world, 40);
   world.dread = 0;
   world.demonsSlain = (world.demonsSlain ?? 0) + 1;
+  liberateRealms(world, hero.name);
   world.slayers = [...(world.slayers ?? []), hero.name];
   for (const d of world.dungeons) d.power = 10;
   // Without their master the cult scatters into the night.

@@ -7,6 +7,7 @@ import { cursed, log, perkLevel } from './core';
 import { weatherYield } from './divine';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, tradePartner, tripDays } from './diplomacy';
+import { caravanHome } from './worldevents';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
@@ -265,6 +266,7 @@ export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
   }
   m.stock.grain += c.grain;
   m.stock.gear += c.gear ?? 0;
+  caravanHome(world, realm, rng);
   const cut = Math.floor(c.gold * 0.15); // the merchant's share for the road
   m.till += c.gold - cut;
   npc.gold += cut;

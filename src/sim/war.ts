@@ -58,7 +58,7 @@ function maybeWar(world: WorldState, rng: Rng): void {
   const k = king(world);
   const strength = ourForces(world).strength;
   for (const r of world.realms ?? []) {
-    if (r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
+    if (r.fallen || r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
     const hostile = r.relation <= -30;
     // A hostile hawk attacks when it feels the stronger; a greedy one also preys on any cold neighbour it far outmatches.
     if (hawk(r.ruler.traits) && hostile && theirStrength(r) > strength * 1.1 && chance(rng, 0.25)) return declare(world, r, 'them');
