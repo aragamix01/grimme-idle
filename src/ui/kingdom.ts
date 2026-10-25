@@ -1,4 +1,4 @@
-import { relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -7,6 +7,7 @@ interface Handlers {
   onSelectNpc: (id: number) => void;
   onReveal: () => void;
   onHero: () => void;
+  onWar: (act: 'bless' | 'storm' | 'peace') => void;
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -37,7 +38,9 @@ export function renderKingdom(world: WorldState): void {
     news.map((e) => e.seq),
     Math.round(balanceOf(world)),
     world.cult,
-    world.realms?.map((r) => [r.ruler.name, Math.round(r.relation / 5), r.pact]),
+    world.realms?.map((r) => [r.ruler.name, Math.round(r.relation / 5), r.pact, r.army]),
+    world.war,
+    Math.floor(world.faith / 5),
     cultists(world).map((n) => n.id),
     Math.floor(world.faith) >= costOf(world, 'reveal'),
     Math.floor(world.faith) >= costOf(world, 'hero'),
@@ -75,6 +78,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    warSection(world),
     neighbours(world),
     cultSection(world),
     section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')]),
@@ -224,6 +228,35 @@ function cultSection(world: WorldState): HTMLElement {
   ]);
 }
 
+// At war: who, how it goes, and the three ways the god may help.
+function warSection(world: WorldState): HTMLElement {
+  const w = world.war;
+  const foe = enemyOf(world);
+  if (!w || !foe) return el('span');
+  const ours = Math.round(ourForces(world).strength);
+  const theirs = Math.round(theirStrength(foe));
+  const cost = (act: keyof typeof WAR_COST) => Math.max(1, Math.round(WAR_COST[act] * (1 - 0.1 * perkLevel(world, 'grace'))));
+  const act = (a: keyof typeof WAR_COST, label: string, iconName: string, used: boolean) => {
+    const b = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: used || world.faith < cost(a) }, icon(iconName, 16), label, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost(a))));
+    b.onclick = () => handlers.onWar(a);
+    return b;
+  };
+  return section('สงคราม', [
+    el(
+      'li',
+      { className: 'realm-war' },
+      el('p', { className: 'realm-war__title', textContent: `ทำสงครามกับ${foe.name}` }),
+      el('p', { className: 'realm-king__meta', textContent: `${w.attacker === 'them' ? 'ฝ่ายนั้นบุกมาก่อน' : 'กษัตริย์ของเราเป็นฝ่ายบุก'} · ตั้งแต่ D${w.since} · รบไป ${w.battles} ครั้ง` }),
+      el('p', { className: 'realm-king__meta', textContent: `คะแนน ${w.score > 0 ? '+' : ''}${w.score} (ถึง ±3 สงครามจบ) · ศึกถัดไปอีก ${Math.max(0, w.nextBattle - world.day)} วัน` }),
+      el('p', { className: 'realm-king__meta', textContent: `กำลังฝ่ายเรา ${ours} ต่อ ${theirs}` }),
+      act('bless', 'พรแห่งสงคราม', 'bless', !!w.boost),
+      act('storm', 'พายุศักดิ์สิทธิ์', 'rain', !!w.storm),
+      act('peace', 'นิมิตสันติ', 'dream', false),
+      el('p', { className: 'realm-king__meta', textContent: 'เทพสั่งให้เปิดหรือหยุดสงครามไม่ได้ ทำได้เพียงช่วยในศึก หรือส่งนิมิตให้ทั้งสองกษัตริย์เห็นทางสันติ' }),
+    ),
+  ]);
+}
+
 // The neighbouring kingdoms and how they feel about us; the world map shows where they lie.
 function neighbours(world: WorldState): HTMLElement {
   const realms = world.realms ?? [];
@@ -235,7 +268,7 @@ function neighbours(world: WorldState): HTMLElement {
         { className: 'realm-person' },
         el('span', { className: 'chip', textContent: r.name }),
         el('span', { className: 'realm-person__note', textContent: `${r.ruler.name} · ทัพ ${r.army}` }),
-        el('b', { className: r.relation <= -15 ? 'realm-person__loyal--low' : '', textContent: r.pact ? 'พันธมิตร ✦' : relationWord(r.relation) }),
+        el('b', { className: r.relation <= -15 || r.war ? 'realm-person__loyal--low' : '', textContent: r.war ? 'สงคราม!' : r.pact ? 'พันธมิตร ✦' : relationWord(r.relation) }),
       ),
     ),
   );

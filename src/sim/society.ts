@@ -218,7 +218,8 @@ export function payroll(world: WorldState): void {
 // With gold to spare the crown takes on a poor, able commoner, the loyal and brave first.
 function recruit(world: WorldState): void {
   const army = living(world, 'soldier').length;
-  if (occupied(world) || army >= ARMY_TARGET || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
+  // In wartime the crown raises more men while it can pay them.
+  if (occupied(world) || army >= ARMY_TARGET + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
   // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
   const spare = (job: Job) => ['farmer', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;

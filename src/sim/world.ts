@@ -15,6 +15,7 @@ import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
 import { diplomacy } from './diplomacy';
+import { WAR_COST, warAct, warDay } from './war';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -22,10 +23,10 @@ import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, typ
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
-export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST, perk: 0 } as const;
+export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST, perk: 0, war: 0 } as const;
 // The faith a power takes, less for a god with the gentle-grace gift.
 export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
-  type === 'perk' ? 0 : Math.max(1, Math.round(COMMAND_COST[type] * (1 - 0.1 * perkLevel(world, 'grace'))));
+  type === 'perk' || type === 'war' ? 0 : Math.max(1, Math.round(COMMAND_COST[type] * (1 - 0.1 * perkLevel(world, 'grace'))));
 const TOWN_SIZE = 80;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
@@ -108,6 +109,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   dungeonsDay(world);
   realmsDay(world, rng);
   diplomacy(world, rng);
+  warDay(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
@@ -415,6 +417,11 @@ export function applyCommands(world: WorldState, commands: Command[], rng?: Rng)
 function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'perk') {
     buyPerk(world, cmd.perk);
+    return;
+  }
+  if (cmd.type === 'war') {
+    const cost = Math.max(1, Math.round(WAR_COST[cmd.act] * (1 - 0.1 * perkLevel(world, 'grace'))));
+    if (world.faith >= cost && warAct(world, cmd.act)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'miracle') {

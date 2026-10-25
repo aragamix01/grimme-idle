@@ -52,7 +52,7 @@ export function createRealms(world: WorldState, rng: Rng): void {
       gold: int(rng, 300, 900),
       army: int(rng, 20, 60),
       people: int(rng, 200, 600),
-      relation: clamp(10 + temperOf(ruler.traits) + int(rng, -10, 10), -100, 100),
+      relation: clamp(temperOf(ruler.traits) + int(rng, -15, 15), -100, 100),
     };
   });
 }
@@ -70,7 +70,7 @@ export function realmsDay(world: WorldState, rng: Rng): void {
     r.gold = Math.max(0, r.gold + Math.round(r.people * 0.4) - r.army * 4 + int(rng, -40, 40));
     r.army = clamp(r.army + (r.gold > r.army * 15 ? 1 : -1), 5, 200);
     r.people = clamp(r.people + int(rng, -5, 8), 50, 2000);
-    const lean = 10 + temperOf(r.ruler.traits);
+    const lean = temperOf(r.ruler.traits);
     r.relation = clamp(Math.round(r.relation + (lean - r.relation) * 0.05 + int(rng, -2, 2)), -100, 100);
     if (world.day % 365 < 30) {
       r.ruler.age++;

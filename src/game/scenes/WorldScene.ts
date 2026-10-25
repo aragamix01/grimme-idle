@@ -355,6 +355,7 @@ export class WorldScene extends Phaser.Scene {
         const d = w.dungeons.find((x) => e.text.includes(x.name));
         if (d) this.stampede(w, d, e.text.includes('จอมมาร'));
       }
+      if (e.kind === 'battle' && e.text.includes('บุกประตูเมือง')) this.raid(w);
     }
     this.seenSeq = w.chronicleSeq;
   }
@@ -362,12 +363,20 @@ export class WorldScene extends Phaser.Scene {
   // Monsters pour out of the dungeon, run the forest trail and through the east gate,
   // and scatter about town before melting away.
   private stampede(w: WorldState, d: WorldState['dungeons'][number], host = false): void {
-    this.cameras.main.shake(500, 0.004);
-    const rng = createRng(w.day);
-    const door = dungeonDoor(d);
     // The demon lord's own host comes led by the lord himself.
     const horde = LAIRS[d.kind ?? 'cave'].horde;
-    const monsters = host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : horde;
+    this.charge(w, dungeonDoor(d), host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : horde);
+  }
+
+  // An enemy army storms in through the west gate.
+  private raid(w: WorldState): void {
+    this.charge(w, { x: 0, y: 9 }, new Array(12).fill('raider'));
+  }
+
+  // A crowd runs from `door` along the roads and scatters about town before melting away.
+  private charge(w: WorldState, door: { x: number; y: number }, monsters: string[]): void {
+    this.cameras.main.shake(500, 0.004);
+    const rng = createRng(w.day);
     monsters.forEach((key, i) => {
       const pos = { ...door };
       const goal = snap(w, { x: 3 + ((i * 7) % 22), y: 3 + ((i * 5) % 13) });

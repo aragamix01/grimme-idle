@@ -310,6 +310,9 @@ button.chip--cult:hover { background: #7a3a8a; }
 .lair { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; padding: 8px 6px; border-bottom: 2px solid var(--paper-edge); }
 .lair__art { width: 72px; height: 48px; image-rendering: pixelated; }
 .lair .realm-meter { grid-template-columns: auto 1fr 28px; }
+.realm-war { display: grid; gap: 4px; padding: 8px 6px 10px; background: #f8e6e0; border-bottom: 2px solid var(--paper-edge); }
+.realm-war__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--danger); }
+.realm-war .divine { margin-top: 2px; }
 .realm-hero { display: grid; grid-template-columns: 32px 1fr; gap: 8px; align-items: center; padding: 6px; background: #fff4d6; border: 2px solid var(--paper-edge); }
 .realm-hero .npc__portrait { width: 32px; height: 48px; background-size: 192px 48px; }
 

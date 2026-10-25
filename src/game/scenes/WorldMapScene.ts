@@ -18,6 +18,7 @@ export class WorldMapScene extends Phaser.Scene {
   private labels = new Map<number, Phaser.GameObjects.Text>();
   private lastKey = '';
   private wagon: Phaser.GameObjects.Sprite | null = null;
+  private swords: Phaser.GameObjects.Image | null = null;
   onRealm: (realm: Realm | null) => void = () => {};
 
   constructor() {
@@ -42,6 +43,11 @@ export class WorldMapScene extends Phaser.Scene {
     if (!this.built && !this.textures.exists('wm-town')) return;
     if (!this.built) this.build(w);
     this.moveWagon(w);
+    // Crossed swords halfway to the realm we are at war with.
+    const foe = w.war && w.realms.find((r) => r.id === w.war!.realmId);
+    this.swords ??= this.add.image(0, 0, 'sword').setDepth(10_004).setScale(1.5);
+    this.swords.setVisible(!!foe);
+    if (foe) this.swords.setPosition(((foe.x + HOME.x) / 2) * TILE + TILE / 2, ((foe.y + HOME.y) / 2) * TILE + TILE / 2).setAngle(Math.sin(this.time.now / 150) * 12);
     // Relations and rulers change slowly; refresh the labels when they do.
     const key = JSON.stringify(w.realms.map((r) => [r.ruler.name, Math.round(r.relation / 10)]));
     if (key === this.lastKey) return;

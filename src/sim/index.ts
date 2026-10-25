@@ -13,5 +13,6 @@ export { cursed, perkLevel } from './core';
 export { DUNGEON_KINDS } from './dungeons';
 export { HOME, TERRAIN_TH, relationWord } from './realms';
 export { TRADE, tripDays } from './diplomacy';
+export { WAR_COST, enemyOf, ourForces, theirStrength } from './war';
 export { BLESS_DAYS, MIRACLES, MIRACLE_ORDER, miracleCost, miracleReady, miracleWait, weatherOf } from './divine';
 export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';

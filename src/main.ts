@@ -119,6 +119,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button'
 initMarket({ onSelectNpc: select });
 initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
+  onWar: (act) => send({ type: 'command', command: { type: 'war', act } }),
 });
 initPeople({ onSelectNpc: select });
 initMiracles((kind) => send({ type: 'command', command: { type: 'miracle', kind } }));

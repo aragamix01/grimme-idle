@@ -196,7 +196,21 @@ export interface Realm {
   pact?: 'alliance';
   wed?: string; // our royal child married into their court
   trades?: number; // caravans that came back from them
-  war?: boolean; // at war with us (phase 4.3)
+  war?: boolean; // at war with us
+  truceUntil?: number; // no new war with us before this day
+}
+
+export type WarAct = 'bless' | 'storm' | 'peace';
+
+export interface War {
+  realmId: number;
+  since: number;
+  attacker: 'us' | 'them';
+  nextBattle: number; // day of the next clash
+  score: number; // our victories minus theirs
+  battles: number;
+  boost?: number; // the god's blessing on our next battle
+  storm?: number; // the god's storm on theirs
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
@@ -283,7 +297,8 @@ export interface WorldState {
   weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy;
-  realms?: Realm[]; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
+  realms?: Realm[];
+  war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
@@ -297,4 +312,5 @@ export type Command =
   | { type: 'reveal' }
   | { type: 'hero'; npcId?: number }
   | { type: 'perk'; perk: Perk }
-  | { type: 'miracle'; kind: MiracleKind };
+  | { type: 'miracle'; kind: MiracleKind }
+  | { type: 'war'; act: WarAct };

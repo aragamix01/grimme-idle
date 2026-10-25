@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Grid, sheet, toPng } from './lib.mjs';
 import { PALETTE } from './palette.mjs';
-import { bodyMonsters, characters } from './chars.mjs';
+import { bodyMonsters, characters, raiders } from './chars.mjs';
 import { monsters } from './monsters.mjs';
 import { buildings, tiles } from './world.mjs';
 import { icons, uiParts } from './ui.mjs';
@@ -18,7 +18,7 @@ const gameDir = join(root, 'public', 'assets', 'sprites');
 const designDir = join(root, 'design', 'assets');
 const DESIGN_SCALE = 4;
 
-const assets = [...characters(), ...bodyMonsters(), ...monsters(), ...bosses(), ...vehicles(), ...tiles(), ...buildings(), ...dungeonKinds(), ...worldmap(), ...icons(), ...uiParts()];
+const assets = [...characters(), ...bodyMonsters(), ...raiders(), ...monsters(), ...bosses(), ...vehicles(), ...tiles(), ...buildings(), ...dungeonKinds(), ...worldmap(), ...icons(), ...uiParts()];
 
 rmSync(gameDir, { recursive: true, force: true });
 rmSync(designDir, { recursive: true, force: true });

@@ -566,6 +566,12 @@ export function characters() {
   ];
 }
 
+// Enemy soldiers in a war: our soldier's side-on march in dark tunics and red helmets.
+export function raiders() {
+  const f = (frame) => build({ ...JOBS.soldier, frame, facing: FACINGS[2] }).remap({ r: 'l', u: 'L', R: 'k', X: 'R', x: 'r', z: 'u' });
+  return [{ name: 'raider', group: 'monsters', frames: [f(0), f(1)] }];
+}
+
 export function bodyMonsters() {
   return Object.entries(MONSTERS_FROM_BODY).map(([name, def]) => ({
     name,

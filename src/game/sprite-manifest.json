@@ -118,6 +118,13 @@
     "frameHeight": 24,
     "frames": 2
   },
+  "raider": {
+    "file": "assets/sprites/monsters/raider.png",
+    "group": "monsters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
   "slime": {
     "file": "assets/sprites/monsters/slime.png",
     "group": "monsters",
