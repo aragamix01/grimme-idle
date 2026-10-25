@@ -154,7 +154,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* ---- side tabs: chronicle | guild ---- */
 .tabs { margin: 12px 18px 0; }
-.tabs button { font-weight: 600; }
+.tabs button { font-weight: 600; padding: 3px 2px; font-size: 13px; } /* five tabs share the panel's width */
 .log-head .log-note { font-size: 12px; color: var(--ink-muted); }
 .chip--rank { background: var(--wood-light); font-weight: 600; }
 .chip--dead { text-decoration: line-through; color: var(--ink-muted); }
@@ -234,6 +234,36 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .realm-person__note { color: var(--ink-muted); }
 .realm-person b { font: 700 13px var(--font-pixel); color: var(--success); }
 .realm-person b.realm-person__loyal--low { color: var(--danger); }
+
+/* ---- people: the town by class and trade ---- */
+.people-overview { display: grid; gap: 6px; padding: 12px 6px; border-bottom: 2px solid var(--paper-edge); }
+.people-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.people-tile { display: grid; padding: 2px 8px 3px; border: 2px solid var(--outline); background: var(--paper-raised); }
+.people-tile span { font-size: 11px; line-height: 16px; color: var(--ink-muted); }
+.people-tile b { font: 700 18px/22px var(--font-pixel); }
+.people-tile--bad { background: #ffe9e4; }
+.people-tile--bad b { color: var(--danger); }
+.people-note { margin: 0; font-size: 12px; line-height: 20px; color: var(--ink-muted); }
+.people-bar { display: flex; height: 14px; margin: 0 6px; border: 2px solid var(--outline); }
+.people-bar span + span { border-left: 2px solid var(--outline); }
+.people-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 6px 6px 4px !important; font-size: 11px; color: var(--ink-muted); }
+.people-legend li { display: inline-flex; align-items: center; gap: 4px; }
+.people-legend i { width: 8px; height: 8px; border: 1px solid var(--outline); }
+.people-job { border-bottom: 2px solid var(--paper-edge); }
+.people-job summary { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 6px; cursor: pointer; list-style: none; }
+.people-job summary::-webkit-details-marker { display: none; }
+.people-job summary::after { content: '▸'; grid-column: 4; color: var(--ink-muted); }
+.people-job[open] summary::after { content: '▾'; }
+.people-job[open] summary { background: var(--paper-raised); }
+.people-job__face { width: 24px; height: 36px; background-size: 144px 36px; background-repeat: no-repeat; image-rendering: pixelated; }
+.people-job__name { display: grid; min-width: 0; }
+.people-job__name b { font-size: 14px; line-height: 20px; }
+.people-job__name small { font-size: 11px; line-height: 16px; color: var(--ink-muted); }
+.people-job__count { font: 700 18px var(--font-pixel); }
+.people-facts { list-style: none; margin: 0; padding: 2px 6px 4px 38px; font-size: 12px; line-height: 20px; }
+.people-facts li::before { content: '· '; color: var(--ink-muted); }
+.people-crew { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 10px 38px; font-size: 12px; color: var(--ink-muted); }
+.chip--hungry { background: #ffe9e4; border-color: var(--danger); }
 
 .npc__rels h4 { margin: 0 0 4px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--ink-muted); }
 .npc__rels ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }

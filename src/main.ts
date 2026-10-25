@@ -6,6 +6,7 @@ import { renderFeed } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
+import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
 import type { FromWorker, ToWorker } from './worker/protocol';
@@ -31,7 +32,7 @@ const send = (msg: ToWorker) => worker.postMessage(msg);
 let world: WorldState | null = null;
 let selected: number | null = null;
 let filterToNpc = false;
-type Tab = 'log' | 'guild' | 'market' | 'kingdom';
+type Tab = 'log' | 'guild' | 'market' | 'kingdom' | 'people';
 let tab: Tab = 'log';
 
 function render(): void {
@@ -40,7 +41,8 @@ function render(): void {
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
   else if (tab === 'market') renderMarket(world);
-  else renderKingdom(world);
+  else if (tab === 'kingdom') renderKingdom(world);
+  else renderPeople(world);
 }
 
 function setTab(next: Tab): void {
@@ -55,6 +57,7 @@ function setTab(next: Tab): void {
   document.getElementById('guild')!.hidden = next !== 'guild';
   document.getElementById('market')!.hidden = next !== 'market';
   document.getElementById('kingdom')!.hidden = next !== 'kingdom';
+  document.getElementById('people')!.hidden = next !== 'people';
   render();
 }
 
@@ -83,6 +86,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button'
 }
 initMarket({ onSelectNpc: select });
 initKingdom({ onSelectNpc: select });
+initPeople({ onSelectNpc: select });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));
