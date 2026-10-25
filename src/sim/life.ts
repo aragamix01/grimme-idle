@@ -13,7 +13,7 @@ const COURT_TIE = 40; // close enough to seek each other out
 const MARRY_CHANCE = 0.02; // per eligible couple per day
 const BIRTH_CHANCE = 0.0015; // per couple per day
 const MAX_CHILDREN = 3;
-const POPULATION_CAP = 42; // families stop growing when the town is this full
+const POPULATION_CAP = 90; // families stop growing when the town is this full
 const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
 
 export const isChild = (n: Npc) => n.age < ADULT_AGE;
@@ -135,7 +135,12 @@ function bornTo(world: WorldState, a: Npc, b: Npc, rng: Rng): Npc {
 function freshName(world: WorldState, rng: Rng): string {
   // Reuse the town's own naming so children feel local; numbered if every name is taken.
   const taken = new Set(world.npcs.filter((n) => n.alive).map((n) => n.name));
-  const pool = ['ลิลลี่', 'ทอม', 'เมย์', 'ฟินน์', 'โรส', 'เบน', 'แอนนา', 'ซาช่า', 'ไมโล', 'เอมมี่', 'โนอาห์', 'ไลลา', 'เจค', 'ปิ่น', 'ต้นข้าว', 'ใบเตย', 'ดาว', 'ฟ้า', 'ภูผา', 'น้ำใส'];
+  const pool = [
+    'ลิลลี่', 'ทอม', 'เมย์', 'ฟินน์', 'โรส', 'เบน', 'แอนนา', 'ซาช่า', 'ไมโล', 'เอมมี่',
+    'โนอาห์', 'ไลลา', 'เจค', 'ปิ่น', 'ต้นข้าว', 'ใบเตย', 'ดาว', 'ฟ้า', 'ภูผา', 'น้ำใส',
+    'มะลิ', 'ข้าวหอม', 'ไผ่', 'ทับทิม', 'ลมเย็น', 'พลอย', 'ขวัญ', 'ตะวัน', 'จันทร์', 'เมฆ',
+    'โอลิเวอร์', 'คลาร่า', 'ฮิวจ์', 'เอดา', 'ฟลอร่า', 'จูด', 'ไอริส', 'แมกซ์', 'ซีเลีย', 'ทีโอ',
+  ];
   const free = pool.filter((n) => !taken.has(n));
   if (free.length) return pick(rng, free);
   const base = pick(rng, pool);

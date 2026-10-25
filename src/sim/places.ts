@@ -17,6 +17,14 @@ export const PLACES = {
     { x: 12, y: 8 },
   ],
   square: { x: 13, y: 5 },
+  // Open-air spots so a crowd of sixty spreads out instead of piling onto a few doorsteps.
+  hangouts: [
+    { x: 8, y: 16 }, // by the pond
+    { x: 16, y: 11 }, // the crossroads
+    { x: 3, y: 20 },
+    { x: 15, y: 20 },
+    { x: 20, y: 6 }, // edge of the woods
+  ],
 } satisfies Record<string, Spot | Spot[]>;
 
 // Farmland south of the fence; the pond (2-6, 14-17) stays clear.

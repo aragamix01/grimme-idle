@@ -6,7 +6,7 @@ import { isActive, isAdventurer, legend, postExpedition, rankName } from './ques
 import { ENEMY, FRIEND, getTie } from './ties';
 import type { Guild, GuildKind, Npc, WorldState } from './types';
 
-const MAX_GUILDS = 5;
+const MAX_GUILDS = 7;
 const FOUND_CHANCE = 0.008; // per eligible NPC per day
 const FOUND_COST = 30;
 const JOIN_CHANCE = 0.06; // per unaffiliated NPC per day, when a guild appeals

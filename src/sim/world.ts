@@ -12,9 +12,10 @@ const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
 export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST } as const;
-const TOWN_SIZE = 30;
-const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE
-const MIN_ADVENTURERS = 10; // below this, newcomers come as adventurers
+const TOWN_SIZE = 60;
+const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
+const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
+const MIN_ADVENTURERS = 20; // below this, newcomers come as adventurers
 const ADVENTURE_CHANCE = 0.04; // solo dungeon trips are rare and risky; most adventuring goes through quests
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
@@ -84,7 +85,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   }
   // Travellers walk in through the west gate while the town is below its starting size.
   const living = world.npcs.filter((n) => n.alive).length;
-  if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE)) {
+  if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) {
     const npc = spawnNpc(world, rng);
     // Adventurers die far more often than farmers; word of guild work draws fighters in when it's short-handed.
     const adventurers = world.npcs.filter((n) => n.alive && isAdventurer(n)).length;
@@ -169,8 +170,13 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
   // Someone sweet on another drifts to wherever they are.
   const crush = crushOf(world, npc);
   if (crush && crush.inside === undefined && chance(rng, 0.3)) return plan('idle', crush, int(rng, 2, 5));
+  // Stand somewhere near the spot, not on it, so busy places look like a crowd rather than a stack.
+  const near = (s: { x: number; y: number }) => ({
+    x: clamp(s.x + int(rng, -3, 3), 0, world.width - 1),
+    y: clamp(s.y + int(rng, -1, 3), 0, world.height - 1),
+  });
   const idle = () =>
-    plan('idle', pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild]), int(rng, 3, 8));
+    plan('idle', near(pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild, ...PLACES.hangouts])), int(rng, 3, 8));
 
   switch (npc.job) {
     case 'swordsman':
@@ -180,7 +186,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
         const d = pick(rng, world.dungeons);
         return plan('adventure', dungeonDoor(d), 0, d.id);
       }
-      return chance(rng, 0.6) ? plan('idle', pick(rng, [PLACES.guild, PLACES.inn]), int(rng, 3, 8)) : idle();
+      return chance(rng, 0.6) ? plan('idle', near(pick(rng, [PLACES.guild, PLACES.inn])), int(rng, 3, 8)) : idle();
     }
     case 'merchant':
       return chance(rng, 0.7) ? plan('work', PLACES.shop, int(rng, 5, 10)) : idle();

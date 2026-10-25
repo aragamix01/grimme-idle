@@ -104,6 +104,7 @@ export class WorldScene extends Phaser.Scene {
     const s = this.npcSprites.get(id);
     if (!s || !s.visible) return null;
     const rect = this.game.canvas.getBoundingClientRect();
+    if (!rect.width) return null; // not laid out yet
     const k = rect.width / this.scale.gameSize.width;
     return { x: rect.left + s.x * k, y: rect.top + (s.y - s.height) * k };
   }
