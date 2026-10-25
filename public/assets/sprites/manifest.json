@@ -91,11 +91,11 @@
     "frames": 6
   },
   "hero": {
-    "file": "assets/sprites/icons/hero.png",
-    "group": "icons",
+    "file": "assets/sprites/characters/hero.png",
+    "group": "characters",
     "frameWidth": 16,
-    "frameHeight": 16,
-    "frames": 1
+    "frameHeight": 24,
+    "frames": 6
   },
   "child": {
     "file": "assets/sprites/characters/child.png",
@@ -144,6 +144,13 @@
     "group": "monsters",
     "frameWidth": 32,
     "frameHeight": 32,
+    "frames": 2
+  },
+  "caravan": {
+    "file": "assets/sprites/vehicles/caravan.png",
+    "group": "vehicles",
+    "frameWidth": 44,
+    "frameHeight": 26,
     "frames": 2
   },
   "grass": {
@@ -337,6 +344,13 @@
   },
   "demon": {
     "file": "assets/sprites/icons/demon.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "awaken": {
+    "file": "assets/sprites/icons/awaken.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

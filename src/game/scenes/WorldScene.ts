@@ -47,6 +47,7 @@ export class WorldScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private npcSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private blessMarks = new Map<number, Phaser.GameObjects.Sprite>();
+  private wagons = new Map<number, { sprite: Phaser.GameObjects.Sprite; trail: { x: number; y: number }[] }>();
   private selectRing!: Phaser.GameObjects.Graphics;
   private selectedId: number | null = null;
   private townBuilt = false;
@@ -78,7 +79,7 @@ export class WorldScene extends Phaser.Scene {
         FACINGS.forEach((f, i) =>
           this.anims.create({ key: `${key}-${f}`, frames: this.anims.generateFrameNumbers(key, { start: i * 2, end: i * 2 + 1 }), frameRate: 5, repeat: -1 }),
         );
-      } else if (s.frames > 1 && s.group === 'monsters') {
+      } else if (s.frames > 1 && (s.group === 'monsters' || s.group === 'vehicles')) {
         this.anims.create({ key: `${key}-walk`, frames: this.anims.generateFrameNumbers(key, {}), frameRate: 5, repeat: -1 });
       }
     }
@@ -305,6 +306,34 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  // A merchant on caravan duty leads the wagon; it rolls two tiles behind along the same path.
+  private syncWagon(npc: Npc, px: number, py: number): void {
+    const hauling = npc.alive && npc.inside === undefined && (npc.plan?.kind === 'caravan' || npc.plan?.kind === 'haul');
+    let w = this.wagons.get(npc.id);
+    if (!hauling) {
+      if (w) {
+        const s = w.sprite;
+        this.tweens.add({ targets: s, alpha: 0, duration: 400, onComplete: () => s.destroy() });
+        this.wagons.delete(npc.id);
+      }
+      return;
+    }
+    if (!w) {
+      w = { sprite: this.add.sprite(px, py, 'caravan').setOrigin(0.5, 1).play('caravan-walk'), trail: [{ x: px, y: py }] };
+      this.wagons.set(npc.id, w);
+    }
+    const last = w.trail[w.trail.length - 1];
+    if (last.x !== px || last.y !== py) w.trail.push({ x: px, y: py });
+    if (w.trail.length > 3) w.trail.shift();
+    const at = w.trail[0];
+    const ahead = w.trail[1] ?? { x: px, y: py };
+    const s = w.sprite;
+    if (ahead.x !== at.x) s.setFlipX(ahead.x < at.x);
+    if (at.x === s.x && at.y === s.y) s.anims.pause();
+    else s.anims.resume();
+    this.tweens.add({ targets: s, x: at.x, y: at.y, duration: this.tickMs * 0.9, onUpdate: () => s.setDepth(s.y) });
+  }
+
   private syncNpc(npc: Npc): void {
     // Children share one sprite until they pick a calling; cultists don their robes for the walk to a ritual.
     const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
@@ -316,6 +345,7 @@ export class WorldScene extends Phaser.Scene {
       sprite.anims.setProgress(Math.random());
       this.npcSprites.set(npc.id, sprite);
     }
+    this.syncWagon(npc, px, py);
     // Dead, or deep inside a dungeon: off the map until they walk back out.
     if (!npc.alive || npc.inside !== undefined) {
       sprite.setVisible(false).setPosition(px, py);

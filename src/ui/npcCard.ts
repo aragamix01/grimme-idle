@@ -90,6 +90,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
     case 'caravan':
       return 'นำกองคาราวานไปที่ประตูเมืองฝั่งตะวันตก';
+    case 'haul':
+      return 'นำกองคาราวานกลับเข้าเมือง';
     default:
       return 'พักผ่อนอยู่ในเมือง';
   }
@@ -247,7 +249,7 @@ function powers(npc: Npc, faith: number, heroCall: boolean): HTMLElement {
   // While the demon lord walks and no hero stands against it, the god may choose this one.
   if (heroCall && worthy(npc)) {
     const cost = COMMAND_COST.hero;
-    const b = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: !can(cost) }, icon('hero', 16), `ปลุก${npc.name}เป็นผู้กล้า`, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    const b = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: !can(cost) }, icon('awaken', 16), `ปลุก${npc.name}เป็นผู้กล้า`, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
     b.onclick = () => handlers.onCommand({ type: 'hero', npcId: npc.id });
     wrap.append(b);
   }

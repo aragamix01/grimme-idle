@@ -234,7 +234,7 @@ export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
   npc.trip = undefined;
   npc.x = WEST_GATE.x;
   npc.y = WEST_GATE.y;
-  npc.plan = { kind: 'return', x: 3, y: 9, days: 0 }; // up the main road to the shop
+  npc.plan = { kind: 'haul', x: 3, y: 9, days: 0 }; // the wagon rolls up the main road to the shop
   m.caravan = undefined;
   if (!c) return;
   if (chance(rng, BANDITS)) {

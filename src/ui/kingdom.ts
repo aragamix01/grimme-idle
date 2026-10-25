@@ -164,7 +164,7 @@ function heroBlock(world: WorldState): HTMLElement {
   if (!hero) {
     const cost = COMMAND_COST.hero;
     const pick = bestHero(world);
-    const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !pick }, icon('hero', 16), 'ปลุกผู้กล้า', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !pick }, icon('awaken', 16), 'ปลุกผู้กล้า', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
     btn.onclick = () => handlers.onHero();
     return el(
       'div',

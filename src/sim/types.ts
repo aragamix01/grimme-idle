@@ -51,7 +51,7 @@ export interface Npc {
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'crusade';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade';
 
 export interface Plan {
   kind: PlanKind;
