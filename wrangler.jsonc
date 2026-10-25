@@ -1,0 +1,12 @@
+// Static site: Cloudflare's Git build runs `npm run build`, then `wrangler deploy`
+// uploads dist/ as-is. Having this file stops wrangler from trying to rewrite vite.config.ts.
+// The shared-world backend is a separate Worker in server/wrangler.toml.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "grimme-idle",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

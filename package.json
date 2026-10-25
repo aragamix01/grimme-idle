@@ -8,10 +8,10 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p server",
-    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name world-sim",
     "server:dev": "wrangler dev --config server/wrangler.toml",
     "server:deploy": "wrangler deploy --config server/wrangler.toml",
-    "sprites": "node tools/sprites/build.mjs"
+    "sprites": "node tools/sprites/build.mjs",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "phaser": "^4.2.1"
