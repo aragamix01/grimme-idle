@@ -5,6 +5,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "grimme-idle",
   "compatibility_date": "2026-10-01",
+  // Serve on grimme-idle.<account>.workers.dev; each deploy re-applies this.
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
