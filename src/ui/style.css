@@ -14,7 +14,8 @@
   --focus: #2e56a0;
   --shadow: 6px 6px 0 rgb(20 40 16 / 0.45);
   --font-body: 'Mitr', system-ui, sans-serif;
-  --font-pixel: 'Pixelify Sans', 'Mitr', monospace;
+  --font-pixel: 'Pixelify Sans', 'Mitr', monospace; /* rank letters only: too blurry for numbers at small sizes */
+  --font-num: 'Mitr', system-ui, sans-serif; /* numbers: clear digits, paired with tabular-nums */
 }
 
 * { box-sizing: border-box; }
@@ -48,14 +49,14 @@ img, canvas { image-rendering: pixelated; }
 .stats { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 6px; margin: 0; }
 .stat { background: var(--paper); border: 2px solid var(--outline); padding: 4px 9px 3px; }
 .stat dt { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
-.stat dd { margin: 0; font: 700 20px/26px var(--font-pixel); font-variant-numeric: tabular-nums; }
+.stat dd { margin: 0; font: 700 20px/26px var(--font-num); font-variant-numeric: tabular-nums; }
 .stat--faith { background: var(--gold); }
 .stat--faith dt { color: var(--ink); }
 
 .log { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .log-head { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 18px 6px; }
 .log-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
-#log-count { font: 500 13px var(--font-pixel); color: var(--ink-muted); }
+#log-count { font: 500 13px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 
 #feed {
   list-style: none;
@@ -77,7 +78,7 @@ img, canvas { image-rendering: pixelated; }
 .entry:first-child { background: var(--paper-raised); }
 .entry:last-child { border-bottom: 0; }
 .entry p { margin: 4px 0 0; min-width: 0; font-size: 14px; line-height: 22px; }
-.entry time { margin-top: 6px; font: 500 13px var(--font-pixel); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.entry time { margin-top: 6px; font: 500 13px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .entry--danger time { color: var(--danger); }
 
 /* ---- shared controls ---- */
@@ -130,7 +131,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }
 .npc__stat { display: grid; grid-template-columns: 16px auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
-.npc__stat b { justify-self: end; font: 700 15px var(--font-pixel); }
+.npc__stat b { justify-self: end; font: 700 15px var(--font-num); font-variant-numeric: tabular-nums; }
 .npc__stat--moral { grid-template-columns: 22px 1fr 40px; }
 .moral { position: relative; height: 10px; border: 2px solid var(--outline); background: linear-gradient(90deg, var(--demon) 50%, var(--gold) 50%); }
 .moral__marker { position: absolute; top: -6px; width: 6px; height: 18px; margin-left: -3px; background: var(--paper); border: 2px solid var(--outline); }
@@ -145,7 +146,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .power:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
 .power:disabled { opacity: 0.45; cursor: not-allowed; }
 .power__name { font-size: 13px; line-height: 20px; font-weight: 500; }
-.power__cost { display: inline-flex; align-items: center; gap: 2px; font: 500 12px/16px var(--font-pixel); color: var(--ink-muted); }
+.power__cost { display: inline-flex; align-items: center; gap: 2px; font: 500 12px/16px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .dream-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; font-size: 13px; }
 
 .entry--empty { display: block; color: var(--ink-muted); font-size: 13px; }
@@ -174,7 +175,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .divine-bar { display: grid; gap: 4px; padding: 10px 6px 12px; border-bottom: 2px solid var(--paper-edge); }
 .divine { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .divine:disabled { opacity: 0.5; cursor: not-allowed; }
-.divine__cost { display: inline-flex; align-items: center; gap: 2px; font: 500 13px var(--font-pixel); margin-left: 4px; }
+.divine__cost { display: inline-flex; align-items: center; gap: 2px; font: 500 13px var(--font-num); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .divine-bar p { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); text-align: center; }
 .guild-sec h3 { margin: 12px 6px 6px; font-size: 14px; font-weight: 600; }
 .guild-sec ul { list-style: none; margin: 0; padding: 0; }
@@ -207,8 +208,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .good__name { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; }
 .good__stock { margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
 .good__price { display: grid; justify-items: end; gap: 2px; }
-.good__price b { display: inline-flex; align-items: center; gap: 2px; font: 700 18px/1 var(--font-pixel); }
-.good__trend { font: 500 12px/1 var(--font-pixel); color: var(--ink-muted); }
+.good__price b { display: inline-flex; align-items: center; gap: 2px; font: 700 18px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.good__trend { font: 500 12px/1 var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .good__trend--up { color: var(--danger); }
 .good__trend--down { color: var(--success); }
 .good--dear { background: #ffe9e4; }
@@ -224,7 +225,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .realm-king__meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .realm-meters { display: grid; gap: 8px; padding: 12px 6px; border-bottom: 2px solid var(--paper-edge); }
 .realm-meter { display: grid; grid-template-columns: 1fr 96px 28px; gap: 8px; align-items: center; font-size: 13px; }
-.realm-meter b { justify-self: end; font: 700 15px var(--font-pixel); }
+.realm-meter b { justify-self: end; font: 700 15px var(--font-num); font-variant-numeric: tabular-nums; }
 .realm-meter__track { position: relative; display: block; height: 10px; border: 2px solid var(--outline); background: var(--paper-edge); }
 .realm-meter__fill { position: absolute; inset: 0 auto 0 0; }
 .realm-meter__fill--strong { background: var(--gold); }
@@ -232,7 +233,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__stat .realm-meter__track { grid-column: 2; }
 .realm-person { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 6px; border-bottom: 2px solid var(--paper-edge); font-size: 12px; }
 .realm-person__note { color: var(--ink-muted); }
-.realm-person b { font: 700 13px var(--font-pixel); color: var(--success); }
+.realm-person b { font: 700 13px var(--font-num); color: var(--success); font-variant-numeric: tabular-nums; }
 .realm-person b.realm-person__loyal--low { color: var(--danger); }
 
 /* ---- people: the town by class and trade ---- */
@@ -240,7 +241,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .people-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .people-tile { display: grid; padding: 2px 8px 3px; border: 2px solid var(--outline); background: var(--paper-raised); }
 .people-tile span { font-size: 11px; line-height: 16px; color: var(--ink-muted); }
-.people-tile b { font: 700 18px/22px var(--font-pixel); }
+.people-tile b { font: 700 18px/22px var(--font-num); font-variant-numeric: tabular-nums; }
 .people-tile--bad { background: #ffe9e4; }
 .people-tile--bad b { color: var(--danger); }
 .people-note { margin: 0; font-size: 12px; line-height: 20px; color: var(--ink-muted); }
@@ -259,7 +260,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .people-job__name { display: grid; min-width: 0; }
 .people-job__name b { font-size: 14px; line-height: 20px; }
 .people-job__name small { font-size: 11px; line-height: 16px; color: var(--ink-muted); }
-.people-job__count { font: 700 18px var(--font-pixel); }
+.people-job__count { font: 700 18px var(--font-num); font-variant-numeric: tabular-nums; }
 .people-facts { list-style: none; margin: 0; padding: 2px 6px 4px 38px; font-size: 12px; line-height: 20px; }
 .people-facts li::before { content: '· '; color: var(--ink-muted); }
 .people-crew { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 10px 38px; font-size: 12px; color: var(--ink-muted); }
@@ -267,7 +268,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* ---- the world's balance and the cult ---- */
 .realm-balance { display: grid; grid-template-columns: auto 1fr 36px; gap: 2px 8px; align-items: center; padding: 12px 6px 10px; border-bottom: 2px solid var(--paper-edge); font-size: 13px; }
-.realm-balance b { justify-self: end; font: 700 15px var(--font-pixel); }
+.realm-balance b { justify-self: end; font: 700 15px var(--font-num); font-variant-numeric: tabular-nums; }
 .realm-balance small { grid-column: 2; justify-self: center; font-size: 11px; color: var(--ink-muted); }
 .realm-cult { display: grid; gap: 4px; padding: 8px 6px 10px; background: #f3ecf8; border-bottom: 2px solid var(--paper-edge); }
 .realm-cult__name { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; color: #5a2a66; }
@@ -292,7 +293,7 @@ button.chip--cult:hover { background: #7a3a8a; }
 .rel__name { border: 0; padding: 0; background: none; cursor: pointer; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: var(--paper-edge); text-underline-offset: 3px; }
 .rel__name--dead { text-decoration: line-through; color: var(--ink-muted); }
 .rel__label { color: var(--ink-muted); font-size: 12px; }
-.rel b { font: 700 14px var(--font-pixel); color: var(--success); }
+.rel b { font: 700 14px var(--font-num); color: var(--success); font-variant-numeric: tabular-nums; }
 .rel--bad b { color: var(--danger); }
 
 .result { display: grid; grid-template-columns: 28px 1fr auto; grid-template-rows: auto auto; column-gap: 10px; padding: 8px 6px; border-bottom: 2px solid var(--paper-edge); font-size: 13px; line-height: 20px; }
@@ -307,12 +308,12 @@ button.chip--cult:hover { background: #7a3a8a; }
 .adv { display: grid; grid-template-columns: 28px auto 1fr auto; align-items: center; gap: 8px; padding: 6px; border-bottom: 2px solid var(--paper-edge); font-size: 13px; }
 .adv__name { border: 0; padding: 0; background: none; cursor: pointer; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: var(--paper-edge); text-underline-offset: 3px; }
 .adv__job { color: var(--ink-muted); font-size: 12px; min-width: 0; }
-.adv__renown { font: 700 14px var(--font-pixel); }
+.adv__renown { font: 700 14px var(--font-num); font-variant-numeric: tabular-nums; }
 .adv__renown::after { content: " ★"; color: var(--gold-deep); }
 
 .legend { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; padding: 6px; border-bottom: 2px solid var(--paper-edge); font-size: 13px; line-height: 20px; }
 .legend img { margin-top: 2px; }
-.legend time { font: 500 12px var(--font-pixel); color: var(--ink-muted); }
+.legend time { font: 500 12px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 
 /* ---- speech bubbles (DOM overlay so Thai text stays crisp) ---- */
 #bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
@@ -337,7 +338,7 @@ button.chip--cult:hover { background: #7a3a8a; }
 }
 #offline::backdrop { background: rgb(20 40 16 / 0.6); }
 #offline h2 { margin: 0; font-size: 20px; }
-.offline-days { margin: 2px 0 12px; font-family: var(--font-pixel); color: var(--ink-muted); }
+.offline-days { margin: 2px 0 12px; font-family: var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .offline-counts { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
 .offline-counts li { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 13px; line-height: 24px; border: 2px solid var(--outline); background: var(--paper-raised); }
 .offline-list { list-style: none; padding: 0; margin: 0 0 14px; border-top: 2px solid var(--paper-edge); }
