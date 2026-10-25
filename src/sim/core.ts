@@ -1,0 +1,39 @@
+// Small helpers shared by the world loop and the guild.
+import { chance, type Rng } from './rng';
+import type { EventKind, Npc, Plan, PlanKind, WorldState } from './types';
+import type { Spot } from './places';
+
+const CHRONICLE_LIMIT = 500;
+
+export function log(world: WorldState, kind: EventKind, text: string, npcId?: number): void {
+  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text, npcId });
+  if (world.chronicle.length > CHRONICLE_LIMIT) world.chronicle.shift();
+}
+
+export function kill(world: WorldState, npc: Npc, reason: string): void {
+  npc.alive = false;
+  npc.plan = undefined;
+  log(world, 'death', `${npc.name} ${reason}`, npc.id);
+}
+
+export function makePlan(kind: PlanKind, at: Spot, days: number, target?: number): Plan {
+  return { kind, x: at.x, y: at.y, days, target };
+}
+
+export function clamp(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
+}
+
+export const atSpot = (npc: Npc, s: Spot, slack = 0) => Math.abs(npc.x - s.x) + Math.abs(npc.y - s.y) <= slack;
+
+// One tile a day, mostly along the longer axis so paths look deliberate rather than diagonal-jittery.
+export function stepToward(world: WorldState, npc: Npc, to: Spot, rng: Rng): void {
+  const dx = Math.sign(to.x - npc.x);
+  const dy = Math.sign(to.y - npc.y);
+  const preferX = Math.abs(to.x - npc.x) >= Math.abs(to.y - npc.y);
+  if (dx && (preferX || !dy) && !chance(rng, 0.2)) npc.x += dx;
+  else if (dy) npc.y += dy;
+  else npc.x += dx;
+  npc.x = clamp(npc.x, 0, world.width - 1);
+  npc.y = clamp(npc.y, 0, world.height - 1);
+}

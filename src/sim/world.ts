@@ -1,16 +1,18 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
+import { clamp, kill, log, makePlan as plan, stepToward } from './core';
+import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, postDivineQuest, questDay, updateGuild } from './guild';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
-import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
-import type { Command, Dungeon, EventKind, Job, Npc, Plan, PlanKind, Trait, WorldState } from './types';
+import { FIELDS, PLACES, dungeonDoor } from './places';
+import type { Command, Dungeon, Job, Npc, Plan, Trait, WorldState } from './types';
 
 const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
-const CHRONICLE_LIMIT = 500;
 const STAMPEDE_POWER = 100;
-export const COMMAND_COST = { bless: 5, curse: 5, dream: 3 } as const;
+export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST } as const;
 const TOWN_SIZE = 30;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE
-const ADVENTURE_CHANCE = 0.3; // when a fighter picks their next plan
+const MIN_ADVENTURERS = 10; // below this, newcomers come as adventurers
+const ADVENTURE_CHANCE = 0.1; // solo dungeon trips; most adventuring now goes through guild quests
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
 const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
@@ -27,6 +29,8 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
     height: 25,
     npcs: [],
     dungeons: [],
+    quests: [],
+    legends: [],
     chronicle: [],
     chronicleSeq: 0,
     nextId: 1,
@@ -46,6 +50,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
 
 export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const rng: Rng = { state: world.rng };
+  ensureGuild(world);
   applyCommands(world, commands);
 
   world.day++;
@@ -54,6 +59,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
     if (world.day % 365 === 0) npc.age++;
     live(world, npc, rng);
   }
+  updateGuild(world, rng);
   for (const d of world.dungeons) {
     d.power += 0.2;
     if (d.power >= STAMPEDE_POWER) {
@@ -66,6 +72,13 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE)) {
     const npc = spawnNpc(world, rng);
+    // Adventurers die far more often than farmers; word of guild work draws fighters in when it's short-handed.
+    const adventurers = world.npcs.filter((n) => n.alive && isAdventurer(n)).length;
+    if (adventurers < MIN_ADVENTURERS && !isAdventurer(npc)) {
+      npc.job = pick(rng, ['swordsman', 'mage'] as const);
+      npc.rank = 0;
+      npc.renown = 0;
+    }
     npc.x = PLACES.gate.x;
     npc.y = PLACES.gate.y;
     npc.plan = plan('arrive', PLACES.inn, 5);
@@ -92,7 +105,7 @@ function uniqueName(world: WorldState, rng: Rng): string {
 function spawnNpc(world: WorldState, rng: Rng): Npc {
   const t1 = pick(rng, TRAITS);
   const t2 = pick(rng, TRAITS);
-  return {
+  const npc: Npc = {
     id: world.nextId++,
     name: uniqueName(world, rng),
     age: int(rng, 16, 50),
@@ -106,15 +119,17 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
     alive: true,
     blessed: false,
   };
+  if (isAdventurer(npc)) {
+    npc.rank = 0;
+    npc.renown = 0;
+  }
+  return npc;
 }
 
 // ---------- daily life: walk to where the plan is, then act there ----------
 
-function plan(kind: PlanKind, at: Spot, days: number, target?: number): Plan {
-  return { kind, x: at.x, y: at.y, days, target };
-}
-
 function live(world: WorldState, npc: Npc, rng: Rng): void {
+  if (npc.questId !== undefined && questDay(world, npc, rng)) return;
   if (npc.inside !== undefined) return delve(world, npc, rng);
   npc.plan ??= choosePlan(world, npc, rng);
   const p = npc.plan;
@@ -130,7 +145,7 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
     if (Math.abs(npc.x - victim.x) + Math.abs(npc.y - victim.y) <= 1) return steal(world, npc, victim, rng);
   }
 
-  if (npc.x !== p.x || npc.y !== p.y) return step(world, npc, p, rng);
+  if (npc.x !== p.x || npc.y !== p.y) return stepToward(world, npc, p, rng);
   arrive(world, npc, p, rng);
 }
 
@@ -166,18 +181,6 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return idle();
     }
   }
-}
-
-// One tile a day, mostly along the longer axis so paths look deliberate rather than diagonal-jittery.
-function step(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
-  const dx = Math.sign(p.x - npc.x);
-  const dy = Math.sign(p.y - npc.y);
-  const preferX = Math.abs(p.x - npc.x) >= Math.abs(p.y - npc.y);
-  if (dx && (preferX || !dy) && !chance(rng, 0.2)) npc.x += dx;
-  else if (dy) npc.y += dy;
-  else npc.x += dx;
-  npc.x = clamp(npc.x, 0, world.width - 1);
-  npc.y = clamp(npc.y, 0, world.height - 1);
 }
 
 function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
@@ -242,7 +245,8 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
 
 // Drop the dead nobody's story still points at, so saves don't grow forever.
 function prune(world: WorldState): void {
-  const remembered = new Set(world.chronicle.map((e) => e.npcId));
+  const remembered = new Set([...world.chronicle, ...world.legends].map((e) => e.npcId));
+  for (const q of world.quests) for (const id of q.partyIds) remembered.add(id);
   world.npcs = world.npcs.filter((n) => n.alive || remembered.has(n.id));
 }
 
@@ -251,9 +255,15 @@ export function applyCommands(world: WorldState, commands: Command[]): void {
 }
 
 function applyCommand(world: WorldState, cmd: Command): void {
-  const npc = world.npcs.find((n) => n.id === cmd.npcId && n.alive);
   const cost = COMMAND_COST[cmd.type];
-  if (!npc || world.faith < cost) return;
+  if (world.faith < cost) return;
+  if (cmd.type === 'divineQuest') {
+    world.faith -= cost;
+    postDivineQuest(world);
+    return;
+  }
+  const npc = world.npcs.find((n) => n.id === cmd.npcId && n.alive);
+  if (!npc) return;
   world.faith -= cost;
   if (cmd.type === 'bless') {
     npc.blessed = true;
@@ -265,22 +275,11 @@ function applyCommand(world: WorldState, cmd: Command): void {
     log(world, 'curse', `${npc.name} ต้องคำสาปแห่งกบ`, npc.id);
   } else {
     npc.job = cmd.job;
+    if (isAdventurer(npc)) {
+      npc.rank ??= 0;
+      npc.renown ??= 0;
+    }
     if (npc.inside === undefined) npc.plan = undefined; // the dream changes their next move
     log(world, 'dream', `${npc.name} ฝันถึงชีวิตใหม่ในฐานะ${JOB_TH[cmd.job]}`, npc.id);
   }
-}
-
-function kill(world: WorldState, npc: Npc, reason: string): void {
-  npc.alive = false;
-  npc.plan = undefined;
-  log(world, 'death', `${npc.name} ${reason}`, npc.id);
-}
-
-function log(world: WorldState, kind: EventKind, text: string, npcId?: number): void {
-  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text, npcId });
-  if (world.chronicle.length > CHRONICLE_LIMIT) world.chronicle.shift();
-}
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
 }

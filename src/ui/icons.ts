@@ -11,6 +11,8 @@ export const EVENT_ICON: Record<EventKind, string> = {
   bless: 'bless',
   curse: 'curse',
   dream: 'dream',
+  quest: 'quest',
+  rank: 'crown',
 };
 
 export const EVENT_LABEL: Record<EventKind, string> = {
@@ -22,6 +24,8 @@ export const EVENT_LABEL: Record<EventKind, string> = {
   bless: 'พร',
   curse: 'คำสาป',
   dream: 'ความฝัน',
+  quest: 'เควส',
+  rank: 'เลื่อนแรงก์',
 };
 
 export const DANGER_KINDS = new Set<EventKind>(['death', 'disaster']);

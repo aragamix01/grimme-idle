@@ -55,6 +55,7 @@ function frame(now: number): void {
       return false;
     }
     b.el.style.transform = `translate(${Math.round(pos.x)}px, ${Math.round(pos.y)}px) translate(-50%, calc(-100% - 10px))`;
+    b.el.style.visibility = 'visible';
     return true;
   });
   requestAnimationFrame(frame);

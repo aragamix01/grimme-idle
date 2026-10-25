@@ -37,6 +37,8 @@ export class WorldScene extends Phaser.Scene {
   private lastKey = '';
   tickMs = 500;
   onSelect: (id: number | null) => void = () => {};
+  onGuild: () => void = () => {};
+  private guildBounds: Phaser.Geom.Rectangle | null = null;
 
   constructor() {
     super('world');
@@ -58,7 +60,10 @@ export class WorldScene extends Phaser.Scene {
     this.anims.create({ key: 'water-flow', frames: this.anims.generateFrameNumbers('water', {}), frameRate: 2, repeat: -1 });
     this.anims.create({ key: 'sparkle-twinkle', frames: this.anims.generateFrameNumbers('sparkle', {}), frameRate: 8, repeat: -1, yoyo: true });
     this.buildGround();
-    for (const [key, tx, ty] of TOWN) this.placeProp(key, tx, ty);
+    for (const [key, tx, ty] of TOWN) {
+      const img = this.placeProp(key, tx, ty);
+      if (key === 'guild') this.guildBounds = img.getBounds();
+    }
 
     // Gold ring under the selected NPC's feet.
     this.selectRing = this.add.graphics().setVisible(false);
@@ -79,6 +84,7 @@ export class WorldScene extends Phaser.Scene {
           best = id;
         }
       }
+      if (best === null && this.guildBounds?.contains(p.worldX, p.worldY)) return this.onGuild();
       this.select(best);
       this.onSelect(best);
     });

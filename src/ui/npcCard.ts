@@ -1,4 +1,4 @@
-import { COMMAND_COST, JOB_TH, TRAIT_TH, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { COMMAND_COST, JOB_TH, TRAIT_TH, rankName, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -41,6 +41,13 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
 function activity(world: WorldState, npc: Npc): string {
   if (!npc.alive) return 'จากไปแล้ว';
   const dungeon = (id?: number) => world.dungeons.find((d) => d.id === id)?.name ?? 'ดันเจี้ยน';
+  const quest = world.quests.find((q) => q.id === npc.questId);
+  if (quest) {
+    if (quest.clientId === npc.id) return quest.stage === 'recruiting' ? 'รอนักผจญภัยมาคุ้มกัน' : 'เดินทางพร้อมผู้คุ้มกัน';
+    if (quest.stage === 'recruiting') return `รอเพื่อนร่วมทีมที่กิลด์ (${quest.title})`;
+    if (quest.stage === 'travelling') return `เดินทางไปทำเควส: ${quest.title}`;
+    return `กำลังทำเควส: ${quest.title}`;
+  }
   if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
   const p = npc.plan;
   switch (p?.kind) {
@@ -69,6 +76,7 @@ function header(npc: Npc, doing: string): HTMLElement {
     { className: 'npc__chips' },
     el('span', { className: 'chip', textContent: JOB_TH[npc.job] }),
     el('span', { className: 'chip', textContent: `LV ${npc.level}` }),
+    ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
     el('span', { className: 'chip', textContent: `${npc.age} ปี` }),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: 'จากไปแล้ว' })] : []),

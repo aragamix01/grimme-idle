@@ -16,8 +16,13 @@ export interface Npc {
   alive: boolean;
   blessed: boolean;
   plan?: Plan; // what the NPC is walking towards or doing right now
-  inside?: number; // id of the dungeon the NPC is exploring (hidden from the map)
+  inside?: number; // dungeon id being explored, or AWAY while travelling off the map; hidden either way
+  rank?: number; // guild rank index into RANKS (F..S); only adventurers have one
+  renown?: number; // earned from finished quests; drives rank-ups
+  questId?: number; // quest this NPC is signed up for
 }
+
+export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
 export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive';
@@ -38,7 +43,44 @@ export interface Dungeon {
   power: number; // grows when ignored; stampede past threshold
 }
 
-export type EventKind = 'world' | 'battle' | 'death' | 'disaster' | 'theft' | 'bless' | 'curse' | 'dream';
+export type QuestKind = 'hunt' | 'explore' | 'escort';
+export type QuestStage = 'recruiting' | 'travelling' | 'inside' | 'done' | 'failed' | 'expired';
+
+export interface Quest {
+  id: number;
+  kind: QuestKind;
+  title: string;
+  rank: number; // index into RANKS
+  reward: number; // gold, split across the party
+  difficulty: number;
+  stage: QuestStage;
+  stageDay: number; // day the current stage began
+  partyIds: number[]; // adventurers who signed up
+  minParty: number;
+  dungeonId?: number; // hunt, explore
+  clientId?: number; // escort: the merchant being protected
+  daysLeft?: number; // while inside
+  divine?: boolean; // posted by the player's god; pays double
+  postedDay: number;
+}
+
+export interface Legend {
+  day: number;
+  text: string;
+  npcId?: number;
+}
+
+export type EventKind =
+  | 'world'
+  | 'battle'
+  | 'death'
+  | 'disaster'
+  | 'theft'
+  | 'bless'
+  | 'curse'
+  | 'dream'
+  | 'quest'
+  | 'rank';
 
 export interface ChronicleEntry {
   seq: number;
@@ -58,6 +100,8 @@ export interface WorldState {
   height: number;
   npcs: Npc[];
   dungeons: Dungeon[];
+  quests: Quest[];
+  legends: Legend[];
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
@@ -66,4 +110,5 @@ export interface WorldState {
 export type Command =
   | { type: 'bless'; npcId: number }
   | { type: 'curse'; npcId: number }
-  | { type: 'dream'; npcId: number; job: Job };
+  | { type: 'dream'; npcId: number; job: Job }
+  | { type: 'divineQuest' };

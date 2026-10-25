@@ -3,6 +3,7 @@ import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { renderFeed } from './ui/feed';
+import { initGuild, renderGuild } from './ui/guild';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
 import type { FromWorker, ToWorker } from './worker/protocol';
@@ -28,11 +29,26 @@ const send = (msg: ToWorker) => worker.postMessage(msg);
 let world: WorldState | null = null;
 let selected: number | null = null;
 let filterToNpc = false;
+let tab: 'log' | 'guild' = 'log';
 
 function render(): void {
   if (!world) return;
   renderNpcCard(world, selected);
-  renderFeed(world, filterToNpc ? selected : null);
+  if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
+  else renderGuild(world);
+}
+
+function setTab(next: 'log' | 'guild'): void {
+  tab = next;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
+    const on = b.dataset.tab === next;
+    b.setAttribute('aria-selected', String(on));
+    b.setAttribute('aria-pressed', String(on));
+  }
+  document.getElementById('feed')!.hidden = next !== 'log';
+  document.getElementById('log-tools')!.hidden = next !== 'log';
+  document.getElementById('guild')!.hidden = next !== 'guild';
+  render();
 }
 
 function select(id: number | null): void {
@@ -53,6 +69,11 @@ function setFilter(toNpc: boolean): void {
 }
 
 scene.onSelect = select;
+scene.onGuild = () => setTab('guild');
+initGuild({ onDivineQuest: () => send({ type: 'command', command: { type: 'divineQuest' } }), onSelectNpc: select });
+for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
+  b.onclick = () => setTab(b.dataset.tab as 'log' | 'guild');
+}
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null) });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));

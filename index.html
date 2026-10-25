@@ -34,14 +34,20 @@
         <p id="npc-hint" class="hint">คลิกชาวเมืองบนแผนที่เพื่อดูชีวิตและใช้พลังเทพ</p>
 
         <section class="log" aria-labelledby="log-title">
-          <div class="log-head">
-            <h2 id="log-title">พงศาวดาร</h2>
+          <h2 id="log-title" class="visually-hidden">พงศาวดารและกิลด์</h2>
+          <div class="seg tabs" role="tablist" aria-label="มุมมอง" id="side-tabs">
+            <button type="button" role="tab" data-tab="log" aria-selected="true" aria-pressed="true">พงศาวดาร</button>
+            <button type="button" role="tab" data-tab="guild" aria-selected="false" aria-pressed="false">กิลด์</button>
+          </div>
+          <div class="log-head" id="log-tools">
+            <span class="log-note">เรื่องเล่าล่าสุดของโลก</span>
             <div class="seg seg--small" role="group" aria-label="กรองพงศาวดาร" id="log-filter">
               <button type="button" data-filter="all" aria-pressed="true">ทั้งหมด</button>
               <button type="button" data-filter="npc" disabled>คนนี้</button>
             </div>
           </div>
-          <ol id="feed"></ol>
+          <ol id="feed" role="tabpanel"></ol>
+          <div id="guild" class="guild" role="tabpanel" hidden></div>
         </section>
       </aside>
     </div>
