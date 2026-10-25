@@ -34,6 +34,10 @@ const WINDOWS: Record<string, [number, number, number, number][]> = {
   church: [[14, 35, 4, 3], [6, 36, 2, 4], [24, 36, 2, 4]],
   castle: [[7, 23, 3, 4], [54, 23, 3, 4], [30, 23, 4, 5]],
 };
+WINDOWS.barracks = [[7, 21, 4, 3], [37, 21, 4, 3]];
+WINDOWS.brothel = [[6, 19, 4, 3], [22, 19, 4, 3], [6, 29, 3, 3], [13, 20, 6, 4]];
+WINDOWS.manor = [6, 14, 28, 36].flatMap((x) => [[x + 1, 22, 4, 3], [x + 1, 31, 4, 3]] as [number, number, number, number][]);
+WINDOWS.forge = [[6, 25, 5, 4]];
 WINDOWS['house-red'] = WINDOWS['house-blue'] = WINDOWS.house;
 
 const STAMPEDE_MONSTERS = ['slime', 'goblin', 'skeleton', 'wolf', 'bat', 'goblin', 'slime', 'wolf', 'skeleton', 'bat'];

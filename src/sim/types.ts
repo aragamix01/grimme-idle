@@ -1,5 +1,17 @@
 // World state must stay plain JSON: it is saved to IndexedDB and, later, to Durable Object storage.
-export type Job = 'swordsman' | 'mage' | 'merchant' | 'farmer' | 'thief';
+export type Job =
+  | 'swordsman'
+  | 'mage'
+  | 'merchant'
+  | 'farmer'
+  | 'thief'
+  | 'soldier'
+  | 'blacksmith'
+  | 'innkeeper'
+  | 'courtesan'
+  | 'priest'
+  | 'noble'
+  | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';
 
 export interface Npc {
@@ -27,6 +39,8 @@ export interface Npc {
   gear?: number; // 0..MAX_GEAR, bought at the market; adds strength
   hunger?: number; // meals missed in a row
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
+  unpaid?: number; // soldiers: paydays missed in a row
+  ales?: number; // innkeepers: mugs sold since they last bought grain to brew
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
@@ -146,6 +160,7 @@ export interface WorldState {
   ties: Record<string, number>; // "lowId-highId" -> affinity -100..100; missing means strangers
   treasury: number; // town gold that funds crown quests
   market?: Market; // missing in saves from before the economy
+  kingId?: number; // the reigning king, or the last one if the throne is empty
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;

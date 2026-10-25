@@ -149,7 +149,7 @@ function resultRow(q: Quest, byId: Map<number, Npc>): HTMLElement {
 function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>): HTMLElement {
   const leader = byId.get(g.leaderId);
   const others = members.filter((m) => m.id !== g.leaderId);
-  const kind = { adventurers: 'กิลด์นักผจญภัย', merchants: 'สมาคมการค้า (พ่อค้าและชาวนา)', thieves: 'สมาคมโจร' }[g.kind];
+  const kind = { adventurers: 'กิลด์นักผจญภัย', merchants: 'สมาคมการค้า (พ่อค้า ชาวนา และช่างฝีมือ)', thieves: 'สมาคมโจร' }[g.kind];
   const fame = g.kind === 'adventurers' ? ` · ชื่อเสียง ${g.renown}` : '';
   return el(
     'li',

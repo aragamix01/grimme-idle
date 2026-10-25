@@ -70,12 +70,14 @@ function payOut(m: Market, g: Good, n: number, rng: Rng): number {
   return paid;
 }
 
-export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng): void {
-  if (n <= 0) return;
+export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng): number {
+  if (n <= 0) return 0;
   const m = ensureMarket(world);
   const trade = world.guilds.some((x) => x.id === npc.guildId && x.kind === 'merchants');
   const paid = payOut(m, g, n, rng);
-  npc.gold += trade ? Math.ceil(paid * 1.1) : paid; // the association haggles for its members
+  const got = trade ? Math.ceil(paid * 1.1) : paid; // the association haggles for its members
+  npc.gold += got;
+  return got;
 }
 
 // Buy one unit off the shelf. False when it's sold out or the buyer can't pay.
@@ -90,10 +92,11 @@ export function buy(world: WorldState, payer: Npc, g: Good): boolean {
   return true;
 }
 
-// A merchant minding the stall: forge loot into gear and draw a wage from the till.
-export function tendShop(world: WorldState, npc: Npc, rng: Rng): void {
+// A merchant minding the stall draws a wage from the till.
+// Without a blacksmith in town, merchants do some crude smithing themselves.
+export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boolean): void {
   const m = ensureMarket(world);
-  if (m.stock.loot >= TARGET.loot && chance(rng, 0.25)) {
+  if (!smithInTown && m.stock.loot >= TARGET.loot && chance(rng, 0.25)) {
     m.stock.loot -= 2;
     m.stock.gear += 1;
   }
@@ -105,10 +108,11 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng): void {
   }
 }
 
-export function harvest(world: WorldState, npc: Npc, rng: Rng): void {
+// Returns the gold the farmer made, so a landlord can take their cut.
+export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
   const y = YIELD[seasonOf(world.day)];
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
-  sell(world, npc, 'grain', n, rng);
+  return sell(world, npc, 'grain', n, rng);
 }
 
 // An adventurer with spare gold picks up better gear.
@@ -164,12 +168,18 @@ export function marketDay(world: WorldState, rng: Rng): void {
 // The well-off give to the church, which keeps the crown's purse (and so the dole and the
 // crown's bounties) going instead of letting gold pile up in a few chests.
 function tithe(world: WorldState): void {
+  const priests = world.npcs.filter((n) => n.alive && n.job === 'priest');
+  let collected = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.gold <= TITHE_FLOOR) continue;
     const gift = Math.floor((n.gold - TITHE_FLOOR) * TITHE * (n.traits.includes('kind') ? 2 : 1));
     n.gold -= gift;
-    world.treasury += gift;
+    collected += gift;
   }
+  // The priests keep a share for their living; the rest goes to the crown's purse.
+  const share = priests.length ? Math.floor((collected * 0.3) / priests.length) : 0;
+  for (const p of priests) p.gold += share;
+  world.treasury += collected - share * priests.length;
 }
 
 // Caravans carry surplus off to other towns for cheap, which is the only way new gold

@@ -316,6 +316,55 @@ const CLUB = [
   '.............N..',
 ];
 
+const KETTLE_HELM = [
+  '................',
+  '................',
+  '................',
+  '....xxxxxxxx....',
+  '...xzzxxxxxxx...',
+  '..xxxxxxxxxxxx..',
+  '.xxxxxxxxxxxxxx.',
+  '..x..........x..',
+];
+
+const SPEAR = [
+  '.............z..',
+  '............zzz.',
+  '............zzz.',
+  '.............r..',
+  ...Array(15).fill('.............N..'),
+];
+
+const FEATHER_CAP = [
+  '................',
+  '..........rr....',
+  '.........rru....',
+  '....bbbbbbbbr...',
+  '...bbbbbbbbbb...',
+  '..bbbbbbbbbbbb..',
+  '..yyyyyyyyyyyy..',
+];
+
+const RUFF = ['...wwwwwwwwww...'];
+
+const HAMMER = [
+  '..........xxxx..',
+  '..........xxxx..',
+  '............N...',
+  '............N...',
+  '............N...',
+  '............N...',
+];
+
+const APRON = ['.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....'];
+const WHITE_APRON = APRON.map((r) => r.replaceAll('N', 'c'));
+
+const MUG = ['...........ccc..', '...........yyyc.', '...........yyyc.', '...........yyy..'];
+
+const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pppppppppppp..', '..PPPPPPPPPPPP..'];
+const HAIR_FLOWER = ['...........rr...', '..........ryyr..', '...........rr...'];
+const FAN = ['...........yy...', '..........yyyy..', '..........yrry..', '...........MM...'];
+
 const GOBLIN_EARS = [
   '.g............g.',
   '.gg..........gg.',
@@ -390,6 +439,26 @@ const JOBS = {
     slots: { 1: 'l', 2: 'M', 3: 'L', 4: 'l', 5: 'k' },
     layers: [[HOOD], [DAGGER, 0, 12]],
     back: { k: 'L' }, // the hood covers the whole head from behind
+  },
+  soldier: {
+    slots: { 1: 'r', 2: 'M', 3: 'X', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [KETTLE_HELM], [['...x........x...'], 0, 13], [SPEAR, 0, 1]],
+  },
+  noble: {
+    slots: { 1: 'v', 2: 'y', 3: 'V', 4: 'M', 5: 'y' },
+    layers: [[HAIR_SHORT], [FEATHER_CAP], [RUFF, 0, 13]],
+  },
+  blacksmith: {
+    slots: { 1: 'c', 2: 'M', 3: 'M', 4: 'k', 5: 'k' },
+    layers: [[HAIR_SHORT], [['..rrrrrrrrrrrr..'], 0, 6], [APRON, 0, 14], [HAMMER, 0, 9]],
+  },
+  innkeeper: {
+    slots: { 1: 'G', 2: 'M', 3: 'N', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [WHITE_APRON, 0, 15], [MUG, 0, 13]],
+  },
+  courtesan: {
+    slots: { 1: 'p', 2: 'y', 3: 'p', 4: 'P', 5: 'H' },
+    layers: [[HAIR_LONG], [HAIR_FLOWER, 0, 3], [DRESS, 0, 16], [FAN, 0, 12]],
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },

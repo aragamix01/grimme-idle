@@ -20,13 +20,18 @@ export const PLACES = {
   inn: door('inn'),
   church: door('church'),
   shop: door('shop'),
+  forge: door('forge'),
+  barracks: door('barracks'),
+  brothel: door('brothel'),
+  manor: door('manor'),
+  castle: door('castle'),
   homes: BUILDINGS.filter(([k]) => k.startsWith('house')).map((b) => doorOf(...b)),
   square: { x: 13, y: 10 },
   // Open-air spots so a crowd of sixty spreads out instead of piling onto a few doorsteps.
   hangouts: [
-    { x: 8, y: 14 }, // by the pond
-    { x: 20, y: 13 }, // the orchard
-    { x: 15, y: 15 },
+    { x: 6, y: 14 }, // by the pond
+    { x: 23, y: 13 }, // under the fruit trees
+    { x: 12, y: 16 },
     { x: 29, y: 9 }, // just outside the east gate
     { x: 10, y: 18 }, // edge of the fields
   ],

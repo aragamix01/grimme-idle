@@ -3,8 +3,9 @@ import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { JOB_TH } from './names';
 import { PLACES } from './places';
+import { inheritedJob } from './society';
 import { addTie, getTie, setTie } from './ties';
-import type { Job, Npc, Trait, WorldState } from './types';
+import type { Npc, Trait, WorldState } from './types';
 
 export const ADULT_AGE = 16;
 export const ELDER_AGE = 58; // adventurers retire; everyone starts to feel their years
@@ -14,7 +15,6 @@ const MARRY_CHANCE = 0.02; // per eligible couple per day
 const BIRTH_CHANCE = 0.0015; // per couple per day
 const MAX_CHILDREN = 3;
 const POPULATION_CAP = 90; // families stop growing when the town is this full
-const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
 
 export const isChild = (n: Npc) => n.age < ADULT_AGE;
 export const isElder = (n: Npc) => n.age >= ELDER_AGE;
@@ -42,7 +42,7 @@ export function birthday(world: WorldState, n: Npc, rng: Rng): void {
 // At sixteen a child picks a calling, usually a parent's.
 function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
   const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p);
-  n.job = parents.length && chance(rng, 0.6) ? pick(rng, parents).job : pick(rng, JOBS);
+  n.job = inheritedJob(world, parents, rng);
   if (n.job === 'swordsman' || n.job === 'mage') {
     n.rank = 0;
     n.renown = 0;

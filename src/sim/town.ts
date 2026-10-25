@@ -32,6 +32,10 @@ const BUILDING_PX: Record<string, [w: number, h: number]> = {
   house: [32, 32],
   'house-red': [32, 32],
   'house-blue': [32, 32],
+  forge: [32, 32],
+  barracks: [48, 32],
+  brothel: [32, 40],
+  manor: [48, 40],
 };
 
 // Ring of stone around the town; gates are gaps in it.
@@ -67,6 +71,11 @@ export const BUILDINGS: [key: string, tx: number, ty: number][] = [
   ['house', 16, 10],
   ['house-red', 19, 10],
   ['house-blue', 22, 10],
+  // behind the back lane: trades, the garrison and the gentry
+  ['forge', 7, 13],
+  ['brothel', 9, 13],
+  ['barracks', 14, 13],
+  ['manor', 19, 13],
 ];
 
 // Where someone stands to use a building: the tile in front of its door.
@@ -166,12 +175,10 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
   const deco = (key: string, x: number, y: number) => {
     if (!isBlocked(x, y) && ground[y * MAP_W + x] === 'grass' && !clearing.has(`${x},${y}`)) props.push({ key, x, y, anchor: 'bottom' });
   };
-  props.push({ key: 'rock', x: 6, y: 15, anchor: 'bottom' });
-  block(6, 15);
-  // Orchard behind the south houses.
-  for (const [x, y] of [[17, 14], [19, 15], [21, 14], [23, 15], [24, 13], [16, 16], [20, 16]]) tree(x, y);
-  deco('bush', 9, 14);
-  deco('bush', 11, 16);
+  // A few fruit trees left between the manor and the wall.
+  for (const [x, y] of [[23, 14], [24, 16], [22, 16], [17, 16]]) tree(x, y);
+  deco('bush', 12, 14);
+  deco('rock', 6, 16);
   // The eastern forest, thick but never on the road.
   for (let x = WALL.x1 + 1; x < MAP_W; x++)
     for (let y = 0; y < MAP_H; y++) {

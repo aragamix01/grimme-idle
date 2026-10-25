@@ -34,6 +34,41 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "soldier": {
+    "file": "assets/sprites/characters/soldier.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "noble": {
+    "file": "assets/sprites/characters/noble.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "blacksmith": {
+    "file": "assets/sprites/characters/blacksmith.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "innkeeper": {
+    "file": "assets/sprites/characters/innkeeper.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "courtesan": {
+    "file": "assets/sprites/characters/courtesan.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",
@@ -256,6 +291,34 @@
     "group": "buildings",
     "frameWidth": 48,
     "frameHeight": 32,
+    "frames": 1
+  },
+  "forge": {
+    "file": "assets/sprites/buildings/forge.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "barracks": {
+    "file": "assets/sprites/buildings/barracks.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "brothel": {
+    "file": "assets/sprites/buildings/brothel.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "manor": {
+    "file": "assets/sprites/buildings/manor.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
     "frames": 1
   },
   "grain": {

@@ -1,9 +1,9 @@
-import { ADULT_AGE, COMMAND_COST, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, COMMAND_COST, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
 const hint = document.getElementById('npc-hint')!;
-const JOBS = Object.keys(JOB_TH) as Job[];
+const JOBS = COMMON_JOBS; // the king and nobles are made, not dreamt
 
 interface Handlers {
   onCommand: (cmd: Command) => void;
@@ -42,6 +42,16 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world.faith));
 }
 
+const WORK_TH: Partial<Record<Job, string>> = {
+  farmer: 'ทำนาอยู่ที่ทุ่ง',
+  merchant: 'เฝ้าร้านค้า',
+  blacksmith: 'ตีเหล็กอยู่ที่โรงตีเหล็ก',
+  innkeeper: 'ขายเบียร์อยู่ที่โรงเตี๊ยม',
+  courtesan: 'รับแขกอยู่ที่หอนางโลม',
+  priest: 'สวดภาวนาอยู่ที่โบสถ์',
+  soldier: 'ยืนยามเฝ้าเมือง',
+};
+
 // What the NPC is up to, in words the player can follow on the map.
 function activity(world: WorldState, npc: Npc): string {
   if (!npc.alive) return npc.left ? 'ย้ายออกจากเมืองไปแล้ว' : 'จากไปแล้ว';
@@ -63,7 +73,7 @@ function activity(world: WorldState, npc: Npc): string {
     case 'adventure':
       return `กำลังเดินทางไป${dungeon(p.target)}`;
     case 'work':
-      return npc.job === 'farmer' ? 'ทำนาอยู่ที่ทุ่ง' : 'เฝ้าร้านค้า';
+      return WORK_TH[npc.job] ?? 'ทำงานอยู่';
     case 'steal':
       return `กำลังสะกดรอยตาม${world.npcs.find((n) => n.id === p.target)?.name ?? 'ใครบางคน'}`;
     case 'flee':

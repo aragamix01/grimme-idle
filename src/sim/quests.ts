@@ -5,6 +5,7 @@ import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
 import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
 import { snap } from './nav';
 import { gearPower, lootFound, sell, wearGear } from './market';
+import { payrollReserve } from './society';
 import { FRIEND, addTie, getTie } from './ties';
 import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type WorldState } from './types';
 
@@ -18,7 +19,7 @@ const LEGENDS_KEPT = 20;
 const THREAT_POWER = 45; // the crown pays to thin out a dungeon past this...
 const RICH_THREAT_POWER = 25; // ...or past this when its coffers are full
 const RICH_TREASURY = 300;
-const TREASURY_INCOME = 0.4; // gold a day from the town's taxes
+const TREASURY_INCOME = 2; // gold a day from tolls at the gates and the crown's own lands
 const PEST_CHANCE = 0.003; // per working farmer per day
 const ESCORT_CHANCE = 0.002; // per merchant with savings per day
 const GUILD_CUT = 0.1; // share of a claimed quest's reward kept by the guild
@@ -68,7 +69,7 @@ function crownWatch(world: WorldState): void {
     if (d.power < (rich ? RICH_THREAT_POWER : THREAT_POWER) || openQuest(world, (q) => q.dungeonId === d.id && q.kind === 'hunt')) continue;
     const rank = clamp(Math.floor(d.power / 20), 0, 4);
     const reward = 15 * (rank + 1) + (rich ? Math.floor(world.treasury * 0.05) : 0); // a fat purse pays fat bounties
-    if (world.treasury < reward) continue;
+    if (world.treasury < reward + payrollReserve(world)) continue; // the soldiers get paid first
     world.treasury -= reward;
     const q = newQuest(world, 'hunt', `ปราบมอนสเตอร์ใน${d.name}`, rank, 15 + rank * 10 + d.power * 0.4, reward, 2);
     q.dungeonId = d.id;

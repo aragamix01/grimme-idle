@@ -212,6 +212,7 @@ const ROOFS = {
   orange: ['O', 'Q', 'n'],
   brown: ['N', 'M', 'n'],
   slate: ['X', 'l', 'x'],
+  pink: ['p', 'P', 'w'],
 };
 
 function roof(g, x, y, w, h, kind) {
@@ -400,6 +401,73 @@ function dungeon() {
   return finishBuilding(g);
 }
 
+// Smithy: stone under a slate roof, a smoking chimney and an open front glowing at the anvil.
+function forge() {
+  const g = new Grid(32, 32);
+  g.rect(23, 0, 5, 9, 'X').hline(23, 0, 5, 'l');
+  g.set(25, 0, '.').set(24, 0, '.');
+  roof(g, 1, 5, 30, 12, 'slate');
+  g.rect(23, 1, 5, 4, 'X');
+  g.set(25, 0, 'r').set(24, 1, 'y').set(26, 1, 'r');
+  wall(g, 3, 17, 26, 13, 'stone');
+  // open workshop: dark interior, red glow, anvil in front
+  g.rect(5, 19, 14, 11, 'k');
+  g.rect(6, 25, 5, 4, 'r').rect(7, 26, 3, 2, 'y');
+  g.rect(12, 26, 6, 2, 'l').rect(14, 28, 2, 2, 'l').hline(11, 26, 2, 'l');
+  door(g, 21, 21, 6, 9);
+  sign(g, 21, 13, ['xx..', 'xxN.', '..N.', '..N.']);
+  g.hline(3, 30, 26, 'X');
+  return finishBuilding(g);
+}
+
+// Barracks: a long stone hall with a red roof, shields on the wall and the crown's flags.
+function barracks() {
+  const g = new Grid(48, 32);
+  roof(g, 1, 5, 46, 12, 'red');
+  flag(g, 4, 0, 'y');
+  flag(g, 42, 0, 'y');
+  wall(g, 3, 17, 42, 13, 'stone');
+  windowAt(g, 6, 20);
+  windowAt(g, 36, 20);
+  door(g, 20, 20, 8, 10);
+  for (const x of [14, 30]) g.rect(x, 21, 4, 5, 'r').rect(x + 1, 22, 2, 3, 'y').set(x, 25, '.').set(x + 3, 25, '.');
+  g.hline(3, 30, 42, 'l');
+  return finishBuilding(g);
+}
+
+// Pleasure house: two storeys under a pink roof, red lanterns along the eaves.
+function brothel() {
+  const g = new Grid(32, 40);
+  roof(g, 1, 3, 30, 13, 'pink');
+  wall(g, 3, 16, 26, 22);
+  g.hline(3, 26, 26, 'M');
+  windowAt(g, 5, 18, 6, 5);
+  windowAt(g, 21, 18, 6, 5);
+  windowAt(g, 5, 28, 5, 5);
+  door(g, 13, 29, 6, 9);
+  for (const x of [4, 15, 26]) g.vline(x + 1, 16, 1, 'M').rect(x, 17, 3, 3, 'r').set(x + 1, 18, 'y');
+  g.rect(13, 20, 6, 4, 'p').set(14, 21, 'w').set(16, 22, 'w');
+  g.hline(3, 38, 26, 'X');
+  return finishBuilding(g);
+}
+
+// Manor: the nobles' townhouse, wide and tall under a blue roof, with a gilded door.
+function manor() {
+  const g = new Grid(48, 40);
+  roof(g, 1, 4, 46, 15, 'blue');
+  flag(g, 23, 0, 'v');
+  wall(g, 3, 19, 42, 19);
+  g.hline(3, 28, 42, 'C');
+  for (const x of [6, 14, 28, 36]) {
+    windowAt(g, x, 21, 6, 5);
+    windowAt(g, x, 30, 6, 5);
+  }
+  door(g, 20, 29, 8, 9);
+  g.hline(20, 28, 8, 'y');
+  g.hline(3, 38, 42, 'X');
+  return finishBuilding(g);
+}
+
 export function buildings() {
   return [
     { name: 'house', group: 'buildings', frames: [house()] },
@@ -411,5 +479,9 @@ export function buildings() {
     { name: 'church', group: 'buildings', frames: [church()] },
     { name: 'castle', group: 'buildings', frames: [castle()] },
     { name: 'dungeon', group: 'buildings', frames: [dungeon()] },
+    { name: 'forge', group: 'buildings', frames: [forge()] },
+    { name: 'barracks', group: 'buildings', frames: [barracks()] },
+    { name: 'brothel', group: 'buildings', frames: [brothel()] },
+    { name: 'manor', group: 'buildings', frames: [manor()] },
   ];
 }

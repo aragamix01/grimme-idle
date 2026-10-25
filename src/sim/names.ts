@@ -23,6 +23,13 @@ export const JOB_TH: Record<Job, string> = {
   merchant: 'พ่อค้า',
   farmer: 'ชาวนา',
   thief: 'โจร',
+  soldier: 'ทหาร',
+  blacksmith: 'ช่างตีเหล็ก',
+  innkeeper: 'เจ้าของโรงเตี๊ยม',
+  courtesan: 'นางคณิกา',
+  priest: 'นักบวช',
+  noble: 'ขุนนาง',
+  king: 'กษัตริย์',
 };
 
 export const TRAIT_TH: Record<Trait, string> = {
