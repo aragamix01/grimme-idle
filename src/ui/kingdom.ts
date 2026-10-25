@@ -1,4 +1,4 @@
-import { costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -37,6 +37,7 @@ export function renderKingdom(world: WorldState): void {
     news.map((e) => e.seq),
     Math.round(balanceOf(world)),
     world.cult,
+    world.realms?.map((r) => [r.ruler.name, Math.round(r.relation / 5)]),
     cultists(world).map((n) => n.id),
     Math.floor(world.faith) >= costOf(world, 'reveal'),
     Math.floor(world.faith) >= costOf(world, 'hero'),
@@ -74,6 +75,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    neighbours(world),
     cultSection(world),
     section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')]),
     section(
@@ -220,6 +222,23 @@ function cultSection(world: WorldState): HTMLElement {
       el('p', { className: 'realm-king__meta', textContent: 'ชาวเมืองไม่รู้ว่าใครเป็นสาวก มีแต่เทพเจ้าที่มองเห็น' }),
     ),
   ]);
+}
+
+// The neighbouring kingdoms and how they feel about us; the world map shows where they lie.
+function neighbours(world: WorldState): HTMLElement {
+  const realms = world.realms ?? [];
+  return section(
+    'อาณาจักรเพื่อนบ้าน',
+    realms.map((r) =>
+      el(
+        'li',
+        { className: 'realm-person' },
+        el('span', { className: 'chip', textContent: r.name }),
+        el('span', { className: 'realm-person__note', textContent: `${r.ruler.name} · ทัพ ${r.army}` }),
+        el('b', { className: r.relation <= -15 ? 'realm-person__loyal--low' : '', textContent: relationWord(r.relation) }),
+      ),
+    ),
+  );
 }
 
 function personChip(n: Npc): HTMLElement {

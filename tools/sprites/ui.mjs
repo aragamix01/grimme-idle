@@ -5,6 +5,24 @@ import { SHADE } from './palette.mjs';
 const icon = (rows, name) => Grid.from(rows, name).shade(SHADE).outline('o');
 
 const ICONS = {
+  globe: [
+    '................',
+    '.....aaaaaa.....',
+    '...aagggaaaaa...',
+    '..aagggggaaaaa..',
+    '..aaggggaaaggg..',
+    '.aaaaggaaaaggga.',
+    '.aaaaaaaaagggaa.',
+    '.aaaaaaaaagggaa.',
+    '.aaggaaaaaaggaa.',
+    '.aagggaaaaaaaaa.',
+    '..aggggaaaaaaa..',
+    '..aagggaaaaaaa..',
+    '...aagaaaaaaa...',
+    '.....aaaaaa.....',
+    '................',
+    '................',
+  ],
   sound: [
     '................',
     '.......o........',

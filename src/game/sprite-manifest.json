@@ -398,6 +398,48 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "wm-mountain": {
+    "file": "assets/sprites/worldmap/wm-mountain.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "wm-sand": {
+    "file": "assets/sprites/worldmap/wm-sand.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "wm-castle": {
+    "file": "assets/sprites/worldmap/wm-castle.png",
+    "group": "worldmap",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "wm-flag": {
+    "file": "assets/sprites/worldmap/wm-flag.png",
+    "group": "worldmap",
+    "frameWidth": 8,
+    "frameHeight": 6,
+    "frames": 1
+  },
+  "wm-town": {
+    "file": "assets/sprites/worldmap/wm-town.png",
+    "group": "worldmap",
+    "frameWidth": 32,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "globe": {
+    "file": "assets/sprites/icons/globe.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "sound": {
     "file": "assets/sprites/icons/sound.png",
     "group": "icons",

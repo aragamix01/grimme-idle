@@ -1,6 +1,8 @@
 import * as Phaser from 'phaser';
 import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
+import { WorldMapScene } from './game/scenes/WorldMapScene';
+import { renderRealmCard } from './ui/realm';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
 import { renderFeed, renderStats } from './ui/feed';
@@ -17,6 +19,7 @@ import type { FromWorker, ToWorker } from './worker/protocol';
 const TICK_MS = 600; // one in-game day at 1x
 
 const scene = new WorldScene();
+const mapScene = new WorldMapScene();
 scene.tickMs = TICK_MS;
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -26,7 +29,7 @@ new Phaser.Game({
   pixelArt: true,
   backgroundColor: '#8fd64e',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene,
+  scene: [scene, mapScene],
 });
 
 const worker = new Worker(new URL('./worker/sim.worker.ts', import.meta.url), { type: 'module' });
@@ -129,6 +132,25 @@ initBubbles((id) => scene.npcScreenPos(id));
 const zoom = document.getElementById('zoom')!;
 zoom.onclick = () => zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
 
+// The world map takes the town's place on the canvas; the town sleeps meanwhile.
+const mapBtn = document.getElementById('worldmap')!;
+let onMap = false;
+mapBtn.onclick = () => {
+  onMap = !onMap;
+  mapBtn.setAttribute('aria-pressed', String(onMap));
+  zoom.hidden = onMap;
+  const game = scene.game;
+  if (onMap) {
+    game.scene.sleep('world');
+    game.scene.run('worldmap');
+  } else {
+    game.scene.sleep('worldmap');
+    game.scene.wake('world');
+    renderRealmCard(null, world);
+  }
+};
+mapScene.onRealm = (realm) => renderRealmCard(realm, world);
+
 // Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
 const sound = document.getElementById('sound')!;
 const showSound = () => {
@@ -169,6 +191,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   }
   world = msg.world;
   scene.setWorld(world);
+  mapScene.setWorld(world);
   pushBubbles(world, selected);
   updateMood(world);
   playEvents(world);

@@ -30,7 +30,17 @@ img, canvas { image-rendering: pixelated; }
 }
 .zoom-btn img { width: 24px; height: 24px; image-rendering: pixelated; }
 .zoom-btn[aria-pressed="true"] { background: var(--gold); }
-.sound-btn { right: 56px; }
+.sound-btn { right: 104px; }
+.map-btn { right: 56px; }
+.realm-card {
+  position: absolute; left: 8px; bottom: 8px; z-index: 3; width: min(280px, calc(100% - 16px)); display: grid; gap: 2px; padding: 8px 10px;
+  background: var(--paper); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+}
+.realm-card__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; }
+.realm-card .realm-king__meta { margin: 0; }
+.realm-card__rel { margin: 4px 0 0; font-size: 13px; font-weight: 600; }
+.realm-card__rel--bad { color: var(--danger); }
+.realm-card__rel--good { color: var(--success); }
 .sound-btn[aria-pressed="true"] { background: var(--paper); }
 
 /* Flat paper panel: solid fills, one outline, hard offset shadow. No stretched sprites. */
@@ -139,6 +149,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__doing { margin: 4px 0 0; font-size: 13px; line-height: 20px; font-weight: 500; }
 .npc__doing::before { content: "▸ "; color: var(--ink-muted); }
 .npc__bar { display: none; }
+.realm-card .npc__bar-close { width: 32px; height: 28px; font-size: 18px; }
 .npc__bar-close { width: 40px; height: 36px; border: 2px solid var(--outline); background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; }
 .npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }

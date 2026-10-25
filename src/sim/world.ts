@@ -13,6 +13,7 @@ import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
+import { createRealms, ensureRealms, realmsDay } from './realms';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -68,6 +69,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
     kind,
     boss: newBoss(kind),
   });
+  createRealms(world, rng);
   world.rng = rng.state;
   log(world, 'world', `ยุคที่ ${legacy?.era ?? 1} เริ่มต้น โลกตื่นจากนิทรา`);
   const hero = statueHero(world);
@@ -79,6 +81,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const rng: Rng = { state: world.rng };
   ensureGuild(world);
   ensureDungeons(world);
+  ensureRealms(world, rng);
   applyCommands(world, commands, rng);
 
   world.day++;
@@ -102,6 +105,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   updateGuilds(world, rng);
   updateQuests(world, rng);
   dungeonsDay(world);
+  realmsDay(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;

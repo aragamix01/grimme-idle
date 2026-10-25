@@ -188,7 +188,7 @@ export class WorldScene extends Phaser.Scene {
   // Client-space position of an NPC's head, for DOM overlays such as speech bubbles.
   npcScreenPos(id: number): { x: number; y: number } | null {
     const s = this.npcSprites.get(id);
-    if (!s || !s.visible) return null;
+    if (!s || !s.visible || this.sys.isSleeping()) return null;
     const rect = this.game.canvas.getBoundingClientRect();
     if (!rect.width) return null; // not laid out yet
     const cam = this.cameras.main;

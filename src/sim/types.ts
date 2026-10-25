@@ -178,6 +178,23 @@ export interface DemonLord {
   hero?: HeroQuest;
 }
 
+export type Terrain = 'mountain' | 'coast' | 'desert' | 'forest';
+
+// A neighbouring kingdom on the world map, simulated in broad strokes.
+export interface Realm {
+  id: number;
+  name: string;
+  terrain: Terrain;
+  color: string; // palette char for its banner
+  x: number; // tile on the world map
+  y: number;
+  ruler: { name: string; age: number; traits: Trait[] };
+  gold: number;
+  army: number;
+  people: number;
+  relation: number; // -100 (enemy) .. 100 (ally), how they feel about us
+}
+
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
 export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse';
 
@@ -261,7 +278,8 @@ export interface WorldState {
   slayers?: string[]; // heroes who slew a demon lord this era
   weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
-  legacy?: Legacy; // missing in the first era of old saves
+  legacy?: Legacy;
+  realms?: Realm[]; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
