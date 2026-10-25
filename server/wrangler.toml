@@ -1,0 +1,12 @@
+# Shared-world backend (phase 2). One Durable Object instance = one world.
+name = "world-sim-server"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[durable_objects.bindings]]
+name = "WORLD"
+class_name = "World"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["World"]

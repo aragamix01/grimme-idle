@@ -1,0 +1,342 @@
+{
+  "swordsman": {
+    "file": "assets/sprites/characters/swordsman.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "mage": {
+    "file": "assets/sprites/characters/mage.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "merchant": {
+    "file": "assets/sprites/characters/merchant.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "farmer": {
+    "file": "assets/sprites/characters/farmer.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "thief": {
+    "file": "assets/sprites/characters/thief.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "priest": {
+    "file": "assets/sprites/characters/priest.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "king": {
+    "file": "assets/sprites/characters/king.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "hero": {
+    "file": "assets/sprites/characters/hero.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "goblin": {
+    "file": "assets/sprites/monsters/goblin.png",
+    "group": "monsters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "skeleton": {
+    "file": "assets/sprites/monsters/skeleton.png",
+    "group": "monsters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 2
+  },
+  "slime": {
+    "file": "assets/sprites/monsters/slime.png",
+    "group": "monsters",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "bat": {
+    "file": "assets/sprites/monsters/bat.png",
+    "group": "monsters",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "wolf": {
+    "file": "assets/sprites/monsters/wolf.png",
+    "group": "monsters",
+    "frameWidth": 24,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "demon-lord": {
+    "file": "assets/sprites/monsters/demon-lord.png",
+    "group": "monsters",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 2
+  },
+  "grass": {
+    "file": "assets/sprites/tiles/grass.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 3
+  },
+  "path": {
+    "file": "assets/sprites/tiles/path.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "water": {
+    "file": "assets/sprites/tiles/water.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "flowers": {
+    "file": "assets/sprites/tiles/flowers.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "stone-wall": {
+    "file": "assets/sprites/tiles/stone-wall.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "tree": {
+    "file": "assets/sprites/props/tree.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "bush": {
+    "file": "assets/sprites/props/bush.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "fence": {
+    "file": "assets/sprites/props/fence.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "rock": {
+    "file": "assets/sprites/props/rock.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "house": {
+    "file": "assets/sprites/buildings/house.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "shop": {
+    "file": "assets/sprites/buildings/shop.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "inn": {
+    "file": "assets/sprites/buildings/inn.png",
+    "group": "buildings",
+    "frameWidth": 40,
+    "frameHeight": 36,
+    "frames": 1
+  },
+  "guild": {
+    "file": "assets/sprites/buildings/guild.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "church": {
+    "file": "assets/sprites/buildings/church.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 48,
+    "frames": 1
+  },
+  "castle": {
+    "file": "assets/sprites/buildings/castle.png",
+    "group": "buildings",
+    "frameWidth": 64,
+    "frameHeight": 56,
+    "frames": 1
+  },
+  "dungeon": {
+    "file": "assets/sprites/buildings/dungeon.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "gold": {
+    "file": "assets/sprites/icons/gold.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "faith": {
+    "file": "assets/sprites/icons/faith.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "bless": {
+    "file": "assets/sprites/icons/bless.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "curse": {
+    "file": "assets/sprites/icons/curse.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "dream": {
+    "file": "assets/sprites/icons/dream.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "sword": {
+    "file": "assets/sprites/icons/sword.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "staff": {
+    "file": "assets/sprites/icons/staff.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "heart": {
+    "file": "assets/sprites/icons/heart.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "skull": {
+    "file": "assets/sprites/icons/skull.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "quest": {
+    "file": "assets/sprites/icons/quest.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "crown": {
+    "file": "assets/sprites/icons/crown.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "panel-wood": {
+    "file": "assets/sprites/ui/panel-wood.png",
+    "group": "ui",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "slice": 8
+  },
+  "panel-paper": {
+    "file": "assets/sprites/ui/panel-paper.png",
+    "group": "ui",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frames": 1,
+    "slice": 6
+  },
+  "button": {
+    "file": "assets/sprites/ui/button.png",
+    "group": "ui",
+    "frameWidth": 24,
+    "frameHeight": 16,
+    "frames": 2,
+    "slice": 6
+  },
+  "bubble": {
+    "file": "assets/sprites/ui/bubble.png",
+    "group": "ui",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1,
+    "slice": 4
+  },
+  "bubble-tail": {
+    "file": "assets/sprites/ui/bubble-tail.png",
+    "group": "ui",
+    "frameWidth": 7,
+    "frameHeight": 4,
+    "frames": 1
+  },
+  "sparkle": {
+    "file": "assets/sprites/ui/sparkle.png",
+    "group": "ui",
+    "frameWidth": 11,
+    "frameHeight": 11,
+    "frames": 4
+  },
+  "logo": {
+    "file": "assets/sprites/logo/logo.png",
+    "group": "logo",
+    "frameWidth": 134,
+    "frameHeight": 58,
+    "frames": 1
+  }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grimm Idle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="game"></div>
+      <aside id="side">
+        <header class="side-head">
+          <img id="logo" src="/assets/sprites/logo/logo.png" alt="Grimm Idle" />
+          <dl class="stats">
+            <div class="stat"><dt>ปีที่</dt><dd id="stat-year">1</dd></div>
+            <div class="stat"><dt>วันที่</dt><dd id="stat-day">1</dd></div>
+            <div class="stat stat--faith">
+              <dt><img src="/assets/sprites/icons/faith.png" alt="" width="16" height="16" />ศรัทธา</dt>
+              <dd id="stat-faith">0</dd>
+            </div>
+          </dl>
+        </header>
+        <section class="log" aria-labelledby="log-title">
+          <div class="log-head">
+            <h2 id="log-title">พงศาวดาร</h2>
+            <span id="log-count"></span>
+          </div>
+          <ol id="feed"></ol>
+        </section>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

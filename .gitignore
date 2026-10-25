@@ -1,0 +1,7 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+design/assets
+design/contact-sheet.png
+design/design-system/project
