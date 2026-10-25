@@ -170,6 +170,7 @@ function header(npc: Npc, doing: string, day: number, guild?: { name: string; le
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: npc.blessUntil ? `ได้รับพร (${Math.max(0, npc.blessUntil - day)} วัน)` : 'ได้รับพร' })] : []),
     ...(npc.alive && (npc.cursedUntil ?? 0) > day ? [el('span', { className: 'chip chip--curse', textContent: `ต้องสาป (${npc.cursedUntil! - day} วัน)` })] : []),
+    ...(npc.relic ? [el('span', { className: 'chip chip--gold', textContent: npc.relic })] : []),
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),

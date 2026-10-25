@@ -5,6 +5,7 @@
 import { chance, int, type Rng } from './rng';
 import { cursed, log, perkLevel } from './core';
 import { weatherYield } from './divine';
+import { RELIC_POWER } from './dungeons';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
@@ -128,7 +129,7 @@ export function buyGear(world: WorldState, npc: Npc): void {
 
 export const gearPower = (npc: Npc) => (npc.gear ?? 0) * GEAR_POWER;
 // Fighting strength: levels, gear, and the god's favour or wrath.
-export const might = (world: WorldState, n: Npc) => 10 + n.level * 4 + (n.blessed ? 10 : 0) - (cursed(world, n) ? 10 : 0) + gearPower(n);
+export const might = (world: WorldState, n: Npc) => 10 + n.level * 4 + (n.blessed ? 10 : 0) - (cursed(world, n) ? 10 : 0) + gearPower(n) + (n.relic ? RELIC_POWER : 0);
 
 // Dents and broken blades: a lost fight may cost a gear level.
 export function wearGear(npc: Npc, rng: Rng): void {

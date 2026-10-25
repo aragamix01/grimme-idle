@@ -296,6 +296,9 @@ button.chip--cult:hover { background: #7a3a8a; }
 .realm-demon__head { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; }
 .realm-demon__name { margin: 0; font-size: 15px; font-weight: 600; color: #a8322a; }
 .demon-portrait { width: 48px; height: 48px; border: 2px solid var(--outline); background: #463c56 0 0 / 96px 48px no-repeat; image-rendering: pixelated; box-sizing: content-box; }
+.lair { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; padding: 8px 6px; border-bottom: 2px solid var(--paper-edge); }
+.lair__art { width: 72px; height: 48px; image-rendering: pixelated; }
+.lair .realm-meter { grid-template-columns: auto 1fr 28px; }
 .realm-hero { display: grid; grid-template-columns: 32px 1fr; gap: 8px; align-items: center; padding: 6px; background: #fff4d6; border: 2px solid var(--paper-edge); }
 .realm-hero .npc__portrait { width: 32px; height: 48px; background-size: 192px 48px; }
 

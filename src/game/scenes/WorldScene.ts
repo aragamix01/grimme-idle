@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, statueHero, weatherOf, type Npc, type WorldState } from '../../sim';
+import { ADULT_AGE, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
 import { FIELDS, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -43,6 +43,13 @@ WINDOWS.forge = [[6, 25, 5, 4]];
 WINDOWS['house-red'] = WINDOWS['house-blue'] = WINDOWS.house;
 
 const STAMPEDE_MONSTERS = ['slime', 'goblin', 'skeleton', 'wolf', 'bat', 'goblin', 'slime', 'wolf', 'skeleton', 'bat'];
+// Each kind of dungeon: its sprite, the two residents loitering at its door, and what pours out in a stampede.
+const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; horde: string[] }> = {
+  cave: { sprite: 'dungeon', residents: ['slime', 'bat'], horde: ['slime', 'bat', 'slime', 'slime', 'bat', 'slime', 'bat', 'slime', 'slime', 'bat'] },
+  den: { sprite: 'dungeon-den', residents: ['wolf', 'bat'], horde: ['wolf', 'wolf', 'bat', 'wolf', 'wolf', 'wolf', 'bat', 'wolf', 'wolf', 'wolf'] },
+  fort: { sprite: 'dungeon-fort', residents: ['goblin', 'goblin'], horde: ['goblin', 'goblin', 'goblin', 'wolf', 'goblin', 'goblin', 'goblin', 'wolf', 'goblin', 'goblin'] },
+  crypt: { sprite: 'dungeon-crypt', residents: ['skeleton', 'bat'], horde: ['skeleton', 'bat', 'skeleton', 'skeleton', 'bat', 'skeleton', 'skeleton', 'bat', 'skeleton', 'skeleton'] },
+};
 
 export class WorldScene extends Phaser.Scene {
   private world: WorldState | null = null;
@@ -52,6 +59,8 @@ export class WorldScene extends Phaser.Scene {
   private selectRing!: Phaser.GameObjects.Graphics;
   private selectedId: number | null = null;
   private townBuilt = false;
+  private townKey = ''; // dungeons and their living bosses: the town is rebuilt when this changes
+  private townObjs: Phaser.GameObjects.GameObject[] = [];
   private lastKey = '';
   tickMs = 500;
   onSelect: (id: number | null) => void = () => {};
@@ -201,7 +210,16 @@ export class WorldScene extends Phaser.Scene {
     const key = w ? `${w.day}:${w.chronicleSeq}` : '';
     if (!w || key === this.lastKey) return;
     this.lastKey = key;
-    if (!this.townBuilt) this.buildTown(w);
+    const townKey = w.dungeons.map((d) => `${d.id}:${d.boss && d.boss.slainDay === undefined ? 1 : 0}`).join(',');
+    if (!this.townBuilt || townKey !== this.townKey) {
+      // A dungeon found or a boss fallen: clear the old town and lay it out again.
+      for (const o of this.townObjs) o.destroy();
+      this.glow.clear();
+      this.townKey = townKey;
+      const before = new Set(this.children.list);
+      this.buildTown(w);
+      this.townObjs = this.children.list.filter((o) => !before.has(o));
+    }
     this.syncKeep(w);
     this.syncWeather(w);
     this.watchChronicle(w);
@@ -280,11 +298,18 @@ export class WorldScene extends Phaser.Scene {
       st.setDepth(st.y);
     }
     for (const d of w.dungeons) {
-      const img = this.add.image(d.x * TILE + TILE, (d.y + 2) * TILE, 'dungeon').setOrigin(0.5, 1);
+      const lair = LAIRS[d.kind ?? 'cave'];
+      const img = this.add.image(d.x * TILE + TILE, (d.y + 2) * TILE, lair.sprite).setOrigin(0.5, 1);
       img.setDepth(img.y);
       // A couple of residents loiter at the entrance.
-      this.add.sprite(img.x - 28, img.y + 8, 'slime').setOrigin(0.5, 1).setDepth(img.y + 8).play('slime-walk');
-      this.add.sprite(img.x + 24, img.y - 30, 'bat').setOrigin(0.5, 1).setDepth(img.y + 40).play('bat-walk');
+      const [a, b] = lair.residents;
+      this.add.sprite(img.x - 28, img.y + 8, a).setOrigin(0.5, 1).setDepth(img.y + 8).play(`${a}-walk`);
+      this.add.sprite(img.x + 24, img.y - (b === 'bat' ? 30 : -6), b).setOrigin(0.5, 1).setDepth(img.y + 40).play(`${b}-walk`);
+      // The boss sits by its door while it lives.
+      if (d.boss && d.boss.slainDay === undefined) {
+        const boss = `boss-${d.kind ?? 'cave'}`;
+        this.add.sprite(img.x + 30, img.y + 4, boss).setOrigin(0.5, 1).setDepth(img.y + 4).play(`${boss}-walk`);
+      }
     }
     this.townBuilt = true;
   }
@@ -341,7 +366,8 @@ export class WorldScene extends Phaser.Scene {
     const rng = createRng(w.day);
     const door = dungeonDoor(d);
     // The demon lord's own host comes led by the lord himself.
-    const monsters = host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : STAMPEDE_MONSTERS;
+    const horde = LAIRS[d.kind ?? 'cave'].horde;
+    const monsters = host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : horde;
     monsters.forEach((key, i) => {
       const pos = { ...door };
       const goal = snap(w, { x: 3 + ((i * 7) % 22), y: 3 + ((i * 5) % 13) });

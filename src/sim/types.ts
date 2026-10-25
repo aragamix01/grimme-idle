@@ -47,6 +47,7 @@ export interface Npc {
   trip?: number; // merchants: days left on the road with a caravan
   blessUntil?: number; // day the blessing fades (heroes keep theirs)
   cursedUntil?: number; // day the curse lifts
+  relic?: string; // taken from a slain dungeon boss; adds strength
   hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
 }
 
@@ -63,12 +64,27 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
+export type DungeonKind = 'cave' | 'den' | 'fort' | 'crypt';
+
+export interface Boss {
+  name: string;
+  hp: number;
+  maxHp: number;
+  relic: string; // what the one who strikes it down carries home
+  slainDay?: number;
+  generation?: number;
+}
+
 export interface Dungeon {
   id: number;
   name: string;
   x: number;
   y: number;
   power: number; // grows when ignored; stampede past threshold
+  kind?: DungeonKind; // missing in old saves: a cave
+  boss?: Boss;
+  calmUntil?: number; // quiet after its boss falls
+  found?: number; // day an adventurer discovered it
 }
 
 export type QuestKind = 'hunt' | 'explore' | 'escort' | 'pest' | 'bounty';
@@ -96,6 +112,7 @@ export interface Quest {
   patronGuildId?: number; // a guild funding its own expedition
   crown?: boolean; // the town treasury
   divine?: boolean; // the player's god; pays double renown
+  boss?: boolean; // a hunt for the dungeon's boss itself
   guildId?: number; // claimed by a guild: only its members (and their friends) may join
 }
 

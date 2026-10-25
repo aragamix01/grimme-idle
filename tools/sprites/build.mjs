@@ -10,13 +10,14 @@ import { monsters } from './monsters.mjs';
 import { buildings, tiles } from './world.mjs';
 import { icons, uiParts } from './ui.mjs';
 import { vehicles } from './vehicles.mjs';
+import { bosses, dungeonKinds } from './dungeons.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const gameDir = join(root, 'public', 'assets', 'sprites');
 const designDir = join(root, 'design', 'assets');
 const DESIGN_SCALE = 4;
 
-const assets = [...characters(), ...bodyMonsters(), ...monsters(), ...vehicles(), ...tiles(), ...buildings(), ...icons(), ...uiParts()];
+const assets = [...characters(), ...bodyMonsters(), ...monsters(), ...bosses(), ...vehicles(), ...tiles(), ...buildings(), ...dungeonKinds(), ...icons(), ...uiParts()];
 
 rmSync(gameDir, { recursive: true, force: true });
 rmSync(designDir, { recursive: true, force: true });

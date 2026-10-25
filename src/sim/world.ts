@@ -13,6 +13,7 @@ import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
+import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
@@ -56,12 +57,16 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
   };
   world.faith += perkLevel(world, 'faith') * 25;
   for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
+  // The first dungeon is always a gentle one: a cave or a wolf den.
+  const kind = pick(rng, ['cave', 'den'] as const);
   world.dungeons.push({
     id: world.nextId++,
-    name: pick(rng, DUNGEON_NAMES),
+    name: pick(rng, kind === 'cave' ? DUNGEON_NAMES : DUNGEON_KINDS.den.names),
     x: int(rng, 30, 37),
     y: int(rng, 3, 20),
     power: 10,
+    kind,
+    boss: newBoss(kind),
   });
   world.rng = rng.state;
   log(world, 'world', `ยุคที่ ${legacy?.era ?? 1} เริ่มต้น โลกตื่นจากนิทรา`);
@@ -73,6 +78,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
 export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const rng: Rng = { state: world.rng };
   ensureGuild(world);
+  ensureDungeons(world);
   applyCommands(world, commands, rng);
 
   world.day++;
@@ -95,8 +101,10 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   leisure(world, rng);
   updateGuilds(world, rng);
   updateQuests(world, rng);
+  dungeonsDay(world);
+  healBosses(world);
   for (const d of world.dungeons) {
-    d.power += 0.2;
+    if (!calm(world, d)) d.power += 0.2;
     if (d.power >= STAMPEDE_POWER) {
       log(world, 'disaster', `มอนสเตอร์ล้นออกจาก ${d.name}!`);
       d.power = 30;
@@ -106,7 +114,8 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
       if (soldiers.length) log(world, 'battle', `ทหาร ${soldiers.length} นายออกรบปกป้องเมืองจากฝูงมอนสเตอร์`);
       for (const npc of world.npcs) {
         if (!npc.alive || isChild(npc)) continue;
-        const risk = npc.job === 'soldier' ? 0.1 / (1 + (npc.gear ?? 0)) : (isAdventurer(npc) ? 0.08 : 0.04) * (1 - shield);
+        // Deadlier kinds of dungeon spill deadlier monsters.
+        const risk = tierOf(d) * (npc.job === 'soldier' ? 0.1 / (1 + (npc.gear ?? 0)) : (isAdventurer(npc) ? 0.08 : 0.04) * (1 - shield));
         if (chance(rng, risk)) kill(world, npc, npc.job === 'soldier' ? 'สละชีพปกป้องเมืองจากมอนสเตอร์' : 'ถูกมอนสเตอร์ล้มลง');
       }
       afterStampede(world, shield);
@@ -329,9 +338,10 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
   npc.inside = undefined;
   // Strength grows slower than levels and the dungeon always fights back, so nobody snowballs.
   const strength = might(world, npc);
-  if (chance(rng, strength / (strength + d.power * 0.5 + 10))) {
-    npc.gold += int(rng, 5, 20);
-    sell(world, npc, 'loot', lootFound(rng), rng); // fangs, hides and crystals for the shop
+  if (chance(rng, strength / (strength + (d.power * 0.5 + 10) * tierOf(d)))) {
+    npc.gold += Math.round(int(rng, 5, 20) * tierOf(d));
+    sell(world, npc, 'loot', Math.round(lootFound(rng) * tierOf(d)), rng);
+    maybeDiscover(world, npc, rng); // fangs, hides and crystals for the shop
     d.power = Math.max(10, d.power - 5);
     // Each level is harder to earn than the last; only level-ups make the chronicle.
     if (chance(rng, 2 / (npc.level + 1))) {

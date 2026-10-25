@@ -146,6 +146,34 @@
     "frameHeight": 32,
     "frames": 2
   },
+  "boss-cave": {
+    "file": "assets/sprites/monsters/boss-cave.png",
+    "group": "monsters",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 2
+  },
+  "boss-den": {
+    "file": "assets/sprites/monsters/boss-den.png",
+    "group": "monsters",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 2
+  },
+  "boss-fort": {
+    "file": "assets/sprites/monsters/boss-fort.png",
+    "group": "monsters",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 2
+  },
+  "boss-crypt": {
+    "file": "assets/sprites/monsters/boss-crypt.png",
+    "group": "monsters",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 2
+  },
   "caravan": {
     "file": "assets/sprites/vehicles/caravan.png",
     "group": "vehicles",
@@ -347,6 +375,27 @@
     "group": "buildings",
     "frameWidth": 20,
     "frameHeight": 36,
+    "frames": 1
+  },
+  "dungeon-den": {
+    "file": "assets/sprites/buildings/dungeon-den.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "dungeon-fort": {
+    "file": "assets/sprites/buildings/dungeon-fort.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "dungeon-crypt": {
+    "file": "assets/sprites/buildings/dungeon-crypt.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
     "frames": 1
   },
   "sound": {

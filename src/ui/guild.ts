@@ -1,4 +1,4 @@
-import { costOf, JOB_TH, RANKS, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { DUNGEON_KINDS, costOf, JOB_TH, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -29,6 +29,8 @@ export function renderGuild(world: WorldState): void {
     Math.floor(world.faith),
     adventurers.map((a) => [a.id, a.rank, a.renown, a.guildId]),
     world.guilds.map((g) => [g, members(g).length]),
+    world.dungeons.map((d) => [d.id, Math.floor(d.power / 5), d.boss?.hp, d.boss?.slainDay, d.calmUntil]),
+    Math.floor(world.day / 10),
   ]);
   if (key === lastKey) return;
   lastKey = key;
@@ -39,6 +41,7 @@ export function renderGuild(world: WorldState): void {
 
   view.replaceChildren(
     divineBar(world),
+    section('ดันเจี้ยน', world.dungeons.map((d) => dungeonCard(world, d))),
     section('เควสบนกระดาน', active.length ? active.map((q) => questCard(world, q, byId)) : [empty('ยังไม่มีใครประกาศจ้าง')]),
     section(
       'กิลด์ในเมือง',
@@ -68,6 +71,34 @@ function divineBar(world: WorldState): HTMLElement {
   );
   btn.onclick = () => handlers.onDivineQuest();
   return el('div', { className: 'divine-bar' }, btn, el('p', { textContent: 'เควสปราบดันเจี้ยนที่อันตรายที่สุด จ่ายรางวัลและชื่อเสียงสองเท่า' }));
+}
+
+// One dungeon: its kind and danger, how close it is to spilling over, and its boss.
+function dungeonCard(world: WorldState, d: Dungeon): HTMLElement {
+  const kind = DUNGEON_KINDS[d.kind ?? 'cave'];
+  const art = el('img', { src: `/assets/sprites/buildings/${d.kind && d.kind !== 'cave' ? `dungeon-${d.kind}` : 'dungeon'}.png`, alt: '', className: 'lair__art' });
+  const fill = el('span', { className: `realm-meter__fill realm-meter__fill--${d.power >= 70 ? 'weak' : 'strong'}` });
+  fill.style.width = `${Math.min(100, d.power)}%`;
+  const b = d.boss;
+  const calmLeft = (d.calmUntil ?? 0) - world.day;
+  const bossLine = !b
+    ? ''
+    : b.slainDay !== undefined
+      ? `บอส${b.name}ถูกปราบแล้ว${calmLeft > 0 ? ` · สงบอีก ${calmLeft} วัน` : ' · บางสิ่งกำลังจะขึ้นมาแทน'}`
+      : `บอส ${b.name} · พลังชีวิต ${b.hp}/${b.maxHp}`;
+  return el(
+    'li',
+    { className: 'lair' },
+    art,
+    el(
+      'div',
+      { className: 'realm-king__body' },
+      el('b', { textContent: d.name }),
+      el('p', { className: 'realm-king__meta', textContent: `${kind.th} · ความอันตราย ${'★'.repeat(Math.round(kind.tier * 1.5))}` }),
+      el('div', { className: 'realm-meter' }, el('span', { className: 'realm-meter__label', textContent: 'มอนสเตอร์สะสม' }), el('span', { className: 'realm-meter__track' }, fill), el('b', { textContent: String(Math.round(d.power)) })),
+      el('p', { className: 'realm-king__meta', textContent: bossLine }),
+    ),
+  );
 }
 
 function section(title: string, rows: HTMLElement[]): HTMLElement {

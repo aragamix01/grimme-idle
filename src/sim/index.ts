@@ -10,5 +10,6 @@ export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
 export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, statueHero } from './era';
 export { cursed, perkLevel } from './core';
+export { DUNGEON_KINDS } from './dungeons';
 export { BLESS_DAYS, MIRACLES, MIRACLE_ORDER, miracleCost, miracleReady, miracleWait, weatherOf } from './divine';
 export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';
