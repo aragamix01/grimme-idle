@@ -8,11 +8,11 @@ import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
-import { arrivalJob, buyGear, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
+import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
-import type { Command, Dungeon, Npc, Plan, Trait, WorldState } from './types';
+import { AWAY, type Command, type Dungeon, type Npc, type Plan, type Trait, type WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
@@ -165,6 +165,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
 function live(world: WorldState, npc: Npc, rng: Rng): void {
   if (isChild(npc)) return childDay(world, npc, rng);
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
+  if (npc.inside === AWAY && npc.trip !== undefined) return caravanDay(world, npc, rng);
   if (npc.inside !== undefined) return delve(world, npc, rng);
   npc.plan ??= choosePlan(world, npc, rng);
   const p = npc.plan;
@@ -265,6 +266,9 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
     case 'ritual':
       performRitual(world, npc);
       npc.plan = undefined;
+      return;
+    case 'caravan':
+      departCaravan(npc);
       return;
     case 'work':
       if (npc.job === 'farmer') {

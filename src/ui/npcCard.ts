@@ -67,6 +67,7 @@ function activity(world: WorldState, npc: Npc): string {
     if (quest.stage === 'travelling') return `เดินทางไปทำเควส: ${quest.title}`;
     return `กำลังทำเควส: ${quest.title}`;
   }
+  if (npc.inside !== undefined && npc.trip !== undefined) return `เดินทางกับกองคาราวาน อีกราว ${npc.trip} วันจะกลับ`;
   if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
   const p = npc.plan;
   switch (p?.kind) {
@@ -86,6 +87,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'ไปซื้ออาวุธที่ร้านค้า';
     case 'ritual':
       return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
+    case 'caravan':
+      return 'นำกองคาราวานไปที่ประตูเมืองฝั่งตะวันตก';
     default:
       return 'พักผ่อนอยู่ในเมือง';
   }

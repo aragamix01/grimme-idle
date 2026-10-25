@@ -73,7 +73,9 @@ export const patrolPost = (rng: Rng) => pick(rng, POSTS);
 export function inheritedJob(world: WorldState, parents: Npc[], rng: Rng): Job {
   if (parents.some(isGentry) && living(world, 'noble').length < MAX_NOBLES) return 'noble';
   const trade = parents.filter((p) => !isGentry(p));
-  return trade.length && chance(rng, 0.6) ? pick(rng, trade).job : pickJob(rng, world);
+  // Children take after a parent's trade, though few follow a mother into the pleasure house.
+  const followable = trade.filter((p) => p.job !== 'courtesan');
+  return followable.length && chance(rng, 0.6) ? pick(rng, followable).job : pickJob(rng, world);
 }
 
 // Keep a king on the throne and enough nobles at court. Runs every day (a dead king is
@@ -122,13 +124,16 @@ export function enthrone(world: WorldState, n: Npc, how: string): void {
   log(world, 'politics', `${n.name} ขึ้นครองบัลลังก์เป็นกษัตริย์ (${how})`, n.id);
 }
 
-// A town with no smith, inn, priest or pleasure house is an opening: a farmer or merchant
-// takes up the missing trade.
-const ESSENTIAL: Job[] = ['blacksmith', 'innkeeper', 'priest', 'courtesan'];
+// A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
+// takes it up. The shop needs at least two hands to keep the stall and run the caravans.
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1]];
 function fillTrades(world: WorldState, rng: Rng): void {
-  for (const job of ESSENTIAL) {
-    if (living(world, job).length) continue;
-    const pool = world.npcs.filter((n) => n.alive && n.age >= 16 && (n.job === 'farmer' || n.job === 'merchant') && n.questId === undefined);
+  for (const [job, need] of ESSENTIAL) {
+    if (living(world, job).length >= need) continue;
+    const merchants = living(world, 'merchant').length;
+    const pool = world.npcs.filter(
+      (n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined && (n.job === 'farmer' || (n.job === 'merchant' && job !== 'merchant' && merchants > 2)),
+    );
     if (pool.length < 6) continue;
     const n = pick(rng, pool);
     const was = n.job;
@@ -163,10 +168,12 @@ export function levy(world: WorldState): void {
 // out a bare-handed soldier when it can spare the gold.
 export function payroll(world: WorldState): void {
   if (world.day % PAY_EVERY !== 0) return;
+  // The king lives off the treasury: a share of it, more when it's full.
   const crowned = king(world);
-  if (crowned && world.treasury >= STIPEND) {
-    world.treasury -= STIPEND;
-    crowned.gold += STIPEND;
+  const stipend = Math.min(100, Math.max(STIPEND, Math.floor(world.treasury * 0.01)));
+  if (crowned && world.treasury >= stipend) {
+    world.treasury -= stipend;
+    crowned.gold += stipend;
   }
   for (const n of world.npcs) {
     if (!n.alive || !n.knight || world.treasury < KNIGHT_PAY) continue;
@@ -208,8 +215,10 @@ function recruit(world: WorldState): void {
   const army = living(world, 'soldier').length;
   if (army >= ARMY_TARGET || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
+  // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
+  const spare = (job: Job) => ['farmer', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;
   const r = world.npcs
-    .filter((n) => n.alive && n.age >= 16 && n.age < 45 && !['king', 'noble', 'soldier', 'priest'].includes(n.job) && n.rank === undefined && n.questId === undefined && n.gold < 30)
+    .filter((n) => n.alive && n.age >= 16 && n.age < 45 && spare(n.job) && n.rank === undefined && n.questId === undefined && n.inside === undefined && n.gold < 30)
     .sort((a, b) => keen(b) - keen(a) || a.gold - b.gold)[0];
   if (!r || keen(r) < 0) return;
   const was = r.job;

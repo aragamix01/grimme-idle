@@ -44,12 +44,13 @@ export interface Npc {
   loyalty?: number; // 0..100 to the throne; missing means 50
   knight?: boolean; // sworn to the crown, paid each payday
   cultist?: boolean; // a secret member of the demon cult
+  trip?: number; // merchants: days left on the road with a caravan
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan';
 
 export interface Plan {
   kind: PlanKind;
@@ -116,6 +117,7 @@ export interface Market {
   history: Record<Good, number[]>; // price every few days, oldest first
   alert: Record<Good, -1 | 0 | 1>; // last swing the chronicle reported: glut, normal, dear
   lastImport?: number; // day grain was last shipped in
+  caravan?: { merchantId: number; grain: number; gold: number }; // the trip on the road: grain to bring back, gold from goods sold
 }
 
 export type Tax = 'low' | 'normal' | 'high';

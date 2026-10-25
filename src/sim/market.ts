@@ -5,7 +5,7 @@
 import { chance, int, type Rng } from './rng';
 import { log } from './core';
 import { JOB_TH } from './names';
-import type { Good, Market, Npc, WorldState } from './types';
+import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
 export const GOODS: readonly Good[] = ['grain', 'loot', 'gear'];
 export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
@@ -182,24 +182,70 @@ function tithe(world: WorldState): void {
   world.treasury += collected - share * priests.length;
 }
 
-// Caravans carry surplus off to other towns for cheap, which is the only way new gold
-// reaches the till, and haul grain in at a steep price when the stores run low.
+// A merchant takes a caravan out the west gate to the neighbouring towns: carrying surplus to
+// sell cheap (the only way new gold reaches the till) and, when the stores run low, buying
+// grain at a steep price. No merchant free, no caravan.
+const TRIP_DAYS = 12;
+const BANDITS = 0.05; // chance a caravan is robbed on the road
+export const WEST_GATE = { x: 0, y: 9 };
+
 function caravans(world: WorldState, m: Market): void {
+  if (m.caravan) {
+    const lead = world.npcs.find((n) => n.id === m.caravan!.merchantId);
+    if (lead?.alive && (lead.trip !== undefined || lead.plan?.kind === 'caravan')) return; // one on the road at a time
+    m.caravan = undefined; // its merchant never made it: the goods are lost
+  }
+  const merchant = world.npcs.find((n) => n.alive && n.job === 'merchant' && n.age >= 16 && n.questId === undefined && n.inside === undefined && n.plan?.kind !== 'caravan');
+  if (!merchant) return;
+  let gold = 0;
   for (const g of GOODS) {
     const excess = m.stock[g] - TARGET[g] * EXPORT_AT[g];
     if (excess <= 0) continue;
     const n = Math.ceil(excess * 0.3);
     m.stock[g] -= n;
-    m.till += n * BASE[g] * 0.6;
+    gold += n * BASE[g] * 0.6;
   }
   const n = TARGET.grain * 0.25;
   const cost = n * BASE.grain * 1.5;
-  if (m.stock.grain < TARGET.grain * 0.15 && m.till >= cost && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP) {
+  const buying = m.stock.grain < TARGET.grain * 0.15 && m.till >= cost && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
+  if (!gold && !buying) return;
+  if (buying) {
     m.till -= cost;
-    m.stock.grain += n;
     m.lastImport = world.day;
-    log(world, 'trade', `กองคาราวานขนข้าว ${n} กระสอบเข้าเมืองช่วยยามขาดแคลน`);
   }
+  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold };
+  merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };
+  log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานออกไป${buying ? 'ซื้อข้าว' : 'ขายสินค้าส่วนเกิน'}ที่เมืองข้างเคียง`, merchant.id);
+}
+
+// At the west gate the caravan leaves the map.
+export function departCaravan(npc: Npc): void {
+  npc.inside = AWAY;
+  npc.trip = TRIP_DAYS;
+  npc.plan = undefined;
+}
+
+// Days on the road; on the way home bandits may strike, otherwise the goods come in.
+export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
+  if ((npc.trip = (npc.trip ?? 0) - 1) > 0) return;
+  const m = ensureMarket(world);
+  const c = m.caravan;
+  npc.inside = undefined;
+  npc.trip = undefined;
+  npc.x = WEST_GATE.x;
+  npc.y = WEST_GATE.y;
+  npc.plan = { kind: 'return', x: 3, y: 9, days: 0 }; // up the main road to the shop
+  m.caravan = undefined;
+  if (!c) return;
+  if (chance(rng, BANDITS)) {
+    log(world, 'trade', `กองคาราวานของพ่อค้า${npc.name}ถูกโจรป่าปล้นระหว่างทาง สินค้าหายเกลี้ยง`, npc.id);
+    return;
+  }
+  m.stock.grain += c.grain;
+  const cut = Math.floor(c.gold * 0.15); // the merchant's share for the road
+  m.till += c.gold - cut;
+  npc.gold += cut;
+  if (c.grain) log(world, 'trade', `พ่อค้า${npc.name}กลับเข้าเมืองพร้อมข้าว ${c.grain} กระสอบ`, npc.id);
 }
 
 // Adventurers' guilds spend their treasury kitting out the worst-equipped member.
@@ -250,11 +296,21 @@ function leave(world: WorldState, n: Npc): void {
   log(world, 'world', `${n.name} ทิ้งเมืองไปเพราะความหิวโหย`, n.id);
 }
 
-// When grain is dear the poor take up the plough; when it's dirt cheap farmers try trade.
+// When grain is dear the poor take up the plough; when it's dirt cheap farmers try trade;
+// and someone with nothing left and few scruples turns thief.
 export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   const r = priceRatio(world, 'grain');
   const m = ensureMarket(world);
-  if ((npc.job === 'merchant' || npc.job === 'thief') && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
+  const count = (job: Npc['job']) => world.npcs.filter((n) => n.alive && n.job === job && n.age >= 16).length;
+  const keepTwo = npc.job === 'thief' || count(npc.job) > 2; // a trade keeps its last couple of hands
+  const commoner = ['farmer', 'merchant', 'innkeeper', 'courtesan', 'blacksmith'].includes(npc.job);
+  if (commoner && npc.gold < 5 && npc.morality < 0 && keepTwo && chance(rng, (npc.hunger ?? 0) >= 1 ? 0.08 : 0.03)) {
+    log(world, 'trade', `${npc.name} หมดตัวจนต้องเลิกเป็น${JOB_TH[npc.job]} หันไปเป็นโจร`, npc.id);
+    npc.job = 'thief';
+    npc.guildId = undefined;
+    return true;
+  }
+  if (['merchant', 'thief', 'innkeeper', 'courtesan'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
     log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพง`, npc.id);
     npc.job = 'farmer';
     return true;

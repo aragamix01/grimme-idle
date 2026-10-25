@@ -154,7 +154,12 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
     case 'farmer':
       return [`ทำนาอยู่ตอนนี้ ${working} คน`, ...(m ? [`ข้าวในคลัง ${Math.floor(m.stock.grain)} กระสอบ · ราคา ${m.price.grain} ทอง`] : [])];
     case 'merchant':
-      return [`เฝ้าร้านอยู่ ${working} คน`, ...(m ? [`เงินในร้าน ${Math.floor(m.till)} ทอง`] : []), `อยู่สมาคมการค้า ${members.filter((n) => n.guildId !== undefined).length} คน`];
+      return [
+        `เฝ้าร้านอยู่ ${working} คน`,
+        members.some((n) => n.trip !== undefined) ? 'มีกองคาราวานกำลังเดินทาง' : 'ไม่มีกองคาราวานออกเดินทาง',
+        ...(m ? [`เงินในร้าน ${Math.floor(m.till)} ทอง`] : []),
+        `อยู่สมาคมการค้า ${members.filter((n) => n.guildId !== undefined).length} คน`,
+      ];
     case 'blacksmith':
       return [`ตีเหล็กอยู่ ${working} คน`, ...(m ? [`ของจากดันเจี้ยน ${m.stock.loot} · อาวุธในร้าน ${m.stock.gear} ชุด (${m.price.gear} ทอง)`] : [])];
     case 'innkeeper':
