@@ -7,11 +7,15 @@ const faith = document.getElementById('stat-faith')!;
 const feed = document.getElementById('feed')!;
 let lastKey = '';
 
-// npcId narrows the chronicle to one life; null shows the whole world.
-export function renderFeed(world: WorldState, npcId: number | null): void {
+// The header counters, kept current whichever tab is open.
+export function renderStats(world: WorldState): void {
   year.textContent = String(Math.floor(world.day / 365) + 1);
   day.textContent = String((world.day % 365) + 1);
   faith.textContent = world.faith.toFixed(1);
+}
+
+// npcId narrows the chronicle to one life; null shows the whole world.
+export function renderFeed(world: WorldState, npcId: number | null): void {
   const key = `${world.chronicleSeq}:${npcId}`;
   if (key === lastKey) return;
   lastKey = key;

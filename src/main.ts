@@ -2,7 +2,7 @@ import * as Phaser from 'phaser';
 import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { initBubbles, pushBubbles } from './ui/bubbles';
-import { renderFeed } from './ui/feed';
+import { renderFeed, renderStats } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
@@ -37,6 +37,7 @@ let tab: Tab = 'log';
 
 function render(): void {
   if (!world) return;
+  renderStats(world);
   renderNpcCard(world, selected);
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
