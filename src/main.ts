@@ -14,6 +14,7 @@ import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
+import { containScroll } from './ui/contain';
 import type { FromWorker, ToWorker } from './worker/protocol';
 
 const TICK_MS = 600; // one in-game day at 1x
@@ -134,6 +135,8 @@ initEra({
 });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
+// Sheets and dialogs keep a finger's scroll to themselves.
+for (const id of ['npc-card', 'realm-card', 'miracles', 'eras', 'offline']) containScroll(document.getElementById(id)!);
 let onMap = false; // the world map is up in the town's place
 initBubbles((id) => (onMap ? null : scene.npcScreenPos(id)));
 const zoom = document.getElementById('zoom')!;

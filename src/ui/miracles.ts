@@ -7,16 +7,19 @@ const body = document.getElementById('miracles-body')!;
 
 let onMiracle: (kind: MiracleKind) => void;
 let lastKey = '';
+let last: WorldState | null = null; // so the dialog fills at once, even with time stopped
 
 export function initMiracles(handler: (kind: MiracleKind) => void): void {
   onMiracle = handler;
   open.onclick = () => {
     lastKey = '';
     dialog.showModal();
+    if (last) renderMiracles(last);
   };
 }
 
 export function renderMiracles(world: WorldState): void {
+  last = world;
   if (!dialog.open) return;
   const weather = weatherOf(world);
   const key = JSON.stringify([Math.floor(world.faith), weather, world.weather?.until, world.miracleAt, !!world.cult, world.legacy?.perks.grace]);

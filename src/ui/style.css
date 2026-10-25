@@ -368,6 +368,8 @@ button.chip--cult:hover { background: #7a3a8a; }
   width: min(420px, calc(100vw - 32px)); padding: 18px 20px; color: var(--ink);
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
 }
+/* With a dialog open the page beneath stays still. */
+html:has(dialog[open]) { overflow: hidden; }
 #offline::backdrop, #eras::backdrop, #miracles::backdrop { background: rgb(20 40 16 / 0.6); }
 #miracles {
   width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 18px 20px; color: var(--ink);

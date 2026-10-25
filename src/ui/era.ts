@@ -12,6 +12,7 @@ interface Handlers {
 let handlers: Handlers;
 let lastKey = '';
 let confirming = false;
+let last: WorldState | null = null; // so the dialog fills at once, even with time stopped
 
 export function initEra(h: Handlers): void {
   handlers = h;
@@ -19,11 +20,13 @@ export function initEra(h: Handlers): void {
     confirming = false;
     lastKey = '';
     dialog.showModal();
+    if (last) renderEra(last);
   };
   dialog.addEventListener('close', () => (confirming = false));
 }
 
 export function renderEra(world: WorldState): void {
+  last = world;
   const ready = canEndEra(world);
   open.replaceChildren(icon('star', 16), `ยุคที่ ${eraOf(world)}`, el('b', { textContent: String(starsOf(world)) }));
   open.classList.toggle('era-open--ready', ready);

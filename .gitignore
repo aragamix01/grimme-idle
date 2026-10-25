@@ -5,3 +5,5 @@ dist
 design/assets
 design/contact-sheet.png
 design/design-system/project
+test-results
+playwright-report
