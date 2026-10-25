@@ -33,7 +33,7 @@ img, canvas { image-rendering: pixelated; }
 .sound-btn { right: 104px; }
 .map-btn { right: 56px; }
 .realm-card {
-  position: absolute; left: 8px; bottom: 8px; z-index: 3; width: min(280px, calc(100% - 16px)); display: grid; gap: 2px; padding: 8px 10px;
+  position: absolute; left: 8px; bottom: 8px; z-index: 5; width: min(280px, calc(100% - 16px)); display: grid; gap: 2px; padding: 8px 10px;
   background: var(--paper); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
 }
 .realm-card__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; }
@@ -442,6 +442,14 @@ button.chip--cult:hover { background: #7a3a8a; }
     background: var(--paper-raised); border-bottom: 2px solid var(--paper-edge); font-size: 15px;
   }
   .npc__head .npc__close { display: none; }
+  /* A neighbour's card opens as a sheet too, so it covers neither the map nor its buttons. */
+  .realm-card { position: fixed; left: 8px; right: 8px; bottom: 8px; width: auto; z-index: 10; max-height: 48vh; overflow-y: auto; border-width: 3px; padding: 10px 12px; }
+  .realm-card .npc__bar-close { width: 40px; height: 36px; font-size: 22px; }
+  .zoom-btn { width: 34px; height: 34px; top: 6px; }
+  .zoom-btn img { width: 20px; height: 20px; }
+  .zoom-btn:not(.sound-btn):not(.map-btn) { right: 6px; }
+  .map-btn { right: 46px; }
+  .sound-btn { right: 86px; }
 }
 
 /* Fingers need bigger targets than a mouse. */

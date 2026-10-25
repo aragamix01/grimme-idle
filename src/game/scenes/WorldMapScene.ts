@@ -31,9 +31,20 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   create(): void {
+    // A tap picks the nearest keep within reach; reach is measured on screen, wider for a fingertip.
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      const r = this.world?.realms?.find((x) => Math.abs(p.worldX - (x.x * TILE + TILE / 2)) < 22 && Math.abs(p.worldY - x.y * TILE) < 24);
-      this.onRealm(r ?? null);
+      const k = this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width;
+      const reach = Math.max(22, (p.wasTouch ? 36 : 24) / k);
+      let best: Realm | null = null;
+      let bestD = reach;
+      for (const r of this.world?.realms ?? []) {
+        const d = Math.hypot(p.worldX - (r.x * TILE + TILE / 2), p.worldY - (r.y * TILE + 4));
+        if (d < bestD) {
+          bestD = d;
+          best = r;
+        }
+      }
+      this.onRealm(best);
     });
   }
 

@@ -11,7 +11,7 @@ const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengefu
 export const HOME = { x: 20, y: 12 };
 const SLOTS = [
   { x: 7, y: 5 },
-  { x: 32, y: 4 },
+  { x: 31, y: 7 }, // kept clear of the buttons in the map's top-right corner
   { x: 6, y: 19 },
   { x: 33, y: 19 },
 ];
@@ -60,6 +60,8 @@ export function createRealms(world: WorldState, rng: Rng): void {
 // Old saves meet their neighbours the first time they load.
 export function ensureRealms(world: WorldState, rng: Rng): void {
   if (!world.realms) createRealms(world, rng);
+  // Saves from before the move: the north-east keep sat under the map buttons.
+  for (const r of world.realms!) if (r.x >= 28 && r.y < 7) Object.assign(r, { x: 31, y: 7 });
 }
 
 // Monthly: realms grow rich or poor, raise or lose soldiers, and drift in feeling toward
