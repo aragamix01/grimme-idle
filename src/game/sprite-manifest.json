@@ -342,6 +342,20 @@
     "frameHeight": 56,
     "frames": 1
   },
+  "statue": {
+    "file": "assets/sprites/buildings/statue.png",
+    "group": "buildings",
+    "frameWidth": 20,
+    "frameHeight": 36,
+    "frames": 1
+  },
+  "star": {
+    "file": "assets/sprites/icons/star.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "demon": {
     "file": "assets/sprites/icons/demon.png",
     "group": "icons",

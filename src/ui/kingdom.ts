@@ -1,4 +1,4 @@
-import { COMMAND_COST, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, TRAIN_DAYS, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -38,8 +38,8 @@ export function renderKingdom(world: WorldState): void {
     Math.round(balanceOf(world)),
     world.cult,
     cultists(world).map((n) => n.id),
-    Math.floor(world.faith) >= COMMAND_COST.reveal,
-    Math.floor(world.faith) >= COMMAND_COST.hero,
+    Math.floor(world.faith) >= costOf(world, 'reveal'),
+    Math.floor(world.faith) >= costOf(world, 'hero'),
     Math.floor(world.dread ?? 0),
     world.demon && { ...world.demon, power: Math.round(world.demon.power) },
     heroOf(world)?.level,
@@ -162,7 +162,7 @@ function heroBlock(world: WorldState): HTMLElement {
   const lord = world.demon!;
   const hero = heroOf(world);
   if (!hero) {
-    const cost = COMMAND_COST.hero;
+    const cost = costOf(world, 'hero');
     const pick = bestHero(world);
     const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !pick }, icon('awaken', 16), 'ปลุกผู้กล้า', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
     btn.onclick = () => handlers.onHero();
@@ -178,7 +178,7 @@ function heroBlock(world: WorldState): HTMLElement {
   portrait.style.backgroundImage = 'url(/assets/sprites/characters/hero.png)';
   const name = el('button', { type: 'button', className: 'realm-king__name', textContent: `ผู้กล้า${hero.name}` });
   name.onclick = () => handlers.onSelectNpc(hero.id);
-  const doing = q.stage === 'training' ? `ฝึกฝนวิชา ${Math.min(TRAIN_DAYS, world.day - q.since)}/${TRAIN_DAYS} วัน` : hero.inside !== undefined ? 'บุกเข้าปราสาทจอมมาร!' : 'เดินทัพไปปราสาทจอมมาร';
+  const doing = q.stage === 'training' ? `ฝึกฝนวิชา ${Math.min(trainDays(world), world.day - q.since)}/${trainDays(world)} วัน` : hero.inside !== undefined ? 'บุกเข้าปราสาทจอมมาร!' : 'เดินทัพไปปราสาทจอมมาร';
   const party = q.companions.map((id) => world.npcs.find((n) => n.id === id && n.alive)).filter((n): n is Npc => !!n);
   const might = fighter(hero) * 2 + party.reduce((s, n) => s + fighter(n), 0);
   return el(
@@ -204,7 +204,7 @@ function personChipPlain(n: Npc): HTMLElement {
 // The god sees what the town can't: the cult and every one of its members.
 function cultSection(world: WorldState): HTMLElement {
   const members = cultists(world);
-  const cost = COMMAND_COST.reveal;
+  const cost = costOf(world, 'reveal');
   const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !members.length }, icon('cult', 16), 'ส่งนิมิตเปิดโปงสาวก', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
   btn.onclick = () => handlers.onReveal();
   if (!world.cult || !members.length) return section('ลัทธิมาร', [empty('ยังไม่มีลัทธิมารในเมือง แต่ถ้าคนใจดำมีมากขึ้น อาจมีใครก่อตั้งขึ้นอย่างลับๆ')]);

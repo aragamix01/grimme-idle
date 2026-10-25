@@ -1,4 +1,4 @@
-import { ADULT_AGE, COMMAND_COST, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, costOf, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -39,7 +39,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
-  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world.faith, canAwaken(world)));
+  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
 }
 
 const WORK_TH: Partial<Record<Job, string>> = {
@@ -227,8 +227,9 @@ function powerButton(name: string, label: string, cost: number, enabled: boolean
   return btn;
 }
 
-function powers(npc: Npc, faith: number, heroCall: boolean): HTMLElement {
-  const can = (cost: number) => npc.alive && faith >= cost;
+function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
+  const can = (cost: number) => npc.alive && world.faith >= cost;
+  const COMMAND_COST = { bless: costOf(world, 'bless'), curse: costOf(world, 'curse'), dream: costOf(world, 'dream'), hero: costOf(world, 'hero') };
   const grown = npc.age >= ADULT_AGE;
   const row = el(
     'div',

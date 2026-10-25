@@ -1,5 +1,5 @@
 export * from './types';
-export { COMMAND_COST, applyCommands, createWorld, tick } from './world';
+export { COMMAND_COST, applyCommands, costOf, createWorld, tick } from './world';
 export { JOB_TH, TRAIT_TH } from './names';
 export { RANKS, rankName } from './quests';
 export { tieLabel, topTies } from './ties';
@@ -8,4 +8,6 @@ export { GOODS, GOOD_TH, MAX_GEAR, SEASON_TH, seasonOf } from './market';
 export { COMMON_JOBS } from './society';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
-export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, TRAIN_DAYS, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';
+export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, statueHero } from './era';
+export { perkLevel } from './core';
+export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';

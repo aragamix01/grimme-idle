@@ -1,4 +1,4 @@
-import { COMMAND_COST, JOB_TH, RANKS, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { costOf, JOB_TH, RANKS, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -58,7 +58,7 @@ export function renderGuild(world: WorldState): void {
 }
 
 function divineBar(world: WorldState): HTMLElement {
-  const cost = COMMAND_COST.divineQuest;
+  const cost = costOf(world, 'divineQuest');
   const btn = el(
     'button',
     { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost },

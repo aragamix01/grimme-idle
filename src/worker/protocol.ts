@@ -5,7 +5,8 @@ export type ToWorker =
   | { type: 'command'; command: Command }
   | { type: 'speed'; tickMs: number } // 0 pauses
   | { type: 'save' }
-  | { type: 'reset' };
+  | { type: 'reset' }
+  | { type: 'newEra' };
 
 export interface OfflineReport {
   days: number;
@@ -13,4 +14,4 @@ export interface OfflineReport {
   highlights: ChronicleEntry[];
 }
 
-export type FromWorker = { type: 'state'; world: WorldState } | { type: 'offline'; report: OfflineReport };
+export type FromWorker = { type: 'state'; world: WorldState } | { type: 'offline'; report: OfflineReport } | { type: 'era' };

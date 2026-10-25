@@ -5,6 +5,24 @@ import { SHADE } from './palette.mjs';
 const icon = (rows, name) => Grid.from(rows, name).shade(SHADE).outline('o');
 
 const ICONS = {
+  star: [
+    '................',
+    '.......yy.......',
+    '.......yy.......',
+    '......ywyy......',
+    '......yyyy......',
+    '.yyyyyyyyyyyyyy.',
+    '..yyyywyyyyyyY..',
+    '...yyyyyyyyyY...',
+    '....yyyyyyyY....',
+    '....yyyyyyyY....',
+    '...yyyyYYyyyY...',
+    '...yyyY..YyyY...',
+    '..yyYY....YYyY..',
+    '..yY........YY..',
+    '................',
+    '................',
+  ],
   demon: [
     '................',
     '..D..........D..',

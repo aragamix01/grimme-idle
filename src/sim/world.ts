@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan as plan, stepToward } from './core';
+import { clamp, kill, log, makePlan as plan, perkLevel, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -12,12 +12,16 @@ import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, gearPowe
 import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
+import { buyPerk, statueHero } from './era';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
-import { AWAY, type Command, type Dungeon, type Npc, type Plan, type Trait, type WorldState } from './types';
+import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
-export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST } as const;
+export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST, perk: 0 } as const;
+// The faith a power takes, less for a god with the gentle-grace gift.
+export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
+  type === 'perk' ? 0 : Math.max(1, Math.round(COMMAND_COST[type] * (1 - 0.1 * perkLevel(world, 'grace'))));
 const TOWN_SIZE = 80;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
@@ -27,7 +31,7 @@ const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods 
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
 const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
 
-export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
+export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy): WorldState {
   const rng = createRng(seed);
   const world: WorldState = {
     version: 1,
@@ -47,7 +51,9 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
     chronicle: [],
     chronicleSeq: 0,
     nextId: 1,
+    legacy: legacy ?? { era: 1, stars: 0, perks: {}, past: [] },
   };
+  world.faith += perkLevel(world, 'faith') * 25;
   for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
   world.dungeons.push({
     id: world.nextId++,
@@ -57,7 +63,9 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
     power: 10,
   });
   world.rng = rng.state;
-  log(world, 'world', 'ยุคที่ 1 เริ่มต้น โลกตื่นจากนิทรา');
+  log(world, 'world', `ยุคที่ ${legacy?.era ?? 1} เริ่มต้น โลกตื่นจากนิทรา`);
+  const hero = statueHero(world);
+  if (hero) log(world, 'world', `รูปปั้นของผู้กล้า${hero}จากยุคก่อนตั้งตระหง่านกลางเมือง`);
   return world;
 }
 
@@ -378,7 +386,11 @@ export function applyCommands(world: WorldState, commands: Command[]): void {
 }
 
 function applyCommand(world: WorldState, cmd: Command): void {
-  const cost = COMMAND_COST[cmd.type];
+  if (cmd.type === 'perk') {
+    buyPerk(world, cmd.perk);
+    return;
+  }
+  const cost = costOf(world, cmd.type);
   if (world.faith < cost) return;
   if (cmd.type === 'divineQuest') {
     world.faith -= cost;

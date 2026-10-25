@@ -3,7 +3,7 @@
 // the town until the defenders break, then it rules the town through its cult. The town
 // is never razed: only a hero the god awakens can storm the keep and set it free.
 import { chance, int, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan } from './core';
+import { clamp, kill, log, makePlan, perkLevel } from './core';
 import { balanceOf, cultists, sway } from './cult';
 import { dungeonDoor, PLACES } from './places';
 import { gearPower } from './market';
@@ -17,7 +17,8 @@ export const DREAD_TO_RISE = 100;
 const RAID_EVERY = 25; // days between the keep's raids on the town
 const FIRST_RAID = 15; // days after the awakening before the first one
 export const SIEGES_TO_FALL = 3; // raids the town may fail to hold before it is taken
-export const TRAIN_DAYS = 40; // the hero trains this long before marching
+const TRAIN_DAYS = 40; // the hero trains this long before marching, less with the valor gift
+export const trainDays = (world: WorldState) => TRAIN_DAYS - 10 * perkLevel(world, 'valor');
 const BATTLE_AFTER = 3; // days inside the keep before the fight
 const SELF_HERO_DAYS = 300; // occupied this long with no hero, the old prophecy wakes one
 const PARTY = 3; // companions who march with the hero
@@ -51,7 +52,8 @@ export function demonDay(world: WorldState, rng: Rng): void {
 // a bright world lets it fade.
 function gatherDread(world: WorldState, rng: Rng): void {
   const b = balanceOf(world);
-  world.dread = clamp((world.dread ?? 0) + Math.max(0, -b - 15) * 0.01 - (b > 10 ? 0.1 : 0), 0, DREAD_TO_RISE);
+  const ward = 1 - 0.2 * perkLevel(world, 'ward');
+  world.dread = clamp((world.dread ?? 0) + Math.max(0, -b - 15) * 0.01 * ward - (b > 10 ? 0.1 : 0), 0, DREAD_TO_RISE);
   if (world.dread >= DREAD_TO_RISE) rise(world, rng);
 }
 
@@ -175,7 +177,7 @@ function awaken(world: WorldState, lord: DemonLord, n: Npc, by: string): void {
   n.blessed = true;
   n.retired = undefined;
   n.morality = Math.max(n.morality, 50);
-  n.level += 2;
+  n.level += 2 + perkLevel(world, 'valor');
   n.rank = Math.max(n.rank ?? 0, 3);
   if (n.questId === undefined) n.plan = undefined;
   lord.hero = { id: n.id, since: world.day, stage: 'training', companions: [] };
@@ -198,7 +200,7 @@ function heroDay(world: WorldState, lord: DemonLord, rng: Rng): void {
   if (q.stage === 'training') {
     const days = world.day - q.since;
     if (days > 0 && days % 8 === 0) hero.level++;
-    if (days < TRAIN_DAYS || hero.questId !== undefined || hero.inside !== undefined) return;
+    if (days < trainDays(world) || hero.questId !== undefined || hero.inside !== undefined) return;
     return march(world, hero, q);
   }
   // Companions pulled away on the road drop out of the march.
@@ -262,6 +264,7 @@ function slay(world: WorldState, lord: DemonLord, hero: Npc): void {
   sway(world, 40);
   world.dread = 0;
   world.demonsSlain = (world.demonsSlain ?? 0) + 1;
+  world.slayers = [...(world.slayers ?? []), hero.name];
   for (const d of world.dungeons) d.power = 10;
   // Without their master the cult scatters into the night.
   const fled = cultists(world);

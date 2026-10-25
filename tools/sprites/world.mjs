@@ -513,6 +513,28 @@ function demonCastle() {
   return finishBuilding(g);
 }
 
+// A past era's hero in stone, sword raised, on a plinth with a gold plaque.
+function statue() {
+  const g = new Grid(20, 36);
+  // plinth
+  g.rect(2, 26, 16, 9, 'x');
+  g.hline(2, 26, 16, 'z');
+  g.hline(1, 34, 18, 'X');
+  g.rect(6, 29, 8, 3, 'y').hline(6, 31, 8, 'Y');
+  // figure
+  g.rect(7, 18, 6, 8, 'x'); // legs and robe
+  g.vline(10, 21, 5, 'X');
+  g.rect(6, 11, 8, 8, 'x'); // body
+  g.hline(6, 11, 8, 'z');
+  g.disc(10, 8, 3, 'x'); // head
+  g.set(9, 7, 'z');
+  g.rect(13, 10, 2, 4, 'x'); // raised arm
+  g.vline(15, 0, 11, 'z').vline(16, 1, 9, 'x'); // sword
+  g.hline(13, 10, 5, 'X'); // crossguard
+  g.rect(3, 13, 3, 6, 'X'); // shield
+  return g.shade(SHADE).outline('o');
+}
+
 export function buildings() {
   return [
     { name: 'house', group: 'buildings', frames: [house()] },
@@ -529,5 +551,6 @@ export function buildings() {
     { name: 'brothel', group: 'buildings', frames: [brothel()] },
     { name: 'manor', group: 'buildings', frames: [manor()] },
     { name: 'demon-castle', group: 'buildings', frames: [demonCastle()] },
+    { name: 'statue', group: 'buildings', frames: [statue()] },
   ];
 }

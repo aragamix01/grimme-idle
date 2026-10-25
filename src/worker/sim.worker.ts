@@ -1,4 +1,4 @@
-import { applyCommands, createWorld, tick, type Command, type EventKind, type WorldState } from '../sim';
+import { applyCommands, canEndEra, createWorld, newEra, tick, type Command, type EventKind, type WorldState } from '../sim';
 import type { FromWorker, OfflineReport, ToWorker } from './protocol';
 import { clearSave, loadSave, writeSave } from './storage';
 
@@ -71,6 +71,11 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
     run(msg.tickMs);
   } else if (msg.type === 'save') {
     if (world) void writeSave(world);
+  } else if (msg.type === 'newEra') {
+    if (!world || !canEndEra(world)) return;
+    world = newEra(world, Date.now() >>> 0);
+    // The page reloads to build the new town from scratch.
+    void writeSave(world).then(() => post({ type: 'era' }));
   } else if (msg.type === 'reset') {
     void clearSave().then(() => {
       world = createWorld(Date.now() >>> 0);

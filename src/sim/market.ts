@@ -3,7 +3,7 @@
 // Prices follow stock: scarce goods get dear, gluts go cheap, and the chronicle
 // notices when it gets extreme.
 import { chance, int, type Rng } from './rng';
-import { log } from './core';
+import { log, perkLevel } from './core';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
@@ -110,7 +110,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)];
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest'));
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }

@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, type Npc, type WorldState } from '../../sim';
+import { ADULT_AGE, statueHero, type Npc, type WorldState } from '../../sim';
+import { PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -206,6 +207,11 @@ export class WorldScene extends Phaser.Scene {
         this.glow.fillStyle(0xffb347, 0.35).fillRect(img.x + x - 1, img.y + y - 1, ww + 2, h + 2);
         this.glow.fillStyle(0xffe27a, 1).fillRect(img.x + x, img.y + y, ww, h);
       }
+    }
+    // A hero of a past era stands in stone in the square.
+    if (statueHero(w)) {
+      const st = this.add.image(PLACES.square.x * TILE + TILE / 2, (PLACES.square.y + 1) * TILE, 'statue').setOrigin(0.5, 1);
+      st.setDepth(st.y);
     }
     for (const d of w.dungeons) {
       const img = this.add.image(d.x * TILE + TILE, (d.y + 2) * TILE, 'dungeon').setOrigin(0.5, 1);

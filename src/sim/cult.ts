@@ -3,7 +3,7 @@
 // A cult grows in secret among the cruel, the hungry and the bitter, gathering at the
 // dungeon to feed it; priests, soldiers on watch and the gods can expose its members.
 import { chance, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan, occupied } from './core';
+import { clamp, kill, log, makePlan, occupied, perkLevel } from './core';
 import { getTie, FRIEND } from './ties';
 import { dungeonDoor } from './places';
 import { loyaltyOf } from './politics';
@@ -133,7 +133,7 @@ export function performRitual(world: WorldState, n: Npc): void {
   if (d) d.power += RITUAL_POWER;
   // Each offering also stirs the demon lord below, or feeds it once it walks.
   if (world.demon) feed(world.demon, 0.3);
-  else world.dread = clamp((world.dread ?? 0) + DREAD_PER_RITUAL, 0, 100);
+  else world.dread = clamp((world.dread ?? 0) + DREAD_PER_RITUAL * (1 - 0.2 * perkLevel(world, 'ward')), 0, 100);
   n.morality = clamp(n.morality - 2, -100, 100);
   sway(world, -0.5);
 }

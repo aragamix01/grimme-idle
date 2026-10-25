@@ -159,6 +159,28 @@ export interface DemonLord {
   hero?: HeroQuest;
 }
 
+export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';
+
+// One closed era, as the next ones remember it.
+export interface EraRecord {
+  era: number;
+  title: string;
+  years: number;
+  stars: number;
+  demons: number;
+  heroes: string[]; // who slew its demon lords
+  king?: string; // the last king of the era
+  balance: number;
+}
+
+// What the god keeps from one era to the next.
+export interface Legacy {
+  era: number;
+  stars: number; // unspent legend stars
+  perks: Partial<Record<Perk, number>>;
+  past: EraRecord[];
+}
+
 export interface Legend {
   day: number;
   text: string;
@@ -214,6 +236,8 @@ export interface WorldState {
   dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
   demon?: DemonLord;
   demonsSlain?: number;
+  slayers?: string[]; // heroes who slew a demon lord this era
+  legacy?: Legacy; // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
@@ -225,4 +249,5 @@ export type Command =
   | { type: 'dream'; npcId: number; job: Job }
   | { type: 'divineQuest' }
   | { type: 'reveal' }
-  | { type: 'hero'; npcId?: number };
+  | { type: 'hero'; npcId?: number }
+  | { type: 'perk'; perk: Perk };

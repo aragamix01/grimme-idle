@@ -9,6 +9,7 @@ import { initKingdom, renderKingdom } from './ui/kingdom';
 import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
+import { initEra, renderEra } from './ui/era';
 import type { FromWorker, ToWorker } from './worker/protocol';
 
 const TICK_MS = 600; // one in-game day at 1x
@@ -38,6 +39,7 @@ let tab: Tab = 'log';
 function render(): void {
   if (!world) return;
   renderStats(world);
+  renderEra(world);
   renderNpcCard(world, selected);
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
@@ -90,6 +92,10 @@ initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', comma
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
 });
 initPeople({ onSelectNpc: select });
+initEra({
+  onEndEra: () => send({ type: 'newEra' }),
+  onPerk: (perk) => send({ type: 'command', command: { type: 'perk', perk } }),
+});
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));
@@ -110,6 +116,10 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#speed button')) {
 
 worker.onmessage = (e: MessageEvent<FromWorker>) => {
   const msg = e.data;
+  if (msg.type === 'era') {
+    location.reload();
+    return;
+  }
   if (msg.type === 'offline') {
     showOfflineReport(msg.report);
     return;
