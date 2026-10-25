@@ -20,6 +20,7 @@ export interface Npc {
   rank?: number; // guild rank index into RANKS (F..S); only adventurers have one
   renown?: number; // earned from finished quests; drives rank-ups
   questId?: number; // quest this NPC is signed up for
+  guildId?: number; // guild this NPC belongs to
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
@@ -43,7 +44,7 @@ export interface Dungeon {
   power: number; // grows when ignored; stampede past threshold
 }
 
-export type QuestKind = 'hunt' | 'explore' | 'escort';
+export type QuestKind = 'hunt' | 'explore' | 'escort' | 'pest' | 'bounty';
 export type QuestStage = 'recruiting' | 'travelling' | 'inside' | 'done' | 'failed' | 'expired';
 
 export interface Quest {
@@ -59,9 +60,28 @@ export interface Quest {
   minParty: number;
   dungeonId?: number; // hunt, explore
   clientId?: number; // escort: the merchant being protected
-  daysLeft?: number; // while inside
-  divine?: boolean; // posted by the player's god; pays double
+  targetId?: number; // bounty: the thief to bring in
+  spot?: { x: number; y: number }; // pest: the field being raided
+  daysLeft?: number; // while inside / on site
   postedDay: number;
+  // Who pays. The reward is taken from them when the quest is posted and refunded if nobody takes it.
+  patronId?: number; // an NPC (farmer, merchant, theft victim)
+  patronGuildId?: number; // a guild funding its own expedition
+  crown?: boolean; // the town treasury
+  divine?: boolean; // the player's god; pays double renown
+  guildId?: number; // claimed by a guild: only its members (and their friends) may join
+}
+
+export type GuildKind = 'adventurers' | 'thieves';
+
+export interface Guild {
+  id: number;
+  name: string;
+  kind: GuildKind;
+  leaderId: number;
+  founded: number; // day
+  renown: number;
+  treasury: number;
 }
 
 export interface Legend {
@@ -80,7 +100,9 @@ export type EventKind =
   | 'curse'
   | 'dream'
   | 'quest'
-  | 'rank';
+  | 'rank'
+  | 'bond'
+  | 'guild';
 
 export interface ChronicleEntry {
   seq: number;
@@ -102,6 +124,9 @@ export interface WorldState {
   dungeons: Dungeon[];
   quests: Quest[];
   legends: Legend[];
+  guilds: Guild[];
+  ties: Record<string, number>; // "lowId-highId" -> affinity -100..100; missing means strangers
+  treasury: number; // town gold that funds crown quests
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;

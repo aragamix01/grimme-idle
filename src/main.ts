@@ -74,7 +74,7 @@ initGuild({ onDivineQuest: () => send({ type: 'command', command: { type: 'divin
 for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
   b.onclick = () => setTab(b.dataset.tab as 'log' | 'guild');
 }
-initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null) });
+initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));
 

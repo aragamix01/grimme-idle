@@ -1,6 +1,8 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
 import { clamp, kill, log, makePlan as plan, stepToward } from './core';
-import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, postDivineQuest, questDay, updateGuild } from './guild';
+import { updateGuilds } from './guilds';
+import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
+import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
 import type { Command, Dungeon, Job, Npc, Plan, Trait, WorldState } from './types';
@@ -31,6 +33,9 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
     dungeons: [],
     quests: [],
     legends: [],
+    guilds: [],
+    ties: {},
+    treasury: 50,
     chronicle: [],
     chronicleSeq: 0,
     nextId: 1,
@@ -59,7 +64,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
     if (world.day % 365 === 0) npc.age++;
     live(world, npc, rng);
   }
-  updateGuild(world, rng);
+  socialize(world, rng);
+  updateGuilds(world, rng);
+  updateQuests(world, rng);
   for (const d of world.dungeons) {
     d.power += 0.2;
     if (d.power >= STAMPEDE_POWER) {
@@ -191,6 +198,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       return;
     case 'work':
       if (chance(rng, 0.5)) npc.gold += npc.job === 'merchant' ? 2 : 1;
+      if (npc.job === 'farmer') maybePestQuest(world, npc, rng);
       if (--p.days <= 0) npc.plan = undefined;
       return;
     case 'idle':
@@ -232,12 +240,19 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
 
 function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
   // More often than not the mark notices and the thief slinks off empty-handed.
-  if (chance(rng, 0.4)) {
+  // A thieves' society teaches its members a lighter touch.
+  const society = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'thieves');
+  if (chance(rng, society ? 0.55 : 0.4)) {
     const stolen = Math.ceil(victim.gold / 2);
     victim.gold -= stolen;
     npc.gold += stolen;
     npc.morality = clamp(npc.morality - 5, -100, 100);
+    if (society) society.treasury += Math.floor(stolen / 5);
     log(world, 'theft', `${npc.name} ขโมยทอง ${stolen} เหรียญจาก ${victim.name}`, npc.id);
+    addTie(world, victim, npc, -10); // rumours get around
+    maybeBounty(world, victim, npc, stolen, rng);
+  } else {
+    addTie(world, victim, npc, -25); // caught in the act
   }
   const hideout = { x: int(rng, 0, 17), y: int(rng, 12, 24) };
   npc.plan = plan('flee', hideout, 0);
@@ -246,8 +261,10 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
 // Drop the dead nobody's story still points at, so saves don't grow forever.
 function prune(world: WorldState): void {
   const remembered = new Set([...world.chronicle, ...world.legends].map((e) => e.npcId));
-  for (const q of world.quests) for (const id of q.partyIds) remembered.add(id);
+  for (const q of world.quests) for (const id of [...q.partyIds, q.patronId, q.targetId]) remembered.add(id);
+  for (const g of world.guilds) remembered.add(g.leaderId);
   world.npcs = world.npcs.filter((n) => n.alive || remembered.has(n.id));
+  pruneTies(world, new Set(world.npcs.filter((n) => n.alive).map((n) => n.id)));
 }
 
 export function applyCommands(world: WorldState, commands: Command[]): void {

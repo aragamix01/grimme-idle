@@ -1,9 +1,9 @@
-import { COMMAND_COST, JOB_TH, RANKS, type Npc, type Quest, type WorldState } from '../sim';
+import { COMMAND_COST, JOB_TH, RANKS, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
 
-const KIND_TH: Record<Quest['kind'], string> = { hunt: 'ปราบมอนสเตอร์', explore: 'สำรวจ', escort: 'คุ้มกัน' };
+const KIND_TH: Record<Quest['kind'], string> = { hunt: 'ปราบมอนสเตอร์', explore: 'สำรวจ', escort: 'คุ้มกัน', pest: 'ไล่สัตว์ร้าย', bounty: 'ล่าค่าหัว' };
 const RESULT_TH: Partial<Record<Quest['stage'], string>> = { done: 'สำเร็จ', failed: 'ล้มเหลว', expired: 'ไม่มีคนรับ' };
 
 interface Handlers {
@@ -22,7 +22,14 @@ export function renderGuild(world: WorldState): void {
     .filter((n) => n.alive && n.rank !== undefined)
     .sort((a, b) => (b.renown ?? 0) - (a.renown ?? 0) || b.level - a.level)
     .slice(0, 8);
-  const key = JSON.stringify([world.quests, world.legends.length, Math.floor(world.faith), adventurers.map((a) => [a.id, a.rank, a.renown])]);
+  const members = (g: Guild) => world.npcs.filter((n) => n.alive && n.guildId === g.id);
+  const key = JSON.stringify([
+    world.quests,
+    world.legends.length,
+    Math.floor(world.faith),
+    adventurers.map((a) => [a.id, a.rank, a.renown, a.guildId]),
+    world.guilds.map((g) => [g, members(g).length]),
+  ]);
   if (key === lastKey) return;
   lastKey = key;
 
@@ -32,9 +39,15 @@ export function renderGuild(world: WorldState): void {
 
   view.replaceChildren(
     divineBar(world),
-    section('เควสบนกระดาน', active.length ? active.map((q) => questCard(q, byId)) : [empty('ยังไม่มีเควสใหม่ กิลด์จะประกาศเร็วๆ นี้')]),
+    section('เควสบนกระดาน', active.length ? active.map((q) => questCard(world, q, byId)) : [empty('ยังไม่มีใครประกาศจ้าง')]),
+    section(
+      'กิลด์ในเมือง',
+      world.guilds.length
+        ? world.guilds.map((g) => guildCard(g, members(g), byId))
+        : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยแรงก์ D ขึ้นไปที่มีทองพออาจตั้งขึ้นเอง')],
+    ),
     section('ผลล่าสุด', finished.length ? finished.map((q) => resultRow(q, byId)) : [empty('ยังไม่มีเควสที่จบ')]),
-    section('นักผจญภัย', adventurers.length ? adventurers.map(adventurerRow) : [empty('กิลด์ยังไม่มีสมาชิก')]),
+    section('นักผจญภัย', adventurers.length ? adventurers.map((n) => adventurerRow(world, n)) : [empty('ยังไม่มีนักผจญภัยในเมือง')]),
     section(
       'หอเกียรติยศ',
       world.legends.length
@@ -83,7 +96,18 @@ function stageText(q: Quest): string {
   return `${where} อีกราว ${q.daysLeft ?? 0} วัน`;
 }
 
-function questCard(q: Quest, byId: Map<number, Npc>): HTMLElement {
+function patronText(world: WorldState, q: Quest, byId: Map<number, Npc>): string {
+  if (q.divine) return 'เทพเจ้า';
+  if (q.crown) return 'ราชสำนัก';
+  const g = world.guilds.find((x) => x.id === q.patronGuildId);
+  if (g) return g.name;
+  const p = q.patronId !== undefined ? byId.get(q.patronId) : undefined;
+  return p ? `${p.name} (${JOB_TH[p.job]})` : 'ไม่ทราบ';
+}
+
+function questCard(world: WorldState, q: Quest, byId: Map<number, Npc>): HTMLElement {
+  const claimedBy = world.guilds.find((g) => g.id === q.guildId);
+  const patron = `ผู้ว่าจ้าง: ${patronText(world, q, byId)}${claimedBy ? ` · ${claimedBy.name}รับงาน` : ''}`;
   const party = q.partyIds.map((id) => npcChip(byId.get(id)));
   const client = q.clientId !== undefined ? byId.get(q.clientId) : undefined;
   return el(
@@ -101,6 +125,7 @@ function questCard(q: Quest, byId: Map<number, Npc>): HTMLElement {
         icon('gold', 16),
         ` ${q.reward}`,
       ),
+      el('p', { className: 'quest__patron', textContent: patron }),
       el('p', { className: 'quest__stage', textContent: stageText(q) }),
       party.length || client
         ? el('div', { className: 'quest__party' }, ...party, ...(client ? [el('span', { className: 'quest__client', textContent: 'ผู้ว่าจ้าง' }), npcChip(client)] : []))
@@ -121,13 +146,33 @@ function resultRow(q: Quest, byId: Map<number, Npc>): HTMLElement {
   );
 }
 
-function adventurerRow(n: Npc): HTMLElement {
+function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>): HTMLElement {
+  const leader = byId.get(g.leaderId);
+  const others = members.filter((m) => m.id !== g.leaderId);
+  const kind = g.kind === 'thieves' ? 'สมาคมโจร' : 'กิลด์นักผจญภัย';
+  const fame = g.kind === 'adventurers' ? ` · ชื่อเสียง ${g.renown}` : '';
+  return el(
+    'li',
+    { className: `guild-card guild-card--${g.kind}` },
+    el('img', { src: '/assets/sprites/icons/banner.png', alt: '', width: 32, height: 32 }),
+    el(
+      'div',
+      { className: 'guild-card__body' },
+      el('p', { className: 'guild-card__name', textContent: g.name }),
+      el('p', { className: 'guild-card__meta', textContent: `${kind} · ก่อตั้ง D${g.founded} · สมาชิก ${members.length} คน${fame}` }),
+      el('div', { className: 'quest__party' }, el('span', { className: 'quest__client', textContent: 'หัวหน้า' }), npcChip(leader), ...others.map((m) => npcChip(m))),
+    ),
+  );
+}
+
+function adventurerRow(world: WorldState, n: Npc): HTMLElement {
+  const guild = world.guilds.find((g) => g.id === n.guildId);
   const row = el(
     'li',
     { className: 'adv' },
     rankBadge(n.rank),
     el('button', { type: 'button', className: 'adv__name', textContent: n.name }),
-    el('span', { className: 'adv__job', textContent: `${JOB_TH[n.job]} · LV ${n.level}` }),
+    el('span', { className: 'adv__job', textContent: `${JOB_TH[n.job]} · LV ${n.level}${guild ? ` · ${guild.name}` : ''}` }),
     el('span', { className: 'adv__renown', textContent: `${n.renown ?? 0}` }),
   );
   (row.querySelector('.adv__name') as HTMLButtonElement).onclick = () => handlers.onSelectNpc(n.id);

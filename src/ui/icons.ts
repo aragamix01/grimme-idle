@@ -13,6 +13,8 @@ export const EVENT_ICON: Record<EventKind, string> = {
   dream: 'dream',
   quest: 'quest',
   rank: 'crown',
+  bond: 'heart',
+  guild: 'banner',
 };
 
 export const EVENT_LABEL: Record<EventKind, string> = {
@@ -26,6 +28,8 @@ export const EVENT_LABEL: Record<EventKind, string> = {
   dream: 'ความฝัน',
   quest: 'เควส',
   rank: 'เลื่อนแรงก์',
+  bond: 'ความสัมพันธ์',
+  guild: 'กิลด์',
 };
 
 export const DANGER_KINDS = new Set<EventKind>(['death', 'disaster']);

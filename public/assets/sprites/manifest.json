@@ -279,6 +279,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "banner": {
+    "file": "assets/sprites/icons/banner.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "crown": {
     "file": "assets/sprites/icons/crown.png",
     "group": "icons",

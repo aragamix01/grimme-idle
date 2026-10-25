@@ -1,4 +1,4 @@
-import { COMMAND_COST, JOB_TH, TRAIT_TH, rankName, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { COMMAND_COST, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -8,6 +8,7 @@ const JOBS = Object.keys(JOB_TH) as Job[];
 interface Handlers {
   onCommand: (cmd: Command) => void;
   onClose: () => void;
+  onSelect: (id: number) => void;
 }
 
 let handlers: Handlers;
@@ -31,10 +32,13 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   // Position and plan coordinates change every tick but aren't on the card.
   const { x: _x, y: _y, plan: _plan, ...shown } = npc;
   const doing = activity(world, npc);
-  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream]);
+  const ties = topTies(world, npc.id);
+  const guild = world.guilds.find((g) => g.id === npc.guildId);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, ties, guild?.name, guild?.leaderId]);
   if (!force && key === lastKey) return;
   lastKey = key;
-  card.replaceChildren(header(npc, doing), stats(npc), powers(npc, world.faith));
+  const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
+  card.replaceChildren(header(npc, doing, membership), stats(npc), relations(world, ties), powers(npc, world.faith));
 }
 
 // What the NPC is up to, in words the player can follow on the map.
@@ -68,7 +72,22 @@ function activity(world: WorldState, npc: Npc): string {
   }
 }
 
-function header(npc: Npc, doing: string): HTMLElement {
+function relations(world: WorldState, ties: { id: number; value: number }[]): HTMLElement {
+  const rows: HTMLElement[] = [];
+  for (const { id, value } of ties) {
+    const other = world.npcs.find((n) => n.id === id);
+    if (!other) continue;
+    const name = el('button', { type: 'button', className: 'rel__name', textContent: other.name });
+    if (!other.alive) name.classList.add('rel__name--dead');
+    name.onclick = () => handlers.onSelect(other.id);
+    const sign = value > 0 ? '+' : '';
+    rows.push(el('li', { className: value < 0 ? 'rel rel--bad' : 'rel' }, name, el('span', { className: 'rel__label', textContent: tieLabel(value) }), el('b', { textContent: `${sign}${value}` })));
+  }
+  const body = rows.length ? el('ul', {}, ...rows) : el('p', { className: 'npc__traits', textContent: 'ยังไม่สนิทกับใคร' });
+  return el('div', { className: 'npc__rels' }, el('h4', { textContent: 'ความสัมพันธ์' }), body);
+}
+
+function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean }): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
   portrait.style.backgroundImage = `url(/assets/sprites/characters/${npc.job}.png)`;
   const chips = el(
@@ -77,6 +96,7 @@ function header(npc: Npc, doing: string): HTMLElement {
     el('span', { className: 'chip', textContent: JOB_TH[npc.job] }),
     el('span', { className: 'chip', textContent: `LV ${npc.level}` }),
     ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
+    ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),
     el('span', { className: 'chip', textContent: `${npc.age} ปี` }),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: 'จากไปแล้ว' })] : []),
