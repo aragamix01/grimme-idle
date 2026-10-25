@@ -15,6 +15,7 @@ export const EVENT_ICON: Record<EventKind, string> = {
   rank: 'crown',
   bond: 'heart',
   guild: 'banner',
+  trade: 'grain',
 };
 
 export const EVENT_LABEL: Record<EventKind, string> = {
@@ -30,6 +31,7 @@ export const EVENT_LABEL: Record<EventKind, string> = {
   rank: 'เลื่อนแรงก์',
   bond: 'ความสัมพันธ์',
   guild: 'กิลด์',
+  trade: 'การค้า',
 };
 
 export const DANGER_KINDS = new Set<EventKind>(['death', 'disaster']);

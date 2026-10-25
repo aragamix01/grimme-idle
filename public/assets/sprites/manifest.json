@@ -258,6 +258,27 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "grain": {
+    "file": "assets/sprites/icons/grain.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "loot": {
+    "file": "assets/sprites/icons/loot.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "gear": {
+    "file": "assets/sprites/icons/gear.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "gold": {
     "file": "assets/sprites/icons/gold.png",
     "group": "icons",

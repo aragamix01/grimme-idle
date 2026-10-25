@@ -4,6 +4,7 @@ import { chance, int, next, type Rng } from './rng';
 import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
 import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
 import { snap } from './nav';
+import { gearPower, lootFound, sell, wearGear } from './market';
 import { FRIEND, addTie, getTie } from './ties';
 import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type WorldState } from './types';
 
@@ -14,7 +15,9 @@ const RECRUIT_DAYS = 15; // then the party leaves with whoever showed up
 const TRAVEL_DAYS = 40; // stragglers are left behind after this
 const FINISHED_KEPT = 8;
 const LEGENDS_KEPT = 20;
-const THREAT_POWER = 45; // the crown pays to thin out a dungeon past this
+const THREAT_POWER = 45; // the crown pays to thin out a dungeon past this...
+const RICH_THREAT_POWER = 25; // ...or past this when its coffers are full
+const RICH_TREASURY = 300;
 const TREASURY_INCOME = 0.4; // gold a day from the town's taxes
 const PEST_CHANCE = 0.003; // per working farmer per day
 const ESCORT_CHANCE = 0.002; // per merchant with savings per day
@@ -61,9 +64,10 @@ const openQuest = (world: WorldState, test: (q: Quest) => boolean) => world.ques
 // The town pays to cut back a dungeon that's getting dangerous.
 function crownWatch(world: WorldState): void {
   for (const d of world.dungeons) {
-    if (d.power < THREAT_POWER || openQuest(world, (q) => q.dungeonId === d.id && q.kind === 'hunt')) continue;
+    const rich = world.treasury >= RICH_TREASURY;
+    if (d.power < (rich ? RICH_THREAT_POWER : THREAT_POWER) || openQuest(world, (q) => q.dungeonId === d.id && q.kind === 'hunt')) continue;
     const rank = clamp(Math.floor(d.power / 20), 0, 4);
-    const reward = 15 * (rank + 1);
+    const reward = 15 * (rank + 1) + (rich ? Math.floor(world.treasury * 0.05) : 0); // a fat purse pays fat bounties
     if (world.treasury < reward) continue;
     world.treasury -= reward;
     const q = newQuest(world, 'hunt', `ปราบมอนสเตอร์ใน${d.name}`, rank, 15 + rank * 10 + d.power * 0.4, reward, 2);
@@ -277,7 +281,7 @@ function expire(world: WorldState, q: Quest): void {
 
 function resolve(world: WorldState, q: Quest, rng: Rng): void {
   const party = members(world, q);
-  const strength = party.reduce((s, n) => s + 10 + n.level * 4 + (n.blessed ? 10 : 0), 0);
+  const strength = party.reduce((s, n) => s + 10 + n.level * 4 + (n.blessed ? 10 : 0) + gearPower(n), 0);
   const target = byId(world, q.targetId);
   const difficulty = target ? 12 + target.level * 6 + (target.guildId !== undefined ? 10 : 0) : q.difficulty;
   const success = party.length > 0 && (q.kind !== 'bounty' || !!target?.alive) && chance(rng, strength / (strength + difficulty));
@@ -324,6 +328,7 @@ function succeed(world: WorldState, q: Quest, party: Npc[], rng: Rng): void {
   if (q.dungeonId !== undefined) {
     const d = world.dungeons.find((x) => x.id === q.dungeonId)!;
     d.power = Math.max(10, d.power - (8 + q.rank * 4)); // keeping stampedes at bay
+    for (const n of party) sell(world, n, 'loot', lootFound(rng), rng);
   }
   const leader = party[0];
   const who = guild ? guild.name : `ปาร์ตี้ของ${leader.name}`;
@@ -354,7 +359,10 @@ function fail(world: WorldState, q: Quest, party: Npc[], rng?: Rng): void {
   log(world, 'quest', `ปาร์ตี้ของ${party[0].name} ล้มเหลวในเควส: ${q.title}`, party[0].id);
   bondParty(world, party, 6); // surviving a disaster together still counts for something
   const risk = (q.kind === 'pest' ? 0.08 : 0.25) / Math.sqrt(party.length);
-  for (const n of party) if (chance(rng, risk)) kill(world, n, `ล้มลงระหว่างเควส${q.title}`);
+  for (const n of party) {
+    if (chance(rng, risk)) kill(world, n, `ล้มลงระหว่างเควส${q.title}`);
+    else wearGear(n, rng);
+  }
   const c = client(world, q);
   if (c && chance(rng, risk)) kill(world, c, 'ถูกโจรป่าซุ่มโจมตีระหว่างเดินทาง');
 }

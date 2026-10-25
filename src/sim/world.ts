@@ -8,6 +8,7 @@ import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
+import { arrivalJob, buyGear, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import type { Command, Dungeon, Job, Npc, Plan, Trait, WorldState } from './types';
 
 const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
@@ -39,7 +40,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
     legends: [],
     guilds: [],
     ties: {},
-    treasury: 50,
+    treasury: 200,
     chronicle: [],
     chronicleSeq: 0,
     nextId: 1,
@@ -71,6 +72,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   socialize(world, rng);
   romance(world, rng);
   births(world, rng);
+  marketDay(world, rng);
   updateGuilds(world, rng);
   updateQuests(world, rng);
   for (const d of world.dungeons) {
@@ -95,6 +97,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
       npc.job = pick(rng, ['swordsman', 'mage'] as const);
       npc.rank = 0;
       npc.renown = 0;
+    } else {
+      const wanted = arrivalJob(world, rng);
+      if (wanted && !isAdventurer(npc)) npc.job = wanted;
     }
     npc.x = PLACES.gate.x;
     npc.y = PLACES.gate.y;
@@ -178,11 +183,22 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
   });
   const idle = () =>
     plan('idle', near(pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild, ...PLACES.hangouts])), int(rng, 3, 8));
+  considerTrade(world, npc, rng);
+  // An empty belly loosens morals; thieves get bolder, and the shady start pilfering.
+  const hungry = (npc.hunger ?? 0) >= 2;
+  if (hungry && npc.job !== 'thief' && npc.morality < 0 && chance(rng, 0.1)) {
+    const prey = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
+    if (prey.length) {
+      const mark = pick(rng, prey);
+      return plan('steal', mark, PURSUIT_DAYS, mark.id);
+    }
+  }
 
   switch (npc.job) {
     case 'swordsman':
     case 'mage': {
       const courage = npc.traits.includes('brave') ? 1.6 : npc.traits.includes('coward') ? 0.4 : 1;
+      if (wantsGear(world, npc) && chance(rng, 0.2)) return plan('buy', PLACES.shop, 0);
       if (chance(rng, ADVENTURE_CHANCE * courage)) {
         const d = pick(rng, world.dungeons);
         return plan('adventure', dungeonDoor(d), 0, d.id);
@@ -199,7 +215,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
-      if (marks.length && chance(rng, STEAL_CHANCE)) {
+      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1))) {
         const victim = pick(rng, marks);
         return plan('steal', victim, PURSUIT_DAYS, victim.id);
       }
@@ -214,14 +230,17 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       npc.inside = p.target;
       npc.plan = plan('delve', p, int(rng, 3, 6), p.target);
       return;
+    case 'buy':
+      buyGear(world, npc);
+      npc.plan = undefined;
+      return;
     case 'work':
-      if (chance(rng, 0.5)) {
-        const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
-        const earned = (npc.job === 'merchant' ? 2 : 1) + (trade ? 1 : 0); // shared stalls and buyers
-        npc.gold += earned;
-        if (trade && chance(rng, 0.3)) trade.treasury += 1; // membership dues
-      }
-      if (npc.job === 'farmer') maybePestQuest(world, npc, rng);
+      if (npc.job === 'farmer') {
+        harvest(world, npc, rng);
+        maybePestQuest(world, npc, rng);
+      } else tendShop(world, npc, rng);
+      const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
+      if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
       if (--p.days <= 0) npc.plan = undefined;
       return;
     case 'idle':
@@ -250,17 +269,19 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
   const d = world.dungeons.find((x) => x.id === npc.inside) as Dungeon;
   npc.inside = undefined;
   // Strength grows slower than levels and the dungeon always fights back, so nobody snowballs.
-  const strength = 10 + npc.level * 4 + (npc.blessed ? 10 : 0);
+  const strength = 10 + npc.level * 4 + (npc.blessed ? 10 : 0) + gearPower(npc);
   if (chance(rng, strength / (strength + d.power * 0.5 + 10))) {
-    npc.gold += int(rng, 5, 25);
+    npc.gold += int(rng, 5, 20);
+    sell(world, npc, 'loot', lootFound(rng), rng); // fangs, hides and crystals for the shop
     d.power = Math.max(10, d.power - 5);
     // Each level is harder to earn than the last; only level-ups make the chronicle.
     if (chance(rng, 2 / (npc.level + 1))) {
       npc.level++;
       log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
     }
-  } else if (chance(rng, 0.08)) {
-    return kill(world, npc, `หายไปใน ${d.name}`);
+  } else {
+    if (chance(rng, 0.08)) return kill(world, npc, `หายไปใน ${d.name}`);
+    wearGear(npc, rng);
   }
   npc.plan = plan('return', PLACES.guild, 0);
 }

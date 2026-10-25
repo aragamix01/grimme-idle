@@ -44,7 +44,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
 
 // What the NPC is up to, in words the player can follow on the map.
 function activity(world: WorldState, npc: Npc): string {
-  if (!npc.alive) return 'จากไปแล้ว';
+  if (!npc.alive) return npc.left ? 'ย้ายออกจากเมืองไปแล้ว' : 'จากไปแล้ว';
   if (npc.age < ADULT_AGE) {
     const parent = world.npcs.find((n) => n.id === npc.plan?.target);
     return parent ? `เดินตาม${parent.name}` : 'วิ่งเล่นอยู่ในเมือง';
@@ -72,6 +72,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'กำลังกลับกิลด์';
     case 'arrive':
       return 'เพิ่งมาถึงเมือง';
+    case 'buy':
+      return 'ไปซื้ออาวุธที่ร้านค้า';
     default:
       return 'พักผ่อนอยู่ในเมือง';
   }
@@ -136,7 +138,9 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
     el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
-    ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: 'จากไปแล้ว' })] : []),
+    ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
+    ...(npc.alive && (npc.hunger ?? 0) >= 2 ? [el('span', { className: 'chip chip--danger', textContent: 'หิวโหย' })] : []),
+    ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: npc.left ? 'ย้ายออกไปแล้ว' : 'จากไปแล้ว' })] : []),
   );
   const close = el('button', { type: 'button', className: 'npc__close', textContent: '×', title: 'ปิด' });
   close.setAttribute('aria-label', 'ปิดข้อมูลชาวเมือง');

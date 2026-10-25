@@ -4,6 +4,7 @@ import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { renderFeed } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
+import { initMarket, renderMarket } from './ui/market';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
 import type { FromWorker, ToWorker } from './worker/protocol';
@@ -29,16 +30,18 @@ const send = (msg: ToWorker) => worker.postMessage(msg);
 let world: WorldState | null = null;
 let selected: number | null = null;
 let filterToNpc = false;
-let tab: 'log' | 'guild' = 'log';
+type Tab = 'log' | 'guild' | 'market';
+let tab: Tab = 'log';
 
 function render(): void {
   if (!world) return;
   renderNpcCard(world, selected);
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
-  else renderGuild(world);
+  else if (tab === 'guild') renderGuild(world);
+  else renderMarket(world);
 }
 
-function setTab(next: 'log' | 'guild'): void {
+function setTab(next: Tab): void {
   tab = next;
   for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
     const on = b.dataset.tab === next;
@@ -48,6 +51,7 @@ function setTab(next: 'log' | 'guild'): void {
   document.getElementById('feed')!.hidden = next !== 'log';
   document.getElementById('log-tools')!.hidden = next !== 'log';
   document.getElementById('guild')!.hidden = next !== 'guild';
+  document.getElementById('market')!.hidden = next !== 'market';
   render();
 }
 
@@ -72,8 +76,9 @@ scene.onSelect = select;
 scene.onGuild = () => setTab('guild');
 initGuild({ onDivineQuest: () => send({ type: 'command', command: { type: 'divineQuest' } }), onSelectNpc: select });
 for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
-  b.onclick = () => setTab(b.dataset.tab as 'log' | 'guild');
+  b.onclick = () => setTab(b.dataset.tab as Tab);
 }
+initMarket({ onSelectNpc: select });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));

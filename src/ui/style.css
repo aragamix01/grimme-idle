@@ -199,6 +199,24 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .guild-card__meta { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .chip--guild { background: var(--paper-raised); }
 
+/* ---- market: one row per good, price with a pixel sparkline ---- */
+.market-head { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 6px 12px; border-bottom: 2px solid var(--paper-edge); }
+.market-head .chip { display: inline-flex; align-items: center; gap: 4px; }
+.good { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 10px 6px; border-bottom: 2px solid var(--paper-edge); }
+.good__body { min-width: 0; display: grid; gap: 4px; }
+.good__name { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; }
+.good__stock { margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.good__price { display: grid; justify-items: end; gap: 2px; }
+.good__price b { display: inline-flex; align-items: center; gap: 2px; font: 700 18px/1 var(--font-pixel); }
+.good__trend { font: 500 12px/1 var(--font-pixel); color: var(--ink-muted); }
+.good__trend--up { color: var(--danger); }
+.good__trend--down { color: var(--success); }
+.good--dear { background: #ffe9e4; }
+.good--cheap { background: #eef8e0; }
+.spark { display: flex; align-items: flex-end; gap: 1px; height: 22px; }
+.spark i { flex: 1; min-height: 2px; background: var(--paper-edge); }
+.spark i:last-child { background: var(--gold-deep); }
+
 .npc__rels h4 { margin: 0 0 4px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--ink-muted); }
 .npc__rels ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .rel { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 13px; line-height: 20px; }

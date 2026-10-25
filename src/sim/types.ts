@@ -24,12 +24,15 @@ export interface Npc {
   spouseId?: number; // kept after the spouse dies, so the card can remember them
   parentIds?: number[]; // set for NPCs born in town
   retired?: boolean; // elders who have hung up their sword
+  gear?: number; // 0..MAX_GEAR, bought at the market; adds strength
+  hunger?: number; // meals missed in a row
+  left?: boolean; // gave up on the town (alive is false, but they didn't die)
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy';
 
 export interface Plan {
   kind: PlanKind;
@@ -87,6 +90,17 @@ export interface Guild {
   treasury: number;
 }
 
+export type Good = 'grain' | 'loot' | 'gear';
+
+export interface Market {
+  stock: Record<Good, number>;
+  price: Record<Good, number>; // whole gold, follows stock
+  till: number; // the merchants' float: pays sellers, collects from buyers, pays stall wages
+  history: Record<Good, number[]>; // price every few days, oldest first
+  alert: Record<Good, -1 | 0 | 1>; // last swing the chronicle reported: glut, normal, dear
+  lastImport?: number; // day grain was last shipped in
+}
+
 export interface Legend {
   day: number;
   text: string;
@@ -105,7 +119,8 @@ export type EventKind =
   | 'quest'
   | 'rank'
   | 'bond'
-  | 'guild';
+  | 'guild'
+  | 'trade';
 
 export interface ChronicleEntry {
   seq: number;
@@ -130,6 +145,7 @@ export interface WorldState {
   guilds: Guild[];
   ties: Record<string, number>; // "lowId-highId" -> affinity -100..100; missing means strangers
   treasury: number; // town gold that funds crown quests
+  market?: Market; // missing in saves from before the economy
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
