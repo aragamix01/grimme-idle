@@ -3,7 +3,7 @@
 // A cult grows in secret among the cruel, the hungry and the bitter, gathering at the
 // dungeon to feed it; priests, soldiers on watch and the gods can expose its members.
 import { chance, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan, occupied, perkLevel } from './core';
+import { clamp, cursed, kill, log, makePlan, occupied, perkLevel } from './core';
 import { getTie, FRIEND } from './ties';
 import { dungeonDoor } from './places';
 import { loyaltyOf } from './politics';
@@ -11,7 +11,7 @@ import { guardNear } from './society';
 import { feed } from './demonlord';
 import type { Npc, WorldState } from './types';
 
-const CULT_NAMES = ['เงาจันทร์', 'ดวงตาสีเลือด', 'งูดำ', 'เปลวไฟนรก', 'รุ่งอรุณมืด', 'มงกุฎหนาม'];
+export const CULT_NAMES = ['เงาจันทร์', 'ดวงตาสีเลือด', 'งูดำ', 'เปลวไฟนรก', 'รุ่งอรุณมืด', 'มงกุฎหนาม'];
 const FOUND_MORALITY = -25;
 const MAX_CULTISTS = 14;
 const RITUAL_POWER = 1.5; // dungeon power each cultist feeds per ritual
@@ -119,7 +119,7 @@ function ritual(world: WorldState, rng: Rng): void {
   log(world, 'cult', `เงาดำ ${members.length} ร่างมุ่งหน้าไปยัง${d.name}ยามค่ำคืน`);
   for (const n of members) {
     const guard = guardNear(world, n.x, n.y) ?? guardNear(world, 25, 9);
-    if (guard && chance(rng, 0.04)) {
+    if (guard && chance(rng, cursed(world, n) ? 0.25 : 0.04)) {
       expose(world, n, `ทหาร${guard.name}เห็น${n.name}แอบออกไปร่วมพิธีมืด`);
       continue;
     }
@@ -143,8 +143,10 @@ function inquisition(world: WorldState, rng: Rng): void {
   const members = cultists(world);
   if (!members.length || occupied(world)) return; // under the demon the priests keep their heads down
   for (const p of adults(world).filter((n) => n.job === 'priest')) {
-    if (!chance(rng, 0.15)) continue;
-    const n = pick(rng, cultists(world));
+    // A curse leaves a mark the priests can see.
+    const marked = cultists(world).filter((c) => cursed(world, c));
+    if (!chance(rng, marked.length ? 0.4 : 0.15)) continue;
+    const n = marked.length ? pick(rng, marked) : pick(rng, cultists(world));
     if (!n) return;
     expose(world, n, `นักบวช${p.name}พบตราสัญลักษณ์มารบนตัว${n.name}`);
   }

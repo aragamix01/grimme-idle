@@ -29,6 +29,8 @@ export function makePlan(kind: PlanKind, at: Spot, days: number, target?: number
 
 export const perkLevel = (world: WorldState, p: Perk) => world.legacy?.perks[p] ?? 0;
 
+export const cursed = (world: WorldState, n: Npc) => (n.cursedUntil ?? 0) > world.day;
+
 export const occupied = (world: WorldState) => world.demon?.stage === 'occupied';
 
 export function clamp(v: number, min: number, max: number): number {

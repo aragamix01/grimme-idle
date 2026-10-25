@@ -180,7 +180,7 @@ function heroBlock(world: WorldState): HTMLElement {
   name.onclick = () => handlers.onSelectNpc(hero.id);
   const doing = q.stage === 'training' ? `ฝึกฝนวิชา ${Math.min(trainDays(world), world.day - q.since)}/${trainDays(world)} วัน` : hero.inside !== undefined ? 'บุกเข้าปราสาทจอมมาร!' : 'เดินทัพไปปราสาทจอมมาร';
   const party = q.companions.map((id) => world.npcs.find((n) => n.id === id && n.alive)).filter((n): n is Npc => !!n);
-  const might = fighter(hero) * 2 + party.reduce((s, n) => s + fighter(n), 0);
+  const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0);
   return el(
     'div',
     { className: 'realm-hero' },

@@ -349,6 +349,48 @@
     "frameHeight": 36,
     "frames": 1
   },
+  "rain": {
+    "file": "assets/sprites/icons/rain.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "blight": {
+    "file": "assets/sprites/icons/blight.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "plague": {
+    "file": "assets/sprites/icons/plague.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "eclipse": {
+    "file": "assets/sprites/icons/eclipse.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "surge": {
+    "file": "assets/sprites/icons/surge.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "wanderer": {
+    "file": "assets/sprites/icons/wanderer.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "star": {
     "file": "assets/sprites/icons/star.png",
     "group": "icons",

@@ -6,7 +6,7 @@ import { chance, int, pick, type Rng } from './rng';
 import { clamp, kill, log, makePlan, perkLevel } from './core';
 import { balanceOf, cultists, sway } from './cult';
 import { dungeonDoor, PLACES } from './places';
-import { gearPower } from './market';
+import { might } from './market';
 import { afterStampede, loyaltyOf } from './politics';
 import { isAdventurer, legend } from './quests';
 import { enthrone, king, leaveTrade } from './society';
@@ -27,8 +27,8 @@ export const MAX_POWER = 180; // however long it feeds, a hero with a strong par
 
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16);
 const byId = (world: WorldState, id: number) => world.npcs.find((n) => n.id === id);
-// Same measure the dungeon uses for a delving adventurer.
-export const fighter = (n: Npc) => 10 + n.level * 4 + (n.blessed ? 10 : 0) + gearPower(n);
+// Same measure the dungeon uses for a delving adventurer, curses and blessings included.
+export const fighter = (n: Npc, world: WorldState) => might(world, n);
 export const heroOf = (world: WorldState) => {
   const q = world.demon?.hero;
   return q ? world.npcs.find((n) => n.id === q.id && n.alive) : undefined;
@@ -81,7 +81,7 @@ function raid(world: WorldState, lord: DemonLord, rng: Rng): void {
   const here = adults(world).filter((n) => n.inside === undefined && n.plan?.kind !== 'crusade');
   const soldiers = here.filter((n) => n.job === 'soldier');
   const fighters = here.filter((n) => isAdventurer(n) && !n.retired);
-  const defence = soldiers.reduce((s, n) => s + fighter(n) * (0.5 + loyaltyOf(n) / 100), 0) + fighters.reduce((s, n) => s + fighter(n) * 0.5, 0);
+  const defence = soldiers.reduce((s, n) => s + fighter(n, world) * (0.5 + loyaltyOf(n) / 100), 0) + fighters.reduce((s, n) => s + fighter(n, world) * 0.5, 0);
   const host = lord.power * int(rng, 3, 5);
   log(world, 'disaster', `กองทัพปีศาจของจอมมาร${lord.name}บุกออกจาก${d.name}!`);
   const held = chance(rng, defence / (defence + host));
@@ -175,6 +175,8 @@ function awaken(world: WorldState, lord: DemonLord, n: Npc, by: string): void {
   }
   n.hero = true;
   n.blessed = true;
+  n.blessUntil = undefined;
+  n.cursedUntil = undefined;
   n.retired = undefined;
   n.morality = Math.max(n.morality, 50);
   n.level += 2 + perkLevel(world, 'valor');
@@ -221,7 +223,7 @@ function march(world: WorldState, hero: Npc, q: NonNullable<DemonLord['hero']>):
   const d = world.dungeons[0];
   const allies = adults(world)
     .filter((n) => n !== hero && isAdventurer(n) && !n.retired && !n.cultist && n.questId === undefined && n.inside === undefined)
-    .sort((a, b) => fighter(b) - fighter(a))
+    .sort((a, b) => fighter(b, world) - fighter(a, world))
     .slice(0, PARTY);
   q.stage = 'march';
   q.companions = allies.map((n) => n.id);
@@ -233,7 +235,7 @@ function march(world: WorldState, hero: Npc, q: NonNullable<DemonLord['hero']>):
 function battle(world: WorldState, lord: DemonLord, hero: Npc, rng: Rng): void {
   const q = lord.hero!;
   const party = q.companions.map((id) => byId(world, id)!).filter((n) => n.inside !== undefined);
-  const might = fighter(hero) * 2 + party.reduce((s, n) => s + fighter(n), 0);
+  const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0);
   const foe = lord.power * 2.5;
   log(world, 'battle', `ผู้กล้า${hero.name}บุกเข้าท้องพระโรงของจอมมาร${lord.name}!`, hero.id);
   const won = chance(rng, might / (might + foe));

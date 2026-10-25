@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan as plan, perkLevel, stepToward } from './core';
+import { clamp, cursed, kill, log, makePlan as plan, perkLevel, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -8,11 +8,12 @@ import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, PLACES, dungeonDoor } from './places';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
-import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
+import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
+import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -72,7 +73,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
 export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const rng: Rng = { state: world.rng };
   ensureGuild(world);
-  applyCommands(world, commands);
+  applyCommands(world, commands, rng);
 
   world.day++;
   holdCourt(world, rng);
@@ -81,6 +82,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   demonDay(world, rng);
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
+    fadeBlessing(world, npc);
     if (isBirthday(world, npc)) birthday(world, npc, rng);
     if (npc.alive) live(world, npc, rng);
   }
@@ -112,7 +114,16 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   }
   // Travellers walk in through the west gate while the town is below its starting size.
   const living = world.npcs.filter((n) => n.alive).length;
-  if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) {
+  if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
+  if (world.day % PRUNE_EVERY === 0) prune(world);
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + 0.1;
+  world.rng = rng.state;
+  return world;
+}
+
+// A newcomer walks in through the west gate and heads for the inn.
+export function traveller(world: WorldState, rng: Rng): void {
+  {
     const npc = spawnNpc(world, rng);
     // Adventurers die far more often than farmers; word of guild work draws fighters in when it's short-handed.
     const adventurers = world.npcs.filter((n) => n.alive && isAdventurer(n)).length;
@@ -130,10 +141,6 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
     world.npcs.push(npc);
     log(world, 'world', `นักเดินทาง ${npc.name} (${JOB_TH[npc.job]}) มาถึงเมือง`, npc.id);
   }
-  if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + 0.1;
-  world.rng = rng.state;
-  return world;
 }
 
 // Prefer a name nobody living has; once the pool runs out, number the repeat.
@@ -321,7 +328,7 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
   const d = world.dungeons.find((x) => x.id === npc.inside) as Dungeon;
   npc.inside = undefined;
   // Strength grows slower than levels and the dungeon always fights back, so nobody snowballs.
-  const strength = 10 + npc.level * 4 + (npc.blessed ? 10 : 0) + gearPower(npc);
+  const strength = might(world, npc);
   if (chance(rng, strength / (strength + d.power * 0.5 + 10))) {
     npc.gold += int(rng, 5, 20);
     sell(world, npc, 'loot', lootFound(rng), rng); // fangs, hides and crystals for the shop
@@ -344,7 +351,8 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
   const society = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'thieves');
   // A soldier on watch nearby may catch the thief in the act.
   const guard = guardNear(world, victim.x, victim.y);
-  if (guard && chance(rng, 0.5)) {
+  const doomed = cursed(world, npc); // a cursed thief fumbles
+  if (guard && chance(rng, doomed ? 0.85 : 0.5)) {
     const fine = Math.floor(npc.gold / 2);
     npc.gold -= fine;
     world.treasury += fine;
@@ -355,7 +363,7 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
     npc.plan = plan('flee', snap(world, { x: int(rng, 0, 26), y: int(rng, 18, 24) }), 0);
     return;
   }
-  if (chance(rng, society ? 0.55 : 0.4)) {
+  if (chance(rng, (society ? 0.55 : 0.4) * (doomed ? 0.5 : 1))) {
     const stolen = Math.ceil(victim.gold / 2);
     victim.gold -= stolen;
     npc.gold += stolen;
@@ -381,13 +389,21 @@ function prune(world: WorldState): void {
   pruneTies(world, new Set(world.npcs.filter((n) => n.alive).map((n) => n.id)));
 }
 
-export function applyCommands(world: WorldState, commands: Command[]): void {
-  for (const cmd of commands) applyCommand(world, cmd);
+// Paused, powers land without a tick, so they draw from the world's own random stream.
+export function applyCommands(world: WorldState, commands: Command[], rng?: Rng): void {
+  const r = rng ?? { state: world.rng };
+  for (const cmd of commands) applyCommand(world, cmd, r);
+  if (!rng) world.rng = r.state;
 }
 
-function applyCommand(world: WorldState, cmd: Command): void {
+function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'perk') {
     buyPerk(world, cmd.perk);
+    return;
+  }
+  if (cmd.type === 'miracle') {
+    const cost = miracleCost(world, cmd.kind);
+    if (world.faith >= cost && miracle(world, cmd.kind, rng)) world.faith -= cost;
     return;
   }
   const cost = costOf(world, cmd.type);
@@ -407,26 +423,8 @@ function applyCommand(world: WorldState, cmd: Command): void {
   }
   const npc = world.npcs.find((n) => n.id === cmd.npcId && n.alive);
   if (!npc) return;
+  if (cmd.type === 'bless') bless(world, npc);
+  else if (cmd.type === 'curse') curse(world, npc);
+  else if (!dream(world, npc, cmd.job, cmd.kind)) return; // nothing to dream of: the faith is kept
   world.faith -= cost;
-  if (cmd.type === 'bless') {
-    npc.blessed = true;
-    npc.morality = clamp(npc.morality + 10, -100, 100);
-    sway(world, 1);
-    log(world, 'bless', `แสงศักดิ์สิทธิ์โอบล้อม ${npc.name}`, npc.id);
-  } else if (cmd.type === 'curse') {
-    npc.blessed = false;
-    npc.level = Math.max(1, npc.level - 1);
-    sway(world, -1);
-    log(world, 'curse', `${npc.name} ต้องคำสาปแห่งกบ`, npc.id);
-  } else {
-    if (cmd.job === 'king' || cmd.job === 'noble') return; // titles are granted, not dreamt
-    npc.job = cmd.job;
-    if (isAdventurer(npc)) {
-      npc.rank ??= 0;
-      npc.renown ??= 0;
-    }
-    if (npc.inside === undefined) npc.plan = undefined; // the dream changes their next move
-    // A dreaming king walks away from the throne; the court crowns someone else.
-    log(world, 'dream', `${npc.name} ฝันถึงชีวิตใหม่ในฐานะ${JOB_TH[cmd.job]}`, npc.id);
-  }
 }

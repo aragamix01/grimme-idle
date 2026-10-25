@@ -1,0 +1,232 @@
+// The god's hand: blessings that fade, curses that bite, dreams that change a heart, and
+// miracles worked on the whole world, from kind rain to plague and eclipse.
+import { chance, pick, type Rng } from './rng';
+import { clamp, kill, log, perkLevel } from './core';
+import { CULT_NAMES, sway } from './cult';
+import { getTie, setTie } from './ties';
+import { isAdventurer } from './quests';
+import { ensureMarket } from './market';
+import { loyaltyOf } from './politics';
+import { traveller } from './world';
+import { JOB_TH } from './names';
+import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
+
+export const BLESS_DAYS = 365;
+export const CURSE_DAYS = 180;
+const MIRACLE_GAP = 30; // days before the same miracle can be worked again
+const WEATHER_DAYS = 60;
+
+const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16);
+
+// ---------- one soul ----------
+
+export function bless(world: WorldState, n: Npc): void {
+  n.blessed = true;
+  n.blessUntil = world.day + BLESS_DAYS;
+  n.cursedUntil = undefined;
+  n.hunger = 0;
+  n.morality = clamp(n.morality + 10, -100, 100);
+  sway(world, 1);
+  log(world, 'bless', `แสงศักดิ์สิทธิ์โอบล้อม ${n.name}`, n.id);
+}
+
+// Blessings fade after a year, except a hero's. Old saves get a fresh year on their blessing.
+export function fadeBlessing(world: WorldState, n: Npc): void {
+  if (!n.blessed || n.hero) return;
+  n.blessUntil ??= world.day + BLESS_DAYS;
+  if (world.day < n.blessUntil) return;
+  n.blessed = false;
+  n.blessUntil = undefined;
+  log(world, 'bless', `พรที่โอบล้อม${n.name}ค่อยๆ จางหายไป`, n.id);
+}
+
+// A curse weakens its mark for half a year. Striking the wicked is justice and brightens the
+// world; striking the good darkens it. A cursed cultist sinks deeper and grows careless.
+export function curse(world: WorldState, n: Npc): void {
+  n.blessed = false;
+  n.blessUntil = undefined;
+  n.cursedUntil = world.day + CURSE_DAYS;
+  sway(world, n.morality < 0 ? 1 : -2);
+  if (n.cultist) n.morality = clamp(n.morality - 15, -100, 100);
+  log(world, 'curse', `${n.name} ต้องคำสาปแห่งกบ${n.morality < 0 ? ' ผู้คนกระซิบว่าเป็นกรรมตามสนอง' : ''}`, n.id);
+}
+
+export function dream(world: WorldState, n: Npc, job?: Job, kind?: DreamKind): boolean {
+  if (kind === 'repent') return repent(world, n);
+  if (kind === 'love') return love(world, n);
+  if (kind === 'nightmare') return nightmare(world, n);
+  if (kind === 'vision') return vision(world, n);
+  if (!job || job === 'king' || job === 'noble') return false; // titles are granted, not dreamt
+  n.job = job;
+  if (isAdventurer(n)) {
+    n.rank ??= 0;
+    n.renown ??= 0;
+  }
+  if (n.inside === undefined) n.plan = undefined; // the dream changes their next move
+  log(world, 'dream', `${n.name} ฝันถึงชีวิตใหม่ในฐานะ${JOB_TH[job]}`, n.id);
+  return true;
+}
+
+// Wakes in tears and turns over a new leaf: kinder, out of the cult, done with thieving.
+function repent(world: WorldState, n: Npc): boolean {
+  n.morality = Math.max(clamp(n.morality + 30, -100, 100), 10);
+  let what = 'ตื่นขึ้นมาพร้อมน้ำตาและตั้งใจเป็นคนดี';
+  if (n.cultist) {
+    n.cultist = false;
+    what = `ตื่นขึ้นมาแล้วละทิ้ง${world.cult?.name ?? 'ลัทธิมาร'}`;
+  } else if (n.job === 'thief') {
+    n.job = 'farmer';
+    n.plan = undefined;
+    what = 'ตื่นขึ้นมาแล้วเลิกเป็นโจร หันไปทำนา';
+  }
+  sway(world, 1);
+  log(world, 'dream', `${n.name} ฝันเห็นผลกรรมของตน ${what}`, n.id);
+  return true;
+}
+
+// Dreams of the single soul they are already closest to, and so do they.
+function love(world: WorldState, n: Npc): boolean {
+  const free = (o: Npc) => o.alive && o.age >= 16 && o.age <= 60 && !world.npcs.some((s) => s.alive && s.id === o.spouseId);
+  if (!free(n)) return false;
+  const kin = (o: Npc) => n.parentIds?.includes(o.id) || o.parentIds?.includes(n.id) || n.parentIds?.some((p) => o.parentIds?.includes(p));
+  const match = world.npcs
+    .filter((o) => o !== n && free(o) && !kin(o))
+    .sort((a, b) => getTie(world, n.id, b.id) - getTie(world, n.id, a.id))[0];
+  if (!match) return false;
+  setTie(world, n.id, match.id, Math.max(getTie(world, n.id, match.id), 70));
+  log(world, 'dream', `${n.name} ฝันถึง${match.name}ทั้งคืน หัวใจของทั้งคู่เต้นแรง`, n.id);
+  return true;
+}
+
+// Dreams of betrayal by the one they already trust least, and wakes bitter.
+function nightmare(world: WorldState, n: Npc): boolean {
+  const foe = world.npcs
+    .filter((o) => o !== n && o.alive && o.age >= 16)
+    .sort((a, b) => getTie(world, n.id, a.id) - getTie(world, n.id, b.id))[0];
+  if (foe) setTie(world, n.id, foe.id, clamp(getTie(world, n.id, foe.id) - 40, -100, 100));
+  n.morality = clamp(n.morality - 10, -100, 100);
+  n.loyalty = clamp(loyaltyOf(n) - 15, 0, 100);
+  sway(world, -0.5);
+  log(world, 'dream', `${n.name} ฝันร้ายว่าถูก${foe ? foe.name : 'คนรอบตัว'}หักหลัง ตื่นมาด้วยความหวาดระแวง`, n.id);
+  return true;
+}
+
+// An adventurer dreams an ancient sword form and wakes the better for it.
+function vision(world: WorldState, n: Npc): boolean {
+  if (!isAdventurer(n)) return false;
+  n.level++;
+  n.renown = (n.renown ?? 0) + 2;
+  log(world, 'dream', `${n.name} ฝันเห็นวิชาดาบโบราณ ตื่นมาเก่งขึ้นเป็นเลเวล ${n.level}`, n.id);
+  return true;
+}
+
+// ---------- the whole world ----------
+
+export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: number; icon: string; dark: boolean }> = {
+  rain: { name: 'ฝนฉ่ำ', text: 'ฝนตกต้องตามฤดู ผลผลิตข้าว ×1.6 นาน 60 วัน', cost: 12, icon: 'rain', dark: false },
+  goldrain: { name: 'ฝนทองคำ', text: 'ทองโปรยลงมาจากฟ้า ท้องพระคลัง +200 และทุกคนได้ 8 ทอง', cost: 15, icon: 'gold', dark: false },
+  festival: { name: 'งานฉลองศักดิ์สิทธิ์', text: 'ทั้งเมืองเฉลิมฉลอง ภักดี +15 ศีล +5 ทุกคน', cost: 12, icon: 'banner', dark: false },
+  wanderers: { name: 'ส่งนักเดินทาง', text: 'นักเดินทาง 4 คนเดินทางเข้าเมือง', cost: 8, icon: 'wanderer', dark: false },
+  blight: { name: 'โรคพืช', text: 'ข้าวในยุ้งเน่าไป 30% และผลผลิต ×0.3 นาน 60 วัน', cost: 10, icon: 'blight', dark: true },
+  plague: { name: 'โรคระบาด', text: 'โรคร้ายคร่าชีวิตคนชราและคนอ่อนแอ นักบวชช่วยบรรเทาได้', cost: 20, icon: 'plague', dark: true },
+  cult: { name: 'ปลุกลัทธิมาร', text: 'คนใจดำที่สุดในเมืองตั้งลัทธิมารขึ้นพร้อมสาวก 2 คน', cost: 15, icon: 'cult', dark: true },
+  surge: { name: 'ปลุกฝูงมอนสเตอร์', text: 'พลังดันเจี้ยน +60 มอนสเตอร์อาจล้นออกมาเร็วๆ นี้', cost: 10, icon: 'surge', dark: true },
+  eclipse: { name: 'สุริยุปราคา', text: 'โลกมืดลงอย่างมาก ลางร้ายของจอมมาร +25', cost: 20, icon: 'eclipse', dark: true },
+};
+export const MIRACLE_ORDER = Object.keys(MIRACLES) as MiracleKind[];
+
+export const miracleCost = (world: WorldState, k: MiracleKind) => Math.max(1, Math.round(MIRACLES[k].cost * (1 - 0.1 * perkLevel(world, 'grace'))));
+export const miracleReady = (world: WorldState, k: MiracleKind) => world.day - (world.miracleAt?.[k] ?? -MIRACLE_GAP) >= MIRACLE_GAP;
+export const miracleWait = (world: WorldState, k: MiracleKind) => Math.max(0, MIRACLE_GAP - (world.day - (world.miracleAt?.[k] ?? -MIRACLE_GAP)));
+export const weatherOf = (world: WorldState) => (world.weather && world.weather.until > world.day ? world.weather.kind : undefined);
+export const weatherYield = (world: WorldState) => {
+  const w = weatherOf(world);
+  return w === 'rain' ? 1.6 : w === 'blight' ? 0.3 : 1;
+};
+
+export function miracle(world: WorldState, k: MiracleKind, rng: Rng): boolean {
+  if (!miracleReady(world, k) || !work(world, k, rng)) return false;
+  (world.miracleAt ??= {})[k] = world.day;
+  return true;
+}
+
+function work(world: WorldState, k: MiracleKind, rng: Rng): boolean {
+  const grown = adults(world);
+  switch (k) {
+    case 'rain':
+      world.weather = { kind: 'rain', until: world.day + WEATHER_DAYS };
+      sway(world, 2);
+      log(world, 'bless', 'เทพเจ้าบันดาลให้ฝนตกฉ่ำทั่วแผ่นดิน ทุ่งนาเขียวขจี');
+      return true;
+    case 'blight': {
+      const m = ensureMarket(world);
+      const lost = Math.floor(m.stock.grain * 0.3);
+      m.stock.grain -= lost;
+      world.weather = { kind: 'blight', until: world.day + WEATHER_DAYS };
+      sway(world, -2);
+      log(world, 'curse', `โรคพืชระบาดทั่วทุ่งนา ข้าวในยุ้งเน่าไป ${lost} กระสอบ`);
+      return true;
+    }
+    case 'goldrain':
+      world.treasury += 200;
+      for (const n of grown) n.gold += 8;
+      log(world, 'bless', 'ทองคำโปรยปรายลงมาจากฟ้า ชาวเมืองวิ่งเก็บกันจ้าละหวั่น');
+      return true;
+    case 'festival':
+      for (const n of grown) {
+        n.loyalty = clamp(loyaltyOf(n) + 15, 0, 100);
+        n.morality = clamp(n.morality + 5, -100, 100);
+      }
+      sway(world, 3);
+      log(world, 'bless', 'เทพเจ้าบันดาลงานฉลองศักดิ์สิทธิ์ ทั้งเมืองร้องรำทำเพลงจนรุ่งสาง');
+      return true;
+    case 'wanderers':
+      for (let i = 0; i < 4; i++) traveller(world, rng);
+      return true;
+    case 'plague': {
+      const priests = grown.filter((n) => n.job === 'priest').length;
+      const care = 1 - Math.min(0.5, priests * 0.1);
+      let dead = 0;
+      for (const n of world.npcs) {
+        if (!n.alive || n.inside !== undefined) continue;
+        const risk = (n.age >= 58 ? 0.3 : n.age < 16 ? 0.04 : 0.08) * care;
+        if (chance(rng, risk)) {
+          kill(world, n, 'สิ้นใจด้วยโรคระบาด');
+          dead++;
+        }
+      }
+      sway(world, -2);
+      log(world, 'disaster', `โรคระบาดแพร่ไปทั่วเมือง คร่าชีวิตไป ${dead} คน${priests ? ` นักบวช ${priests} คนช่วยรักษาผู้ป่วย` : ''}`);
+      return true;
+    }
+    case 'cult': {
+      if (world.cult) return false;
+      const pool = grown.filter((n) => !n.cultist && !n.hero && n.job !== 'king' && n.job !== 'priest' && n.questId === undefined && n.inside === undefined);
+      const [founder, ...rest] = pool.sort((a, b) => a.morality - b.morality);
+      if (!founder) return false;
+      const name = `ลัทธิ${pick(rng, CULT_NAMES)}`;
+      world.cult = { name, founded: world.day, leaderId: founder.id, rituals: 0 };
+      for (const n of [founder, ...rest.slice(0, 2)]) {
+        n.cultist = true;
+        n.morality = clamp(n.morality - 20, -100, 100);
+      }
+      sway(world, -3);
+      log(world, 'cult', `เสียงกระซิบจากใต้ดินนำทาง${founder.name}ให้ก่อตั้ง${name}ขึ้นอย่างลับๆ`, founder.id);
+      return true;
+    }
+    case 'surge': {
+      const d = world.dungeons[0];
+      if (!d) return false;
+      d.power += 60;
+      log(world, 'disaster', `แผ่นดินสั่นสะเทือน ใต้${d.name}เดือดพล่านไปด้วยมอนสเตอร์`);
+      return true;
+    }
+    case 'eclipse':
+      sway(world, -15);
+      if (world.demon) world.demon.power = Math.min(180, world.demon.power + 20);
+      else world.dread = clamp((world.dread ?? 0) + 25, 0, 100);
+      log(world, 'cult', 'ดวงอาทิตย์ดับมืดกลางวันแสกๆ สัตว์ป่าเงียบงัน และบางสิ่งใต้ดินขยับตัว');
+      return true;
+  }
+}
+

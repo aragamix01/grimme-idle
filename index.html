@@ -28,7 +28,10 @@
             <button type="button" data-speed="1" aria-pressed="true">1×</button>
             <button type="button" data-speed="3">3×</button>
           </div>
-          <button type="button" id="era-open" class="era-open">ยุคที่ 1</button>
+          <div class="head-actions">
+            <button type="button" id="miracle-open" class="era-open"><img src="/assets/sprites/icons/bless.png" alt="" width="16" height="16" />บันดาล</button>
+            <button type="button" id="era-open" class="era-open">ยุคที่ 1</button>
+          </div>
         </header>
 
         <section id="npc-card" class="npc" hidden aria-live="polite"></section>
@@ -67,6 +70,12 @@
       <ul id="offline-counts" class="offline-counts"></ul>
       <ol id="offline-highlights" class="offline-list"></ol>
       <form method="dialog"><button class="btn btn--gold">กลับสู่โลก</button></form>
+    </dialog>
+
+    <dialog id="miracles">
+      <h2>บันดาล</h2>
+      <div id="miracles-body"></div>
+      <form method="dialog"><button class="btn">ปิด</button></form>
     </dialog>
 
     <dialog id="eras">

@@ -10,6 +10,7 @@ import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
 import { showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
+import { initMiracles, renderMiracles } from './ui/miracles';
 import type { FromWorker, ToWorker } from './worker/protocol';
 
 const TICK_MS = 600; // one in-game day at 1x
@@ -40,6 +41,7 @@ function render(): void {
   if (!world) return;
   renderStats(world);
   renderEra(world);
+  renderMiracles(world);
   renderNpcCard(world, selected);
   if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
@@ -92,6 +94,7 @@ initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', comma
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
 });
 initPeople({ onSelectNpc: select });
+initMiracles((kind) => send({ type: 'command', command: { type: 'miracle', kind } }));
 initEra({
   onEndEra: () => send({ type: 'newEra' }),
   onPerk: (perk) => send({ type: 'command', command: { type: 'perk', perk } }),

@@ -338,7 +338,29 @@ button.chip--cult:hover { background: #7a3a8a; }
   width: min(420px, calc(100vw - 32px)); padding: 18px 20px; color: var(--ink);
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
 }
-#offline::backdrop, #eras::backdrop { background: rgb(20 40 16 / 0.6); }
+#offline::backdrop, #eras::backdrop, #miracles::backdrop { background: rgb(20 40 16 / 0.6); }
+#miracles {
+  width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 18px 20px; color: var(--ink);
+  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+}
+#miracles h2 { margin: 0 0 4px; font-size: 20px; }
+#miracles form { display: flex; justify-content: flex-end; margin-top: 12px; }
+.miracle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.miracle {
+  display: grid; grid-template-columns: 24px 1fr; gap: 2px 8px; align-items: center; text-align: left; padding: 8px;
+  border: 2px solid var(--outline); background: var(--paper-raised); color: var(--ink); font: 400 12px/18px var(--font-body); cursor: pointer;
+}
+.miracle img { grid-row: span 2; image-rendering: pixelated; }
+.miracle b { font-size: 14px; font-weight: 600; }
+.miracle__text { grid-column: 1 / -1; color: var(--ink-muted); }
+.miracle__cost { grid-column: 1 / -1; justify-self: end; display: inline-flex; align-items: center; gap: 2px; font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
+.miracle--dark { background: #f3ecf8; }
+.miracle:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--gold); }
+.miracle--dark:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--demon); }
+.miracle:disabled { opacity: 0.45; cursor: not-allowed; }
+.head-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.dream-kinds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 6px; }
+.chip--curse { background: #3a5a2a; color: var(--paper); border-color: var(--outline); }
 #eras {
   width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 18px 20px; color: var(--ink);
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
@@ -347,7 +369,7 @@ button.chip--cult:hover { background: #7a3a8a; }
 #eras form { display: flex; justify-content: flex-end; margin-top: 12px; }
 #eras ul { list-style: none; margin: 0; padding: 0; }
 .era-open {
-  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; padding: 4px 8px;
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 4px 8px;
   border: 2px solid var(--outline); background: var(--paper-raised); color: var(--ink); font: 500 14px var(--font-body); cursor: pointer;
 }
 .era-open b { font: 700 14px var(--font-num); font-variant-numeric: tabular-nums; }

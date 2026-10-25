@@ -1,4 +1,4 @@
-import { ADULT_AGE, costOf, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -35,11 +35,11 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   const ties = topTies(world, npc.id);
   const guild = world.guilds.find((g) => g.id === npc.guildId);
   const fam = family(world, npc);
-  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, canAwaken(world), ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, cursed(world, npc), Math.floor(world.day / 10), canAwaken(world), ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
-  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  card.replaceChildren(header(npc, doing, world.day, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
 }
 
 const WORK_TH: Partial<Record<Job, string>> = {
@@ -142,7 +142,7 @@ function relations(world: WorldState, ties: { id: number; value: number }[]): HT
   return el('div', { className: 'npc__rels' }, el('h4', { textContent: 'ความสัมพันธ์' }), body);
 }
 
-function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean }): HTMLElement {
+function header(npc: Npc, doing: string, day: number, guild?: { name: string; leads: boolean }): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
   const look = npc.age < ADULT_AGE ? 'child' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
   portrait.style.backgroundImage = `url(/assets/sprites/characters/${look}.png)`;
@@ -155,7 +155,8 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
     ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),
     el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
-    ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
+    ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: npc.blessUntil ? `ได้รับพร (${Math.max(0, npc.blessUntil - day)} วัน)` : 'ได้รับพร' })] : []),
+    ...(npc.alive && (npc.cursedUntil ?? 0) > day ? [el('span', { className: 'chip chip--curse', textContent: `ต้องสาป (${npc.cursedUntil! - day} วัน)` })] : []),
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
@@ -255,6 +256,17 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     wrap.append(b);
   }
   if (choosingDream && can(COMMAND_COST.dream)) {
+    // Dreams that change a heart, then dreams of a new calling.
+    const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : [])];
+    const hearts = kinds.map(([kind, label]) => {
+      const b = el('button', { type: 'button', className: 'chip chip--button', textContent: label });
+      b.onclick = () => {
+        choosingDream = false;
+        handlers.onCommand({ type: 'dream', npcId: npc.id, kind });
+      };
+      return b;
+    });
+    wrap.append(el('div', { className: 'dream-kinds' }, el('span', { textContent: 'ให้ฝัน' }), ...hearts));
     const jobs = JOBS.filter((j) => j !== npc.job).map((job) => {
       const b = el('button', { type: 'button', className: 'chip chip--button', textContent: JOB_TH[job] });
       b.onclick = () => {

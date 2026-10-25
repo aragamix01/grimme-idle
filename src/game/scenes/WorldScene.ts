@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, statueHero, type Npc, type WorldState } from '../../sim';
-import { PLACES } from '../../sim/places';
+import { ADULT_AGE, statueHero, weatherOf, type Npc, type WorldState } from '../../sim';
+import { FIELDS, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -61,6 +61,9 @@ export class WorldScene extends Phaser.Scene {
   private glow!: Phaser.GameObjects.Graphics;
   private clock = -1; // eased copy of world.day, so the sky turns smoothly between ticks
   private seenSeq = -1; // last chronicle entry the scene has reacted to
+  private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private blight!: Phaser.GameObjects.Rectangle;
+  private raining = false;
   private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
 
   constructor() {
@@ -89,6 +92,18 @@ export class WorldScene extends Phaser.Scene {
     // The sky: a tint over the whole map, and lit windows that shine through it.
     this.sky = this.add.rectangle(0, 0, MAP_W * TILE, MAP_H * TILE, NIGHT.color).setOrigin(0).setDepth(20_000).setAlpha(0);
     this.glow = this.add.graphics().setDepth(20_001).setAlpha(0);
+    // Miracle weather: rain falling over the whole map, blight browning the fields.
+    this.add.graphics().fillStyle(0x2e56a0).fillRect(0, 0, 2, 7).fillStyle(0xd8ecff).fillRect(0, 0, 1, 6).generateTexture('raindrop', 2, 7).destroy();
+    this.rain = this.add
+      .particles(0, -8, 'raindrop', { x: { min: 0, max: MAP_W * TILE }, speedY: { min: 240, max: 300 }, speedX: -40, lifespan: 1400, quantity: 6, frequency: 30, alpha: 0.85, emitting: false })
+      .setDepth(19_999);
+    const fx = FIELDS.x0 * TILE;
+    const fy = FIELDS.y0 * TILE;
+    this.blight = this.add
+      .rectangle(fx, fy, (FIELDS.x1 - FIELDS.x0 + 1) * TILE, (FIELDS.y1 - FIELDS.y0 + 1) * TILE, 0x6b4a1c, 0.5)
+      .setOrigin(0)
+      .setDepth(1)
+      .setVisible(false);
 
     // Gold ring under the selected NPC's feet.
     this.selectRing = this.add.graphics().setVisible(false);
@@ -148,6 +163,7 @@ export class WorldScene extends Phaser.Scene {
     this.lastKey = key;
     if (!this.townBuilt) this.buildTown(w);
     this.syncKeep(w);
+    this.syncWeather(w);
     this.watchChronicle(w);
     for (const npc of w.npcs) this.syncNpc(npc);
     // The sim prunes long-dead NPCs; drop their sprites too.
@@ -161,6 +177,16 @@ export class WorldScene extends Phaser.Scene {
         this.blessMarks.delete(id);
       }
     }
+  }
+
+  private syncWeather(w: WorldState): void {
+    const weather = weatherOf(w);
+    if ((weather === 'rain') !== this.rain.emitting) {
+      if (weather === 'rain') this.rain.start();
+      else this.rain.stop();
+    }
+    this.blight.setVisible(weather === 'blight');
+    this.raining = weather === 'rain';
   }
 
   // The keep rises behind the dungeon when the demon lord wakes and crumbles when it falls.
@@ -249,7 +275,9 @@ export class WorldScene extends Phaser.Scene {
     const dread = w.demon ? (w.demon.stage === 'occupied' ? 1 : 0.6) : 0;
     const evil = Math.max(dread, Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1));
     const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
-    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * (w.demon?.stage === 'occupied' ? 0.32 : 0.22)));
+    // Rain greys the day a little.
+    const gloom = this.raining ? 0.18 : 0;
+    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * (w.demon?.stage === 'occupied' ? 0.32 : 0.22), gloom));
     this.glow.setAlpha(Phaser.Math.Clamp((night - 0.4) / 0.4, 0, 1));
   }
 

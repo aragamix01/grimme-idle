@@ -45,6 +45,8 @@ export interface Npc {
   knight?: boolean; // sworn to the crown, paid each payday
   cultist?: boolean; // a secret member of the demon cult
   trip?: number; // merchants: days left on the road with a caravan
+  blessUntil?: number; // day the blessing fades (heroes keep theirs)
+  cursedUntil?: number; // day the curse lifts
   hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
 }
 
@@ -159,6 +161,9 @@ export interface DemonLord {
   hero?: HeroQuest;
 }
 
+export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
+export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse';
+
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';
 
 // One closed era, as the next ones remember it.
@@ -237,6 +242,8 @@ export interface WorldState {
   demon?: DemonLord;
   demonsSlain?: number;
   slayers?: string[]; // heroes who slew a demon lord this era
+  weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
+  miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy; // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
@@ -246,8 +253,9 @@ export interface WorldState {
 export type Command =
   | { type: 'bless'; npcId: number }
   | { type: 'curse'; npcId: number }
-  | { type: 'dream'; npcId: number; job: Job }
+  | { type: 'dream'; npcId: number; job?: Job; kind?: DreamKind }
   | { type: 'divineQuest' }
   | { type: 'reveal' }
   | { type: 'hero'; npcId?: number }
-  | { type: 'perk'; perk: Perk };
+  | { type: 'perk'; perk: Perk }
+  | { type: 'miracle'; kind: MiracleKind };

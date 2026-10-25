@@ -4,7 +4,7 @@ import { chance, int, next, type Rng } from './rng';
 import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
 import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
 import { snap } from './nav';
-import { gearPower, lootFound, sell, wearGear } from './market';
+import { might, lootFound, sell, wearGear } from './market';
 import { payrollReserve } from './society';
 import { sway } from './cult';
 import { FRIEND, addTie, getTie } from './ties';
@@ -284,7 +284,7 @@ function expire(world: WorldState, q: Quest): void {
 
 function resolve(world: WorldState, q: Quest, rng: Rng): void {
   const party = members(world, q);
-  const strength = party.reduce((s, n) => s + 10 + n.level * 4 + (n.blessed ? 10 : 0) + gearPower(n), 0);
+  const strength = party.reduce((s, n) => s + might(world, n), 0);
   const target = byId(world, q.targetId);
   const difficulty = target ? 12 + target.level * 6 + (target.guildId !== undefined ? 10 : 0) : q.difficulty;
   const success = party.length > 0 && (q.kind !== 'bounty' || !!target?.alive) && chance(rng, strength / (strength + difficulty));
