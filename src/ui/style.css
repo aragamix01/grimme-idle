@@ -138,6 +138,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__traits { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .npc__doing { margin: 4px 0 0; font-size: 13px; line-height: 20px; font-weight: 500; }
 .npc__doing::before { content: "▸ "; color: var(--ink-muted); }
+.npc__bar { display: none; }
+.npc__bar-close { width: 40px; height: 36px; border: 2px solid var(--outline); background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; }
 .npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }
 .npc__stat { display: grid; grid-template-columns: 16px auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
@@ -411,9 +413,15 @@ button.chip--cult:hover { background: #7a3a8a; }
   #game { position: sticky; top: 0; z-index: 4; background: var(--meadow-deep); }
   /* A picked NPC opens as a sheet over the bottom of the screen, not far below the fold. */
   .npc:not([hidden]) {
-    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 10; max-height: 48vh; overflow-y: auto;
+    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 10; max-height: 42vh; overflow-y: auto; padding-top: 0;
     border: 3px solid var(--outline); box-shadow: 4px 4px 0 rgb(20 40 16 / 0.45);
   }
+  .npc__bar {
+    display: flex; position: sticky; top: 0; z-index: 2; margin: 0 -12px; padding: 6px 8px 6px 12px;
+    justify-content: space-between; align-items: center; gap: 8px;
+    background: var(--paper-raised); border-bottom: 2px solid var(--paper-edge); font-size: 15px;
+  }
+  .npc__head .npc__close { display: none; }
 }
 
 /* Fingers need bigger targets than a mouse. */

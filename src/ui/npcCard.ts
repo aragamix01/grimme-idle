@@ -13,6 +13,7 @@ interface Handlers {
 
 let handlers: Handlers;
 let lastKey = '';
+let shownId: number | null = null;
 let choosingDream = false;
 
 export function initNpcCard(h: Handlers): void {
@@ -39,7 +40,19 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
-  card.replaceChildren(header(npc, doing, world.day, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  // On phones the card is a scrolling sheet: keep the reader's place across rebuilds, start at the top for someone new.
+  const scroll = shownId === npc.id ? card.scrollTop : 0;
+  shownId = npc.id;
+  card.replaceChildren(bar(npc), header(npc, doing, world.day, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  card.scrollTop = scroll;
+}
+
+// A slim bar that stays at the top of the phone sheet, so it can always be closed.
+function bar(npc: Npc): HTMLElement {
+  const close = el('button', { type: 'button', className: 'npc__bar-close', textContent: '×', title: 'ปิด' });
+  close.setAttribute('aria-label', 'ปิดข้อมูลชาวเมือง');
+  close.onclick = () => handlers.onClose();
+  return el('div', { className: 'npc__bar' }, el('b', { textContent: npc.name }), close);
 }
 
 const WORK_TH: Partial<Record<Job, string>> = {

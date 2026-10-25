@@ -141,8 +141,15 @@ function friendNear(world: WorldState, n: Npc): Npc | undefined {
 
 function say(npcId: number, text: string): void {
   if (!locate(npcId)) return; // off screen or out of sight: nobody to hear it
-  // Busy screen or someone just spoke: let this one pass rather than crowd the map.
+  // Busy screen, someone just spoke, or another bubble already sits right there: let this one pass.
   const now = performance.now();
+  const at = locate(npcId)!;
+  const crowded = bubbles.some((o) => {
+    if (o.npcId === npcId) return false;
+    const p = locate(o.npcId);
+    return !!p && Math.abs(p.x - at.x) < 90 && Math.abs(p.y - at.y) < 30;
+  });
+  if (crowded) return;
   if (now - lastSaid < GAP_MS || bubbles.filter((b) => b.npcId !== npcId).length >= MAX_BUBBLES) return;
   lastSaid = now;
   const old = bubbles.find((b) => b.npcId === npcId);
