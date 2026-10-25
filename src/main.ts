@@ -129,7 +129,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   }
   world = msg.world;
   scene.setWorld(world);
-  pushBubbles(world);
+  pushBubbles(world, selected);
   render();
 };
 

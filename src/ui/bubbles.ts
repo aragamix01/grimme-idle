@@ -1,15 +1,50 @@
-import type { EventKind, WorldState } from '../sim';
+import { ADULT_AGE, cursed, seasonOf, weatherOf, type EventKind, type Job, type Npc, type WorldState } from '../sim';
 
 // Short reactions that pop over an NPC's head when something happens to them.
 const LINES: Partial<Record<EventKind, string[]>> = {
-  battle: ['ชนะแล้ว!', 'เลเวลอัป!', 'ได้ของแล้ว!'],
+  battle: ['ชนะแล้ว!', 'เลเวลอัป!', 'ได้ของแล้ว!', 'แค่นี้เองเหรอ!'],
   theft: ['หึหึ…', 'ได้ทองมาแล้ว'],
-  bless: ['อบอุ่นจัง…', 'ขอบคุณเทพเจ้า!'],
-  curse: ['อ๊บ!?', 'ทำไมเป็นกบ!'],
-  dream: ['ฝันประหลาด…', 'หรือจะเปลี่ยนอาชีพดี'],
+  bless: ['อบอุ่นจัง…', 'ขอบคุณเทพเจ้า!', 'รู้สึกมีพลัง!'],
+  curse: ['อ๊บ!?', 'ทำไมเป็นกบ!', 'ตัวเย็นวาบ…'],
+  dream: ['ฝันประหลาด…', 'ฝันอะไรเนี่ย', 'ตื่นแล้ว… ใจเต้นแรง'],
+  quest: ['ออกผจญภัยกัน!', 'เควสนี้ข้าขอ!', 'กลับมาแล้ว!'],
+  rank: ['เลื่อนแรงก์แล้ว!', 'ข้าเก่งขึ้นอีกขั้น!'],
+  bond: ['เพื่อนกันนะ!', 'ดีใจที่ได้รู้จัก!'],
+  trade: ['ขายดีจัง!', 'กลับมาพร้อมของแล้ว!', 'ไปค้าขายกัน!'],
+  politics: ['ทรงพระเจริญ!', 'ข้าจะรับใช้อาณาจักร', 'ไม่ไหวแล้ว!'],
+  cult: ['…', 'ท่านจอมมาร…', 'ความมืดจงเจริญ'],
+  guild: ['ยินดีต้อนรับสู่กิลด์!', 'กิลด์ของเราต้องยิ่งใหญ่!'],
 };
-const LIFETIME_MS = 2600;
-const MAX_BUBBLES = 4;
+
+// What people say about their work as they go about it.
+const WORK: Partial<Record<Job, string[]>> = {
+  farmer: ['ปลูกข้าวกันเถอะ', 'ข้าวงามดีนะปีนี้', 'ปวดหลังจัง…'],
+  merchant: ['ของดีราคาถูกจ้า!', 'แวะดูก่อนได้นะ', 'กำไรนิดหน่อยก็ยังดี'],
+  blacksmith: ['เคร้ง! เคร้ง!', 'ดาบเล่มนี้คมกริบ', 'ร้อนจริงๆ'],
+  innkeeper: ['เบียร์สดๆ จ้า!', 'ห้องว่างยังมีนะ', 'วันนี้ลูกค้าเยอะ'],
+  courtesan: ['แวะมาสิจ๊ะ~', 'คืนนี้ว่างไหม~'],
+  priest: ['ขอพรจงสถิต', 'เทพเจ้าทรงเห็นทุกสิ่ง', 'มาสวดภาวนากัน'],
+  soldier: ['ไม่มีอะไรผิดปกติ', 'เฝ้ายามต่อไป', 'ใครน่าสงสัยบ้างนะ'],
+  noble: ['ชาวบ้านพวกนี้…', 'ภาษีเดือนนี้เท่าไหร่นะ', 'ชาสักถ้วยไหม'],
+  king: ['ข้าคือราชา', 'อาณาจักรของข้างดงาม', 'ทหารของข้าอยู่ไหน'],
+  thief: ['กระเป๋าใครหนักๆ นะ…', 'อย่ามองข้าแบบนั้น', 'วันนี้ว่างงาน…'],
+  swordsman: ['วันนี้ไปล่ามอนดีไหม', 'ดาบข้าคันมือแล้ว', 'อยากได้เควสแรงก์สูง'],
+  mage: ['ร่ายเวทใหม่ได้แล้ว', 'มานาเต็มแล้ว', 'อ่านคัมภีร์ต่อดีกว่า'],
+};
+// When the event's own words say how it went, the line follows them.
+const BY_WORD: [string, string][] = [
+  ['แต่งงาน', 'รักนะ!'],
+  ['จับ', 'โดนจับซะแล้ว!'],
+  ['ศัตรู', 'ไม่ถูกชะตาเลย!'],
+  ['ล้มเหลว', 'ไม่น่าเลย…'],
+  ['หนีทัพ', 'ไม่ทนแล้ว!'],
+];
+const KIDS = ['เล่นซ่อนแอบกัน!', 'แม่จ๋า~', 'โตขึ้นจะเป็นผู้กล้า!', 'จับไม่ได้หรอก!'];
+const IDLE = ['อากาศดีจัง', 'เบื่อจัง~', 'วันนี้กินอะไรดี', 'ฮัมเพลงไปเรื่อย~', 'ง่วงจัง…'];
+
+const LIFETIME_MS = 2800;
+const MAX_BUBBLES = 6;
+const CHATTER = 0.55; // chance each tick that someone on screen says something
 
 interface Bubble {
   el: HTMLElement;
@@ -20,6 +55,7 @@ interface Bubble {
 const layer = document.getElementById('bubbles')!;
 let bubbles: Bubble[] = [];
 let lastSeq = -1;
+let lastDay = -1;
 let locate: (id: number) => { x: number; y: number } | null = () => null;
 
 export function initBubbles(locator: typeof locate): void {
@@ -27,24 +63,92 @@ export function initBubbles(locator: typeof locate): void {
   requestAnimationFrame(frame);
 }
 
-export function pushBubbles(world: WorldState): void {
+export function pushBubbles(world: WorldState, selected: number | null = null): void {
   // Skip the backlog on first load (and after offline catch-up): only react to live events.
   if (lastSeq < 0) {
     lastSeq = world.chronicleSeq;
+    lastDay = world.day;
     return;
   }
   for (const e of world.chronicle) {
     if (e.seq <= lastSeq || e.npcId === undefined) continue;
     const lines = LINES[e.kind];
     if (!lines) continue;
-    const node = document.createElement('span');
-    node.className = 'bubble';
-    node.textContent = lines[e.seq % lines.length];
-    layer.append(node);
-    bubbles.push({ el: node, npcId: e.npcId, until: performance.now() + LIFETIME_MS });
+    const word = BY_WORD.find(([w]) => e.text.includes(w));
+    say(e.npcId, word ? word[1] : lines[e.seq % lines.length]);
   }
   lastSeq = world.chronicleSeq;
+  // Ambient chatter once per new day, so pausing doesn't flood the screen.
+  if (world.day !== lastDay) {
+    lastDay = world.day;
+    const sel = selected === null ? undefined : world.npcs.find((n) => n.id === selected && n.alive);
+    if (sel && Math.random() < 0.2) chatter(world, sel);
+    if (Math.random() < CHATTER) {
+      const near = world.npcs.filter((n) => n.alive && n.inside === undefined && locate(n.id));
+      if (near.length) chatter(world, near[Math.floor(Math.random() * near.length)]);
+    }
+  }
   while (bubbles.length > MAX_BUBBLES) bubbles.shift()!.el.remove();
+}
+
+function chatter(world: WorldState, n: Npc): void {
+  const line = lineFor(world, n);
+  if (line) say(n.id, line);
+}
+
+const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)];
+
+// What this person would say right now, from the most pressing thing on their mind down.
+function lineFor(world: WorldState, n: Npc): string | undefined {
+  if (n.age < ADULT_AGE) return any(KIDS);
+  const p = n.plan?.kind;
+  if (p === 'ritual') return any(['(กระซิบ) ไปที่ดันเจี้ยน…', 'อย่าให้ใครเห็น…']);
+  if (p === 'steal') return any(['เป้าหมายอยู่ตรงนั้น…', 'ค่อยๆ ย่องไป…']);
+  if (p === 'flee') return any(['หนีเร็ว!', 'ไม่ได้ทำอะไรนะ!']);
+  if (p === 'caravan') return any(['ออกเดินทางค้าขาย!', 'ระวังโจรป่าด้วยนะ']);
+  if (p === 'haul') return any(['กลับบ้านแล้ว!', 'เกวียนเต็มเลย']);
+  if (p === 'crusade') return any(['จอมมาร รอข้าก่อน!', 'เพื่อทุกคน!']);
+  if (p === 'adventure') return any(['ไปดันเจี้ยนกัน!', 'ขอให้ได้ของดี']);
+  if (p === 'buy') return any(['ซื้อดาบใหม่ดีกว่า', 'เกราะนี่ดีนะ']);
+  if ((n.hunger ?? 0) >= 2) return any(['หิวจัง…', 'ไม่มีอะไรกินเลย', 'ข้าวแพงเกินไปแล้ว']);
+  if (cursed(world, n)) return any(['อ๊บ… ตัวยังเย็นอยู่เลย', 'ใครสาปข้านะ…']);
+  if (n.hero) return any(['ข้าจะปกป้องทุกคน!', 'ต้องเก่งขึ้นอีก!']);
+  const r = Math.random();
+  if (world.demon?.stage === 'occupied' && r < 0.5) return any(['เมื่อไหร่ผู้กล้าจะมา…', 'ส่วยอีกแล้วเหรอ', 'อย่าให้ปีศาจได้ยินนะ']);
+  if (world.demon && r < 0.3) return any(['ได้ยินว่าจอมมารตื่นแล้ว…', 'ปราสาทนั่นน่ากลัวจัง']);
+  const weather = weatherOf(world);
+  if (weather === 'rain' && r < 0.4) return any(['ฝนดีจัง ข้าวงามแน่', 'เปียกหมดเลย!', 'ขอบคุณสำหรับฝน']);
+  if (weather === 'blight' && r < 0.4) return any(['ข้าวเน่าหมดแล้ว…', 'ปีนี้จะอดตายไหม']);
+  if (n.cultist && r < 0.15) return '(กระซิบ) คืนนี้ที่ดันเจี้ยน…';
+  if ((n.loyalty ?? 50) < 30 && n.job !== 'king' && r < 0.4) return any(['ภาษีแพงจัง', 'กษัตริย์ไม่เคยสนเราเลย', 'สักวันจะลุกฮือ!']);
+  if (seasonOf(world.day) === 'winter' && r < 0.2) return any(['หนาวจัง…', 'อยากนั่งข้างเตาผิง']);
+  const friend = friendNear(world, n);
+  if (friend && r < 0.25) return `สวัสดี ${friend.name}!`;
+  if (p === 'work' && WORK[n.job]) return any(WORK[n.job]!);
+  return any(r < 0.5 && WORK[n.job] ? WORK[n.job]! : IDLE);
+}
+
+// A friend standing next to them, to wave at.
+function friendNear(world: WorldState, n: Npc): Npc | undefined {
+  return world.npcs.find((o) => {
+    if (o === n || !o.alive || o.inside !== undefined || Math.abs(o.x - n.x) + Math.abs(o.y - n.y) > 2) return false;
+    const key = n.id < o.id ? `${n.id}-${o.id}` : `${o.id}-${n.id}`;
+    return (world.ties[key] ?? 0) >= 15;
+  });
+}
+
+function say(npcId: number, text: string): void {
+  if (!locate(npcId)) return; // off screen or out of sight: nobody to hear it
+  const old = bubbles.find((b) => b.npcId === npcId);
+  if (old) {
+    old.el.remove();
+    bubbles = bubbles.filter((b) => b !== old);
+  }
+  const node = document.createElement('span');
+  node.className = 'bubble';
+  node.textContent = text;
+  layer.append(node);
+  bubbles.push({ el: node, npcId, until: performance.now() + LIFETIME_MS });
 }
 
 function frame(now: number): void {
