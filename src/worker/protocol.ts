@@ -1,8 +1,16 @@
-import type { Command, WorldState } from '../sim';
+import type { ChronicleEntry, Command, EventKind, WorldState } from '../sim';
 
 export type ToWorker =
-  | { type: 'start'; seed: number; tickMs: number }
+  | { type: 'start'; tickMs: number }
   | { type: 'command'; command: Command }
-  | { type: 'speed'; tickMs: number };
+  | { type: 'speed'; tickMs: number } // 0 pauses
+  | { type: 'save' }
+  | { type: 'reset' };
 
-export type FromWorker = { type: 'state'; world: WorldState };
+export interface OfflineReport {
+  days: number;
+  counts: Partial<Record<EventKind, number>>;
+  highlights: ChronicleEntry[];
+}
+
+export type FromWorker = { type: 'state'; world: WorldState } | { type: 'offline'; report: OfflineReport };

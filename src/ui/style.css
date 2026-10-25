@@ -9,6 +9,8 @@
   --ink-muted: #7a4420;
   --gold: #ffd23f;
   --danger: #d03a4e;
+  --gold-deep: #d8961c;
+  --focus: #2e56a0;
   --shadow: 6px 6px 0 rgb(20 40 16 / 0.45);
   --font-body: 'Mitr', system-ui, sans-serif;
   --font-pixel: 'Pixelify Sans', 'Mitr', monospace;
@@ -75,6 +77,102 @@ img, canvas { image-rendering: pixelated; }
 .entry p { margin: 4px 0 0; min-width: 0; font-size: 14px; line-height: 22px; }
 .entry time { margin-top: 6px; font: 500 13px var(--font-pixel); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .entry--danger time { color: var(--danger); }
+
+/* ---- shared controls ---- */
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.seg { display: flex; border: 2px solid var(--outline); background: var(--paper); }
+.seg button {
+  flex: 1; padding: 3px 10px; border: 0; background: none; cursor: pointer;
+  font: 500 14px/22px var(--font-body);
+}
+.seg button + button { border-left: 2px solid var(--outline); }
+.seg button[aria-pressed="true"] { background: var(--gold); font-weight: 600; }
+.seg button:disabled { color: var(--paper-edge); cursor: not-allowed; }
+.seg--small button { padding: 0 8px; font-size: 13px; line-height: 20px; }
+
+.chip {
+  display: inline-flex; align-items: center; padding: 0 6px;
+  font-size: 12px; line-height: 20px; background: var(--paper); border: 2px solid var(--outline);
+}
+.chip--gold { background: var(--gold); }
+.chip--danger { background: var(--danger); color: var(--paper); }
+.chip--button { cursor: pointer; background: var(--paper-raised); box-shadow: inset 0 -2px 0 var(--paper-edge); }
+.chip--button:hover { background: var(--gold); }
+
+.btn {
+  padding: 6px 18px; border: 2px solid var(--outline); cursor: pointer;
+  font: 600 15px/24px var(--font-body); background: var(--paper-raised);
+  box-shadow: inset 0 -3px 0 var(--paper-edge);
+}
+.btn--gold { background: var(--gold); box-shadow: inset 0 -3px 0 var(--gold-deep); }
+.btn:active { transform: translateY(2px); box-shadow: none; }
+
+.hint { margin: 0; padding: 10px 18px; font-size: 13px; color: var(--ink-muted); border-bottom: 2px solid var(--paper-edge); }
+
+/* ---- NPC card ---- */
+.npc { padding: 12px 18px 14px; border-bottom: 3px solid var(--outline); background: var(--paper); display: grid; gap: 10px; }
+.npc__head { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: start; }
+.npc__portrait {
+  width: 48px; height: 72px; border: 2px solid var(--outline); background-color: #8fd64e;
+  background-size: 96px 72px; background-position: 0 0; background-repeat: no-repeat; image-rendering: pixelated;
+  box-sizing: content-box;
+}
+.npc__id { min-width: 0; }
+.npc__name { margin: 0; font-size: 17px; line-height: 26px; font-weight: 600; }
+.npc__chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.npc__traits { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
+.npc__stats { display: grid; gap: 6px; }
+.npc__stat { display: grid; grid-template-columns: 16px auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
+.npc__stat b { justify-self: end; font: 700 15px var(--font-pixel); }
+.npc__stat--moral { grid-template-columns: 22px 1fr 40px; }
+.moral { position: relative; height: 10px; border: 2px solid var(--outline); background: linear-gradient(90deg, var(--demon) 50%, var(--gold) 50%); }
+.moral__marker { position: absolute; top: -6px; width: 6px; height: 18px; margin-left: -3px; background: var(--paper); border: 2px solid var(--outline); }
+
+.npc__powers h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.powers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.power {
+  display: grid; justify-items: center; gap: 0; padding: 6px 4px 5px; cursor: pointer;
+  background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: inset 0 -3px 0 var(--paper-edge);
+}
+.power:hover:not(:disabled) { background: #fff; }
+.power:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.power:disabled { opacity: 0.45; cursor: not-allowed; }
+.power__name { font-size: 13px; line-height: 20px; font-weight: 500; }
+.power__cost { display: inline-flex; align-items: center; gap: 2px; font: 500 12px/16px var(--font-pixel); color: var(--ink-muted); }
+.dream-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; font-size: 13px; }
+
+.entry--empty { display: block; color: var(--ink-muted); font-size: 13px; }
+
+/* ---- speech bubbles (DOM overlay so Thai text stays crisp) ---- */
+#bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.bubble {
+  position: absolute; left: 0; top: 0; white-space: nowrap;
+  padding: 2px 8px; font-size: 13px; line-height: 20px; font-weight: 500;
+  background: #fff; border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+  animation: pop 160ms steps(3) both;
+}
+.bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -5px;
+  border: 5px solid transparent; border-top: 6px solid var(--outline);
+}
+@keyframes pop { from { scale: 0.4; } to { scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
+
+/* ---- offline summary ---- */
+#offline {
+  width: min(420px, calc(100vw - 32px)); padding: 18px 20px; color: var(--ink);
+  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+}
+#offline::backdrop { background: rgb(20 40 16 / 0.6); }
+#offline h2 { margin: 0; font-size: 20px; }
+.offline-days { margin: 2px 0 12px; font-family: var(--font-pixel); color: var(--ink-muted); }
+.offline-counts { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.offline-counts li { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 13px; line-height: 24px; border: 2px solid var(--outline); background: var(--paper-raised); }
+.offline-list { list-style: none; padding: 0; margin: 0 0 14px; border-top: 2px solid var(--paper-edge); }
+#offline form { display: flex; justify-content: flex-end; }
 
 @media (max-width: 800px) {
   #app { flex-direction: column; }

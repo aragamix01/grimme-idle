@@ -23,16 +23,39 @@
               <dd id="stat-faith">0</dd>
             </div>
           </dl>
+          <div class="seg" role="group" aria-label="ความเร็วของเวลา" id="speed">
+            <button type="button" data-speed="0">หยุด</button>
+            <button type="button" data-speed="1" aria-pressed="true">1×</button>
+            <button type="button" data-speed="3">3×</button>
+          </div>
         </header>
+
+        <section id="npc-card" class="npc" hidden aria-live="polite"></section>
+        <p id="npc-hint" class="hint">คลิกชาวเมืองบนแผนที่เพื่อดูชีวิตและใช้พลังเทพ</p>
+
         <section class="log" aria-labelledby="log-title">
           <div class="log-head">
             <h2 id="log-title">พงศาวดาร</h2>
-            <span id="log-count"></span>
+            <div class="seg seg--small" role="group" aria-label="กรองพงศาวดาร" id="log-filter">
+              <button type="button" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+              <button type="button" data-filter="npc" disabled>คนนี้</button>
+            </div>
           </div>
           <ol id="feed"></ol>
         </section>
       </aside>
     </div>
+
+    <div id="bubbles" aria-hidden="true"></div>
+
+    <dialog id="offline">
+      <h2>ระหว่างที่คุณไม่อยู่</h2>
+      <p id="offline-days" class="offline-days"></p>
+      <ul id="offline-counts" class="offline-counts"></ul>
+      <ol id="offline-highlights" class="offline-list"></ol>
+      <form method="dialog"><button class="btn btn--gold">กลับสู่โลก</button></form>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -31,9 +31,12 @@ export class WorldScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private npcSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private blessMarks = new Map<number, Phaser.GameObjects.Sprite>();
+  private selectRing!: Phaser.GameObjects.Graphics;
+  private selectedId: number | null = null;
   private dungeonPlaced = false;
-  private lastDay = -1;
+  private lastKey = '';
   tickMs = 500;
+  onSelect: (id: number | null) => void = () => {};
 
   constructor() {
     super('world');
@@ -56,16 +59,58 @@ export class WorldScene extends Phaser.Scene {
     this.anims.create({ key: 'sparkle-twinkle', frames: this.anims.generateFrameNumbers('sparkle', {}), frameRate: 8, repeat: -1, yoyo: true });
     this.buildGround();
     for (const [key, tx, ty] of TOWN) this.placeProp(key, tx, ty);
+
+    // Gold ring under the selected NPC's feet.
+    this.selectRing = this.add.graphics().setVisible(false);
+    this.selectRing.lineStyle(2, 0x3b2416).strokeEllipse(0, 0, 18, 8);
+    this.selectRing.lineStyle(1, 0xffd23f).strokeEllipse(0, 0, 16, 6);
+
+    // Click picks the nearest living NPC within ~a tile; empty ground clears the selection.
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      let best: number | null = null;
+      let bestD = 14;
+      for (const [id, s] of this.npcSprites) {
+        if (!s.visible) continue;
+        const d = Phaser.Math.Distance.Between(p.worldX, p.worldY, s.x, s.y - 10);
+        if (d < bestD) {
+          bestD = d;
+          best = id;
+        }
+      }
+      this.select(best);
+      this.onSelect(best);
+    });
   }
 
   setWorld(world: WorldState): void {
     this.world = world;
   }
 
+  select(id: number | null): void {
+    this.selectedId = id;
+    this.selectRing?.setVisible(id !== null);
+  }
+
+  // Client-space position of an NPC's head, for DOM overlays such as speech bubbles.
+  npcScreenPos(id: number): { x: number; y: number } | null {
+    const s = this.npcSprites.get(id);
+    if (!s || !s.visible) return null;
+    const rect = this.game.canvas.getBoundingClientRect();
+    const k = rect.width / this.scale.gameSize.width;
+    return { x: rect.left + s.x * k, y: rect.top + (s.y - s.height) * k };
+  }
+
   update(): void {
+    if (this.selectedId !== null) {
+      const s = this.npcSprites.get(this.selectedId);
+      if (s?.visible) this.selectRing.setPosition(s.x, s.y - 1).setDepth(s.depth - 1);
+      else this.selectRing.setVisible(false);
+    }
     const w = this.world;
-    if (!w || w.day === this.lastDay) return;
-    this.lastDay = w.day;
+    // Powers used while paused change the world without advancing the day, so key on both.
+    const key = w ? `${w.day}:${w.chronicleSeq}` : '';
+    if (!w || key === this.lastKey) return;
+    this.lastKey = key;
     if (!this.dungeonPlaced) this.placeDungeons(w);
     for (const npc of w.npcs) this.syncNpc(npc);
   }
