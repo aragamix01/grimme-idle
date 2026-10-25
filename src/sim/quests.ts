@@ -75,15 +75,25 @@ function crownWatch(world: WorldState): void {
 
 // A farmer working the fields may find wolves at the crops and pay to have them driven off.
 export function maybePestQuest(world: WorldState, farmer: Npc, rng: Rng): void {
-  if (!chance(rng, PEST_CHANCE) || farmer.gold < 12) return;
-  if (openQuest(world, (q) => q.kind === 'pest')) return;
-  const reward = Math.min(farmer.gold - 2, int(rng, 10, 20));
-  farmer.gold -= reward;
+  if (!chance(rng, PEST_CHANCE) || openQuest(world, (q) => q.kind === 'pest')) return;
+  const reward = int(rng, 10, 20);
+  const covered = guildCovers(world, farmer, reward);
+  if (farmer.gold - 2 < reward - covered) return;
+  farmer.gold -= reward - covered;
   const q = newQuest(world, 'pest', `ไล่ฝูงหมาป่าที่ทุ่งของ${farmer.name}`, int(rng, 0, 1), 18, reward, 1);
   q.patronId = farmer.id;
   q.spot = { x: clamp(farmer.x, FIELDS.x0, FIELDS.x1), y: clamp(farmer.y, FIELDS.y0, FIELDS.y1) };
   world.quests.push(q);
   log(world, 'quest', `${farmer.name} เจอหมาป่าบุกทุ่ง ประกาศจ้างนักผจญภัย (${reward} ทอง)`, farmer.id);
+}
+
+// A trade association pays half of the jobs its members post, while its coffers allow.
+function guildCovers(world: WorldState, member: Npc, reward: number): number {
+  const g = world.guilds.find((x) => x.id === member.guildId && x.kind === 'merchants');
+  if (!g) return 0;
+  const half = Math.min(Math.floor(reward / 2), Math.floor(g.treasury));
+  g.treasury -= half;
+  return half;
 }
 
 // Merchants with savings travel to sell elsewhere and want guards for the road.
@@ -93,7 +103,7 @@ function merchantTrips(world: WorldState, rng: Rng): void {
     if (!chance(rng, ESCORT_CHANCE)) continue;
     const rank = m.gold > 80 ? 2 : m.gold > 50 ? 1 : 0;
     const reward = 10 + rank * 8;
-    m.gold -= reward;
+    m.gold -= reward - guildCovers(world, m, reward);
     const q = newQuest(world, 'escort', `คุ้มกัน${m.name}ไปเมืองข้างเคียง`, rank, 15 + rank * 12, reward, 1);
     q.clientId = m.id;
     q.patronId = m.id;

@@ -44,7 +44,7 @@ export function renderGuild(world: WorldState): void {
       'กิลด์ในเมือง',
       world.guilds.length
         ? world.guilds.map((g) => guildCard(g, members(g), byId))
-        : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยแรงก์ D ขึ้นไปที่มีทองพออาจตั้งขึ้นเอง')],
+        : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยที่มีประสบการณ์ พ่อค้าที่ร่ำรวย หรือโจรใจดำ อาจตั้งขึ้นเองเมื่อมีทองพอ')],
     ),
     section('ผลล่าสุด', finished.length ? finished.map((q) => resultRow(q, byId)) : [empty('ยังไม่มีเควสที่จบ')]),
     section('นักผจญภัย', adventurers.length ? adventurers.map((n) => adventurerRow(world, n)) : [empty('ยังไม่มีนักผจญภัยในเมือง')]),
@@ -149,7 +149,7 @@ function resultRow(q: Quest, byId: Map<number, Npc>): HTMLElement {
 function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>): HTMLElement {
   const leader = byId.get(g.leaderId);
   const others = members.filter((m) => m.id !== g.leaderId);
-  const kind = g.kind === 'thieves' ? 'สมาคมโจร' : 'กิลด์นักผจญภัย';
+  const kind = { adventurers: 'กิลด์นักผจญภัย', merchants: 'สมาคมการค้า (พ่อค้าและชาวนา)', thieves: 'สมาคมโจร' }[g.kind];
   const fame = g.kind === 'adventurers' ? ` · ชื่อเสียง ${g.renown}` : '';
   return el(
     'li',

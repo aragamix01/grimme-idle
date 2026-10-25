@@ -75,7 +75,7 @@ export interface Quest {
   guildId?: number; // claimed by a guild: only its members (and their friends) may join
 }
 
-export type GuildKind = 'adventurers' | 'thieves';
+export type GuildKind = 'adventurers' | 'thieves' | 'merchants';
 
 export interface Guild {
   id: number;

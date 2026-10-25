@@ -208,7 +208,12 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       npc.plan = plan('delve', p, int(rng, 3, 6), p.target);
       return;
     case 'work':
-      if (chance(rng, 0.5)) npc.gold += npc.job === 'merchant' ? 2 : 1;
+      if (chance(rng, 0.5)) {
+        const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
+        const earned = (npc.job === 'merchant' ? 2 : 1) + (trade ? 1 : 0); // shared stalls and buyers
+        npc.gold += earned;
+        if (trade && chance(rng, 0.3)) trade.treasury += 1; // membership dues
+      }
       if (npc.job === 'farmer') maybePestQuest(world, npc, rng);
       if (--p.days <= 0) npc.plan = undefined;
       return;

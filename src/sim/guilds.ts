@@ -6,8 +6,8 @@ import { isActive, isAdventurer, legend, postExpedition, rankName } from './ques
 import { ENEMY, FRIEND, getTie } from './ties';
 import type { Guild, GuildKind, Npc, WorldState } from './types';
 
-const MAX_GUILDS = 4;
-const FOUND_CHANCE = 0.004; // per eligible NPC per day
+const MAX_GUILDS = 5;
+const FOUND_CHANCE = 0.008; // per eligible NPC per day
 const FOUND_COST = 30;
 const JOIN_CHANCE = 0.06; // per unaffiliated NPC per day, when a guild appeals
 const LEAVE_CHANCE = 0.05; // per day for members who've come to hate their leader
@@ -17,7 +17,14 @@ const EMBLEMS = ['หมาป่า', 'มังกร', 'กุหลาบ', 
 const COLOURS = ['เงิน', 'ทอง', 'แดง', 'ดำ', 'ขาว', 'คราม', 'มรกต', 'อำพัน'];
 
 const memberOf = (world: WorldState, g: Guild) => world.npcs.filter((n) => n.alive && n.guildId === g.id);
-const fits = (n: Npc, kind: GuildKind) => (kind === 'thieves' ? n.job === 'thief' && n.age >= 16 : isAdventurer(n));
+// Who each kind of guild takes in. Merchants' guilds welcome farmers too: they sell the harvest.
+export const fits = (n: Npc, kind: GuildKind) => {
+  if (n.age < 16) return false;
+  if (kind === 'thieves') return n.job === 'thief';
+  if (kind === 'merchants') return n.job === 'merchant' || n.job === 'farmer';
+  return isAdventurer(n);
+};
+const hasKind = (world: WorldState, kind: GuildKind) => world.guilds.some((g) => g.kind === kind);
 
 export function updateGuilds(world: WorldState, rng: Rng): void {
   for (const g of [...world.guilds]) succession(world, g);
@@ -34,14 +41,14 @@ function guildName(world: WorldState, kind: GuildKind, rng: Rng): string {
   const taken = new Set(world.guilds.map((g) => g.name));
   for (let i = 0; i < 20; i++) {
     const core = `${pick(rng, EMBLEMS)}${pick(rng, COLOURS)}`;
-    const name = kind === 'thieves' ? `สมาคมเงา${core}` : `กิลด์${core}`;
+    const name = kind === 'thieves' ? `สมาคมเงา${core}` : kind === 'merchants' ? `สมาคมการค้า${core}` : `กิลด์${core}`;
     if (!taken.has(name)) return name;
   }
   return `กิลด์ที่ ${world.guilds.length + 1}`;
 }
 
-// A well-known, well-off adventurer with drive (brave or greedy) starts their own guild;
-// a rich thief with a dark heart starts a thieves' society.
+// A seasoned adventurer with drive starts their own guild; a prosperous merchant starts a trade
+// association; a rich thief with a dark heart starts a thieves' society.
 function found(world: WorldState, rng: Rng): void {
   if (world.guilds.length >= MAX_GUILDS) return;
   for (const n of world.npcs) {
@@ -49,16 +56,17 @@ function found(world: WorldState, rng: Rng): void {
     const current = world.guilds.find((g) => g.id === n.guildId);
     // Members only strike out on their own when they're at odds with their leader.
     if (current && (current.leaderId === n.id || getTie(world, n.id, current.leaderId) >= 0)) continue;
-    const driven = n.traits.includes('brave') || n.traits.includes('greedy');
-    const adventurer = isAdventurer(n) && (n.rank ?? 0) >= 2 && driven;
-    const thief = n.job === 'thief' && n.morality <= -20 && world.guilds.every((g) => g.kind !== 'thieves');
-    if ((!adventurer && !thief) || !chance(rng, FOUND_CHANCE)) continue;
-    const kind: GuildKind = thief ? 'thieves' : 'adventurers';
+    const driven = n.traits.includes('brave') || n.traits.includes('greedy') || n.traits.includes('loyal');
+    const adventurer = isAdventurer(n) && ((n.rank ?? 0) >= 1 || n.level >= 3) && driven;
+    const merchant = n.job === 'merchant' && n.age >= 16 && n.gold >= 60 && !hasKind(world, 'merchants');
+    const thief = n.job === 'thief' && n.age >= 16 && n.morality <= -20 && !hasKind(world, 'thieves');
+    if ((!adventurer && !merchant && !thief) || !chance(rng, FOUND_CHANCE)) continue;
+    const kind: GuildKind = thief ? 'thieves' : merchant ? 'merchants' : 'adventurers';
     const g: Guild = { id: world.nextId++, name: guildName(world, kind, rng), kind, leaderId: n.id, founded: world.day, renown: 0, treasury: FOUND_COST };
     n.gold -= FOUND_COST;
     n.guildId = g.id;
     world.guilds.push(g);
-    const title = kind === 'thieves' ? 'จัดตั้ง' : `นักผจญภัยแรงก์ ${rankName(n.rank)} ก่อตั้ง`;
+    const title = kind === 'adventurers' ? `นักผจญภัยแรงก์ ${rankName(n.rank)} ก่อตั้ง` : kind === 'merchants' ? 'พ่อค้าผู้มั่งคั่ง ก่อตั้ง' : 'จัดตั้ง';
     if (current) log(world, 'guild', `${n.name} แยกตัวจาก${current.name} มาก่อตั้ง${g.name}`, n.id);
     else log(world, 'guild', `${n.name} ${title}${g.name}`, n.id);
     return; // one founding a day is plenty
