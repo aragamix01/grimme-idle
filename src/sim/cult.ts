@@ -3,11 +3,12 @@
 // A cult grows in secret among the cruel, the hungry and the bitter, gathering at the
 // dungeon to feed it; priests, soldiers on watch and the gods can expose its members.
 import { chance, pick, type Rng } from './rng';
-import { clamp, kill, log, makePlan } from './core';
+import { clamp, kill, log, makePlan, occupied } from './core';
 import { getTie, FRIEND } from './ties';
 import { dungeonDoor } from './places';
 import { loyaltyOf } from './politics';
 import { guardNear } from './society';
+import { feed } from './demonlord';
 import type { Npc, WorldState } from './types';
 
 const CULT_NAMES = ['เงาจันทร์', 'ดวงตาสีเลือด', 'งูดำ', 'เปลวไฟนรก', 'รุ่งอรุณมืด', 'มงกุฎหนาม'];
@@ -15,6 +16,7 @@ const FOUND_MORALITY = -25;
 const MAX_CULTISTS = 14;
 const RITUAL_POWER = 1.5; // dungeon power each cultist feeds per ritual
 export const REVEAL_COST = 8;
+const DREAD_PER_RITUAL = 1.5;
 
 export const balanceOf = (world: WorldState) => world.balance ?? 0;
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16);
@@ -88,7 +90,7 @@ function recruit(world: WorldState, rng: Rng): void {
   for (const c of cultists(world)) {
     for (let tries = 0; tries < 3; tries++) {
       if (cultists(world).length >= MAX_CULTISTS) return;
-      const mark = adults(world).filter((n) => !n.cultist && n.job !== 'king' && n.job !== 'priest' && !n.knight);
+      const mark = adults(world).filter((n) => !n.cultist && n.job !== 'king' && n.job !== 'priest' && !n.knight && !n.hero);
       if (!mark.length) return;
       const n = pick(rng, mark);
       const pull =
@@ -129,6 +131,9 @@ function ritual(world: WorldState, rng: Rng): void {
 export function performRitual(world: WorldState, n: Npc): void {
   const d = world.dungeons.find((x) => x.id === n.plan?.target) ?? world.dungeons[0];
   if (d) d.power += RITUAL_POWER;
+  // Each offering also stirs the demon lord below, or feeds it once it walks.
+  if (world.demon) feed(world.demon, 0.3);
+  else world.dread = clamp((world.dread ?? 0) + DREAD_PER_RITUAL, 0, 100);
   n.morality = clamp(n.morality - 2, -100, 100);
   sway(world, -0.5);
 }
@@ -136,7 +141,7 @@ export function performRitual(world: WorldState, n: Npc): void {
 // Priests watch their flock; one may spot a cultist's mark.
 function inquisition(world: WorldState, rng: Rng): void {
   const members = cultists(world);
-  if (!members.length) return;
+  if (!members.length || occupied(world)) return; // under the demon the priests keep their heads down
   for (const p of adults(world).filter((n) => n.job === 'priest')) {
     if (!chance(rng, 0.15)) continue;
     const n = pick(rng, cultists(world));

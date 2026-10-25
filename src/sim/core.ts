@@ -27,6 +27,8 @@ export function makePlan(kind: PlanKind, at: Spot, days: number, target?: number
   return { kind, x: at.x, y: at.y, days, target };
 }
 
+export const occupied = (world: WorldState) => world.demon?.stage === 'occupied';
+
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }

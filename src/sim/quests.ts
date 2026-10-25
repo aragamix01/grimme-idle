@@ -244,6 +244,7 @@ function recruit(world: WorldState, q: Quest, rng: Rng): void {
       n.questId === undefined &&
       n.inside === undefined &&
       n.plan?.kind !== 'adventure' &&
+      n.plan?.kind !== 'crusade' &&
       n.id !== q.patronId &&
       (n.rank ?? 0) >= q.rank - 1 &&
       (!target || getTie(world, n.id, target.id) < FRIEND) && // nobody hunts their own friend

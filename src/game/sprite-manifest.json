@@ -91,11 +91,11 @@
     "frames": 6
   },
   "hero": {
-    "file": "assets/sprites/characters/hero.png",
-    "group": "characters",
+    "file": "assets/sprites/icons/hero.png",
+    "group": "icons",
     "frameWidth": 16,
-    "frameHeight": 24,
-    "frames": 6
+    "frameHeight": 16,
+    "frames": 1
   },
   "child": {
     "file": "assets/sprites/characters/child.png",
@@ -326,6 +326,20 @@
     "group": "buildings",
     "frameWidth": 48,
     "frameHeight": 40,
+    "frames": 1
+  },
+  "demon-castle": {
+    "file": "assets/sprites/buildings/demon-castle.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 56,
+    "frames": 1
+  },
+  "demon": {
+    "file": "assets/sprites/icons/demon.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
     "frames": 1
   },
   "cult": {

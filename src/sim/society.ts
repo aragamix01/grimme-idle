@@ -1,7 +1,7 @@
 // The town beyond adventuring: a king with nobles and soldiers, and the trades and
 // pleasures people spend their money on. Who holds which rank is decided here.
 import { chance, next, pick, type Rng } from './rng';
-import { log } from './core';
+import { log, occupied } from './core';
 import { addTie } from './ties';
 import { buy, ensureMarket, sell } from './market';
 import { PLACES, type Spot } from './places';
@@ -49,7 +49,7 @@ const PATROL_REACH = 4; // tiles a soldier on duty can see
 // With a world given, soldiers are only picked while the crown can afford their pay.
 export function pickJob(rng: Rng, world?: WorldState): Job {
   const army = world ? living(world, 'soldier').length : 0;
-  const affordable = !world || (army < ARMY_TARGET && world.treasury >= SALARY * 3 * (army + 1));
+  const affordable = !world || (!occupied(world) && army < ARMY_TARGET && world.treasury >= SALARY * 3 * (army + 1));
   const weights = JOB_WEIGHTS.filter(([j]) => affordable || j !== 'soldier');
   let r = next(rng) * weights.reduce((s, [, w]) => s + w, 0);
   for (const [job, w] of weights) if ((r -= w) < 0) return job;
@@ -82,6 +82,11 @@ export function inheritedJob(world: WorldState, parents: Npc[], rng: Rng): Job {
 // replaced at once) but only titles new nobles once a month.
 export function holdCourt(world: WorldState, rng: Rng): void {
   let crowned = king(world);
+  // Under the demon lord there is no throne to fill, only trades to keep going.
+  if (occupied(world)) {
+    if (world.day % COURT_EVERY === 0) fillTrades(world, rng);
+    return;
+  }
   if (!crowned) {
     const old = world.npcs.find((n) => n.id === world.kingId);
     const adults = world.npcs.filter((n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined);
@@ -144,7 +149,7 @@ function fillTrades(world: WorldState, rng: Rng): void {
   }
 }
 
-function leaveTrade(n: Npc): void {
+export function leaveTrade(n: Npc): void {
   n.rank = undefined;
   n.renown = undefined;
   n.guildId = undefined;
@@ -213,7 +218,7 @@ export function payroll(world: WorldState): void {
 // With gold to spare the crown takes on a poor, able commoner, the loyal and brave first.
 function recruit(world: WorldState): void {
   const army = living(world, 'soldier').length;
-  if (army >= ARMY_TARGET || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
+  if (occupied(world) || army >= ARMY_TARGET || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
   // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
   const spare = (job: Job) => ['farmer', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;

@@ -59,6 +59,7 @@ export class WorldScene extends Phaser.Scene {
   private glow!: Phaser.GameObjects.Graphics;
   private clock = -1; // eased copy of world.day, so the sky turns smoothly between ticks
   private seenSeq = -1; // last chronicle entry the scene has reacted to
+  private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
 
   constructor() {
     super('world');
@@ -144,6 +145,7 @@ export class WorldScene extends Phaser.Scene {
     if (!w || key === this.lastKey) return;
     this.lastKey = key;
     if (!this.townBuilt) this.buildTown(w);
+    this.syncKeep(w);
     this.watchChronicle(w);
     for (const npc of w.npcs) this.syncNpc(npc);
     // The sim prunes long-dead NPCs; drop their sprites too.
@@ -156,6 +158,26 @@ export class WorldScene extends Phaser.Scene {
         this.npcSprites.delete(id);
         this.blessMarks.delete(id);
       }
+    }
+  }
+
+  // The keep rises behind the dungeon when the demon lord wakes and crumbles when it falls.
+  private syncKeep(w: WorldState): void {
+    const d = w.dungeons[0];
+    if (w.demon && !this.keep && d) {
+      const k = this.add.image(d.x * TILE + TILE, (d.y + 2) * TILE - 18, 'demon-castle').setOrigin(0.5, 1);
+      k.setDepth(k.y - 20);
+      this.keep = k;
+      if (this.seenSeq >= 0) {
+        k.setAlpha(0).setScale(1, 0.2);
+        this.tweens.add({ targets: k, alpha: 1, scaleY: 1, duration: 1500, ease: 'Back.out' });
+        this.cameras.main.shake(800, 0.006);
+      }
+    } else if (!w.demon && this.keep) {
+      const k = this.keep;
+      this.keep = null;
+      this.cameras.main.shake(600, 0.005);
+      this.tweens.add({ targets: k, alpha: 0, scaleY: 0.1, duration: 1200, ease: 'Quad.in', onComplete: () => k.destroy() });
     }
   }
 
@@ -216,9 +238,11 @@ export class WorldScene extends Phaser.Scene {
     const night = Phaser.Math.Clamp((dark - 0.3) / 0.5, 0, 1);
     const sky = Phaser.Display.Color.Interpolate.ColorWithColor(DUSK, NIGHT, 100, Math.round(night * 100));
     // A dark world stains the sky blood red, even at noon.
-    const evil = Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1);
+    // The demon lord's shadow darkens it further, most of all over an occupied town.
+    const dread = w.demon ? (w.demon.stage === 'occupied' ? 1 : 0.6) : 0;
+    const evil = Math.max(dread, Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1));
     const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
-    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * 0.22));
+    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * (w.demon?.stage === 'occupied' ? 0.32 : 0.22)));
     this.glow.setAlpha(Phaser.Math.Clamp((night - 0.4) / 0.4, 0, 1));
   }
 
@@ -229,7 +253,7 @@ export class WorldScene extends Phaser.Scene {
       if (e.seq <= this.seenSeq) continue;
       if (e.kind === 'disaster') {
         const d = w.dungeons.find((x) => e.text.includes(x.name));
-        if (d) this.stampede(w, d);
+        if (d) this.stampede(w, d, e.text.includes('จอมมาร'));
       }
     }
     this.seenSeq = w.chronicleSeq;
@@ -237,11 +261,13 @@ export class WorldScene extends Phaser.Scene {
 
   // Monsters pour out of the dungeon, run the forest trail and through the east gate,
   // and scatter about town before melting away.
-  private stampede(w: WorldState, d: WorldState['dungeons'][number]): void {
+  private stampede(w: WorldState, d: WorldState['dungeons'][number], host = false): void {
     this.cameras.main.shake(500, 0.004);
     const rng = createRng(w.day);
     const door = dungeonDoor(d);
-    STAMPEDE_MONSTERS.forEach((key, i) => {
+    // The demon lord's own host comes led by the lord himself.
+    const monsters = host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : STAMPEDE_MONSTERS;
+    monsters.forEach((key, i) => {
       const pos = { ...door };
       const goal = snap(w, { x: 3 + ((i * 7) % 22), y: 3 + ((i * 5) % 13) });
       const steps: { x: number; y: number }[] = [];
@@ -281,7 +307,7 @@ export class WorldScene extends Phaser.Scene {
 
   private syncNpc(npc: Npc): void {
     // Children share one sprite until they pick a calling; cultists don their robes for the walk to a ritual.
-    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.job;
+    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
     let sprite = this.npcSprites.get(npc.id);
     const px = npc.x * TILE + TILE / 2;
     const py = npc.y * TILE + TILE;

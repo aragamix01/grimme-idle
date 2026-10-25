@@ -1,4 +1,4 @@
-import { ADULT_AGE, COMMAND_COST, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, COMMAND_COST, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -35,11 +35,11 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   const ties = topTies(world, npc.id);
   const guild = world.guilds.find((g) => g.id === npc.guildId);
   const fam = family(world, npc);
-  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, canAwaken(world), ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
-  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world.faith));
+  card.replaceChildren(header(npc, doing, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world.faith, canAwaken(world)));
 }
 
 const WORK_TH: Partial<Record<Job, string>> = {
@@ -67,6 +67,7 @@ function activity(world: WorldState, npc: Npc): string {
     if (quest.stage === 'travelling') return `เดินทางไปทำเควส: ${quest.title}`;
     return `กำลังทำเควส: ${quest.title}`;
   }
+  if (npc.plan?.kind === 'crusade') return npc.inside !== undefined ? `บุกเข้าปราสาทจอมมาร${world.demon ? world.demon.name : ''}` : 'เดินทัพไปปราสาทจอมมาร';
   if (npc.inside !== undefined && npc.trip !== undefined) return `เดินทางกับกองคาราวาน อีกราว ${npc.trip} วันจะกลับ`;
   if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
   const p = npc.plan;
@@ -141,7 +142,7 @@ function relations(world: WorldState, ties: { id: number; value: number }[]): HT
 
 function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean }): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
-  const look = npc.age < ADULT_AGE ? 'child' : npc.job;
+  const look = npc.age < ADULT_AGE ? 'child' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
   portrait.style.backgroundImage = `url(/assets/sprites/characters/${look}.png)`;
   const chips = el(
     'div',
@@ -153,6 +154,7 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
     el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
+    ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
@@ -223,7 +225,7 @@ function powerButton(name: string, label: string, cost: number, enabled: boolean
   return btn;
 }
 
-function powers(npc: Npc, faith: number): HTMLElement {
+function powers(npc: Npc, faith: number, heroCall: boolean): HTMLElement {
   const can = (cost: number) => npc.alive && faith >= cost;
   const grown = npc.age >= ADULT_AGE;
   const row = el(
@@ -242,6 +244,13 @@ function powers(npc: Npc, faith: number): HTMLElement {
     }),
   );
   const wrap = el('div', { className: 'npc__powers' }, el('h4', { textContent: 'พลังเทพ' }), row);
+  // While the demon lord walks and no hero stands against it, the god may choose this one.
+  if (heroCall && worthy(npc)) {
+    const cost = COMMAND_COST.hero;
+    const b = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: !can(cost) }, icon('hero', 16), `ปลุก${npc.name}เป็นผู้กล้า`, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    b.onclick = () => handlers.onCommand({ type: 'hero', npcId: npc.id });
+    wrap.append(b);
+  }
   if (choosingDream && can(COMMAND_COST.dream)) {
     const jobs = JOBS.filter((j) => j !== npc.job).map((job) => {
       const b = el('button', { type: 'button', className: 'chip chip--button', textContent: JOB_TH[job] });

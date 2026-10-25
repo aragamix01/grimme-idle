@@ -8,3 +8,4 @@ export { GOODS, GOOD_TH, MAX_GEAR, SEASON_TH, seasonOf } from './market';
 export { COMMON_JOBS } from './society';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
+export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, TRAIN_DAYS, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';

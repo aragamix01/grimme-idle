@@ -274,6 +274,17 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .realm-cult .divine { margin-top: 4px; }
 .chip--cult { background: #5a2a66; color: var(--paper); border-color: var(--outline); }
 button.chip--cult:hover { background: #7a3a8a; }
+.chip--hero { background: var(--gold); color: var(--ink); border-color: var(--outline); }
+.npc__powers .divine { width: 100%; margin-top: 6px; }
+.realm-occupied { display: grid; grid-template-columns: 48px 1fr; gap: 10px; padding: 12px 6px; border-bottom: 2px solid var(--paper-edge); background: #2a1a2e; color: #f3ecf8; }
+.realm-occupied .realm-king__meta { color: #c9b8d6; }
+.realm-occupied__title { margin: 0; font: 600 16px/24px var(--font-body); color: #ff8a9a; }
+.realm-demon { display: grid; gap: 6px; padding: 8px 6px 10px; background: #f3e6ea; border-bottom: 2px solid var(--paper-edge); }
+.realm-demon__head { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; }
+.realm-demon__name { margin: 0; font-size: 15px; font-weight: 600; color: #a8322a; }
+.demon-portrait { width: 48px; height: 48px; border: 2px solid var(--outline); background: #463c56 0 0 / 96px 48px no-repeat; image-rendering: pixelated; box-sizing: content-box; }
+.realm-hero { display: grid; grid-template-columns: 32px 1fr; gap: 8px; align-items: center; padding: 6px; background: #fff4d6; border: 2px solid var(--paper-edge); }
+.realm-hero .npc__portrait { width: 32px; height: 48px; background-size: 192px 48px; }
 
 .npc__rels h4 { margin: 0 0 4px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--ink-muted); }
 .npc__rels ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }

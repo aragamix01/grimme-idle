@@ -85,7 +85,9 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button'
   b.onclick = () => setTab(b.dataset.tab as Tab);
 }
 initMarket({ onSelectNpc: select });
-initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', command: { type: 'reveal' } }) });
+initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
+  onHero: () => send({ type: 'command', command: { type: 'hero' } }),
+});
 initPeople({ onSelectNpc: select });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));

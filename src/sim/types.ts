@@ -45,12 +45,13 @@ export interface Npc {
   knight?: boolean; // sworn to the crown, paid each payday
   cultist?: boolean; // a secret member of the demon cult
   trip?: number; // merchants: days left on the road with a caravan
+  hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'crusade';
 
 export interface Plan {
   kind: PlanKind;
@@ -136,6 +137,28 @@ export interface Cult {
   rituals: number;
 }
 
+// The hero the god awakened, and the march on the demon lord.
+export interface HeroQuest {
+  id: number;
+  since: number; // day of the awakening
+  stage: 'training' | 'march';
+  companions: number[];
+  entered?: number; // day the hero passed into the demon's keep
+}
+
+export interface DemonLord {
+  name: string;
+  risen: number; // day
+  power: number; // grows by the day and on tribute; the hero must outmatch it
+  stage: 'risen' | 'occupied';
+  sieges: number; // raids the town failed to hold; at SIEGES_TO_FALL the town is taken
+  lastRaid: number;
+  fell?: number; // day the town was occupied
+  governorId?: number; // the cult leader set over the town
+  heroLost?: number; // day the last hero fell
+  hero?: HeroQuest;
+}
+
 export interface Legend {
   day: number;
   text: string;
@@ -188,6 +211,9 @@ export interface WorldState {
   balance?: number; // -100 (darkness) .. 100 (light); missing means 0
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
+  dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
+  demon?: DemonLord;
+  demonsSlain?: number;
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
@@ -198,4 +224,5 @@ export type Command =
   | { type: 'curse'; npcId: number }
   | { type: 'dream'; npcId: number; job: Job }
   | { type: 'divineQuest' }
-  | { type: 'reveal' };
+  | { type: 'reveal' }
+  | { type: 'hero'; npcId?: number };

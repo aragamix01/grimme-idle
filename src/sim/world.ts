@@ -11,12 +11,13 @@ import { WALL } from './town';
 import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
+import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Npc, type Plan, type Trait, type WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
-export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST } as const;
+export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST } as const;
 const TOWN_SIZE = 80;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
@@ -69,6 +70,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   holdCourt(world, rng);
   rule(world, rng);
   darkness(world, rng);
+  demonDay(world, rng);
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
     if (isBirthday(world, npc)) birthday(world, npc, rng);
@@ -166,6 +168,7 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
   if (isChild(npc)) return childDay(world, npc, rng);
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
   if (npc.inside === AWAY && npc.trip !== undefined) return caravanDay(world, npc, rng);
+  if (npc.inside !== undefined && npc.plan?.kind === 'crusade') return; // in the demon's keep, waiting on the battle
   if (npc.inside !== undefined) return delve(world, npc, rng);
   npc.plan ??= choosePlan(world, npc, rng);
   const p = npc.plan;
@@ -269,6 +272,9 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       return;
     case 'caravan':
       departCaravan(npc);
+      return;
+    case 'crusade':
+      npc.inside = p.target; // through the dungeon to the keep behind it
       return;
     case 'work':
       if (npc.job === 'farmer') {
@@ -377,6 +383,10 @@ function applyCommand(world: WorldState, cmd: Command): void {
   if (cmd.type === 'divineQuest') {
     world.faith -= cost;
     postDivineQuest(world);
+    return;
+  }
+  if (cmd.type === 'hero') {
+    if (awakenHero(world, cmd.npcId)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'reveal') {

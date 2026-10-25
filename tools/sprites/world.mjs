@@ -468,6 +468,51 @@ function manor() {
   return finishBuilding(g);
 }
 
+
+// The demon lord's keep: black stone, violet spires, windows burning red.
+function demonCastle() {
+  const g = new Grid(48, 56);
+  const dark = (x, y, w, h) => {
+    g.rect(x, y, w, h, 'l');
+    for (let j = y + 2; j < y + h; j += 3) {
+      g.hline(x, j, w, 'k');
+      for (let i = x + ((j - y) % 2 ? 2 : 5); i < x + w; i += 6) g.vline(i, j - 2, 2, 'k');
+    }
+    g.vline(x, y, h, 'L');
+  };
+  const ember = (x, y, w, h) => {
+    g.rect(x, y, w, h, 'k');
+    g.rect(x + 1, y + 1, w - 2, h - 1, 'D');
+    g.set(x + 1, y + 1, 'y');
+  };
+  const spire = (cx, top, hw, h) => {
+    g.tri(cx, top, hw, h, 'd');
+    g.vline(cx, top, Math.floor(h / 2), 'v');
+    g.set(cx, top - 1, 'D').set(cx, top - 2, 'D');
+  };
+  // central keep
+  spire(24, 3, 7, 14);
+  dark(17, 16, 14, 22);
+  ember(22, 21, 4, 6);
+  // side towers, leaning outward like horns
+  spire(7, 11, 5, 12);
+  dark(2, 22, 11, 32);
+  ember(5, 28, 4, 5);
+  spire(41, 11, 5, 12);
+  dark(35, 22, 11, 32);
+  ember(39, 28, 4, 5);
+  // front wall, jagged teeth on top
+  dark(10, 36, 28, 18);
+  for (let x = 10; x < 38; x += 4) g.tri(x + 1, 32, 1, 4, 'l');
+  // maw of a gate
+  g.ellipse(24, 50, 6, 8, 'k');
+  g.rect(18, 50, 12, 4, 'k');
+  for (let x = 20; x < 29; x += 2) g.set(x, 43 + (x % 4 ? 1 : 0), 'z');
+  g.ellipse(24, 52, 3, 2, 'D');
+  g.hline(0, 54, 48, 'k');
+  return finishBuilding(g);
+}
+
 export function buildings() {
   return [
     { name: 'house', group: 'buildings', frames: [house()] },
@@ -483,5 +528,6 @@ export function buildings() {
     { name: 'barracks', group: 'buildings', frames: [barracks()] },
     { name: 'brothel', group: 'buildings', frames: [brothel()] },
     { name: 'manor', group: 'buildings', frames: [manor()] },
+    { name: 'demon-castle', group: 'buildings', frames: [demonCastle()] },
   ];
 }
