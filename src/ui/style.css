@@ -118,7 +118,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__head { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: start; }
 .npc__portrait {
   width: 48px; height: 72px; border: 2px solid var(--outline); background-color: #8fd64e;
-  background-size: 96px 72px; background-position: 0 0; background-repeat: no-repeat; image-rendering: pixelated;
+  background-size: 288px 72px; /* 6 frames; the first faces the viewer */ background-position: 0 0; background-repeat: no-repeat; image-rendering: pixelated;
   box-sizing: content-box;
 }
 .npc__id { min-width: 0; }

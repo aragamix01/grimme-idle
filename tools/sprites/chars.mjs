@@ -1,4 +1,5 @@
-// Chibi characters, 16x24, front-facing, 2 walk frames.
+// Chibi characters, 16x24. Each sheet holds 2 walk frames per facing, in the order
+// down, up, side (side faces right; the game flips it for left).
 // Built from a flat body template plus layers; slots 1-5 are recoloured per job,
 // then shading and outline are applied automatically so every sprite matches.
 import { Grid } from './lib.mjs';
@@ -38,6 +39,74 @@ const LEGS_B = [
   '...444....44....',
   '..........444...',
 ];
+
+// Seen from behind: no face, the head all hair.
+const FACE_BACK = [
+  '..ssssssssssss..',
+  '..ssssssssssss..',
+  '..ssssssssssss..',
+  '...ssssssssss...',
+];
+const HAIR_BACK = [
+  '....55555555....',
+  '...5555555555...',
+  '..555555555555..',
+  '..555555555555..',
+  '..555555555555..',
+  '..555555555555..',
+  '..555555555555..',
+  '..555555555555..',
+  '...5555555555...',
+];
+const HAIR_BACK_LONG = ['...5555555555...', '...5555555555...', '...5555555555...', '....55555555....'];
+
+// In profile, facing right: one eye, slimmer body, legs scissoring.
+const BODY_SIDE = [
+  '................',
+  '................',
+  '................',
+  '................',
+  '....ssssssss....',
+  '...ssssssssss...',
+  '..ssssssssssss..',
+  '..ssssssssssss..',
+  '..ssssssssssks..',
+  '..ssssssssssks..',
+  '..ssssssssssssp.',
+  '...sssssssssS...',
+  '....ssssssss....',
+  '.....111111.....',
+  '.....1111111s...',
+  '.....111111.....',
+  '.....222222.....',
+  '.....111111.....',
+  '......3333......',
+  '......3333......',
+  '......4444......',
+  '......44444.....',
+  '................',
+  '................',
+];
+const LEGS_SIDE_B = [
+  '.....33..33.....',
+  '....33....33....',
+  '....44....44....',
+  '...444.....444..',
+];
+const HAIR_SIDE = [
+  '................',
+  '................',
+  '................',
+  '....55555555....',
+  '...5555555555...',
+  '..555555555555..',
+  '..5555555555.5..',
+  '..555555........',
+  '..5555..........',
+  '..555...........',
+  '...5............',
+];
+const HAIR_SIDE_LONG = [...HAIR_SIDE.slice(0, 10), '..555...........', '.555............', '.555............', '.55.............'];
 
 const HAIR_SHORT = [
   '................',
@@ -264,13 +333,41 @@ const RIBS = [
   '...zzxzxzxzxz...',
 ];
 
-function build({ slots, layers = [], remap = {}, frame }) {
-  const g = Grid.from(BODY, 'body');
-  if (frame === 1) g.stamp(LEGS_B, 0, 18);
-  for (const [rows, ox, oy] of layers) g.stamp(rows, ox ?? 0, oy ?? 0);
+const mirror = (rows) => rows.map((r) => [...r].reverse().join(''));
+
+function build({ slots, layers = [], remap = {}, back = {}, frame, facing = 'down' }) {
+  const long = layers.some(([rows]) => rows === HAIR_LONG);
+  let g;
+  if (facing === 'up') {
+    g = Grid.from(BODY, 'body').stamp(FACE_BACK, 0, 8);
+    if (frame === 1) g.stamp(LEGS_B, 0, 18);
+    g.stamp(HAIR_BACK, 0, 3);
+    if (long) g.stamp(HAIR_BACK_LONG, 0, 12);
+    // Hats and gear seen from behind sit on the other side; hair and faces are replaced above.
+    for (const [rows, ox, oy] of layers) {
+      if (rows === HAIR_SHORT || rows === HAIR_LONG || rows === BEARD || rows === SKULL_FACE) continue;
+      g.stamp(mirror(rows), ox ?? 0, oy ?? 0);
+    }
+    g.remap(back);
+  } else if (facing === 'side') {
+    g = Grid.from(BODY_SIDE, 'body');
+    if (frame === 1) g.stamp(LEGS_SIDE_B, 0, 18);
+    for (const [rows, ox, oy] of layers) {
+      if (rows === BEARD || rows === SKULL_FACE) continue;
+      const r = rows === HAIR_SHORT ? HAIR_SIDE : rows === HAIR_LONG ? HAIR_SIDE_LONG : rows;
+      g.stamp(r, ox ?? 0, oy ?? 0);
+    }
+  } else {
+    g = Grid.from(BODY, 'body');
+    if (frame === 1) g.stamp(LEGS_B, 0, 18);
+    for (const [rows, ox, oy] of layers) g.stamp(rows, ox ?? 0, oy ?? 0);
+  }
   g.remap(slots).remap(remap);
   return g.shade(SHADE).outline('o');
 }
+
+const FACINGS = ['down', 'up', 'side'];
+const walkFrames = (make) => FACINGS.flatMap((facing) => [make(0, facing), make(1, facing)]);
 
 const JOBS = {
   swordsman: {
@@ -292,6 +389,7 @@ const JOBS = {
   thief: {
     slots: { 1: 'l', 2: 'M', 3: 'L', 4: 'l', 5: 'k' },
     layers: [[HOOD], [DAGGER, 0, 12]],
+    back: { k: 'L' }, // the hood covers the whole head from behind
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },
@@ -348,10 +446,34 @@ const CHILD = [
   '................',
 ];
 const CHILD_LEGS_B = ['.....NN..GG.....', '..........NN....'];
+const CHILD_BACK = ['....hhhhhhhh....', '....hhhhhhhh....', '....hhhhhhhh....', '....hhhhhhhh....', '.....hhhhhh.....', '.....ssssss.....'];
+const CHILD_SIDE = [
+  '.....hhhhhh.....',
+  '....hhhhhhhh....',
+  '....hhhhhssh....',
+  '....hhhsssss....',
+  '....hhssssks....',
+  '....hsssssks....',
+  '....sssssssp....',
+  '.....sssSss.....',
+  '......ssss......',
+  '......GGGG......',
+  '......GGGGs.....',
+  '......GyyG......',
+  '......GGGG......',
+  '......NNN.......',
+];
+const CHILD_SIDE_LEGS_B = ['.....NN.NN......'];
 
-function child(frame) {
+function child(frame, facing = 'down') {
   const g = Grid.from(CHILD, 'child');
-  if (frame === 1) g.stamp(CHILD_LEGS_B, 0, 20);
+  if (facing === 'side') {
+    g.stamp(Array(14).fill('________________'), 0, 8).stamp(CHILD_SIDE, 0, 8);
+    if (frame === 1) g.stamp(CHILD_SIDE_LEGS_B, 0, 21);
+  } else {
+    if (facing === 'up') g.stamp(CHILD_BACK, 0, 10);
+    if (frame === 1) g.stamp(CHILD_LEGS_B, 0, 20);
+  }
   return g.shade(SHADE).outline('o');
 }
 
@@ -360,9 +482,9 @@ export function characters() {
     ...Object.entries(JOBS).map(([name, def]) => ({
       name,
       group: 'characters',
-      frames: [build({ ...def, frame: 0 }), build({ ...def, frame: 1 })],
+      frames: walkFrames((frame, facing) => build({ ...def, frame, facing })),
     })),
-    { name: 'child', group: 'characters', frames: [child(0), child(1)] },
+    { name: 'child', group: 'characters', frames: walkFrames(child) },
   ];
 }
 

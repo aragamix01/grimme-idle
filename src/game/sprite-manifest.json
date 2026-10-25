@@ -4,63 +4,63 @@
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "mage": {
     "file": "assets/sprites/characters/mage.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "merchant": {
     "file": "assets/sprites/characters/merchant.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "farmer": {
     "file": "assets/sprites/characters/farmer.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "thief": {
     "file": "assets/sprites/characters/thief.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "king": {
     "file": "assets/sprites/characters/king.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "hero": {
     "file": "assets/sprites/characters/hero.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "child": {
     "file": "assets/sprites/characters/child.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
-    "frames": 2
+    "frames": 6
   },
   "goblin": {
     "file": "assets/sprites/monsters/goblin.png",
