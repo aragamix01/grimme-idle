@@ -347,6 +347,47 @@ const FEATHER_CAP = [
 
 const RUFF = ['...wwwwwwwwww...'];
 
+// Hunter: a green cap with a long feather, a bow on the back and a quiver.
+const HUNTER_CAP = [
+  '................',
+  '..............r.',
+  '.............ru.',
+  '....GGGGGGGGr...',
+  '...GGGGGGGGGG...',
+  '..GGGGGGGGGGGG..',
+  '..FFFFFFFFFFFF..',
+];
+const BOW = [
+  '............N...',
+  '.............N..',
+  '.............Nc.',
+  '..............c.',
+  '..............c.',
+  '..............c.',
+  '.............Nc.',
+  '.............N..',
+  '............N...',
+];
+const QUIVER = ['.MM.............', '.NN.............', '.NN.............'];
+
+// Herder: a wide straw-brown hat and a shepherd's crook.
+const SHEPHERD_HAT = [
+  '................',
+  '................',
+  '................',
+  '.....hhhhhh.....',
+  '....hhhhhhhh....',
+  '....GGGGGGGG....',
+  '.hhhhhhhhhhhhhh.',
+];
+const CROOK = [
+  '...........nnn..',
+  '..........n...n.',
+  '..............n.',
+  '..............n.',
+  ...Array(14).fill('..............n.'),
+];
+
 const HAMMER = [
   '..........xxxx..',
   '..........xxxx..',
@@ -438,6 +479,14 @@ const JOBS = {
   farmer: {
     slots: { 1: 'b', 2: 'B', 3: 'b', 4: 'M', 5: 'Y' },
     layers: [[HAIR_SHORT], [STRAW_HAT], [HOE, 0, 3]],
+  },
+  hunter: {
+    slots: { 1: 'G', 2: 'M', 3: 'h', 4: 'M', 5: 'H' },
+    layers: [[HAIR_SHORT], [HUNTER_CAP], [QUIVER, 0, 12], [BOW, 0, 9]],
+  },
+  herder: {
+    slots: { 1: 'c', 2: 'N', 3: 'h', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [SHEPHERD_HAT], [['...cccccccccc...'], 0, 13], [CROOK, 0, 3]],
   },
   thief: {
     slots: { 1: 'l', 2: 'M', 3: 'L', 4: 'l', 5: 'k' },

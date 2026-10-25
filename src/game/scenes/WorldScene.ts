@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { ADULT_AGE, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
-import { FIELDS, PLACES } from '../../sim/places';
+import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -51,6 +51,18 @@ const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; 
   crypt: { sprite: 'dungeon-crypt', residents: ['skeleton', 'bat'], horde: ['skeleton', 'bat', 'skeleton', 'skeleton', 'bat', 'skeleton', 'skeleton', 'bat', 'skeleton', 'skeleton'] },
 };
 
+// The pasture's mix of beasts, in the order they join the herd; deer roam the forest.
+const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
+const MAX_DEER = 6;
+const BEAST_SPEED = 10; // pixels a second
+
+interface Beast {
+  sprite: Phaser.GameObjects.Sprite;
+  to: { x: number; y: number } | null; // where it is ambling, or null while it grazes
+  wait: number; // ms left grazing before it wanders on
+  area: 'pasture' | 'forest';
+}
+
 export class WorldScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private npcSprites = new Map<number, Phaser.GameObjects.Sprite>();
@@ -75,6 +87,8 @@ export class WorldScene extends Phaser.Scene {
   private blight!: Phaser.GameObjects.Rectangle;
   private raining = false;
   private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
+  private herd: Beast[] = [];
+  private deer: Beast[] = [];
 
   constructor() {
     super('world');
@@ -93,7 +107,7 @@ export class WorldScene extends Phaser.Scene {
         FACINGS.forEach((f, i) =>
           this.anims.create({ key: `${key}-${f}`, frames: this.anims.generateFrameNumbers(key, { start: i * 2, end: i * 2 + 1 }), frameRate: 5, repeat: -1 }),
         );
-      } else if (s.frames > 1 && (s.group === 'monsters' || s.group === 'vehicles')) {
+      } else if (s.frames > 1 && (s.group === 'monsters' || s.group === 'vehicles' || s.group === 'animals')) {
         this.anims.create({ key: `${key}-walk`, frames: this.anims.generateFrameNumbers(key, {}), frameRate: 5, repeat: -1 });
       }
     }
@@ -200,6 +214,7 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.turnSky(delta);
+    this.amble(delta);
     if (this.selectedId !== null) {
       const s = this.npcSprites.get(this.selectedId);
       if (s?.visible) this.selectRing.setPosition(s.x, s.y - 1).setDepth(s.depth - 1);
@@ -222,6 +237,8 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncKeep(w);
     this.syncWeather(w);
+    this.syncBeasts(this.herd, w.herd ?? 0, 'pasture');
+    this.syncBeasts(this.deer, Math.min(MAX_DEER, Math.ceil((w.game ?? 0) / 3)), 'forest');
     this.watchChronicle(w);
     for (const npc of w.npcs) this.syncNpc(npc);
     // The sim prunes long-dead NPCs; drop their sprites too.
@@ -245,6 +262,67 @@ export class WorldScene extends Phaser.Scene {
     }
     this.blight.setVisible(weather === 'blight');
     this.raining = weather === 'rain';
+  }
+
+  // A random open tile in the pasture or the forest, as a pixel spot a beast can stand on.
+  private beastSpot(area: Beast['area']): { x: number; y: number } {
+    const box = area === 'pasture' ? PASTURE : FOREST;
+    const town = this.world ? townLayout(this.world.dungeons) : null;
+    for (let tries = 0; tries < 30; tries++) {
+      const tx = Phaser.Math.Between(box.x0, box.x1);
+      const ty = Phaser.Math.Between(box.y0, box.y1);
+      const i = ty * MAP_W + tx;
+      if (town && (!town.cost[i] || town.ground[i] === 'road')) continue;
+      return { x: tx * TILE + Phaser.Math.Between(2, 14), y: ty * TILE + Phaser.Math.Between(8, 15) };
+    }
+    return { x: box.x0 * TILE + 8, y: box.y0 * TILE + 12 };
+  }
+
+  // As many beasts on the map as the sim counts: newborns trot in, the slaughtered (or the
+  // wolves' share) fade away.
+  private syncBeasts(list: Beast[], want: number, area: Beast['area']): void {
+    while (list.length < want) {
+      const kind = area === 'forest' ? 'deer' : HERD_MIX[list.length % HERD_MIX.length];
+      const at = this.beastSpot(area);
+      const sprite = this.add.sprite(at.x, at.y, kind).setOrigin(0.5, 1).setDepth(at.y).play(`${kind}-walk`);
+      sprite.anims.pause();
+      if (this.seenSeq >= 0) {
+        sprite.setAlpha(0);
+        this.tweens.add({ targets: sprite, alpha: 1, duration: 600 });
+      }
+      list.push({ sprite, to: null, wait: Phaser.Math.Between(500, 6000), area });
+    }
+    while (list.length > want) {
+      const b = list.pop()!;
+      this.tweens.add({ targets: b.sprite, alpha: 0, duration: 600, onComplete: () => b.sprite.destroy() });
+    }
+  }
+
+  // Beasts graze a while, then amble somewhere nearby, every frame and between ticks alike.
+  private amble(delta: number): void {
+    for (const b of [...this.herd, ...this.deer]) {
+      const s = b.sprite;
+      if (!b.to) {
+        if ((b.wait -= delta) > 0) continue;
+        const next = this.beastSpot(b.area);
+        // Short hops: pick a spot within a few tiles rather than across the whole field.
+        const dx = Phaser.Math.Clamp(next.x - s.x, -48, 48);
+        const dy = Phaser.Math.Clamp(next.y - s.y, -24, 24);
+        b.to = { x: s.x + dx, y: s.y + dy };
+        s.setFlipX(dx < 0);
+        s.anims.resume();
+        continue;
+      }
+      const dist = Phaser.Math.Distance.Between(s.x, s.y, b.to.x, b.to.y);
+      const step = (BEAST_SPEED * (b.area === 'forest' ? 1.6 : 1) * delta) / 1000;
+      if (dist <= step) {
+        s.setPosition(b.to.x, b.to.y);
+        b.to = null;
+        b.wait = Phaser.Math.Between(2000, 9000);
+        s.anims.pause();
+      } else s.setPosition(s.x + ((b.to.x - s.x) / dist) * step, s.y + ((b.to.y - s.y) / dist) * step);
+      s.setDepth(s.y);
+    }
   }
 
   // The keep rises behind the dungeon when the demon lord wakes and crumbles when it falls.

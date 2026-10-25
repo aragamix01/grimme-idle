@@ -36,6 +36,7 @@ const BUILDING_PX: Record<string, [w: number, h: number]> = {
   barracks: [48, 32],
   brothel: [32, 40],
   manor: [48, 40],
+  barn: [32, 32],
 };
 
 // Ring of stone around the town; gates are gaps in it.
@@ -76,6 +77,8 @@ export const BUILDINGS: [key: string, tx: number, ty: number][] = [
   ['brothel', 9, 13],
   ['barracks', 14, 13],
   ['manor', 19, 13],
+  // out past the south gate, by the pasture
+  ['barn', 22, 18],
 ];
 
 // Where someone stands to use a building: the tile in front of its door.
@@ -85,7 +88,9 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 };
 
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
-export const FIELDS = { x0: 2, y0: 19, x1: 24, y1: 23 };
+export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
+export const PASTURE = { x0: 14, y0: 19, x1: 24, y1: 23 }; // grazing, east of it
+export const FOREST = { x0: 28, y0: 0, x1: 39, y1: 24 }; // hunting grounds past the east gate
 
 // Where an NPC stands to enter a dungeon drawn at (d.x, d.y).
 export const dungeonDoor = (d: { x: number; y: number }) => ({ x: d.x + 1, y: d.y + 2 });
@@ -190,8 +195,12 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
   // Woods along the west and south edges, outside the fields.
   for (let y = WALL.y1 + 1; y < MAP_H; y++) for (const x of [0, 1, 25, 26]) if (rand() < 0.6) tree(x, y);
   for (let x = 0; x < MAP_W; x += 2) if (rand() < 0.5) deco('bush', x, 0);
-  // A fence keeps the crows out of the fields.
-  for (let x = FIELDS.x0; x <= FIELDS.x1; x++) if (x !== 13) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
+  // A fence keeps the crows out of the fields and the beasts in the pasture.
+  for (let x = FIELDS.x0; x <= PASTURE.x1; x++) if (x !== 13) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
+  for (let x = PASTURE.x0; x < 22; x++) props.push({ key: 'fence', x, y: PASTURE.y0 - 1, anchor: 'bottom' });
+  deco('haystack', 15, 20);
+  deco('haystack', 20, 23);
+  deco('trough', 18, 21);
 
   const cost = new Uint8Array(MAP_W * MAP_H);
   for (let i = 0; i < cost.length; i++) cost[i] = blocked[i] ? 0 : COST[ground[i]];

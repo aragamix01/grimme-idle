@@ -11,10 +11,10 @@ import { caravanHome } from './worldevents';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
-export const GOODS: readonly Good[] = ['grain', 'loot', 'gear'];
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
-const BASE: Record<Good, number> = { grain: 2, loot: 8, gear: 25 };
-const TARGET: Record<Good, number> = { grain: 300, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const GOODS: readonly Good[] = ['grain', 'meat', 'loot', 'gear'];
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, loot: 8, gear: 25 };
+const TARGET: Record<Good, number> = { grain: 300, meat: 60, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
@@ -23,6 +23,7 @@ const TITHE_EVERY = 30; // days between church collections
 const TITHE_FLOOR = 60; // gold anyone may keep untouched
 const TITHE = 0.1; // of savings above the floor; the kind give twice as much
 const SPOIL = 0.001; // share of the grain store lost to rats each day
+const MEAT_SPOIL = 0.01; // salted meat keeps, but not like grain
 const CARAVAN_EVERY = 7; // days between caravans to and from other towns
 const IMPORT_GAP = 60; // days a shortage must wait between grain imports
 const HISTORY_EVERY = 5; // days between price samples
@@ -37,13 +38,21 @@ const YIELD: Record<Season, number> = { spring: 0.9, summer: 1.2, autumn: 2, win
 export const seasonOf = (day: number): Season => SEASONS[Math.floor((day % 365) / 91.25)];
 
 export function ensureMarket(world: WorldState): Market {
-  return (world.market ??= {
-    stock: { grain: 250, loot: 4, gear: 4 },
+  const m = (world.market ??= {
+    stock: { grain: 250, meat: 40, loot: 4, gear: 4 },
     price: { ...BASE },
     till: 60,
-    history: { grain: [], loot: [], gear: [] },
-    alert: { grain: 0, loot: 0, gear: 0 },
+    history: { grain: [], meat: [], loot: [], gear: [] },
+    alert: { grain: 0, meat: 0, loot: 0, gear: 0 },
   });
+  if (m.stock.meat === undefined) {
+    // Saves from before the herders: the shelves start with a little meat.
+    m.stock.meat = 20;
+    m.price.meat = BASE.meat;
+    m.history.meat = [];
+    m.alert.meat = 0;
+  }
+  return m;
 }
 
 export const priceRatio = (world: WorldState, g: Good) => ensureMarket(world).price[g] / BASE[g];
@@ -58,8 +67,8 @@ function reprice(m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, loot: 1.5, gear: 1.5 };
-const GLUT: Record<Good, number> = { grain: 4, loot: 2.5, gear: 2.5 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, loot: 1.5, gear: 1.5 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, loot: 2.5, gear: 2.5 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
@@ -143,13 +152,15 @@ export function marketDay(world: WorldState, rng: Rng): void {
   if (world.day % 365 === Math.round(SEASONS.indexOf('autumn') * 91.25)) log(world, 'world', 'ฤดูเก็บเกี่ยวมาถึง ทุ่งนาเหลืองอร่าม');
   if (world.day % 365 === Math.round(SEASONS.indexOf('winter') * 91.25)) log(world, 'world', 'ฤดูหนาวมาเยือน ทุ่งนาแทบไม่ให้ผล');
   m.stock.grain = Math.max(0, m.stock.grain - m.stock.grain * SPOIL);
+  m.stock.meat = Math.max(0, m.stock.meat - m.stock.meat * MEAT_SPOIL);
 
-  // Meals. Children eat from a parent's purse.
+  // Meals: a sack of grain or a cut of meat, whichever is cheaper today. Children eat from a parent's purse.
   const byId = new Map(world.npcs.map((n) => [n.id, n]));
   for (const n of world.npcs) {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
-    const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price.grain) ?? n : n;
-    if (buy(world, payer, 'grain') || dole(world, m)) {
+    const food = mealOf(m);
+    const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
+    if (buy(world, payer, food) || buy(world, payer, food === 'grain' ? 'meat' : 'grain') || dole(world, m)) {
       n.hunger = 0;
       continue;
     }
@@ -289,19 +300,23 @@ function armGuilds(world: WorldState, m: Market): void {
   }
 }
 
-// The church feeds those who can't pay, out of the crown's purse, while there's grain to buy.
+// Whichever food is cheaper for what it usually costs, so both shelves empty in step.
+const mealOf = (m: Market): Good => (m.stock.meat >= 1 && (m.price.meat / BASE.meat < m.price.grain / BASE.grain || m.stock.grain < 1) ? 'meat' : 'grain');
+
+// The church feeds those who can't pay, out of the crown's purse, while there's food to buy.
 function dole(world: WorldState, m: Market): boolean {
-  const price = m.price.grain;
-  if (m.stock.grain < 1 || world.treasury < price) return false;
+  const food = mealOf(m);
+  const price = m.price[food];
+  if (m.stock[food] < 1 || world.treasury < price) return false;
   world.treasury -= price;
-  m.stock.grain -= 1;
+  m.stock[food] -= 1;
   m.till += price;
   return true;
 }
 
 // The chronicle only hears about prices when they swing hard, once per swing.
 function watchPrice(world: WorldState, m: Market, g: Good): void {
-  if (g === 'loot') return; // swings every few weeks; only the smiths care
+  if (g === 'loot' || g === 'meat') return; // swing every few weeks; grain is what the town watches
   const r = m.price[g] / BASE[g];
   const was = m.alert[g];
   if (was !== 1 && r >= 2) {
@@ -328,7 +343,7 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   const m = ensureMarket(world);
   const count = (job: Npc['job']) => world.npcs.filter((n) => n.alive && n.job === job && n.age >= 16).length;
   const keepTwo = npc.job === 'thief' || count(npc.job) > 2; // a trade keeps its last couple of hands
-  const commoner = ['farmer', 'merchant', 'innkeeper', 'courtesan', 'blacksmith'].includes(npc.job);
+  const commoner = ['farmer', 'herder', 'hunter', 'merchant', 'innkeeper', 'courtesan', 'blacksmith'].includes(npc.job);
   if (commoner && npc.gold < 5 && npc.morality < 0 && keepTwo && chance(rng, (npc.hunger ?? 0) >= 1 ? 0.08 : 0.03)) {
     log(world, 'trade', `${npc.name} หมดตัวจนต้องเลิกเป็น${JOB_TH[npc.job]} หันไปเป็นโจร`, npc.id);
     npc.job = 'thief';
@@ -340,6 +355,24 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
     npc.job = 'farmer';
     return true;
   }
+  // Meat dear and grain cheap: a farmer may turn the plough-ox out to graze and keep a herd instead.
+  const meat = priceRatio(world, 'meat');
+  if (npc.job === 'farmer' && keepTwo && meat >= 1.6 && r <= 1 && chance(rng, 0.03)) {
+    log(world, 'trade', `${npc.name} เลิกทำนาหันไปเลี้ยงสัตว์ เพราะเนื้อขายได้ราคา`, npc.id);
+    npc.job = 'herder';
+    return true;
+  }
+  if ((npc.job === 'herder' || npc.job === 'hunter') && keepTwo && r >= 1.8 && meat <= 1 && chance(rng, 0.04)) {
+    log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพง`, npc.id);
+    npc.job = 'farmer';
+    return true;
+  }
+  // The deer are hunted out: a hunter with an empty bag goes back to the fields.
+  if (npc.job === 'hunter' && keepTwo && (world.game ?? 12) <= 2 && npc.gold < 15 && chance(rng, 0.03)) {
+    log(world, 'trade', `${npc.name} เลิกล่าสัตว์เพราะกวางในป่าแทบไม่เหลือ หันมาทำนาแทน`, npc.id);
+    npc.job = 'farmer';
+    return true;
+  }
   if (npc.job === 'farmer' && r <= 0.5 && npc.gold < 20 && chance(rng, 0.02)) {
     log(world, 'trade', `${npc.name} เลิกทำนาไปค้าขาย เพราะข้าวราคาตก`, npc.id);
     npc.job = 'merchant';
@@ -348,9 +381,11 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   return false;
 }
 
-// Newcomers follow the money: a famine draws farmers in.
+// Newcomers follow the money: a famine draws farmers in, dear meat draws herders and hunters.
 export function arrivalJob(world: WorldState, rng: Rng): Npc['job'] | null {
-  return priceRatio(world, 'grain') >= 1.8 && chance(rng, 0.5) ? 'farmer' : null;
+  if (priceRatio(world, 'grain') >= 1.8 && chance(rng, 0.5)) return 'farmer';
+  if (priceRatio(world, 'meat') >= 1.8 && chance(rng, 0.5)) return chance(rng, 0.5) ? 'herder' : 'hunter';
+  return null;
 }
 
 export const lootFound = (rng: Rng) => int(rng, 1, 2);

@@ -5,7 +5,8 @@ import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQue
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
-import { FIELDS, PLACES, dungeonDoor } from './places';
+import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
+import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
 import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
@@ -85,6 +86,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   ensureGuild(world);
   ensureDungeons(world);
   ensureRealms(world, rng);
+  ensureWilds(world);
   applyCommands(world, commands, rng);
 
   world.day++;
@@ -102,6 +104,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   romance(world, rng);
   births(world, rng);
   marketDay(world, rng);
+  wildsDay(world, rng);
   levy(world);
   payroll(world);
   leisure(world, rng);
@@ -279,6 +282,17 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
         return plan('work', field, int(rng, 10, 20));
       }
       return idle();
+    case 'herder':
+      // Out with the flock, or mending things at the barn.
+      if (chance(rng, 0.8)) {
+        const graze = chance(rng, 0.25) ? PLACES.barn : { x: int(rng, PASTURE.x0, PASTURE.x1), y: int(rng, PASTURE.y0, PASTURE.y1) };
+        return plan('work', snap(world, graze), int(rng, 8, 16));
+      }
+      return idle();
+    case 'hunter':
+      // A long stalk through the eastern forest, then back to town to sell the meat.
+      if (chance(rng, 0.75)) return plan('work', snap(world, { x: int(rng, FOREST.x0, FOREST.x1), y: int(rng, FOREST.y0, FOREST.y1) }), int(rng, 6, 12));
+      return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
       if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1))) {
@@ -314,6 +328,12 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       if (npc.job === 'farmer') {
         payRent(world, npc, harvest(world, npc, rng), rng);
         maybePestQuest(world, npc, rng);
+      } else if (npc.job === 'herder') {
+        payRent(world, npc, tendHerd(world, npc, rng), rng);
+        maybePestQuest(world, npc, rng);
+      } else if (npc.job === 'hunter') {
+        hunt(world, npc, rng);
+        if (!npc.alive) return;
       } else if (npc.job === 'merchant') tendShop(world, npc, rng, hasSmith(world));
       else if (npc.job === 'blacksmith') smith(world, npc, rng);
       else if (npc.job === 'priest') world.faith += 0.02; // prayers said for the god who watches

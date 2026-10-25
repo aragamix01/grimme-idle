@@ -2,7 +2,8 @@
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
 import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
-import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
+import { FIELDS, PASTURE, PLACES, dungeonDoor, type Spot } from './places';
+import { wolvesAtFlock } from './livestock';
 import { snap } from './nav';
 import { might, lootFound, sell, wearGear } from './market';
 import { payrollReserve } from './society';
@@ -102,18 +103,22 @@ function crownWatch(world: WorldState): void {
   }
 }
 
-// A farmer working the fields may find wolves at the crops and pay to have them driven off.
+// A farmer working the fields may find wolves at the crops (or a herder, wolves at the flock)
+// and pay to have them driven off.
 export function maybePestQuest(world: WorldState, farmer: Npc, rng: Rng): void {
   if (!chance(rng, PEST_CHANCE) || openQuest(world, (q) => q.kind === 'pest')) return;
   const reward = int(rng, 10, 20);
   const covered = guildCovers(world, farmer, reward);
   if (farmer.gold - 2 < reward - covered) return;
   farmer.gold -= reward - covered;
-  const q = newQuest(world, 'pest', `ไล่ฝูงหมาป่าที่ทุ่งของ${farmer.name}`, int(rng, 0, 1), 18, reward, 1);
+  const flock = farmer.job === 'herder';
+  const land = flock ? PASTURE : FIELDS;
+  const q = newQuest(world, 'pest', `ไล่ฝูงหมาป่าที่${flock ? 'คอกสัตว์' : 'ทุ่ง'}ของ${farmer.name}`, int(rng, 0, 1), 18, reward, 1);
   q.patronId = farmer.id;
-  q.spot = { x: clamp(farmer.x, FIELDS.x0, FIELDS.x1), y: clamp(farmer.y, FIELDS.y0, FIELDS.y1) };
+  q.spot = { x: clamp(farmer.x, land.x0, land.x1), y: clamp(farmer.y, land.y0, land.y1) };
   world.quests.push(q);
-  log(world, 'quest', `${farmer.name} เจอหมาป่าบุกทุ่ง ประกาศจ้างนักผจญภัย (${reward} ทอง)`, farmer.id);
+  if (flock) wolvesAtFlock(world, rng);
+  log(world, 'quest', `${farmer.name} เจอหมาป่า${flock ? 'คาบสัตว์ในคอกไป' : 'บุกทุ่ง'} ประกาศจ้างนักผจญภัย (${reward} ทอง)`, farmer.id);
 }
 
 // A trade association pays half of the jobs its members post, while its coffers allow.

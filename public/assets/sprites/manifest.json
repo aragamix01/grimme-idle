@@ -27,6 +27,20 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "hunter": {
+    "file": "assets/sprites/characters/hunter.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "herder": {
+    "file": "assets/sprites/characters/herder.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "thief": {
     "file": "assets/sprites/characters/thief.png",
     "group": "characters",
@@ -187,6 +201,62 @@
     "frameWidth": 44,
     "frameHeight": 26,
     "frames": 2
+  },
+  "cow": {
+    "file": "assets/sprites/animals/cow.png",
+    "group": "animals",
+    "frameWidth": 22,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "sheep": {
+    "file": "assets/sprites/animals/sheep.png",
+    "group": "animals",
+    "frameWidth": 16,
+    "frameHeight": 13,
+    "frames": 2
+  },
+  "pig": {
+    "file": "assets/sprites/animals/pig.png",
+    "group": "animals",
+    "frameWidth": 16,
+    "frameHeight": 12,
+    "frames": 2
+  },
+  "chicken": {
+    "file": "assets/sprites/animals/chicken.png",
+    "group": "animals",
+    "frameWidth": 10,
+    "frameHeight": 10,
+    "frames": 2
+  },
+  "deer": {
+    "file": "assets/sprites/animals/deer.png",
+    "group": "animals",
+    "frameWidth": 22,
+    "frameHeight": 18,
+    "frames": 2
+  },
+  "barn": {
+    "file": "assets/sprites/buildings/barn.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "haystack": {
+    "file": "assets/sprites/props/haystack.png",
+    "group": "props",
+    "frameWidth": 14,
+    "frameHeight": 12,
+    "frames": 1
+  },
+  "trough": {
+    "file": "assets/sprites/props/trough.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 8,
+    "frames": 1
   },
   "grass": {
     "file": "assets/sprites/tiles/grass.png",
@@ -540,6 +610,13 @@
   },
   "grain": {
     "file": "assets/sprites/icons/grain.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "meat": {
+    "file": "assets/sprites/icons/meat.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

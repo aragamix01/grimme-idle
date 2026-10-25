@@ -22,6 +22,8 @@ export const JOB_TH: Record<Job, string> = {
   mage: 'จอมเวท',
   merchant: 'พ่อค้า',
   farmer: 'ชาวนา',
+  herder: 'คนเลี้ยงสัตว์',
+  hunter: 'พราน',
   thief: 'โจร',
   soldier: 'ทหาร',
   blacksmith: 'ช่างตีเหล็ก',

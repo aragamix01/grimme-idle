@@ -12,7 +12,9 @@ import type { Job, Npc, WorldState } from './types';
 // How newcomers and grown children spread across the trades. The king and nobles are
 // never picked: they are crowned and titled.
 const JOB_WEIGHTS: [Job, number][] = [
-  ['farmer', 20],
+  ['farmer', 14],
+  ['herder', 5],
+  ['hunter', 3],
   ['swordsman', 12],
   ['mage', 8],
   ['merchant', 8],
@@ -103,7 +105,7 @@ export function holdCourt(world: WorldState, rng: Rng): void {
   fillTrades(world, rng);
   if (living(world, 'noble').length >= MIN_NOBLES) return;
   const candidate = world.npcs
-    .filter((n) => n.alive && n.age >= 16 && n.gold >= TITLE_GOLD && ['merchant', 'farmer', 'blacksmith', 'innkeeper'].includes(n.job))
+    .filter((n) => n.alive && n.age >= 16 && n.gold >= TITLE_GOLD && ['merchant', 'farmer', 'herder', 'blacksmith', 'innkeeper'].includes(n.job))
     .sort((a, b) => b.gold - a.gold)[0];
   if (!candidate || !chance(rng, 0.5)) return;
   leaveTrade(candidate);
@@ -131,7 +133,7 @@ export function enthrone(world: WorldState, n: Npc, how: string): void {
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1]];
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1]];
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
     if (living(world, job).length >= need) continue;
@@ -222,7 +224,7 @@ function recruit(world: WorldState): void {
   if (occupied(world) || army >= ARMY_TARGET + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
   // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
-  const spare = (job: Job) => ['farmer', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;
+  const spare = (job: Job) => ['farmer', 'herder', 'hunter', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;
   const r = world.npcs
     .filter((n) => n.alive && n.age >= 16 && n.age < 45 && spare(n.job) && n.rank === undefined && n.questId === undefined && n.inside === undefined && n.gold < 30)
     .sort((a, b) => keen(b) - keen(a) || a.gold - b.gold)[0];

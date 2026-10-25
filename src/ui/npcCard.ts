@@ -57,6 +57,8 @@ function bar(npc: Npc): HTMLElement {
 
 const WORK_TH: Partial<Record<Job, string>> = {
   farmer: 'ทำนาอยู่ที่ทุ่ง',
+  herder: 'ต้อนฝูงสัตว์อยู่ที่ทุ่งหญ้า',
+  hunter: 'ออกล่ากวางในป่า',
   merchant: 'เฝ้าร้านค้า',
   blacksmith: 'ตีเหล็กอยู่ที่โรงตีเหล็ก',
   innkeeper: 'ขายเบียร์อยู่ที่โรงเตี๊ยม',

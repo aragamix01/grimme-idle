@@ -20,7 +20,7 @@ const CLASSES: { name: string; color: string; jobs: Job[] }[] = [
   { name: 'ทหาร', color: '#e8503a', jobs: ['soldier'] },
   { name: 'นักผจญภัย', color: '#4a86e0', jobs: ['swordsman', 'mage'] },
   { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith'] },
-  { name: 'ชาวนา', color: '#56a832', jobs: ['farmer'] },
+  { name: 'ชาวนาและปศุสัตว์', color: '#56a832', jobs: ['farmer', 'herder', 'hunter'] },
   { name: 'งานบริการและศาสนา', color: '#f582b8', jobs: ['innkeeper', 'courtesan', 'priest'] },
   { name: 'นอกกฎหมาย', color: '#463c56', jobs: ['thief'] },
 ];
@@ -153,6 +153,10 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
     }
     case 'farmer':
       return [`ทำนาอยู่ตอนนี้ ${working} คน`, ...(m ? [`ข้าวในคลัง ${Math.floor(m.stock.grain)} กระสอบ · ราคา ${m.price.grain} ทอง`] : [])];
+    case 'herder':
+      return [`ต้อนฝูงสัตว์อยู่ตอนนี้ ${working} คน`, `สัตว์ในคอก ${world.herd ?? 0} ตัว`, ...(m ? [`เนื้อในคลัง ${Math.floor(m.stock.meat)} ชิ้น · ราคา ${m.price.meat} ทอง`] : [])];
+    case 'hunter':
+      return [`ออกล่าอยู่ตอนนี้ ${working} คน`, `กวางในป่า ${world.game ?? 0} ตัว${(world.game ?? 0) <= 3 ? ' (เหลือน้อย)' : ''}`];
     case 'merchant':
       return [
         `เฝ้าร้านอยู่ ${working} คน`,

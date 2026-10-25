@@ -21,7 +21,7 @@ const memberOf = (world: WorldState, g: Guild) => world.npcs.filter((n) => n.ali
 export const fits = (n: Npc, kind: GuildKind) => {
   if (n.age < 16) return false;
   if (kind === 'thieves') return n.job === 'thief';
-  if (kind === 'merchants') return ['merchant', 'farmer', 'blacksmith', 'innkeeper'].includes(n.job);
+  if (kind === 'merchants') return ['merchant', 'farmer', 'herder', 'hunter', 'blacksmith', 'innkeeper'].includes(n.job);
   return isAdventurer(n);
 };
 const hasKind = (world: WorldState, kind: GuildKind) => world.guilds.some((g) => g.kind === kind);

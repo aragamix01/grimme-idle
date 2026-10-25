@@ -2,7 +2,7 @@
 // the buildings WorldScene draws.
 import { BUILDINGS, doorOf } from './town';
 
-export { FIELDS, dungeonDoor } from './town';
+export { FIELDS, FOREST, PASTURE, dungeonDoor } from './town';
 
 export interface Spot {
   x: number;
@@ -24,6 +24,7 @@ export const PLACES = {
   barracks: door('barracks'),
   brothel: door('brothel'),
   manor: door('manor'),
+  barn: door('barn'),
   castle: door('castle'),
   homes: BUILDINGS.filter(([k]) => k.startsWith('house')).map((b) => doorOf(...b)),
   square: { x: 13, y: 10 },

@@ -4,6 +4,8 @@ export type Job =
   | 'mage'
   | 'merchant'
   | 'farmer'
+  | 'herder'
+  | 'hunter'
   | 'thief'
   | 'soldier'
   | 'blacksmith'
@@ -128,7 +130,7 @@ export interface Guild {
   treasury: number;
 }
 
-export type Good = 'grain' | 'loot' | 'gear';
+export type Good = 'grain' | 'meat' | 'loot' | 'gear';
 
 export interface Market {
   stock: Record<Good, number>;
@@ -302,6 +304,8 @@ export interface WorldState {
   weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy;
+  herd?: number; // beasts in the pasture; missing in saves from before herders
+  game?: number; // deer left in the forest
   realms?: Realm[];
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
