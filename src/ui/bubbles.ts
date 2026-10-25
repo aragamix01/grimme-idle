@@ -43,8 +43,10 @@ const KIDS = ['เล่นซ่อนแอบกัน!', 'แม่จ๋า
 const IDLE = ['อากาศดีจัง', 'เบื่อจัง~', 'วันนี้กินอะไรดี', 'ฮัมเพลงไปเรื่อย~', 'ง่วงจัง…'];
 
 const LIFETIME_MS = 2800;
-const MAX_BUBBLES = 6;
-const CHATTER = 0.55; // chance each tick that someone on screen says something
+// Kept sparse so the map stays calm: a few at a time, never two popping at once.
+const MAX_BUBBLES = 3;
+const GAP_MS = 900; // least time between two new bubbles
+const CHATTER = 0.25; // chance each day that someone on screen says something
 
 interface Bubble {
   el: HTMLElement;
@@ -56,6 +58,7 @@ const layer = document.getElementById('bubbles')!;
 let bubbles: Bubble[] = [];
 let lastSeq = -1;
 let lastDay = -1;
+let lastSaid = 0;
 let locate: (id: number) => { x: number; y: number } | null = () => null;
 
 export function initBubbles(locator: typeof locate): void {
@@ -83,12 +86,11 @@ export function pushBubbles(world: WorldState, selected: number | null = null): 
     lastDay = world.day;
     const sel = selected === null ? undefined : world.npcs.find((n) => n.id === selected && n.alive);
     if (sel && Math.random() < 0.2) chatter(world, sel);
-    if (Math.random() < CHATTER) {
+    if (bubbles.length < 2 && Math.random() < CHATTER) {
       const near = world.npcs.filter((n) => n.alive && n.inside === undefined && locate(n.id));
       if (near.length) chatter(world, near[Math.floor(Math.random() * near.length)]);
     }
   }
-  while (bubbles.length > MAX_BUBBLES) bubbles.shift()!.el.remove();
 }
 
 function chatter(world: WorldState, n: Npc): void {
@@ -139,6 +141,10 @@ function friendNear(world: WorldState, n: Npc): Npc | undefined {
 
 function say(npcId: number, text: string): void {
   if (!locate(npcId)) return; // off screen or out of sight: nobody to hear it
+  // Busy screen or someone just spoke: let this one pass rather than crowd the map.
+  const now = performance.now();
+  if (now - lastSaid < GAP_MS || bubbles.filter((b) => b.npcId !== npcId).length >= MAX_BUBBLES) return;
+  lastSaid = now;
   const old = bubbles.find((b) => b.npcId === npcId);
   if (old) {
     old.el.remove();
