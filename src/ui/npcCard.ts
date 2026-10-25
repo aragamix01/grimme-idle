@@ -148,6 +148,7 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
     el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
+    ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
     ...(npc.alive && (npc.hunger ?? 0) >= 2 ? [el('span', { className: 'chip chip--danger', textContent: 'หิวโหย' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: npc.left ? 'ย้ายออกไปแล้ว' : 'จากไปแล้ว' })] : []),
@@ -171,6 +172,20 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
   );
 }
 
+// Loyalty to the throne as a plain gold bar: 0 ready to revolt, 100 would die for the king.
+function loyaltyStat(npc: Npc): HTMLElement {
+  const value = Math.round(npc.loyalty ?? 50);
+  const fill = el('span', { className: `realm-meter__fill realm-meter__fill--${value < 30 ? 'weak' : 'strong'}` });
+  fill.style.width = `${value}%`;
+  return el(
+    'div',
+    { className: 'npc__stat npc__stat--moral' },
+    el('span', { textContent: 'ภักดี' }),
+    el('span', { className: 'realm-meter__track' }, fill),
+    el('b', { textContent: String(value) }),
+  );
+}
+
 function stats(npc: Npc): HTMLElement {
   const marker = el('span', { className: 'moral__marker' });
   marker.style.left = `${(npc.morality + 100) / 2}%`;
@@ -186,6 +201,7 @@ function stats(npc: Npc): HTMLElement {
       el('div', { className: 'moral' }, marker),
       el('b', { textContent: `${sign}${npc.morality}` }),
     ),
+    ...(npc.age >= ADULT_AGE && npc.job !== 'king' ? [loyaltyStat(npc)] : []),
   );
 }
 

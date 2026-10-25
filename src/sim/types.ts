@@ -41,6 +41,8 @@ export interface Npc {
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
   unpaid?: number; // soldiers: paydays missed in a row
   ales?: number; // innkeepers: mugs sold since they last bought grain to brew
+  loyalty?: number; // 0..100 to the throne; missing means 50
+  knight?: boolean; // sworn to the crown, paid each payday
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
@@ -115,6 +117,15 @@ export interface Market {
   lastImport?: number; // day grain was last shipped in
 }
 
+export type Tax = 'low' | 'normal' | 'high';
+
+export interface Crown {
+  since: number; // day the current king took the throne
+  tax: Tax;
+  lastFestival?: number;
+  unrest: number; // months in a row the people have been this unhappy
+}
+
 export interface Legend {
   day: number;
   text: string;
@@ -134,7 +145,8 @@ export type EventKind =
   | 'rank'
   | 'bond'
   | 'guild'
-  | 'trade';
+  | 'trade'
+  | 'politics';
 
 export interface ChronicleEntry {
   seq: number;
@@ -161,6 +173,7 @@ export interface WorldState {
   treasury: number; // town gold that funds crown quests
   market?: Market; // missing in saves from before the economy
   kingId?: number; // the reigning king, or the last one if the throne is empty
+  crown?: Crown; // missing in saves from before politics
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;

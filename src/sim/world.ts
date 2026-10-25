@@ -9,6 +9,7 @@ import { FIELDS, PLACES, dungeonDoor } from './places';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
 import { arrivalJob, buyGear, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
+import { afterStampede, rule } from './politics';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import type { Command, Dungeon, Npc, Plan, Trait, WorldState } from './types';
 
@@ -65,6 +66,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
 
   world.day++;
   holdCourt(world, rng);
+  rule(world, rng);
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
     if (isBirthday(world, npc)) birthday(world, npc, rng);
@@ -93,6 +95,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
         const risk = npc.job === 'soldier' ? 0.1 / (1 + (npc.gear ?? 0)) : (isAdventurer(npc) ? 0.08 : 0.04) * (1 - shield);
         if (chance(rng, risk)) kill(world, npc, npc.job === 'soldier' ? 'สละชีพปกป้องเมืองจากมอนสเตอร์' : 'ถูกมอนสเตอร์ล้มลง');
       }
+      afterStampede(world, shield);
     }
   }
   // Travellers walk in through the west gate while the town is below its starting size.

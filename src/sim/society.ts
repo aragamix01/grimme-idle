@@ -6,6 +6,7 @@ import { addTie } from './ties';
 import { buy, ensureMarket, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { JOB_TH } from './names';
+import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, WorldState } from './types';
 
 // How newcomers and grown children spread across the trades. The king and nobles are
@@ -32,11 +33,11 @@ const COURT_EVERY = 30; // days between the crown's appointments
 const PAY_EVERY = 10; // days between soldiers' pay
 const SALARY = 5;
 const LEVY_DAY = 15; // day of each month the crown collects its tax
-const LEVY = 0.08; // of savings above LEVY_FLOOR
 const LEVY_FLOOR = 10;
 const TRIBUTE = 0.1; // nobles pay this share of their wealth above TRIBUTE_FLOOR instead
 const TRIBUTE_FLOOR = 100;
 const STIPEND = 5; // the king's own pay, each payday
+const KNIGHT_PAY = 8;
 const ARMY_TARGET = 8; // the crown recruits up to this many while it can pay them
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
@@ -88,12 +89,8 @@ export function holdCourt(world: WorldState, rng: Rng): void {
     const next = heir ?? lord ?? elder;
     if (!next) return;
     const how = heir ? `สืบราชสมบัติต่อจาก${old!.name}` : lord ? 'ได้รับเลือกจากเหล่าขุนนาง' : 'ได้รับเลือกจากชาวเมือง';
-    leaveTrade(next);
-    next.job = 'king';
-    next.plan = undefined;
-    world.kingId = next.id;
+    enthrone(world, next, how);
     crowned = next;
-    log(world, 'world', `${next.name} ขึ้นครองบัลลังก์เป็นกษัตริย์ (${how})`, next.id);
   }
   if (world.day % COURT_EVERY !== 0) return;
   fillTrades(world, rng);
@@ -105,8 +102,24 @@ export function holdCourt(world: WorldState, rng: Rng): void {
   leaveTrade(candidate);
   candidate.job = 'noble';
   candidate.plan = undefined;
+  candidate.loyalty = Math.max(loyaltyOf(candidate), 70);
   addTie(world, crowned, candidate, 15);
-  log(world, 'world', `กษัตริย์${crowned.name}พระราชทานบรรดาศักดิ์ขุนนางให้${candidate.name}`, candidate.id);
+  log(world, 'politics', `กษัตริย์${crowned.name}พระราชทานบรรดาศักดิ์ขุนนางให้${candidate.name}`, candidate.id);
+}
+
+// Put someone on the throne. A new reign gives everyone a fresh start: loyalty drifts
+// back toward the middle, whatever they thought of the last king.
+export function enthrone(world: WorldState, n: Npc, how: string): void {
+  leaveTrade(n);
+  n.job = 'king';
+  n.knight = undefined;
+  n.plan = undefined;
+  world.kingId = n.id;
+  const crown = ensureCrown(world);
+  crown.since = world.day;
+  crown.unrest = 0;
+  for (const o of world.npcs) if (o.alive && o !== n) o.loyalty = Math.round(loyaltyOf(o) * 0.6 + 50 * 0.4);
+  log(world, 'politics', `${n.name} ขึ้นครองบัลลังก์เป็นกษัตริย์ (${how})`, n.id);
 }
 
 // A town with no smith, inn, priest or pleasure house is an opening: a farmer or merchant
@@ -138,7 +151,7 @@ export function levy(world: WorldState): void {
   if (world.day % 30 !== LEVY_DAY) return;
   for (const n of world.npcs) {
     if (!n.alive || n.age < 16 || n.job === 'king') continue;
-    const [rate, floor] = n.job === 'noble' ? [TRIBUTE, TRIBUTE_FLOOR] : [LEVY, LEVY_FLOOR];
+    const [rate, floor] = n.job === 'noble' ? [TRIBUTE, TRIBUTE_FLOOR] : [TAX_RATE[world.crown?.tax ?? 'normal'], LEVY_FLOOR];
     if (n.gold <= floor) continue;
     const due = Math.floor((n.gold - floor) * rate);
     n.gold -= due;
@@ -155,19 +168,29 @@ export function payroll(world: WorldState): void {
     world.treasury -= STIPEND;
     crowned.gold += STIPEND;
   }
+  for (const n of world.npcs) {
+    if (!n.alive || !n.knight || world.treasury < KNIGHT_PAY) continue;
+    world.treasury -= KNIGHT_PAY;
+    n.gold += KNIGHT_PAY;
+    n.loyalty = Math.min(100, loyaltyOf(n) + 2);
+  }
   for (const s of living(world, 'soldier')) {
     if (world.treasury >= SALARY) {
       world.treasury -= SALARY;
       s.gold += SALARY;
       s.unpaid = 0;
-      continue;
+      s.loyalty = Math.min(100, loyaltyOf(s) + 3);
+      if (loyaltyOf(s) >= 10) continue;
+    } else {
+      s.unpaid = (s.unpaid ?? 0) + 1;
+      s.loyalty = Math.max(0, loyaltyOf(s) - 8);
+      if (s.unpaid < DESERT_AFTER && loyaltyOf(s) >= 10) continue;
     }
-    s.unpaid = (s.unpaid ?? 0) + 1;
-    if (s.unpaid < DESERT_AFTER) continue;
+    const why = (s.unpaid ?? 0) >= DESERT_AFTER ? 'เพราะไม่ได้รับเงินเดือน' : 'เพราะหมดศรัทธาในกษัตริย์';
     s.unpaid = 0;
     s.job = s.morality < 0 ? 'thief' : 'farmer';
     s.plan = undefined;
-    log(world, 'world', `ทหาร${s.name}หนีทัพเพราะไม่ได้รับเงินเดือน แล้วไปเป็น${s.job === 'thief' ? 'โจร' : 'ชาวนา'}`, s.id);
+    log(world, 'politics', `ทหาร${s.name}หนีทัพ${why} แล้วไปเป็น${s.job === 'thief' ? 'โจร' : 'ชาวนา'}`, s.id);
   }
   recruit(world);
   const m = ensureMarket(world);
@@ -246,7 +269,8 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
 }
 
 // Gold the crown holds back for the next few paydays before spending on anything else.
-export const payrollReserve = (world: WorldState) => living(world, 'soldier').length * SALARY * 3 + STIPEND * 3;
+export const payrollReserve = (world: WorldState) =>
+  living(world, 'soldier').length * SALARY * 3 + world.npcs.filter((n) => n.alive && n.knight).length * KNIGHT_PAY * 3 + STIPEND * 3;
 
 export const hasSmith = (world: WorldState) => living(world, 'blacksmith').length > 0;
 
