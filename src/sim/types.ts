@@ -137,7 +137,7 @@ export interface Market {
   history: Record<Good, number[]>; // price every few days, oldest first
   alert: Record<Good, -1 | 0 | 1>; // last swing the chronicle reported: glut, normal, dear
   lastImport?: number; // day grain was last shipped in
-  caravan?: { merchantId: number; grain: number; gold: number }; // the trip on the road: grain to bring back, gold from goods sold
+  caravan?: { merchantId: number; grain: number; gold: number; gear?: number; realmId?: number; days?: number }; // the trip on the road: what it brings back, where to, how long
 }
 
 export type Tax = 'low' | 'normal' | 'high';
@@ -193,6 +193,10 @@ export interface Realm {
   army: number;
   people: number;
   relation: number; // -100 (enemy) .. 100 (ally), how they feel about us
+  pact?: 'alliance';
+  wed?: string; // our royal child married into their court
+  trades?: number; // caravans that came back from them
+  war?: boolean; // at war with us (phase 4.3)
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';

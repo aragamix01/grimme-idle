@@ -37,7 +37,7 @@ export function renderKingdom(world: WorldState): void {
     news.map((e) => e.seq),
     Math.round(balanceOf(world)),
     world.cult,
-    world.realms?.map((r) => [r.ruler.name, Math.round(r.relation / 5)]),
+    world.realms?.map((r) => [r.ruler.name, Math.round(r.relation / 5), r.pact]),
     cultists(world).map((n) => n.id),
     Math.floor(world.faith) >= costOf(world, 'reveal'),
     Math.floor(world.faith) >= costOf(world, 'hero'),
@@ -235,7 +235,7 @@ function neighbours(world: WorldState): HTMLElement {
         { className: 'realm-person' },
         el('span', { className: 'chip', textContent: r.name }),
         el('span', { className: 'realm-person__note', textContent: `${r.ruler.name} · ทัพ ${r.army}` }),
-        el('b', { className: r.relation <= -15 ? 'realm-person__loyal--low' : '', textContent: relationWord(r.relation) }),
+        el('b', { className: r.relation <= -15 ? 'realm-person__loyal--low' : '', textContent: r.pact ? 'พันธมิตร ✦' : relationWord(r.relation) }),
       ),
     ),
   );

@@ -14,6 +14,7 @@ import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
+import { diplomacy } from './diplomacy';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -106,6 +107,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   updateQuests(world, rng);
   dungeonsDay(world);
   realmsDay(world, rng);
+  diplomacy(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
@@ -299,7 +301,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       npc.plan = undefined;
       return;
     case 'caravan':
-      departCaravan(npc);
+      departCaravan(world, npc);
       return;
     case 'crusade':
       npc.inside = p.target; // through the dungeon to the keep behind it

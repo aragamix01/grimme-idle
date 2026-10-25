@@ -6,6 +6,7 @@ import { chance, int, type Rng } from './rng';
 import { cursed, log, perkLevel } from './core';
 import { weatherYield } from './divine';
 import { RELIC_POWER } from './dungeons';
+import { TRADE, tradePartner, tripDays } from './diplomacy';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
@@ -194,6 +195,7 @@ const BANDITS = 0.05; // chance a caravan is robbed on the road
 export const WEST_GATE = { x: 0, y: 9 };
 
 function caravans(world: WorldState, m: Market): void {
+  // Which goods are piling up, and whether the stores need grain, decide where it heads.
   if (m.caravan) {
     const lead = world.npcs.find((n) => n.id === m.caravan!.merchantId);
     if (lead?.alive && (lead.trip !== undefined || lead.plan?.kind === 'caravan')) return; // one on the road at a time
@@ -201,31 +203,39 @@ function caravans(world: WorldState, m: Market): void {
   }
   const merchant = world.npcs.find((n) => n.alive && n.job === 'merchant' && n.age >= 16 && n.questId === undefined && n.inside === undefined && n.plan?.kind !== 'caravan');
   if (!merchant) return;
+  const spare = GOODS.filter((g) => m.stock[g] > TARGET[g] * EXPORT_AT[g]);
+  const short = m.stock.grain < TARGET.grain * 0.15 && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
+  if (!spare.length && !short) return;
+  const realm = tradePartner(world, spare, short);
+  if (!realm) return; // every neighbour is hostile: the roads are closed
+  const trade = TRADE[realm.terrain];
   let gold = 0;
-  for (const g of GOODS) {
-    const excess = m.stock[g] - TARGET[g] * EXPORT_AT[g];
-    if (excess <= 0) continue;
-    const n = Math.ceil(excess * 0.3);
+  for (const g of spare) {
+    const n = Math.ceil((m.stock[g] - TARGET[g] * EXPORT_AT[g]) * 0.3);
     m.stock[g] -= n;
-    gold += n * BASE[g] * 0.6;
+    gold += n * BASE[g] * (trade.wants === g ? 0.9 : 0.6); // they pay well for what they lack
   }
   const n = TARGET.grain * 0.25;
-  const cost = n * BASE.grain * 1.5;
-  const buying = m.stock.grain < TARGET.grain * 0.15 && m.till >= cost && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
-  if (!gold && !buying) return;
+  const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5);
+  const buying = short && m.till >= cost;
   if (buying) {
     m.till -= cost;
     m.lastImport = world.day;
   }
-  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold };
+  // Mountain smiths sell arms cheaply when the shop is short of them.
+  const gearCost = BASE.gear * 0.8 * 3;
+  const gear = trade.sells === 'gear' && m.stock.gear < TARGET.gear && m.till >= gearCost + 50 ? 3 : 0;
+  if (gear) m.till -= gearCost;
+  if (!gold && !buying && !gear) return;
+  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: tripDays(realm) };
   merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };
-  log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานออกไป${buying ? 'ซื้อข้าว' : 'ขายสินค้าส่วนเกิน'}ที่เมืองข้างเคียง`, merchant.id);
+  log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานไป${buying ? 'ซื้อข้าว' : 'ค้าขาย'}ที่${realm.name}`, merchant.id);
 }
 
 // At the west gate the caravan leaves the map.
-export function departCaravan(npc: Npc): void {
+export function departCaravan(world: WorldState, npc: Npc): void {
   npc.inside = AWAY;
-  npc.trip = TRIP_DAYS;
+  npc.trip = ensureMarket(world).caravan?.days ?? TRIP_DAYS;
   npc.plan = undefined;
 }
 
@@ -241,15 +251,24 @@ export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
   npc.plan = { kind: 'haul', x: 3, y: 9, days: 0 }; // the wagon rolls up the main road to the shop
   m.caravan = undefined;
   if (!c) return;
-  if (chance(rng, BANDITS)) {
+  const realm = world.realms?.find((r) => r.id === c.realmId);
+  // Roads through unfriendly country are riskier; an ally's patrols keep them safe.
+  const risk = BANDITS + (realm && realm.relation < -15 ? 0.08 : 0) - (realm?.pact ? 0.03 : 0);
+  if (chance(rng, risk)) {
     log(world, 'trade', `กองคาราวานของพ่อค้า${npc.name}ถูกโจรป่าปล้นระหว่างทาง สินค้าหายเกลี้ยง`, npc.id);
     return;
   }
+  if (realm) {
+    realm.trades = (realm.trades ?? 0) + 1;
+    realm.relation = Math.min(100, realm.relation + 2); // trade warms them to us
+    realm.gold += Math.round(c.gold / 2);
+  }
   m.stock.grain += c.grain;
+  m.stock.gear += c.gear ?? 0;
   const cut = Math.floor(c.gold * 0.15); // the merchant's share for the road
   m.till += c.gold - cut;
   npc.gold += cut;
-  if (c.grain) log(world, 'trade', `พ่อค้า${npc.name}กลับเข้าเมืองพร้อมข้าว ${c.grain} กระสอบ`, npc.id);
+  if (c.grain || c.gear) log(world, 'trade', `พ่อค้า${npc.name}กลับจาก${realm?.name ?? 'เมืองข้างเคียง'}${c.grain ? ` พร้อมข้าว ${c.grain} กระสอบ` : ''}${c.gear ? ` และอาวุธ ${c.gear} ชิ้น` : ''}`, npc.id);
 }
 
 // Adventurers' guilds spend their treasury kitting out the worst-equipped member.

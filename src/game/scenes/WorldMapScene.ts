@@ -17,6 +17,7 @@ export class WorldMapScene extends Phaser.Scene {
   private built = false;
   private labels = new Map<number, Phaser.GameObjects.Text>();
   private lastKey = '';
+  private wagon: Phaser.GameObjects.Sprite | null = null;
   onRealm: (realm: Realm | null) => void = () => {};
 
   constructor() {
@@ -40,6 +41,7 @@ export class WorldMapScene extends Phaser.Scene {
     // The town scene loads every texture; wait for the last ones before laying the map out.
     if (!this.built && !this.textures.exists('wm-town')) return;
     if (!this.built) this.build(w);
+    this.moveWagon(w);
     // Relations and rulers change slowly; refresh the labels when they do.
     const key = JSON.stringify(w.realms.map((r) => [r.ruler.name, Math.round(r.relation / 10)]));
     if (key === this.lastKey) return;
@@ -118,6 +120,33 @@ export class WorldMapScene extends Phaser.Scene {
       this.add.image(cx + 4, cy - 24, 'wm-flag').setOrigin(0, 0).setTint(FLAG[r.color] ?? 0xffffff).setDepth(10_001);
       this.labels.set(r.id, this.label(cx, cy + 2, r.name));
     }
+  }
+
+  // Out along the road to the partner's keep, then back again, by how much of the trip is left.
+  private moveWagon(w: WorldState): void {
+    const c = w.market?.caravan;
+    const lead = c && w.npcs.find((n) => n.id === c.merchantId);
+    const r = c && w.realms?.find((x) => x.id === c.realmId);
+    if (!c || !r || !lead || lead.trip === undefined || !c.days) {
+      this.wagon?.setVisible(false);
+      return;
+    }
+    const p = 1 - lead.trip / c.days; // 0 leaving .. 1 home again
+    const f = p < 0.5 ? p * 2 : (1 - p) * 2; // how far out along the road
+    const pts = [
+      { x: HOME.x, y: HOME.y + 1 },
+      { x: HOME.x, y: r.y + 1 },
+      { x: r.x, y: r.y + 1 },
+    ];
+    const legs = [Math.abs(pts[1].y - pts[0].y), Math.abs(pts[2].x - pts[1].x)];
+    let d = f * (legs[0] + legs[1]);
+    const pos = d <= legs[0] ? { x: pts[0].x, y: pts[0].y + Math.sign(pts[1].y - pts[0].y) * d } : { x: pts[1].x + Math.sign(pts[2].x - pts[1].x) * (d -= legs[0]), y: pts[1].y };
+    this.wagon ??= this.add.sprite(0, 0, 'caravan').setOrigin(0.5, 1).setScale(0.6).setDepth(10_003).play('caravan-walk');
+    const outbound = p < 0.5;
+    this.wagon
+      .setVisible(true)
+      .setPosition(pos.x * TILE + TILE / 2, pos.y * TILE + TILE)
+      .setFlipX(outbound ? r.x < HOME.x : r.x > HOME.x);
   }
 
   private label(x: number, y: number, text: string): Phaser.GameObjects.Text {
