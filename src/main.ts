@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { initBubbles, pushBubbles } from './ui/bubbles';
+import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
 import { renderFeed, renderStats } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
@@ -37,8 +38,31 @@ let filterToNpc = false;
 type Tab = 'log' | 'guild' | 'market' | 'kingdom' | 'people';
 let tab: Tab = 'log';
 
+// A finger resting on a button must not have the button rebuilt under it, or the tap is lost:
+// while a press is held in the panels, only the header counters update.
+let pressing = false;
+let stale = false;
+addEventListener('pointerdown', (e) => (pressing = !!(e.target as Element).closest?.('#side, dialog')), true);
+const release = () => {
+  if (!pressing) return;
+  setTimeout(() => {
+    pressing = false;
+    if (stale) {
+      stale = false;
+      render();
+    }
+  }, 250);
+};
+addEventListener('pointerup', release, true);
+addEventListener('pointercancel', release, true);
+
 function render(): void {
   if (!world) return;
+  if (pressing) {
+    stale = true;
+    renderStats(world);
+    return;
+  }
   renderStats(world);
   renderEra(world);
   renderMiracles(world);
@@ -102,6 +126,22 @@ initEra({
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
 initBubbles((id) => scene.npcScreenPos(id));
+const zoom = document.getElementById('zoom')!;
+zoom.onclick = () => zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
+
+// Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
+const sound = document.getElementById('sound')!;
+const showSound = () => {
+  sound.setAttribute('aria-pressed', String(soundOn()));
+  sound.querySelector('img')!.src = `/assets/sprites/icons/${soundOn() ? 'sound' : 'mute'}.png`;
+};
+showSound();
+sound.onclick = () => {
+  setSound(!soundOn());
+  showSound();
+};
+addEventListener('pointerdown', () => startSound(), { once: true });
+addEventListener('click', (e) => (e.target as Element).closest?.('button') && click(), true);
 
 for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) {
   b.onclick = () => setFilter(b.dataset.filter === 'npc');
@@ -130,6 +170,8 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   world = msg.world;
   scene.setWorld(world);
   pushBubbles(world, selected);
+  updateMood(world);
+  playEvents(world);
   render();
 };
 

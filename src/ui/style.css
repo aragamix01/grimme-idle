@@ -23,7 +23,15 @@
 html, body { margin: 0; height: 100%; background: var(--meadow-deep); color: var(--ink); font-family: var(--font-body); }
 img, canvas { image-rendering: pixelated; }
 #app { display: flex; height: 100%; gap: 18px; padding: 18px; }
-#game { flex: 1; min-width: 0; }
+#game { flex: 1; min-width: 0; position: relative; }
+.zoom-btn {
+  position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; place-items: center; width: 40px; height: 40px;
+  border: 2px solid var(--outline); background: var(--paper); box-shadow: 2px 2px 0 rgb(59 36 22 / 0.35); cursor: pointer;
+}
+.zoom-btn img { width: 24px; height: 24px; image-rendering: pixelated; }
+.zoom-btn[aria-pressed="true"] { background: var(--gold); }
+.sound-btn { right: 56px; }
+.sound-btn[aria-pressed="true"] { background: var(--paper); }
 
 /* Flat paper panel: solid fills, one outline, hard offset shadow. No stretched sprites. */
 #side {
@@ -399,4 +407,18 @@ button.chip--cult:hover { background: #7a3a8a; }
   .npc { padding: 12px; }
   .log { flex: none; }
   #feed { max-height: 60vh; }
+  /* The map stays in view while the panels scroll under it. */
+  #game { position: sticky; top: 0; z-index: 4; background: var(--meadow-deep); }
+  /* A picked NPC opens as a sheet over the bottom of the screen, not far below the fold. */
+  .npc:not([hidden]) {
+    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 10; max-height: 48vh; overflow-y: auto;
+    border: 3px solid var(--outline); box-shadow: 4px 4px 0 rgb(20 40 16 / 0.45);
+  }
+}
+
+/* Fingers need bigger targets than a mouse. */
+@media (pointer: coarse) {
+  .seg button { min-height: 40px; }
+  .chip--button { min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
+  .btn { min-height: 40px; }
 }

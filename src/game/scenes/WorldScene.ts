@@ -61,6 +61,7 @@ export class WorldScene extends Phaser.Scene {
   private glow!: Phaser.GameObjects.Graphics;
   private clock = -1; // eased copy of world.day, so the sky turns smoothly between ticks
   private seenSeq = -1; // last chronicle entry the scene has reacted to
+  private drag: { x: number; y: number; sx: number; sy: number; moved: boolean } | null = null;
   private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blight!: Phaser.GameObjects.Rectangle;
   private raining = false;
@@ -110,12 +111,29 @@ export class WorldScene extends Phaser.Scene {
     this.selectRing.lineStyle(2, 0x3b2416).strokeEllipse(0, 0, 18, 8);
     this.selectRing.lineStyle(1, 0xffd23f).strokeEllipse(0, 0, 16, 6);
 
-    // Click picks the nearest living NPC within reach; empty ground clears the selection.
-    // Reach is at least 24 screen pixels so tiny sprites on a phone are still tappable.
+    // Zoomed in, a drag pans the map; a tap that didn't drag picks someone.
+    const cam = this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      const k = this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width;
+      this.drag = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const d = this.drag;
+      if (!d || !p.isDown) return;
+      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) < 6) return;
+      d.moved = true;
+      if (cam.zoom <= 1) return;
+      cam.stopFollow();
+      cam.setScroll(d.sx - (p.x - d.x) / cam.zoom, d.sy - (p.y - d.y) / cam.zoom);
+    });
+    // A tap picks the nearest living NPC within reach; empty ground clears the selection.
+    // Reach is measured on screen, wider for a fingertip than a mouse, so tiny sprites stay tappable.
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      const moved = this.drag?.moved;
+      this.drag = null;
+      if (moved) return;
+      const k = (this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width) * cam.zoom;
       let best: number | null = null;
-      let bestD = Math.max(14, 24 / k);
+      let bestD = Math.max(10, (p.wasTouch ? 40 : 24) / k);
       for (const [id, s] of this.npcSprites) {
         if (!s.visible) continue;
         const d = Phaser.Math.Distance.Between(p.worldX, p.worldY, s.x, s.y - 10);
@@ -130,6 +148,21 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  // Toggle a 2x close-up, centred on whoever is selected (and following them) or on the town.
+  toggleZoom(): boolean {
+    const cam = this.cameras.main;
+    if (cam.zoom > 1) {
+      cam.stopFollow();
+      cam.setZoom(1).centerOn((MAP_W * TILE) / 2, (MAP_H * TILE) / 2);
+      return false;
+    }
+    cam.setZoom(2);
+    const s = this.selectedId === null ? undefined : this.npcSprites.get(this.selectedId);
+    if (s?.visible) cam.startFollow(s, true, 0.15, 0.15, 0, 10);
+    else cam.centerOn(13 * TILE, 10 * TILE);
+    return true;
+  }
+
   setWorld(world: WorldState): void {
     this.world = world;
   }
@@ -137,6 +170,10 @@ export class WorldScene extends Phaser.Scene {
   select(id: number | null): void {
     this.selectedId = id;
     this.selectRing?.setVisible(id !== null);
+    // Zoomed in, the camera keeps the selected NPC in view.
+    const cam = this.cameras?.main;
+    const s = id === null ? undefined : this.npcSprites.get(id);
+    if (cam && cam.zoom > 1 && s) cam.startFollow(s, true, 0.15, 0.15, 0, 10);
   }
 
   // Client-space position of an NPC's head, for DOM overlays such as speech bubbles.
@@ -145,8 +182,11 @@ export class WorldScene extends Phaser.Scene {
     if (!s || !s.visible) return null;
     const rect = this.game.canvas.getBoundingClientRect();
     if (!rect.width) return null; // not laid out yet
-    const k = rect.width / this.scale.gameSize.width;
-    return { x: rect.left + s.x * k, y: rect.top + (s.y - s.height) * k };
+    const cam = this.cameras.main;
+    const v = cam.worldView;
+    if (s.x < v.x || s.x > v.right || s.y < v.y || s.y - s.height > v.bottom) return null; // scrolled out of the close-up
+    const k = (rect.width / this.scale.gameSize.width) * cam.zoom;
+    return { x: rect.left + (s.x - v.x) * k, y: rect.top + (s.y - s.height - v.y) * k };
   }
 
   update(_time: number, delta: number): void {

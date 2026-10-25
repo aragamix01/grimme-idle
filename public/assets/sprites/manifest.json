@@ -349,6 +349,27 @@
     "frameHeight": 36,
     "frames": 1
   },
+  "sound": {
+    "file": "assets/sprites/icons/sound.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "mute": {
+    "file": "assets/sprites/icons/mute.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "zoom": {
+    "file": "assets/sprites/icons/zoom.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "rain": {
     "file": "assets/sprites/icons/rain.png",
     "group": "icons",
