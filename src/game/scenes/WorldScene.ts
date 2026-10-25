@@ -65,10 +65,12 @@ export class WorldScene extends Phaser.Scene {
     this.selectRing.lineStyle(2, 0x3b2416).strokeEllipse(0, 0, 18, 8);
     this.selectRing.lineStyle(1, 0xffd23f).strokeEllipse(0, 0, 16, 6);
 
-    // Click picks the nearest living NPC within ~a tile; empty ground clears the selection.
+    // Click picks the nearest living NPC within reach; empty ground clears the selection.
+    // Reach is at least 24 screen pixels so tiny sprites on a phone are still tappable.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      const k = this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width;
       let best: number | null = null;
-      let bestD = 14;
+      let bestD = Math.max(14, 24 / k);
       for (const [id, s] of this.npcSprites) {
         if (!s.visible) continue;
         const d = Phaser.Math.Distance.Between(p.worldX, p.worldY, s.x, s.y - 10);
@@ -113,6 +115,17 @@ export class WorldScene extends Phaser.Scene {
     this.lastKey = key;
     if (!this.dungeonPlaced) this.placeDungeons(w);
     for (const npc of w.npcs) this.syncNpc(npc);
+    // The sim prunes long-dead NPCs; drop their sprites too.
+    if (this.npcSprites.size > w.npcs.length) {
+      const ids = new Set(w.npcs.map((n) => n.id));
+      for (const [id, s] of this.npcSprites) {
+        if (ids.has(id)) continue;
+        s.destroy();
+        this.blessMarks.get(id)?.destroy();
+        this.npcSprites.delete(id);
+        this.blessMarks.delete(id);
+      }
+    }
   }
 
   private buildGround(): void {
@@ -164,11 +177,13 @@ export class WorldScene extends Phaser.Scene {
       sprite.anims.setProgress(Math.random());
       this.npcSprites.set(npc.id, sprite);
     }
-    if (!npc.alive) {
-      sprite.setVisible(false);
+    // Dead, or deep inside a dungeon: off the map until they walk back out.
+    if (!npc.alive || npc.inside !== undefined) {
+      sprite.setVisible(false).setPosition(px, py);
       this.blessMarks.get(npc.id)?.setVisible(false);
       return;
     }
+    sprite.setVisible(true);
     if (sprite.texture.key !== npc.job) sprite.setTexture(npc.job).play(`${npc.job}-walk`);
     if (px !== sprite.x) sprite.setFlipX(px < sprite.x);
     this.tweens.add({

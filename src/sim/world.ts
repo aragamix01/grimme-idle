@@ -1,15 +1,19 @@
-import { chance, createRng, int, next, pick, type Rng } from './rng';
+import { chance, createRng, int, pick, type Rng } from './rng';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
-import type { Command, EventKind, Job, Npc, Trait, WorldState } from './types';
+import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
+import type { Command, Dungeon, EventKind, Job, Npc, Plan, PlanKind, Trait, WorldState } from './types';
 
 const JOBS: readonly Job[] = ['swordsman', 'mage', 'merchant', 'farmer', 'thief'];
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const CHRONICLE_LIMIT = 500;
 const STAMPEDE_POWER = 100;
 export const COMMAND_COST = { bless: 5, curse: 5, dream: 3 } as const;
-const THEFT_CHANCE = 0.003; // per thief per day; higher drowned the chronicle in thefts
 const TOWN_SIZE = 30;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE
+const ADVENTURE_CHANCE = 0.3; // when a fighter picks their next plan
+const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
+const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
+const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
 
 export function createWorld(seed: number, npcCount = TOWN_SIZE): WorldState {
   const rng = createRng(seed);
@@ -48,8 +52,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
     if (world.day % 365 === 0) npc.age++;
-    wander(world, npc, rng);
-    act(world, npc, rng);
+    live(world, npc, rng);
   }
   for (const d of world.dungeons) {
     d.power += 0.2;
@@ -59,15 +62,17 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
       for (const npc of world.npcs) if (npc.alive && chance(rng, 0.1)) kill(world, npc, 'ถูกมอนสเตอร์ล้มลง');
     }
   }
-  // Travellers drift into town while it's below its starting size.
+  // Travellers walk in through the west gate while the town is below its starting size.
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE)) {
     const npc = spawnNpc(world, rng);
-    npc.x = 0;
-    npc.y = 10;
+    npc.x = PLACES.gate.x;
+    npc.y = PLACES.gate.y;
+    npc.plan = plan('arrive', PLACES.inn, 5);
     world.npcs.push(npc);
     log(world, 'world', `นักเดินทาง ${npc.name} (${JOB_TH[npc.job]}) มาถึงเมือง`, npc.id);
   }
+  if (world.day % PRUNE_EVERY === 0) prune(world);
   world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + 0.1;
   world.rng = rng.state;
   return world;
@@ -96,49 +101,149 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
     gold: int(rng, 5, 30),
     morality: int(rng, -20, 40),
     traits: t1 === t2 ? [t1] : [t1, t2],
-    x: int(rng, 2, 25),
-    y: int(rng, 2, 22),
+    x: int(rng, 2, 17),
+    y: int(rng, 4, 22),
     alive: true,
     blessed: false,
   };
 }
 
-function wander(world: WorldState, npc: Npc, rng: Rng): void {
-  npc.x = clamp(npc.x + int(rng, -1, 1), 0, world.width - 1);
-  npc.y = clamp(npc.y + int(rng, -1, 1), 0, world.height - 1);
+// ---------- daily life: walk to where the plan is, then act there ----------
+
+function plan(kind: PlanKind, at: Spot, days: number, target?: number): Plan {
+  return { kind, x: at.x, y: at.y, days, target };
 }
 
-// Utility scoring placeholder: one roll per day decides the NPC's action.
-function act(world: WorldState, npc: Npc, rng: Rng): void {
-  const r = next(rng);
-  const fighter = npc.job === 'swordsman' || npc.job === 'mage';
-  if (fighter && r < 0.02) {
-    const d = pick(rng, world.dungeons);
-    // Strength grows slower than levels and the dungeon always fights back, so nobody snowballs.
-    const strength = 10 + npc.level * 4 + (npc.blessed ? 10 : 0);
-    if (chance(rng, strength / (strength + d.power * 0.5 + 10))) {
-      npc.gold += int(rng, 5, 25);
-      d.power = Math.max(10, d.power - 5);
-      // Each level is harder to earn than the last; only level-ups make the chronicle.
-      if (chance(rng, 2 / (npc.level + 1))) {
-        npc.level++;
-        log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
-      }
-    } else if (chance(rng, 0.15)) {
-      kill(world, npc, `หายไปใน ${d.name}`);
+function live(world: WorldState, npc: Npc, rng: Rng): void {
+  if (npc.inside !== undefined) return delve(world, npc, rng);
+  npc.plan ??= choosePlan(world, npc, rng);
+  const p = npc.plan;
+
+  if (p.kind === 'steal') {
+    const victim = world.npcs.find((n) => n.id === p.target);
+    if (!victim?.alive || victim.inside !== undefined || --p.days <= 0) {
+      npc.plan = undefined; // lost the mark
+      return;
     }
-  } else if (npc.job === 'thief' && r < THEFT_CHANCE) {
-    const victim = pick(rng, world.npcs);
-    if (victim.alive && victim !== npc && victim.gold >= 5) {
-      const stolen = Math.ceil(victim.gold / 2);
-      victim.gold -= stolen;
-      npc.gold += stolen;
-      npc.morality = clamp(npc.morality - 5, -100, 100);
-      log(world, 'theft', `${npc.name} ขโมยทอง ${stolen} เหรียญจาก ${victim.name}`, npc.id);
-    }
-  } else if (r < 0.3) {
-    npc.gold += npc.job === 'merchant' ? 2 : 1;
+    p.x = victim.x;
+    p.y = victim.y;
+    if (Math.abs(npc.x - victim.x) + Math.abs(npc.y - victim.y) <= 1) return steal(world, npc, victim, rng);
   }
+
+  if (npc.x !== p.x || npc.y !== p.y) return step(world, npc, p, rng);
+  arrive(world, npc, p, rng);
+}
+
+function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
+  const home = PLACES.homes[npc.id % PLACES.homes.length];
+  const idle = () =>
+    plan('idle', pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild]), int(rng, 3, 8));
+
+  switch (npc.job) {
+    case 'swordsman':
+    case 'mage': {
+      const courage = npc.traits.includes('brave') ? 1.6 : npc.traits.includes('coward') ? 0.4 : 1;
+      if (chance(rng, ADVENTURE_CHANCE * courage)) {
+        const d = pick(rng, world.dungeons);
+        return plan('adventure', dungeonDoor(d), 0, d.id);
+      }
+      return chance(rng, 0.6) ? plan('idle', pick(rng, [PLACES.guild, PLACES.inn]), int(rng, 3, 8)) : idle();
+    }
+    case 'merchant':
+      return chance(rng, 0.7) ? plan('work', PLACES.shop, int(rng, 5, 10)) : idle();
+    case 'farmer':
+      if (chance(rng, 0.7)) {
+        const field = { x: int(rng, FIELDS.x0, FIELDS.x1), y: int(rng, FIELDS.y0, FIELDS.y1) };
+        return plan('work', field, int(rng, 5, 10));
+      }
+      return idle();
+    case 'thief': {
+      const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
+      if (marks.length && chance(rng, STEAL_CHANCE)) {
+        const victim = pick(rng, marks);
+        return plan('steal', victim, PURSUIT_DAYS, victim.id);
+      }
+      return idle();
+    }
+  }
+}
+
+// One tile a day, mostly along the longer axis so paths look deliberate rather than diagonal-jittery.
+function step(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
+  const dx = Math.sign(p.x - npc.x);
+  const dy = Math.sign(p.y - npc.y);
+  const preferX = Math.abs(p.x - npc.x) >= Math.abs(p.y - npc.y);
+  if (dx && (preferX || !dy) && !chance(rng, 0.2)) npc.x += dx;
+  else if (dy) npc.y += dy;
+  else npc.x += dx;
+  npc.x = clamp(npc.x, 0, world.width - 1);
+  npc.y = clamp(npc.y, 0, world.height - 1);
+}
+
+function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
+  switch (p.kind) {
+    case 'adventure':
+      npc.inside = p.target;
+      npc.plan = plan('delve', p, int(rng, 3, 6), p.target);
+      return;
+    case 'work':
+      if (chance(rng, 0.5)) npc.gold += npc.job === 'merchant' ? 2 : 1;
+      if (--p.days <= 0) npc.plan = undefined;
+      return;
+    case 'idle':
+      // Mill about near the spot, then pick something new.
+      if (--p.days <= 0) npc.plan = undefined;
+      else if (chance(rng, 0.4)) {
+        npc.x = clamp(npc.x + int(rng, -1, 1), 0, world.width - 1);
+        npc.y = clamp(npc.y + int(rng, -1, 1), 0, world.height - 1);
+        p.x = npc.x;
+        p.y = npc.y;
+      }
+      return;
+    default:
+      npc.plan = undefined; // return, flee, arrive: the walk was the point
+  }
+}
+
+// Time passes inside the dungeon; the outcome is decided as the adventurer comes out.
+function delve(world: WorldState, npc: Npc, rng: Rng): void {
+  const p = npc.plan!;
+  if (--p.days > 0) return;
+  const d = world.dungeons.find((x) => x.id === npc.inside) as Dungeon;
+  npc.inside = undefined;
+  // Strength grows slower than levels and the dungeon always fights back, so nobody snowballs.
+  const strength = 10 + npc.level * 4 + (npc.blessed ? 10 : 0);
+  if (chance(rng, strength / (strength + d.power * 0.5 + 10))) {
+    npc.gold += int(rng, 5, 25);
+    d.power = Math.max(10, d.power - 5);
+    // Each level is harder to earn than the last; only level-ups make the chronicle.
+    if (chance(rng, 2 / (npc.level + 1))) {
+      npc.level++;
+      log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
+    }
+  } else if (chance(rng, 0.15)) {
+    return kill(world, npc, `หายไปใน ${d.name}`);
+  }
+  npc.plan = plan('return', PLACES.guild, 0);
+}
+
+function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
+  // More often than not the mark notices and the thief slinks off empty-handed.
+  if (chance(rng, 0.4)) {
+    const stolen = Math.ceil(victim.gold / 2);
+    victim.gold -= stolen;
+    npc.gold += stolen;
+    npc.morality = clamp(npc.morality - 5, -100, 100);
+    log(world, 'theft', `${npc.name} ขโมยทอง ${stolen} เหรียญจาก ${victim.name}`, npc.id);
+  }
+  const hideout = { x: int(rng, 0, 17), y: int(rng, 12, 24) };
+  npc.plan = plan('flee', hideout, 0);
+}
+
+// Drop the dead nobody's story still points at, so saves don't grow forever.
+function prune(world: WorldState): void {
+  const remembered = new Set(world.chronicle.map((e) => e.npcId));
+  world.npcs = world.npcs.filter((n) => n.alive || remembered.has(n.id));
 }
 
 export function applyCommands(world: WorldState, commands: Command[]): void {
@@ -160,12 +265,14 @@ function applyCommand(world: WorldState, cmd: Command): void {
     log(world, 'curse', `${npc.name} ต้องคำสาปแห่งกบ`, npc.id);
   } else {
     npc.job = cmd.job;
+    if (npc.inside === undefined) npc.plan = undefined; // the dream changes their next move
     log(world, 'dream', `${npc.name} ฝันถึงชีวิตใหม่ในฐานะ${JOB_TH[cmd.job]}`, npc.id);
   }
 }
 
 function kill(world: WorldState, npc: Npc, reason: string): void {
   npc.alive = false;
+  npc.plan = undefined;
   log(world, 'death', `${npc.name} ${reason}`, npc.id);
 }
 

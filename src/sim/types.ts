@@ -15,6 +15,19 @@ export interface Npc {
   y: number;
   alive: boolean;
   blessed: boolean;
+  plan?: Plan; // what the NPC is walking towards or doing right now
+  inside?: number; // id of the dungeon the NPC is exploring (hidden from the map)
+}
+
+// Every action happens at a place: the NPC walks there first, then acts.
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive';
+
+export interface Plan {
+  kind: PlanKind;
+  x: number;
+  y: number;
+  days: number; // stay length once there, or time left before giving up
+  target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
 export interface Dungeon {

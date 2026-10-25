@@ -28,14 +28,40 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
     return;
   }
   // Rebuild only when something visible changed, so buttons don't lose focus every tick.
-  const { x: _x, y: _y, ...shown } = npc; // position changes every tick but isn't on the card
-  const key = JSON.stringify([shown, Math.floor(world.faith), choosingDream]);
+  // Position and plan coordinates change every tick but aren't on the card.
+  const { x: _x, y: _y, plan: _plan, ...shown } = npc;
+  const doing = activity(world, npc);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream]);
   if (!force && key === lastKey) return;
   lastKey = key;
-  card.replaceChildren(header(npc), stats(npc), powers(npc, world.faith));
+  card.replaceChildren(header(npc, doing), stats(npc), powers(npc, world.faith));
 }
 
-function header(npc: Npc): HTMLElement {
+// What the NPC is up to, in words the player can follow on the map.
+function activity(world: WorldState, npc: Npc): string {
+  if (!npc.alive) return 'จากไปแล้ว';
+  const dungeon = (id?: number) => world.dungeons.find((d) => d.id === id)?.name ?? 'ดันเจี้ยน';
+  if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
+  const p = npc.plan;
+  switch (p?.kind) {
+    case 'adventure':
+      return `กำลังเดินทางไป${dungeon(p.target)}`;
+    case 'work':
+      return npc.job === 'farmer' ? 'ทำนาอยู่ที่ทุ่ง' : 'เฝ้าร้านค้า';
+    case 'steal':
+      return `กำลังสะกดรอยตาม${world.npcs.find((n) => n.id === p.target)?.name ?? 'ใครบางคน'}`;
+    case 'flee':
+      return 'กำลังหลบหนี';
+    case 'return':
+      return 'กำลังกลับกิลด์';
+    case 'arrive':
+      return 'เพิ่งมาถึงเมือง';
+    default:
+      return 'พักผ่อนอยู่ในเมือง';
+  }
+}
+
+function header(npc: Npc, doing: string): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
   portrait.style.backgroundImage = `url(/assets/sprites/characters/${npc.job}.png)`;
   const chips = el(
@@ -60,6 +86,7 @@ function header(npc: Npc): HTMLElement {
       el('h3', { className: 'npc__name', textContent: npc.name }),
       chips,
       el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
+      el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,
   );

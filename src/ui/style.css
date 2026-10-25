@@ -123,6 +123,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__name { margin: 0; font-size: 17px; line-height: 26px; font-weight: 600; }
 .npc__chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
 .npc__traits { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.npc__doing { margin: 4px 0 0; font-size: 13px; line-height: 20px; font-weight: 500; }
+.npc__doing::before { content: "▸ "; color: var(--ink-muted); }
 .npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }
 .npc__stat { display: grid; grid-template-columns: 16px auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
@@ -137,7 +139,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   display: grid; justify-items: center; gap: 0; padding: 6px 4px 5px; cursor: pointer;
   background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: inset 0 -3px 0 var(--paper-edge);
 }
-.power:hover:not(:disabled) { background: #fff; }
+.power:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--gold); }
 .power:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
 .power:disabled { opacity: 0.45; cursor: not-allowed; }
 .power__name { font-size: 13px; line-height: 20px; font-weight: 500; }
@@ -174,7 +176,15 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .offline-list { list-style: none; padding: 0; margin: 0 0 14px; border-top: 2px solid var(--paper-edge); }
 #offline form { display: flex; justify-content: flex-end; }
 
+/* Phones: map on top at its own aspect ratio, panel below, the page scrolls. */
 @media (max-width: 800px) {
-  #app { flex-direction: column; }
-  #side { width: auto; height: 45%; }
+  html, body { height: auto; }
+  #app { flex-direction: column; height: auto; min-height: 100%; padding: 10px; gap: 12px; }
+  #game { flex: none; width: 100%; aspect-ratio: 8 / 5; }
+  #side { width: auto; overflow: visible; }
+  .side-head { padding: 12px; gap: 10px; }
+  #logo { width: 132px; }
+  .npc { padding: 12px; }
+  .log { flex: none; }
+  #feed { max-height: 60vh; }
 }
