@@ -6,6 +6,7 @@ import { clamp, kill, log } from './core';
 import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
+import { sway } from './cult';
 import type { Crown, Npc, Tax, WorldState } from './types';
 
 export const TAX_RATE: Record<Tax, number> = { low: 0.04, normal: 0.08, high: 0.14 };
@@ -115,6 +116,7 @@ function festival(world: WorldState, crown: Crown, k: Npc): void {
   if (!k.traits.includes('kind') && approval(world) > 60) return; // a content town needs no feast, unless the king is generous
   world.treasury -= cost;
   crown.lastFestival = world.day;
+  sway(world, 2);
   const keepers = adults(world).filter((n) => n.job === 'innkeeper');
   for (const n of keepers) n.gold += Math.floor((cost * 0.6) / keepers.length);
   for (const n of adults(world)) nudge(n, 10);
@@ -163,6 +165,7 @@ function plot(world: WorldState, k: Npc, rng: Rng): void {
   const rebels = turncoats.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0) + friends * 0.5 + schemer.gold / 200;
   const guard = loyal.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0);
   log(world, 'politics', `${schemer.name}นำกำลัง${turncoats.length ? `และทหารแปรพักตร์ ${turncoats.length} นาย` : ''}บุกวังหมายชิงบัลลังก์!`, schemer.id);
+  sway(world, -3); // blood in the palace
   if (chance(rng, rebels / (rebels + guard + 0.5))) {
     depose(world, k, schemer, rng);
     enthrone(world, schemer, `ยึดอำนาจจากกษัตริย์${k.name}`);

@@ -6,6 +6,7 @@ import { FIELDS, PLACES, dungeonDoor, type Spot } from './places';
 import { snap } from './nav';
 import { gearPower, lootFound, sell, wearGear } from './market';
 import { payrollReserve } from './society';
+import { sway } from './cult';
 import { FRIEND, addTie, getTie } from './ties';
 import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type WorldState } from './types';
 
@@ -307,6 +308,7 @@ function bondParty(world: WorldState, party: Npc[], delta: number): void {
 
 function succeed(world: WorldState, q: Quest, party: Npc[], rng: Rng): void {
   setStage(world, q, 'done');
+  sway(world, 0.2);
   const guild = world.guilds.find((g) => g.id === q.guildId);
   const cut = guild ? Math.floor(q.reward * GUILD_CUT) : 0;
   const share = Math.ceil((q.reward - cut) / party.length);

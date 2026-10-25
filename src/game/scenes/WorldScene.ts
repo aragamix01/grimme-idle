@@ -24,6 +24,7 @@ const CYCLE_DAYS = 16;
 const NIGHT_ALPHA = 0.5;
 const DUSK = Phaser.Display.Color.ValueToColor(0xff8a3d);
 const NIGHT = Phaser.Display.Color.ValueToColor(0x1a2466);
+const BLOOD = Phaser.Display.Color.ValueToColor(0x5a1030); // the sky when the world tips toward darkness
 
 // Window glass inside each building's art (x, y, w, h in sprite pixels), lit after dark.
 const WINDOWS: Record<string, [number, number, number, number][]> = {
@@ -213,8 +214,11 @@ export class WorldScene extends Phaser.Scene {
     const t = (this.clock % CYCLE_DAYS) / CYCLE_DAYS; // 0 noon, 0.5 midnight
     const dark = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
     const night = Phaser.Math.Clamp((dark - 0.3) / 0.5, 0, 1);
-    const tint = Phaser.Display.Color.Interpolate.ColorWithColor(DUSK, NIGHT, 100, Math.round(night * 100));
-    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(night * NIGHT_ALPHA);
+    const sky = Phaser.Display.Color.Interpolate.ColorWithColor(DUSK, NIGHT, 100, Math.round(night * 100));
+    // A dark world stains the sky blood red, even at noon.
+    const evil = Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1);
+    const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
+    this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * 0.22));
     this.glow.setAlpha(Phaser.Math.Clamp((night - 0.4) / 0.4, 0, 1));
   }
 
@@ -276,7 +280,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private syncNpc(npc: Npc): void {
-    const look = npc.age < ADULT_AGE ? 'child' : npc.job; // children share one sprite until they pick a calling
+    // Children share one sprite until they pick a calling; cultists don their robes for the walk to a ritual.
+    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.job;
     let sprite = this.npcSprites.get(npc.id);
     const px = npc.x * TILE + TILE / 2;
     const py = npc.y * TILE + TILE;

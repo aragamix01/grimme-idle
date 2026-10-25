@@ -10,12 +10,13 @@ import { snap, walkable } from './nav';
 import { WALL } from './town';
 import { arrivalJob, buyGear, considerTrade, gearPower, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, rule } from './politics';
+import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import type { Command, Dungeon, Npc, Plan, Trait, WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
-export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST } as const;
+export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST } as const;
 const TOWN_SIZE = 80;
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
@@ -67,6 +68,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   world.day++;
   holdCourt(world, rng);
   rule(world, rng);
+  darkness(world, rng);
   for (const npc of world.npcs) {
     if (!npc.alive) continue;
     if (isBirthday(world, npc)) birthday(world, npc, rng);
@@ -260,6 +262,10 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       buyGear(world, npc);
       npc.plan = undefined;
       return;
+    case 'ritual':
+      performRitual(world, npc);
+      npc.plan = undefined;
+      return;
     case 'work':
       if (npc.job === 'farmer') {
         payRent(world, npc, harvest(world, npc, rng), rng);
@@ -337,6 +343,7 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
     npc.gold += stolen;
     npc.morality = clamp(npc.morality - 5, -100, 100);
     if (society) society.treasury += Math.floor(stolen / 5);
+    sway(world, -0.3);
     log(world, 'theft', `${npc.name} ขโมยทอง ${stolen} เหรียญจาก ${victim.name}`, npc.id);
     addTie(world, victim, npc, -10); // rumours get around
     maybeBounty(world, victim, npc, stolen, rng);
@@ -368,16 +375,22 @@ function applyCommand(world: WorldState, cmd: Command): void {
     postDivineQuest(world);
     return;
   }
+  if (cmd.type === 'reveal') {
+    if (reveal(world)) world.faith -= cost;
+    return;
+  }
   const npc = world.npcs.find((n) => n.id === cmd.npcId && n.alive);
   if (!npc) return;
   world.faith -= cost;
   if (cmd.type === 'bless') {
     npc.blessed = true;
     npc.morality = clamp(npc.morality + 10, -100, 100);
+    sway(world, 1);
     log(world, 'bless', `แสงศักดิ์สิทธิ์โอบล้อม ${npc.name}`, npc.id);
   } else if (cmd.type === 'curse') {
     npc.blessed = false;
     npc.level = Math.max(1, npc.level - 1);
+    sway(world, -1);
     log(world, 'curse', `${npc.name} ต้องคำสาปแห่งกบ`, npc.id);
   } else {
     if (cmd.job === 'king' || cmd.job === 'noble') return; // titles are granted, not dreamt

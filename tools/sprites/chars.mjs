@@ -365,6 +365,10 @@ const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pp
 const HAIR_FLOWER = ['...........rr...', '..........ryyr..', '...........rr...'];
 const FAN = ['...........yy...', '..........yyyy..', '..........yrry..', '...........MM...'];
 
+// The cult's robes: the thief's hood in demon violet, and a black candle.
+const CULT_HOOD = HOOD.map((row) => row.replaceAll('L', 'd').replaceAll('r', 'D'));
+const CANDLE = ['............y...', '...........yry..', '............l...', '............l...', '............l...'];
+
 const GOBLIN_EARS = [
   '.g............g.',
   '.gg..........gg.',
@@ -459,6 +463,11 @@ const JOBS = {
   courtesan: {
     slots: { 1: 'p', 2: 'y', 3: 'p', 4: 'P', 5: 'H' },
     layers: [[HAIR_LONG], [HAIR_FLOWER, 0, 3], [DRESS, 0, 16], [FAN, 0, 12]],
+  },
+  cultist: {
+    slots: { 1: 'd', 2: 'D', 3: 'd', 4: 'M', 5: 'd' },
+    layers: [[CULT_HOOD], [CANDLE, 0, 10]],
+    remap: { k: 'D' }, // eyes glow red under the hood
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },

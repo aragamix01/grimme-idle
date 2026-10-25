@@ -265,6 +265,16 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .people-crew { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 10px 38px; font-size: 12px; color: var(--ink-muted); }
 .chip--hungry { background: #ffe9e4; border-color: var(--danger); }
 
+/* ---- the world's balance and the cult ---- */
+.realm-balance { display: grid; grid-template-columns: auto 1fr 36px; gap: 2px 8px; align-items: center; padding: 12px 6px 10px; border-bottom: 2px solid var(--paper-edge); font-size: 13px; }
+.realm-balance b { justify-self: end; font: 700 15px var(--font-pixel); }
+.realm-balance small { grid-column: 2; justify-self: center; font-size: 11px; color: var(--ink-muted); }
+.realm-cult { display: grid; gap: 4px; padding: 8px 6px 10px; background: #f3ecf8; border-bottom: 2px solid var(--paper-edge); }
+.realm-cult__name { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; color: #5a2a66; }
+.realm-cult .divine { margin-top: 4px; }
+.chip--cult { background: #5a2a66; color: var(--paper); border-color: var(--outline); }
+button.chip--cult:hover { background: #7a3a8a; }
+
 .npc__rels h4 { margin: 0 0 4px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--ink-muted); }
 .npc__rels ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .rel { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 13px; line-height: 20px; }

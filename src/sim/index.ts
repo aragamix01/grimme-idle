@@ -7,3 +7,4 @@ export { ADULT_AGE, ELDER_AGE } from './life';
 export { GOODS, GOOD_TH, MAX_GEAR, SEASON_TH, seasonOf } from './market';
 export { COMMON_JOBS } from './society';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
+export { balanceOf, cultists } from './cult';

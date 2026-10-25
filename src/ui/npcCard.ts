@@ -84,6 +84,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'เพิ่งมาถึงเมือง';
     case 'buy':
       return 'ไปซื้ออาวุธที่ร้านค้า';
+    case 'ritual':
+      return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
     default:
       return 'พักผ่อนอยู่ในเมือง';
   }
@@ -149,6 +151,7 @@ function header(npc: Npc, doing: string, guild?: { name: string; leads: boolean 
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: 'ได้รับพร' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
+    ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
     ...(npc.alive && (npc.hunger ?? 0) >= 2 ? [el('span', { className: 'chip chip--danger', textContent: 'หิวโหย' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: npc.left ? 'ย้ายออกไปแล้ว' : 'จากไปแล้ว' })] : []),

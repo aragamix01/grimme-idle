@@ -1,10 +1,11 @@
-import { JOB_TH, TAX_TH, TRAIT_TH, approval, crownPower, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { COMMAND_COST, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
 
 interface Handlers {
   onSelectNpc: (id: number) => void;
+  onReveal: () => void;
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -33,12 +34,17 @@ export function renderKingdom(world: WorldState): void {
     knights.map((n) => n.id),
     soldiers.length,
     news.map((e) => e.seq),
+    Math.round(balanceOf(world)),
+    world.cult,
+    cultists(world).map((n) => n.id),
+    Math.floor(world.faith) >= COMMAND_COST.reveal,
   ]);
   if (key === lastKey) return;
   lastKey = key;
 
   const avg = (list: Npc[]) => (list.length ? Math.round(list.reduce((s, n) => s + loyaltyOf(n), 0) / list.length) : 0);
   view.replaceChildren(
+    balanceMeter(world),
     king ? kingCard(world, king) : el('p', { className: 'guild-empty', textContent: 'บัลลังก์ว่างอยู่' }),
     el(
       'div',
@@ -57,6 +63,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    cultSection(world),
     section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')]),
     section(
       'ข่าวการเมือง',
@@ -65,6 +72,49 @@ export function renderKingdom(world: WorldState): void {
         : [empty('ราชสำนักยังสงบ')],
     ),
   );
+}
+
+// Light against dark: a marker on a demon-to-gold bar, with a word for where the world stands.
+function balanceMeter(world: WorldState): HTMLElement {
+  const b = Math.round(balanceOf(world));
+  const marker = el('span', { className: 'moral__marker' });
+  marker.style.left = `${(b + 100) / 2}%`;
+  const word = b <= -50 ? 'มืดมิด' : b <= -20 ? 'เงามืดคืบคลาน' : b < 15 ? 'สมดุล' : b < 35 ? 'สว่างไสว' : 'ยุคแห่งแสง';
+  return el(
+    'div',
+    { className: 'realm-balance' },
+    el('span', { textContent: 'สมดุลโลก' }),
+    el('div', { className: 'moral' }, marker),
+    el('b', { textContent: `${b > 0 ? '+' : ''}${b}` }),
+    el('small', { textContent: word }),
+  );
+}
+
+// The god sees what the town can't: the cult and every one of its members.
+function cultSection(world: WorldState): HTMLElement {
+  const members = cultists(world);
+  const cost = COMMAND_COST.reveal;
+  const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !members.length }, icon('cult', 16), 'ส่งนิมิตเปิดโปงสาวก', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+  btn.onclick = () => handlers.onReveal();
+  if (!world.cult || !members.length) return section('ลัทธิมาร', [empty('ยังไม่มีลัทธิมารในเมือง แต่ถ้าคนใจดำมีมากขึ้น อาจมีใครก่อตั้งขึ้นอย่างลับๆ')]);
+  const leader = world.npcs.find((n) => n.id === world.cult!.leaderId);
+  return section('ลัทธิมาร', [
+    el(
+      'li',
+      { className: 'realm-cult' },
+      el('p', { className: 'realm-cult__name' }, icon('cult', 16), world.cult.name),
+      el('p', { className: 'realm-king__meta', textContent: `ก่อตั้ง D${world.cult.founded} · สาวก ${members.length} คน · ประกอบพิธีแล้ว ${world.cult.rituals} ครั้ง` }),
+      el('div', { className: 'quest__party' }, ...(leader ? [el('span', { className: 'realm-king__meta', textContent: 'ผู้นำ' }), personChip(leader)] : []), ...members.filter((n) => n !== leader).map(personChip)),
+      btn,
+      el('p', { className: 'realm-king__meta', textContent: 'ชาวเมืองไม่รู้ว่าใครเป็นสาวก มีแต่เทพเจ้าที่มองเห็น' }),
+    ),
+  ]);
+}
+
+function personChip(n: Npc): HTMLElement {
+  const b = el('button', { type: 'button', className: 'chip chip--button chip--cult', textContent: n.name });
+  b.onclick = () => handlers.onSelectNpc(n.id);
+  return b;
 }
 
 function kingCard(world: WorldState, k: Npc): HTMLElement {

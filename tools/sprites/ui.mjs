@@ -5,6 +5,24 @@ import { SHADE } from './palette.mjs';
 const icon = (rows, name) => Grid.from(rows, name).shade(SHADE).outline('o');
 
 const ICONS = {
+  cult: [
+    '................',
+    '.......dd.......',
+    '......dDDd......',
+    '.....dD..Dd.....',
+    '.....d....d.....',
+    '....dD.DD.Dd....',
+    '....d.DwwD.d....',
+    '...dD.DwDD.Dd...',
+    '...d..DDDD..d...',
+    '..dD...DD...Dd..',
+    '..d..........d..',
+    '.dDdddddddddddd.',
+    '.dDDDDDDDDDDDDd.',
+    '................',
+    '................',
+    '................',
+  ],
   grain: [
     '................',
     '....y..y..y.....',

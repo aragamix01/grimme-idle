@@ -69,6 +69,13 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "cultist": {
+    "file": "assets/sprites/characters/cultist.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",
@@ -319,6 +326,13 @@
     "group": "buildings",
     "frameWidth": 48,
     "frameHeight": 40,
+    "frames": 1
+  },
+  "cult": {
+    "file": "assets/sprites/icons/cult.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
     "frames": 1
   },
   "grain": {

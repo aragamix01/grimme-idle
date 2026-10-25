@@ -43,12 +43,13 @@ export interface Npc {
   ales?: number; // innkeepers: mugs sold since they last bought grain to brew
   loyalty?: number; // 0..100 to the throne; missing means 50
   knight?: boolean; // sworn to the crown, paid each payday
+  cultist?: boolean; // a secret member of the demon cult
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual';
 
 export interface Plan {
   kind: PlanKind;
@@ -126,6 +127,13 @@ export interface Crown {
   unrest: number; // months in a row the people have been this unhappy
 }
 
+export interface Cult {
+  name: string;
+  founded: number;
+  leaderId: number;
+  rituals: number;
+}
+
 export interface Legend {
   day: number;
   text: string;
@@ -146,7 +154,8 @@ export type EventKind =
   | 'bond'
   | 'guild'
   | 'trade'
-  | 'politics';
+  | 'politics'
+  | 'cult';
 
 export interface ChronicleEntry {
   seq: number;
@@ -174,6 +183,9 @@ export interface WorldState {
   market?: Market; // missing in saves from before the economy
   kingId?: number; // the reigning king, or the last one if the throne is empty
   crown?: Crown; // missing in saves from before politics
+  balance?: number; // -100 (darkness) .. 100 (light); missing means 0
+  omen?: number; // the last tipping point the chronicle announced, -2..1
+  cult?: Cult;
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
   nextId: number;
@@ -183,4 +195,5 @@ export type Command =
   | { type: 'bless'; npcId: number }
   | { type: 'curse'; npcId: number }
   | { type: 'dream'; npcId: number; job: Job }
-  | { type: 'divineQuest' };
+  | { type: 'divineQuest' }
+  | { type: 'reveal' };

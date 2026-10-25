@@ -4,7 +4,7 @@ import { clearSave, loadSave, writeSave } from './storage';
 
 const AUTOSAVE_EVERY = 10; // days
 const OFFLINE_CAP = 1000; // days simulated while the tab was closed
-const HIGHLIGHT_KINDS = new Set<EventKind>(['battle', 'death', 'disaster', 'bless', 'curse', 'quest', 'rank', 'trade', 'politics']);
+const HIGHLIGHT_KINDS = new Set<EventKind>(['battle', 'death', 'disaster', 'bless', 'curse', 'quest', 'rank', 'trade', 'politics', 'cult']);
 
 let world: WorldState | null = null;
 let pending: Command[] = [];
