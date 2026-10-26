@@ -18,6 +18,8 @@ const STRAIN = 0.04; // added to the monthly chance of trouble for each month pa
 const MAX_CHANCE = 0.35;
 const CROWDED = TOWN_SIZE - 10; // townsfolk past which sickness spreads street to street
 const PACKED = TOWN_SIZE + 8; // so many that it may break out in any month, golden or not
+const HATED = 30; // approval under which a ruler may be struck down in any month
+const HATED_CHANCE = 0.05;
 
 // A prosperous, peaceful month: money in the treasury, a content town, nobody starving, no war.
 export function goldenMonth(world: WorldState): boolean {
@@ -42,6 +44,8 @@ export function troubles(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== 22) return;
   // A town packed past bursting falls sick whatever the times.
   if (townsfolk(world) >= PACKED && chance(rng, 0.08)) crowdPlague(world, rng);
+  // A hated ruler has enemies whatever the times.
+  if (king(world) && approval(world) < HATED && chance(rng, HATED_CHANCE)) assassination(world, rng);
   if (!goldenMonth(world)) {
     world.golden = 0;
     return;

@@ -12,6 +12,8 @@ import type { WorldState } from './types';
 const STRIKE_DAYS = 30;
 const DEADLOCK_DAYS = 120;
 const WORKERS = ['farmer', 'herder', 'hunter', 'blacksmith'] as const;
+const STRIKE_HOME = 0.7; // an assassin's chance against an unguarded ruler
+const GUARD = 0.06; // each soldier or knight about the ruler blunts it
 
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16);
 const living = (world: WorldState, job: string) => adults(world).filter((n) => n.job === job);
@@ -64,7 +66,7 @@ export function assassination(world: WorldState, rng: Rng): boolean {
     .sort((a, b) => loyaltyOf(a) - loyaltyOf(b))[0];
   if (!assassin) return false;
   const guards = living(world, 'soldier').length + world.npcs.filter((n) => n.alive && n.knight).length;
-  if (chance(rng, 0.6 / (1 + guards * 0.1))) {
+  if (chance(rng, STRIKE_HOME / (1 + guards * GUARD))) {
     log(world, 'politics', `${assassin.name}ลอบสังหารกษัตริย์${ruler.name}กลางงานพิธี!`, assassin.id);
     kill(world, ruler, 'ถูกลอบสังหาร');
     if (chance(rng, 0.6)) kill(world, assassin, 'ถูกองครักษ์สังหารทันทีหลังลงมือ');
