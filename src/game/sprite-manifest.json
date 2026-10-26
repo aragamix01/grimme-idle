@@ -398,6 +398,34 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "doctor": {
+    "file": "assets/sprites/characters/doctor.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "doctor-age0": {
+    "file": "assets/sprites/characters/doctor-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "doctor-age2": {
+    "file": "assets/sprites/characters/doctor-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "doctor-age3": {
+    "file": "assets/sprites/characters/doctor-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "builder": {
     "file": "assets/sprites/characters/builder.png",
     "group": "characters",

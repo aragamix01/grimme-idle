@@ -9,7 +9,7 @@ import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { TOWN_SIZE } from './town';
 import { successor } from './regimes';
-import { jobName } from './ages';
+import { ageOf, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
 
@@ -33,9 +33,11 @@ const JOB_WEIGHTS: [Job, number][] = [
   ['engineer', 2],
 ];
 // Learned trades the crown only fills from the fields when the town is fed.
-const BOOKISH: readonly Job[] = ['scholar', 'alchemist', 'engineer'];
+const BOOKISH: readonly Job[] = ['scholar', 'alchemist', 'engineer', 'doctor'];
 // Trades that only exist once the scholars have found what they rest on.
-const NEEDS: Partial<Record<Job, Tech>> = { alchemist: 'arcana', engineer: 'architecture' };
+const NEEDS: Partial<Record<Job, Tech>> = { alchemist: 'arcana', engineer: 'architecture', doctor: 'medicine' };
+// ...and the age they belong to: doctors come with the third age, when the sick stop going to the priests.
+const AGE_OF_JOB: Partial<Record<Job, number>> = { doctor: 2 };
 export const COMMON_JOBS: readonly Job[] = JOB_WEIGHTS.map(([j]) => j);
 export const isGentry = (n: Npc) => n.job === 'king' || n.job === 'noble';
 
@@ -163,10 +165,10 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1]];
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1], ['doctor', 2]];
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
-    if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!))) continue;
+    if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!)) || ageOf(world) < (AGE_OF_JOB[job] ?? 0)) continue;
     if (BOOKISH.includes(job) && priceRatio(world, 'grain') >= 1.5) continue; // no farmer is spared for books while bread is dear
     const merchants = living(world, 'merchant').length;
     const pool = world.npcs.filter(
@@ -189,14 +191,17 @@ export function leaveTrade(n: Npc): void {
   n.retired = undefined;
 }
 
-// The crown's monthly tax on everyone's savings; nobles pay tribute at their own rate.
+// The crown's monthly tax on everyone's savings; nobles pay tribute at their own rate. A great
+// fortune pays a higher rate on what lies past GREAT_FORTUNE, so no one purse swallows the town.
+const GREAT_FORTUNE = 1500;
+const FORTUNE_RATE = 0.05;
 export function levy(world: WorldState): void {
   if (world.day % 30 !== LEVY_DAY || decreeActive(world, 'taxfree')) return;
   for (const n of world.npcs) {
     if (!n.alive || n.age < 16 || n.job === 'king') continue;
     const [rate, floor] = n.job === 'noble' ? [TRIBUTE, TRIBUTE_FLOOR] : [TAX_RATE[world.crown?.tax ?? 'normal'], LEVY_FLOOR];
     if (n.gold <= floor) continue;
-    const due = Math.floor((n.gold - floor) * rate);
+    const due = Math.floor((n.gold - floor) * rate + Math.max(0, n.gold - GREAT_FORTUNE) * FORTUNE_RATE);
     n.gold -= due;
     world.treasury += due;
   }
@@ -307,6 +312,8 @@ export function leisure(world: WorldState, rng: Rng): void {
 
 // A blacksmith at the anvil turns two lots of dungeon loot into a set of gear (one, once the
 // scholars have worked out how metals mix).
+const SMITH_FEE_CAP = 8; // a day's mending, however full the till
+
 export function smith(world: WorldState, npc: Npc, rng: Rng): void {
   const m = ensureMarket(world);
   const need = known(world, 'metallurgy') ? 1 : 2;
@@ -316,7 +323,7 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
     return;
   }
   // No loot to forge: mend tools and shoe horses for a small fee from the market.
-  const fee = Math.floor(m.till * 0.01);
+  const fee = Math.min(SMITH_FEE_CAP, Math.floor(m.till * 0.01));
   if (fee >= 1 && chance(rng, 0.5)) {
     m.till -= fee;
     npc.gold += fee;

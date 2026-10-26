@@ -99,6 +99,16 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
   return world;
 }
 
+// A doctor's fee: now and then someone who can pay comes in sick.
+const FEE = 3;
+function treat(world: WorldState, doctor: Npc, rng: Rng): void {
+  if (!chance(rng, 0.2)) return;
+  const patient = pick(rng, world.npcs.filter((n) => n.alive && n !== doctor && n.gold >= FEE * 3 && n.age >= 16));
+  if (!patient) return;
+  patient.gold -= FEE;
+  doctor.gold += FEE;
+}
+
 export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const rng: Rng = { state: world.rng };
   ensureGuild(world);
@@ -319,6 +329,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return chance(rng, 0.7) ? plan('work', PLACES.brothel, int(rng, 4, 8)) : idle();
     case 'priest':
       return chance(rng, 0.75) ? plan('work', PLACES.church, int(rng, 5, 10)) : idle();
+    case 'doctor':
+      // Seeing patients by the church's door, or calling on them at home.
+      return chance(rng, 0.7) ? plan('work', near(chance(rng, 0.5) ? PLACES.church : PLACES.square), int(rng, 5, 10)) : idle();
     case 'soldier':
       return chance(rng, 0.7) ? plan('work', patrolPost(rng), int(rng, 4, 8)) : idle();
     case 'scholar':
@@ -402,6 +415,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       else if (npc.job === 'alchemist') brew(world, npc, rng);
       else if (npc.job === 'engineer') engineer(world, rng);
       else if (npc.job === 'builder') rebuild(world, npc, rng);
+      else if (npc.job === 'doctor') treat(world, npc, rng);
       else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues

@@ -115,6 +115,8 @@ export function buy(world: WorldState, payer: Npc, g: Good, meal = false): boole
 
 // A merchant minding the stall draws a wage from the till.
 // Without a blacksmith in town, merchants do some crude smithing themselves.
+const WAGE_CAP = 12; // the most a merchant takes from the till in a day
+
 export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boolean): void {
   const m = ensureMarket(world);
   if (!smithInTown && m.stock.loot >= TARGET.loot && chance(rng, 0.25)) {
@@ -122,7 +124,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
     m.stock.gear += 1;
   }
   const trade = world.guilds.some((x) => x.id === npc.guildId && x.kind === 'merchants');
-  const wage = Math.floor(m.till * (trade ? 0.025 : 0.02));
+  const wage = Math.min(WAGE_CAP, Math.floor(m.till * (trade ? 0.025 : 0.02))); // a full till still pays a day's wage, not a fortune
   if (wage >= 1 && chance(rng, 0.5)) {
     m.till -= wage;
     npc.gold += wage;
@@ -157,8 +159,15 @@ export function wearGear(npc: Npc, rng: Rng): void {
   if (npc.gear && chance(rng, 0.3)) npc.gear--;
 }
 
+const TILL_KEEP = 1500; // the shop's working capital; past it, the crown takes half as market dues each month
+
 export function marketDay(world: WorldState, rng: Rng): void {
   const m = ensureMarket(world);
+  if (world.day % 30 === 14 && m.till > TILL_KEEP) {
+    const dues = Math.floor((m.till - TILL_KEEP) / 2);
+    m.till -= dues;
+    world.treasury += dues;
+  }
   if (world.day % 365 === Math.round(SEASONS.indexOf('autumn') * 91.25)) log(world, 'world', 'ฤดูเก็บเกี่ยวมาถึง ทุ่งนาเหลืองอร่าม');
   if (world.day % 365 === Math.round(SEASONS.indexOf('winter') * 91.25)) log(world, 'world', 'ฤดูหนาวมาเยือน ทุ่งนาแทบไม่ให้ผล');
   // The royal granary keeps the rats and the damp out.

@@ -23,7 +23,7 @@ const CLASSES: { name: string; color: string; jobs: Job[] }[] = [
   { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith', 'builder'] },
   { name: 'ชาวนาและปศุสัตว์', color: '#56a832', jobs: ['farmer', 'herder', 'hunter'] },
   { name: 'งานบริการและศาสนา', color: '#f582b8', jobs: ['innkeeper', 'courtesan', 'priest'] },
-  { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar', 'alchemist', 'engineer'] },
+  { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar', 'alchemist', 'engineer', 'doctor'] },
   { name: 'นอกกฎหมาย', color: '#463c56', jobs: ['thief'] },
 ];
 
@@ -180,7 +180,9 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
     case 'courtesan':
       return [`รับแขกอยู่ ${working} คน`, `แฉแผนกบฏมาแล้ว ${world.chronicle.filter((e) => e.text.startsWith('นางคณิกา')).length} ครั้ง (ในบันทึก)`];
     case 'priest':
-      return [`สวดภาวนาอยู่ ${working} คน`, `ศรัทธาสะสม ${Math.floor(world.faith)}`];
+      return [`สวดภาวนาอยู่ ${working} คน`, `ศรัทธาสะสม ${Math.floor(world.faith)}`, members.length && world.npcs.some((n) => n.alive && n.job === 'doctor') ? 'ผู้ป่วยไปหาหมอแทนแล้ว นักบวชช่วยรักษาได้น้อยลง' : 'ช่วยรักษาผู้ป่วยยามโรคระบาด'];
+    case 'doctor':
+      return [`ตรวจรักษาอยู่ ${working} คน`, 'รักษาโรคระบาดได้ดีกว่านักบวชมาก และช่วยให้คนแก่อายุยืนขึ้น'];
     case 'scholar':
       return [
         `ค้นคว้าอยู่ตอนนี้ ${working} คน`,

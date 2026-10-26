@@ -70,6 +70,7 @@ const WORK_TH: Partial<Record<Job, string>> = {
   alchemist: 'ปรุงยาอยู่หลังร้านค้า',
   engineer: 'คุมงานก่อสร้าง',
   builder: 'สร้างบ้านที่พังขึ้นใหม่',
+  doctor: 'ตรวจรักษาผู้ป่วย',
   soldier: 'ยืนยามเฝ้าเมือง',
 };
 

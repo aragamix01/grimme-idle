@@ -50,7 +50,9 @@ export function birthday(world: WorldState, n: Npc, rng: Rng): void {
   }
   // Odds of not seeing another year climb steeply after 55 (about 1 in 11 at 60, nearly half at 70).
   const frailty = Math.max(0, (n.age - 55) / 25);
-  if (chance(rng, Math.min(0.9, frailty ** 1.5))) kill(world, n, `จากไปอย่างสงบด้วยวัย ${n.age} ปี`);
+  const doctors = world.npcs.filter((o) => o.alive && o.job === 'doctor' && o.age >= 16).length;
+  const tended = 1 - Math.min(0.3, doctors * 0.1); // a doctor in town adds years
+  if (chance(rng, Math.min(0.9, frailty ** 1.5 * tended))) kill(world, n, `จากไปอย่างสงบด้วยวัย ${n.age} ปี`);
 }
 
 // At sixteen a child picks a calling, usually a parent's; in a famine, often the plough.

@@ -346,6 +346,8 @@ const FEATHER_CAP = [
 ];
 
 const RUFF = ['...wwwwwwwwww...'];
+const HEAD_MIRROR = ['......xzzx......', '.......xx.......'];
+const DOCTOR_BAG = ['...........kk...', '..........kkkk..', '..........kwkk..', '..........kkkk..'];
 const NECKTIE = ['......wkkw......', '.......kk.......', '.......kk.......'];
 
 // Hunter: a green cap with a long feather, a bow on the back and a quiver.
@@ -564,6 +566,10 @@ const JOBS = {
   alchemist: {
     slots: { 1: 'G', 2: 'M', 3: 'G', 4: 'M', 5: 'O' },
     layers: [[HAIR_LONG], [GOGGLES, 0, 6], [FLASK, 0, 12]],
+  },
+  doctor: {
+    slots: { 1: 'c', 2: 'C', 3: 'c', 4: 'k', 5: 'M' },
+    layers: [[HAIR_SHORT], [HEAD_MIRROR, 0, 4], [DOCTOR_BAG, 0, 15]],
   },
   builder: {
     slots: { 1: 'b', 2: 'M', 3: 'B', 4: 'M', 5: 'h' },

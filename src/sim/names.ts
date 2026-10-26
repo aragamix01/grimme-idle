@@ -34,6 +34,7 @@ export const JOB_TH: Record<Job, string> = {
   alchemist: 'นักเล่นแร่แปรธาตุ',
   engineer: 'วิศวกร',
   builder: 'ช่างก่อสร้าง',
+  doctor: 'หมอ',
   noble: 'ขุนนาง',
   king: 'กษัตริย์',
 };
