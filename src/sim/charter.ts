@@ -58,7 +58,7 @@ export function clauses(c: Charter): string[] {
   out.push(c.councilVeto ? 'สภายับยั้งคำสั่งของผู้ปกครองได้' : 'สภาไม่มีอำนาจยับยั้ง');
   out.push(c.taxCap ? `ภาษีเก็บได้ไม่เกินระดับ${TAX_WORD[c.taxCap]}` : 'ผู้ปกครองกำหนดภาษีได้ตามใจ');
   out.push(c.stateFaith ? 'ศาสนาของเทพเจ้าเป็นศาสนาประจำรัฐ' : 'แยกศาสนาออกจากรัฐ');
-  if (c.emergency) out.push('ประกาศภาวะฉุกเฉิน ผู้ปกครองมีอำนาจเด็ดขาด งดการเลือกตั้ง');
+  if (c.emergency) out.push(`ประกาศภาวะฉุกเฉิน ผู้ปกครองมีอำนาจเด็ดขาด${c.termYears ? ' งดการเลือกตั้ง' : ''}`);
   return out;
 }
 const TAX_WORD: Record<Tax, string> = { low: 'ต่ำ', normal: 'ปกติ', high: 'สูง' };

@@ -34,7 +34,7 @@ export function amendmentsDay(world: WorldState, rng: Rng): void {
 
   // Emergency powers: taken in a crisis, given back after (by most).
   if (r !== 'junta' && crisis && !c.emergency && chance(rng, 0.3)) {
-    return amend(world, { emergency: true }, `${title}${ruler.name}ประกาศภาวะฉุกเฉิน รวบอำนาจไว้ที่ตนและงดการเลือกตั้งจนกว่าวิกฤตจะผ่านพ้น`);
+    return amend(world, { emergency: true }, `${title}${ruler.name}ประกาศภาวะฉุกเฉิน รวบอำนาจไว้ที่ตน${r === 'republic' ? 'และงดการเลือกตั้ง' : ''}จนกว่าวิกฤตจะผ่านพ้น`);
   }
   if (r !== 'junta' && !crisis && c.emergency) {
     if (ambitious && chance(rng, 0.6)) {
