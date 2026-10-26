@@ -1,11 +1,13 @@
 // A golden age breeds its own trouble. Months of full coffers, full bellies and no enemy at
 // the gates count up; the longer it lasts, the likelier something breaks the calm: the court's
-// greed, sickness in crowded streets, a dragon drawn by the gold.
+// greed, sickness in crowded streets, a dragon drawn by the gold, or a political crisis (see
+// crises.ts).
 import { chance, pick, type Rng } from './rng';
 import { approval, intrigue } from './politics';
 import { king } from './society';
 import { plagueStrike } from './worldevents';
 import { dragonArrives } from './dragon';
+import { assassination, deadlock, decadence, rulerScandal, strike } from './crises';
 import type { WorldState } from './types';
 import { TOWN_SIZE } from './town';
 
@@ -47,7 +49,8 @@ export function troubles(world: WorldState, rng: Rng): void {
   const months = (world.golden = (world.golden ?? 0) + 1);
   if (!chance(rng, troubleChance(months))) return;
   const k = king(world);
-  const kinds: ((w: WorldState, r: Rng) => boolean)[] = [crowdPlague, dragonArrives];
+  if (months >= CALM_MONTHS) decadence(world, rng); // ease hardens a few hearts
+  const kinds: ((w: WorldState, r: Rng) => boolean)[] = [crowdPlague, dragonArrives, rulerScandal, strike, assassination, deadlock];
   if (k) kinds.push((w, r) => intrigue(w, k, r));
   // Try the kinds in a random order until one takes; whatever happens shakes the town out of its ease.
   for (let left = [...kinds]; left.length; ) {

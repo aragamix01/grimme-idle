@@ -53,7 +53,9 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
 export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: Npc, rng: Rng): boolean {
   const seats = council(world);
   if (seats.length < 2 || !charterOf(world).councilVeto || charterOf(world).emergency) return true; // too few lords, no veto in the charter, or emergency powers
-  const nays = seats.filter((n) => lean(world, n, d, ruler) + (chance(rng, 0.5) ? 0.5 : -0.5) < 0);
+  // A council in a feud with the ruler votes everything down.
+  const feud = (world.council?.deadlock ?? 0) > world.day;
+  const nays = feud ? seats : seats.filter((n) => lean(world, n, d, ruler) + (chance(rng, 0.5) ? 0.5 : -0.5) < 0);
   const c = (world.council ??= { vetoes: 0, overrides: 0 });
   const tally = `${seats.length - nays.length} ต่อ ${nays.length}`;
   if (nays.length * 2 <= seats.length) {
