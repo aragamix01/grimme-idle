@@ -4,6 +4,7 @@ import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { JOB_TH } from './names';
 import { PLACES } from './places';
 import { inheritedJob } from './society';
+import { priceRatio } from './market';
 import { graduate, lesson, schoolAge } from './learning';
 import { built } from './works';
 import { addTie, getTie, setTie } from './ties';
@@ -48,10 +49,11 @@ export function birthday(world: WorldState, n: Npc, rng: Rng): void {
   if (chance(rng, Math.min(0.9, frailty ** 1.5))) kill(world, n, `จากไปอย่างสงบด้วยวัย ${n.age} ปี`);
 }
 
-// At sixteen a child picks a calling, usually a parent's.
+// At sixteen a child picks a calling, usually a parent's; in a famine, often the plough.
 function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
   const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p);
   n.job = inheritedJob(world, parents, rng);
+  if (n.job !== 'noble' && priceRatio(world, 'grain') >= 1.8 && chance(rng, 0.5)) n.job = 'farmer';
   graduate(world, n, rng);
   if (n.job === 'swordsman' || n.job === 'mage') {
     n.rank = 0;

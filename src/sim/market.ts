@@ -368,6 +368,13 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
     npc.job = 'farmer';
     return true;
   }
+  // A long famine sends green adventurers (rank F or E, nothing much in their purse) back to the fields.
+  if ((npc.job === 'swordsman' || npc.job === 'mage') && (npc.rank ?? 0) <= 1 && npc.questId === undefined && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.03)) {
+    log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพงจนประทังชีวิตด้วยการผจญภัยไม่ไหว`, npc.id);
+    npc.job = 'farmer';
+    npc.rank = npc.renown = npc.guildId = undefined;
+    return true;
+  }
   // Meat dear and grain cheap: a farmer may turn the plough-ox out to graze and keep a herd instead.
   const meat = priceRatio(world, 'meat');
   if (npc.job === 'farmer' && keepTwo && meat >= 1.6 && r <= 1 && chance(rng, 0.03)) {
