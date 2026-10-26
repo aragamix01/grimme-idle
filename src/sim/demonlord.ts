@@ -21,7 +21,9 @@ export const SIEGES_TO_FALL = 3; // raids the town may fail to hold before it is
 const TRAIN_DAYS = 40; // the hero trains this long before marching, less with the valor gift
 export const trainDays = (world: WorldState) => TRAIN_DAYS - 10 * perkLevel(world, 'valor');
 const BATTLE_AFTER = 3; // days inside the keep before the fight
-const SELF_HERO_DAYS = 300; // occupied this long with no hero, the old prophecy wakes one
+const SELF_HERO_DAYS = 200; // occupied this long with no hero, the old prophecy wakes one
+const RESIST_MIGHT = 1.5; // the resistance's might in the hero's battle, per point
+const ALLY_MIGHT = 60; // most an allied realm's army adds to the hero's battle
 const PARTY = 3; // companions who march with the hero
 export const HERO_COST = 20;
 export const MAX_POWER = 180; // however long it feeds, a hero with a strong party still has a chance
@@ -142,10 +144,32 @@ function occupation(world: WorldState, lord: DemonLord): void {
     feed(lord, tribute / 100 + 1);
     if (tribute) log(world, 'cult', `จอมมาร${lord.name}รีดส่วย ${tribute} ทองจากท้องพระคลัง`);
   }
+  if (world.day % 30 === 20) resist(world, lord);
   if (!lord.hero && world.day - Math.max(lord.fell ?? 0, lord.heroLost ?? 0) >= SELF_HERO_DAYS) {
     const n = bestHero(world);
     if (n) awaken(world, lord, n, 'คำทำนายโบราณปลุก');
   }
+}
+
+// The town doesn't kneel for long: in cellars and haylofts a resistance grows each month, faster
+// with brave hearts and a town that remembers its king, and is set back when the cult hunts it.
+function resist(world: WorldState, lord: DemonLord): void {
+  const people = adults(world).filter((n) => !n.cultist);
+  const brave = people.filter((n) => n.traits.includes('brave') || n.morality >= 40).length;
+  const before = lord.resistance ?? 0;
+  const purge = world.cult ? Math.min(3, cultists(world).length * 0.3) : 0;
+  lord.resistance = clamp(before + 3 + brave * 0.3 - purge, 0, 100);
+  const step = (v: number) => Math.floor(v / 25);
+  if (step(lord.resistance) > step(before))
+    log(world, 'politics', lord.resistance >= 100 ? 'ขบวนการต่อต้านพร้อมลุกฮือทั้งเมือง รอเพียงผู้กล้าเป็นผู้นำ' : `ขบวนการต่อต้านลับเติบโตขึ้น ชาวเมืองแอบซ่อนอาวุธไว้ใต้พื้นบ้าน (${Math.round(lord.resistance)}%)`);
+}
+
+// Who stands with the hero at the keep besides the party: the resistance rising inside, and
+// allied realms sending their soldiers.
+function allies(world: WorldState, lord: DemonLord): { might: number; realms: string[] } {
+  const friends = (world.realms ?? []).filter((r) => !r.fallen && (r.pact || r.relation >= 50));
+  const might = (lord.resistance ?? 0) * RESIST_MIGHT + friends.reduce((s, r) => s + Math.min(ALLY_MIGHT, r.army), 0);
+  return { might, realms: friends.map((r) => r.name) };
 }
 
 // ---------- the hero ----------
@@ -236,14 +260,18 @@ function march(world: WorldState, hero: Npc, q: NonNullable<DemonLord['hero']>):
 function battle(world: WorldState, lord: DemonLord, hero: Npc, rng: Rng): void {
   const q = lord.hero!;
   const party = q.companions.map((id) => byId(world, id)!).filter((n) => n.inside !== undefined);
-  const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0);
+  const help = allies(world, lord);
+  const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0) + help.might;
   const foe = lord.power * 2.5;
   log(world, 'battle', `ผู้กล้า${hero.name}บุกเข้าท้องพระโรงของจอมมาร${lord.name}!`, hero.id);
+  if (lord.resistance && lord.resistance >= 25) log(world, 'battle', `ขบวนการต่อต้านลุกฮือทั่วเมืองพร้อมกัน ตรึงกำลังปีศาจไว้ให้ผู้กล้า`);
+  if (help.realms.length) log(world, 'battle', `${help.realms.join(' และ ')}ส่งทัพมาช่วยผู้กล้าบุกปราสาทจอมมาร`);
   const won = chance(rng, might / (might + foe));
   for (const n of party) if (chance(rng, won ? 0.15 : 0.5)) kill(world, n, `สละชีพในศึกปราบจอมมาร${lord.name}`);
   release(world, [hero.id, ...q.companions]);
   if (won) return slay(world, lord, hero);
   lord.power = Math.max(50, lord.power - 15);
+  lord.resistance = (lord.resistance ?? 0) * 0.5; // the rising is crushed, its leaders hanged
   if (chance(rng, 0.6)) return kill(world, hero, `ล้มลงต่อหน้าจอมมาร${lord.name}`); // heroDay notices tomorrow
   // Beaten but alive: back to town to train again.
   lord.hero = { id: hero.id, since: world.day, stage: 'training', companions: [] };

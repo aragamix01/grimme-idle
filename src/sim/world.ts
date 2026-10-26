@@ -1,11 +1,12 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, decreeActive, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
+import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
 import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
+import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
 import { WALL } from './town';
@@ -265,6 +266,8 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
   switch (npc.job) {
     case 'swordsman':
     case 'mage': {
+      // A hero in training drills at the guild (or the training yard) and risks no dungeon.
+      if (inTraining(world, npc)) return plan('idle', near(built(world, 'yard') ? { x: PLOTS.yard.x, y: PLOTS.yard.y + 2 } : PLACES.guild), int(rng, 4, 8));
       const courage = npc.traits.includes('brave') ? 1.6 : npc.traits.includes('coward') ? 0.4 : 1;
       if (wantsGear(world, npc) && chance(rng, 0.2)) return plan('buy', PLACES.shop, 0);
       // A dungeon close to spilling over draws glory seekers to thin it out, paid or not.

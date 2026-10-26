@@ -1,7 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
-import { atSpot, clamp, kill, log, makePlan, stepToward } from './core';
+import { atSpot, clamp, inTraining, kill, log, makePlan, stepToward } from './core';
 import { FIELDS, PASTURE, PLACES, dungeonDoor, type Spot } from './places';
 import { wolvesAtFlock } from './livestock';
 import { snap } from './nav';
@@ -272,6 +272,7 @@ function recruit(world: WorldState, q: Quest, rng: Rng): void {
       n.inside === undefined &&
       n.plan?.kind !== 'adventure' &&
       n.plan?.kind !== 'crusade' &&
+      !inTraining(world, n) && // the hero trains for one fight only
       n.id !== q.patronId &&
       (n.rank ?? 0) >= q.rank - 1 &&
       (!target || getTie(world, n.id, target.id) < FRIEND) && // nobody hunts their own friend

@@ -33,6 +33,9 @@ export const cursed = (world: WorldState, n: Npc) => (n.cursedUntil ?? 0) > worl
 
 export const occupied = (world: WorldState) => world.demon?.stage === 'occupied';
 
+// The hero the god (or the prophecy) has woken, while still training for the demon lord.
+export const inTraining = (world: WorldState, n: Npc) => world.demon?.hero?.id === n.id && world.demon.hero.stage === 'training';
+
 export const decreeActive = (world: WorldState, k: Decree) => (world.decrees ?? []).some((d) => d.kind === k && d.until > world.day);
 
 export function clamp(v: number, min: number, max: number): number {

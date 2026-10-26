@@ -190,6 +190,7 @@ export interface DemonLord {
   fell?: number; // day the town was occupied
   governorId?: number; // the cult leader set over the town
   heroLost?: number; // day the last hero fell
+  resistance?: number; // 0..100: the townsfolk's secret resistance, growing through the occupation
   hero?: HeroQuest;
 }
 

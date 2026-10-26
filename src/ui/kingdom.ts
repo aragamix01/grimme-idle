@@ -119,6 +119,12 @@ function balanceMeter(world: WorldState): HTMLElement {
 }
 
 // Under occupation the throne card gives way to the demon's rule.
+// Who will rise with the hero: the hidden resistance and any realm that calls us friend.
+function resistNote(world: WorldState): string {
+  const friends = (world.realms ?? []).filter((r) => !r.fallen && (r.pact || r.relation >= 50)).map((r) => r.name);
+  return `ขบวนการต่อต้านจะลุกฮือพร้อมผู้กล้าเมื่อบุกปราสาท${friends.length ? ` · ${friends.join(' และ ')}พร้อมส่งทัพมาช่วย` : ' · ยังไม่มีอาณาจักรใดสนิทพอจะส่งทัพมาช่วย'}`;
+}
+
 function occupiedCard(world: WorldState): HTMLElement {
   const lord = world.demon!;
   const gov = world.npcs.find((n) => n.id === lord.governorId && n.alive);
@@ -135,11 +141,12 @@ function occupiedCard(world: WorldState): HTMLElement {
       el('p', { className: 'realm-king__meta', textContent: `ตั้งแต่ D${lord.fell ?? lord.risen} · ไม่มีกษัตริย์ ไม่มีกองทัพ ส่วยครึ่งท้องพระคลังทุกเดือน` }),
       ...(gov ? [el('div', { className: 'quest__party' }, el('span', { className: 'realm-king__meta', textContent: 'ผู้สำเร็จราชการ' }), personChip(gov))] : []),
       el('p', { className: 'realm-king__meta', textContent: 'มีเพียงผู้กล้าที่ปราบจอมมารได้เท่านั้นที่จะคืนอิสรภาพให้เมือง' }),
+      el('div', { className: 'realm-meters' }, meter('ขบวนการต่อต้าน', Math.round(lord.resistance ?? 0), 'strong')),
+      el('p', { className: 'realm-king__meta', textContent: resistNote(world) }),
     ),
   );
 }
 
-// Before it wakes: how near the dread is. After: the lord, the town's hold, and the hero.
 // The king's decrees: which are in force, when each was last issued.
 function decreesSection(world: WorldState): HTMLElement {
   return section(
@@ -202,6 +209,7 @@ function dragonSection(world: WorldState): HTMLElement {
   ]);
 }
 
+// Before it wakes: how near the dread is. After: the lord, the town's hold, and the hero.
 function demonSection(world: WorldState): HTMLElement {
   const lord = world.demon;
   if (!lord) {
