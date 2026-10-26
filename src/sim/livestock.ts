@@ -3,7 +3,7 @@
 // same all year (milk, eggs, the odd beast for the pot), so it carries the town through the
 // winter the fields can't; deer are hunted out if too many go after them, and come back slowly.
 import { chance, int, type Rng } from './rng';
-import { cursed, kill } from './core';
+import { cursed, kill, log } from './core';
 import { seasonOf, sell } from './market';
 import type { Npc, WorldState } from './types';
 
@@ -17,6 +17,7 @@ export const GAME_CAP = 20; // deer the forest holds
 const GAME_START = 14;
 const HUNT = 0.25; // chance of a kill on a hunter's day, with the forest full of deer
 const MAULED = 0.001; // a bear, a boar, a fall
+const MURRAIN = 0.025; // monthly chance of sickness in a full pasture; less in a sparse one
 
 export function ensureWilds(world: WorldState): void {
   world.herd ??= HERD_START;
@@ -52,6 +53,20 @@ export function wildsDay(world: WorldState, rng: Rng): void {
   if (g < GAME_CAP && chance(rng, 0.03 + 0.25 * (g / GAME_CAP) * (1 - g / GAME_CAP))) world.game!++;
   const herders = world.npcs.some((n) => n.alive && n.job === 'herder' && n.age >= 16);
   if (!herders && world.herd! > STRAY_FLOOR && chance(rng, 0.01)) world.herd!--;
+  if (world.day % 30 === 9) murrain(world, rng);
+}
+
+// Sickness in the herd. It spreads easiest in a packed pasture; seasoned herders cull the sick
+// early and a blessed one's flock is spared the worst.
+function murrain(world: WorldState, rng: Rng): void {
+  const herd = world.herd!;
+  if (herd < 6 || !chance(rng, MURRAIN * (herd / HERD_CAP) ** 2)) return;
+  const herders = world.npcs.filter((n) => n.alive && n.job === 'herder' && n.age >= 16);
+  const skill = herders.reduce((s, n) => s + Math.min(3, n.level) * 0.05 + (n.blessed ? 0.15 : 0), 0);
+  const lost = Math.max(1, Math.round(herd * Math.max(0.15, int(rng, 35, 60) / 100 - skill)));
+  world.herd = herd - lost;
+  for (const n of herders) if (chance(rng, 0.5)) n.level++; // a hard lesson
+  log(world, 'disaster', `โรคระบาดในคอกสัตว์! สัตว์ล้มตายไป ${lost} ตัว เหลือ ${world.herd} ตัว`);
 }
 
 // Wolves that come for the flock take a beast or two before anyone drives them off.
