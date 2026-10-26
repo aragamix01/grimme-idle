@@ -94,6 +94,7 @@ export function renderKingdom(world: WorldState): void {
     section(
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
+      `${nobles.length} คน`,
     ),
     councilSection(world),
     decreesSection(world),
@@ -102,12 +103,13 @@ export function renderKingdom(world: WorldState): void {
     warSection(world),
     neighbours(world),
     cultSection(world),
-    section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')]),
+    section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')], `${knights.length} คน`),
     section(
       'ข่าวการเมือง',
       news.length
         ? news.map((e) => el('li', { className: 'legend' }, icon('crown', 16), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` })))
         : [empty('ราชสำนักยังสงบ')],
+      news[0] ? `ล่าสุด D${news[0].day}` : '',
     ),
   );
   localize(view, world);
@@ -169,7 +171,7 @@ function councilSection(world: WorldState): HTMLElement {
     el('li', { className: 'council' }, el('span', { className: 'chip' }, `ยับยั้งมาแล้ว ${c?.vetoes ?? 0} ครั้ง`), el('span', { className: 'chip' }, `ถูกใช้อำนาจข้าม ${c?.overrides ?? 0} ครั้ง`)),
   ];
   if (c?.last) rows.push(el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `มติล่าสุด D${c.last.day}: ${DECREES[c.last.decree].name} เห็นชอบ ${c.last.ayes} คัดค้าน ${c.last.nays} · ${RESULT[c.last.result]}` })));
-  return section(councilName(world), rows);
+  return section(councilName(world), rows, c?.last ? `มติล่าสุด: ${RESULT[c.last.result]}` : '', 'council');
 }
 
 function decreesSection(world: WorldState): HTMLElement {
@@ -188,6 +190,7 @@ function decreesSection(world: WorldState): HTMLElement {
         el('div', {}, el('b', { textContent: d.name }), el('p', { className: 'realm-king__meta', textContent: `${d.text} · ${status}${extra}` })),
       );
     }),
+    `มีผล ${world.decrees?.filter((x) => x.until > world.day).length ?? 0} ฉบับ`,
   );
 }
 
@@ -225,7 +228,7 @@ function researchSection(world: WorldState): HTMLElement {
       }
       return row;
     }),
-  ]);
+  ], world.research ? `กำลังค้นคว้า${TECHS[world.research].name}` : `${age.name}`);
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.
@@ -254,6 +257,7 @@ function worksSection(world: WorldState): HTMLElement {
         el('div', {}, el('b', { textContent: w.name }), el('p', { className: 'realm-king__meta', textContent: `${w.text} · ${status}` })),
       );
     }),
+    world.building ? `กำลังสร้าง${WORKS[world.building.kind].name}` : '',
   );
 }
 
@@ -365,7 +369,7 @@ function cultSection(world: WorldState): HTMLElement {
   const cost = costOf(world, 'reveal');
   const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost || !members.length }, icon('cult', 16), 'ส่งนิมิตเปิดโปงสาวก', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
   btn.onclick = () => handlers.onReveal();
-  if (!world.cult || !members.length) return section('ลัทธิมาร', [empty('ยังไม่มีลัทธิมารในเมือง แต่ถ้าคนใจดำมีมากขึ้น อาจมีใครก่อตั้งขึ้นอย่างลับๆ')]);
+  if (!world.cult || !members.length) return section('ลัทธิมาร', [empty('ยังไม่มีลัทธิมารในเมือง แต่ถ้าคนใจดำมีมากขึ้น อาจมีใครก่อตั้งขึ้นอย่างลับๆ')], 'ยังไม่มี');
   const leader = world.npcs.find((n) => n.id === world.cult!.leaderId);
   return section('ลัทธิมาร', [
     el(
@@ -377,7 +381,7 @@ function cultSection(world: WorldState): HTMLElement {
       btn,
       el('p', { className: 'realm-king__meta', textContent: 'ชาวเมืองไม่รู้ว่าใครเป็นสาวก มีแต่เทพเจ้าที่มองเห็น' }),
     ),
-  ]);
+  ], `สาวก ${members.length} คน`);
 }
 
 // At war: who, how it goes, and the three ways the god may help.
@@ -423,6 +427,7 @@ function neighbours(world: WorldState): HTMLElement {
         el('b', { className: r.relation <= -15 || r.war ? 'realm-person__loyal--low' : '', textContent: r.war ? 'สงคราม!' : r.pact ? 'พันธมิตร ✦' : relationWord(r.relation) }),
       ),
     ),
+    `${realms.filter((r) => !r.fallen).length} อาณาจักร`,
   );
   s.dataset.foreign = ''; // their kings stay kings whatever we are
   return s;
@@ -503,8 +508,35 @@ function personRow(n: Npc, note: string): HTMLElement {
   );
 }
 
-function section(title: string, rows: HTMLElement[]): HTMLElement {
-  return el('section', { className: 'guild-sec' }, el('h3', { textContent: title }), el('ul', {}, ...rows));
+// Sections fold away so the tab stays short on a phone; which ones are open is remembered. Danger
+// (the demon lord, a war, a dragon) always stays open. A hint beside a folded title says what's inside.
+const OPEN_KEY = 'grimm-kingdom-open';
+const ALWAYS_OPEN = /^(จอมมาร|สงคราม|มังกร)/;
+const opened = new Set<string>(readOpen());
+function readOpen(): string[] {
+  try {
+    const saved = localStorage.getItem(OPEN_KEY);
+    if (saved) return JSON.parse(saved) as string[];
+  } catch {
+    // storage blocked: start from the defaults
+  }
+  return ['council', 'งานค้นคว้าของนักปราชญ์', 'ข่าวการเมือง'];
+}
+
+function section(title: string, rows: HTMLElement[], hint = '', key = title): HTMLElement {
+  if (ALWAYS_OPEN.test(title)) return el('section', { className: 'guild-sec' }, el('h3', { textContent: title }), el('ul', {}, ...rows));
+  const fold = el('details', { className: 'guild-sec fold', open: opened.has(key) });
+  fold.addEventListener('toggle', () => {
+    if (fold.open) opened.add(key);
+    else opened.delete(key);
+    try {
+      localStorage.setItem(OPEN_KEY, JSON.stringify([...opened]));
+    } catch {
+      // storage blocked: remembered for this visit only
+    }
+  });
+  fold.append(el('summary', {}, el('h3', { textContent: title }), el('small', { className: 'fold__hint', textContent: hint })), el('ul', {}, ...rows));
+  return fold;
 }
 
 const empty = (text: string) => el('li', { className: 'guild-empty', textContent: text });
