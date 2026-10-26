@@ -50,11 +50,20 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   const r = world.regime ?? 'monarchy';
   const soldiers = adults(world).filter((n) => n.job === 'soldier' || n.knight);
   // The army turns on a ruler it no longer trusts (any regime but its own).
-  // Only once a reign has had time to sour, and only over real grievance: unpaid wages or an angry town.
+  // Only once a reign has had time to sour, and only over real grievance: unpaid wages or an angry
+  // town. Or in a dark hour (a lost war, the demon lord at large, a coward ruling in wartime) an
+  // ambitious general may take the army with them however loyal it was.
+  const shamed =
+    world.chronicle.some((e) => e.day > world.day - 365 && /แพ้สงคราม|ขอสงบศึก/.test(e.text)) ||
+    (!!world.demon && world.demon.stage !== 'occupied') ||
+    (!!world.war && ruler.traits.includes('coward'));
+  const general = successor(world, 'junta');
+  const ambitious = !!general && general.traits.some((t) => t === 'greedy' || t === 'vengeful' || t === 'brave');
   const grievance = soldiers.some((n) => (n.unpaid ?? 0) > 0) || approval(world) < 35;
   const settled = world.day - (world.crown?.since ?? 0) > 365;
-  if (r !== 'junta' && settled && grievance && soldiers.length >= 6 && avgLoyalty(soldiers) < JUNTA_LOYALTY && crownPower(world).total < 60 && chance(rng, 0.2)) {
-    const general = successor(world, 'junta')!;
+  const sour = grievance && soldiers.length >= 6 && avgLoyalty(soldiers) < JUNTA_LOYALTY && crownPower(world).total < 60 && chance(rng, 0.2);
+  const bold = shamed && ambitious && soldiers.length >= 4 && chance(rng, 0.15);
+  if (general && r !== 'junta' && settled && (sour || bold)) {
     log(world, 'politics', `ทหารหมดความอดทนกับ${ruler.name} ${general.name}นำกองทัพยึดอำนาจ ตั้งคณะทหารปกครองเมือง!`, general.id);
     retire(ruler, rng);
     return seize(world, 'junta', general, 'ยึดอำนาจโดยกองทัพ', `${general.name} ยึดอำนาจตั้งคณะทหาร`);
