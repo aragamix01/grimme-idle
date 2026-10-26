@@ -179,6 +179,55 @@ function plot(world: WorldState, k: Npc, rng: Rng): void {
   }
 }
 
+// In a long golden age the crown is too strong to storm, so the court's rich and restless
+// scheme in quieter ways: poison at a feast, or gold to turn the guard. Returns whether
+// anything came of it.
+export function intrigue(world: WorldState, k: Npc, rng: Rng): boolean {
+  const schemer = adults(world)
+    .filter((n) => n.job === 'noble' && n.inside === undefined && n.gold >= 150 && (ambitious(n) || loyaltyOf(n) < 50 || n.morality < 0))
+    .sort((a, b) => b.gold - a.gold)[0];
+  if (!schemer) return false;
+  const courtesans = adults(world).filter((n) => n.job === 'courtesan');
+  if (courtesans.length && chance(rng, 0.3)) {
+    const spy = pick(rng, courtesans);
+    log(world, 'politics', `นางคณิกา${spy.name}ได้ยิน${schemer.name}วางแผนลับในงานเลี้ยง จึงแอบทูลกษัตริย์${k.name}`, spy.id);
+    world.treasury += schemer.gold;
+    schemer.gold = 0;
+    exile(world, schemer, 'ถูกริบทรัพย์และเนรเทศ เพราะความโลภในยามบ้านเมืองรุ่งเรือง');
+    return true;
+  }
+  sway(world, -2);
+  if (schemer.morality < 0 && chance(rng, 0.5)) {
+    // Poison: quiet, and nobody need know who.
+    if (chance(rng, 0.4)) {
+      kill(world, k, 'สิ้นพระชนม์กะทันหันหลังงานเลี้ยงฉลองความรุ่งเรือง');
+      if (chance(rng, 0.4)) kill(world, schemer, 'ถูกจับได้ว่าวางยาพิษกษัตริย์ ถูกประหารกลางจัตุรัส');
+      else log(world, 'politics', `ข่าวลือหนาหูว่า${schemer.name}อยู่เบื้องหลังการสิ้นพระชนม์ แต่ไม่มีใครพิสูจน์ได้`, schemer.id);
+    } else kill(world, schemer, `ลอบวางยาพิษกษัตริย์${k.name}ไม่สำเร็จ ถูกจับและประหาร`);
+    return true;
+  }
+  // Bribery: half the schemer's fortune spread among the less loyal of the guard.
+  const bribe = Math.floor(schemer.gold / 2);
+  schemer.gold -= bribe;
+  const guards = armed(world).sort((a, b) => loyaltyOf(a) - loyaltyOf(b));
+  const bought = guards.filter((n) => loyaltyOf(n) < 70).slice(0, Math.floor(bribe / 40));
+  for (const n of bought) n.gold += Math.floor(bribe / Math.max(1, bought.length));
+  const loyal = guards.filter((n) => !bought.includes(n));
+  const strength = (list: Npc[]) => list.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0);
+  const friends = adults(world).filter((n) => n !== schemer && getTie(world, n.id, schemer.id) >= FRIEND).length;
+  const rebels = strength(bought) + friends * 0.5;
+  log(world, 'politics', `${schemer.name}ใช้ทองซื้อใจทหาร ${bought.length} นาย แล้วบุกวังหมายชิงบัลลังก์ในยามบ้านเมืองสงบสุข!`, schemer.id);
+  if (chance(rng, rebels / (rebels + strength(loyal) + 1))) {
+    depose(world, k, schemer, rng);
+    enthrone(world, schemer, `ซื้อทหารยึดอำนาจจากกษัตริย์${k.name}`);
+    legend(world, `${schemer.name} ใช้ทองซื้อบัลลังก์จากกษัตริย์${k.name}`, schemer.id);
+    for (const n of bought) nudge(n, 25);
+    for (const n of loyal) nudge(n, -15);
+  } else if (k.traits.includes('kind')) exile(world, schemer, 'แพ้ในการรัฐประหาร ถูกเนรเทศออกจากเมือง');
+  else kill(world, schemer, 'ถูกประหารฐานกบฏ');
+  return true;
+}
+
 // A cruel usurper kills the old king; a gentler one sends him away.
 function depose(world: WorldState, old: Npc, usurper: Npc, rng: Rng): void {
   if (usurper.morality < 0 || chance(rng, 0.2)) kill(world, old, 'ถูกปลงพระชนม์ระหว่างการชิงบัลลังก์');

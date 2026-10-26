@@ -304,6 +304,7 @@ export interface WorldState {
   weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy;
+  golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   game?: number; // deer left in the forest
   realms?: Realm[];

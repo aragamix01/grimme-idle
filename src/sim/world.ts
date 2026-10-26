@@ -18,6 +18,7 @@ import { createRealms, ensureRealms, realmsDay } from './realms';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
+import { troubles } from './troubles';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -115,6 +116,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   diplomacy(world, rng);
   warDay(world, rng);
   worldEvents(world, rng);
+  troubles(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
