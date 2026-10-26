@@ -117,7 +117,33 @@ function want(world: WorldState, t: Tech, ruler: Npc): number {
   }
 }
 
+// What the town knows beyond what its next question needs goes abroad: with a press, books sold
+// to the neighbours bring in gold; once a year scholars go to teach at a friendly court behind us
+// in learning, which warms to us and comes on faster.
+const ABROAD_DAY = 18;
+const SPARE = 200; // knowledge kept back beyond the current question
+const BOOKS = 100; // knowledge a month's printing for export takes
+const TEACHING = 150; // knowledge a year's embassy of scholars takes
+function knowledgeAbroad(world: WorldState, rng: Rng): void {
+  if (world.day % 30 !== ABROAD_DAY) return;
+  const need = (world.research ? TECHS[world.research].cost : world.study ? masteryCost(world) : 0) + SPARE;
+  if ((world.knowledge ?? 0) - need >= BOOKS && world.works?.press !== undefined) {
+    world.knowledge! -= BOOKS;
+    const gold = 60 + 20 * ageOf(world);
+    world.treasury += gold;
+    if (chance(rng, 0.2)) log(world, 'trade', `โรงพิมพ์ส่งตำราไปขายต่างแดน ได้ทองเข้าคลัง ${gold} เหรียญ`);
+  }
+  if (world.day % 365 >= 30 || (world.knowledge ?? 0) - need < TEACHING) return;
+  const r = (world.realms ?? []).filter((x) => !x.fallen && !x.war && x.relation >= 0 && !x.tutored && (x.age ?? 1) < ageOf(world)).sort((a, b) => b.relation - a.relation)[0];
+  if (!r) return;
+  world.knowledge! -= TEACHING;
+  r.tutored = true;
+  r.relation = Math.min(100, r.relation + 8);
+  log(world, 'world', `นักปราชญ์ของเราเดินทางไปสอนหนังสือที่${r.name} ราชสำนักนั้นซาบซึ้งในน้ำใจ`);
+}
+
 export function researchDay(world: WorldState, rng: Rng): void {
+  knowledgeAbroad(world, rng);
   const t = world.research;
   if (t && (world.knowledge ?? 0) >= TECHS[t].cost) {
     const age = ageOf(world);
