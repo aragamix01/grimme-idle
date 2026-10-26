@@ -1,7 +1,7 @@
 // The town beyond adventuring: a king with nobles and soldiers, and the trades and
 // pleasures people spend their money on. Who holds which rank is decided here.
 import { chance, next, pick, type Rng } from './rng';
-import { log, occupied } from './core';
+import { decreeActive, log, occupied } from './core';
 import { addTie } from './ties';
 import { buy, ensureMarket, sell } from './market';
 import { PLACES, type Spot } from './places';
@@ -160,7 +160,7 @@ export function leaveTrade(n: Npc): void {
 
 // The crown's monthly tax on everyone's savings; nobles pay tribute at their own rate.
 export function levy(world: WorldState): void {
-  if (world.day % 30 !== LEVY_DAY) return;
+  if (world.day % 30 !== LEVY_DAY || decreeActive(world, 'taxfree')) return;
   for (const n of world.npcs) {
     if (!n.alive || n.age < 16 || n.job === 'king') continue;
     const [rate, floor] = n.job === 'noble' ? [TRIBUTE, TRIBUTE_FLOOR] : [TAX_RATE[world.crown?.tax ?? 'normal'], LEVY_FLOOR];

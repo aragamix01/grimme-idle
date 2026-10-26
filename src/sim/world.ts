@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
+import { clamp, cursed, decreeActive, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -21,7 +21,7 @@ import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
 import { built, crownWorks } from './works';
-import { decreesDay } from './decrees';
+import { BOUNTY, decreesDay } from './decrees';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -270,7 +270,8 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       // A dungeon close to spilling over draws glory seekers to thin it out, paid or not.
       const worst = world.dungeons.reduce((a, b) => (b.power > a.power ? b : a));
       const danger = Math.max(0, (worst.power - DANGER_POWER) / 20);
-      if (chance(rng, ADVENTURE_CHANCE * courage * (1 + danger))) {
+      const bounty = decreeActive(world, 'bounty') ? 1.5 : 1; // the crown's bounty sends more of them down
+      if (chance(rng, ADVENTURE_CHANCE * courage * (1 + danger) * bounty)) {
         const d = danger && chance(rng, 0.7) ? worst : pick(rng, world.dungeons);
         return plan('adventure', dungeonDoor(d), 0, d.id);
       }
@@ -312,7 +313,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
-      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1))) {
+      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1) * (decreeActive(world, 'curfew') ? 0.4 : 1))) {
         const victim = pick(rng, marks);
         return plan('steal', victim, PURSUIT_DAYS, victim.id);
       }
@@ -387,6 +388,10 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
   const strength = might(world, npc);
   if (chance(rng, strength / (strength + (d.power * 0.5 + 10) * tierOf(d)))) {
     npc.gold += Math.round(int(rng, 5, 20) * tierOf(d));
+    if (decreeActive(world, 'bounty') && world.treasury >= BOUNTY) {
+      world.treasury -= BOUNTY;
+      npc.gold += BOUNTY;
+    }
     sell(world, npc, 'loot', Math.round(lootFound(rng) * tierOf(d)), rng);
     maybeDiscover(world, npc, rng); // fangs, hides and crystals for the shop
     d.power = Math.max(10, d.power - 5);

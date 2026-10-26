@@ -1,6 +1,6 @@
 // Small helpers shared by the world loop and the guild.
 import { chance, type Rng } from './rng';
-import type { EventKind, Npc, Perk, Plan, PlanKind, WorldState } from './types';
+import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, WorldState } from './types';
 import type { Spot } from './places';
 import { walk } from './nav';
 
@@ -33,9 +33,13 @@ export const cursed = (world: WorldState, n: Npc) => (n.cursedUntil ?? 0) > worl
 
 export const occupied = (world: WorldState) => world.demon?.stage === 'occupied';
 
+export const decreeActive = (world: WorldState, k: Decree) => (world.decrees ?? []).some((d) => d.kind === k && d.until > world.day);
+
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
+
+export const loyaltyNudge = (n: Npc, by: number) => (n.loyalty = clamp((n.loyalty ?? 50) + by, 0, 100));
 
 export const atSpot = (npc: Npc, s: Spot, slack = 0) => Math.abs(npc.x - s.x) + Math.abs(npc.y - s.y) <= slack;
 

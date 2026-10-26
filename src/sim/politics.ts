@@ -2,7 +2,7 @@
 // the king sets taxes by temperament and purse; knights, festivals and the army prop
 // the crown up, and when it weakens, ambitious nobles plot and the hungry rise.
 import { chance, pick, type Rng } from './rng';
-import { clamp, kill, log } from './core';
+import { clamp, decreeActive, kill, log } from './core';
 import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
@@ -62,6 +62,8 @@ export function rule(world: WorldState, rng: Rng): void {
 // Every ten days loyalty settles toward the middle and moves with how life is going.
 function drift(world: WorldState, k: Npc): void {
   const tax = ensureCrown(world).tax;
+  const taxfree = decreeActive(world, 'taxfree');
+  const curfew = decreeActive(world, 'curfew');
   for (const n of adults(world)) {
     let by = (50 - loyaltyOf(n)) * 0.1; // feelings fade; only what keeps happening holds them away from 50
     if ((n.hunger ?? 0) >= 2) by -= 4;
@@ -70,6 +72,8 @@ function drift(world: WorldState, k: Npc): void {
     if (k.traits.includes('greedy')) by -= 0.5;
     by += getTie(world, n.id, k.id) / 40;
     if (n.knight) by += 1;
+    if (taxfree) by += 2;
+    if (curfew && !['noble', 'soldier'].includes(n.job)) by -= 0.8;
     if (n.job === 'noble' && ambitious(n)) by -= 1;
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;

@@ -3,7 +3,7 @@
 // Prices follow stock: scarce goods get dear, gluts go cheap, and the chronicle
 // notices when it gets extreme.
 import { chance, int, type Rng } from './rng';
-import { cursed, log, perkLevel } from './core';
+import { cursed, decreeActive, log, perkLevel } from './core';
 import { weatherYield } from './divine';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
@@ -96,11 +96,14 @@ export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng):
 }
 
 // Buy one unit off the shelf. False when it's sold out or the buyer can't pay.
-export function buy(world: WorldState, payer: Npc, g: Good): boolean {
+// Under the crown's food subsidy the treasury pays half of a meal.
+export function buy(world: WorldState, payer: Npc, g: Good, meal = false): boolean {
   const m = ensureMarket(world);
   const price = m.price[g];
-  if (m.stock[g] < 1 || payer.gold < price) return false;
-  payer.gold -= price;
+  const crown = meal && decreeActive(world, 'subsidy') && world.treasury >= price ? Math.floor(price / 2) : 0;
+  if (m.stock[g] < 1 || payer.gold < price - crown) return false;
+  payer.gold -= price - crown;
+  world.treasury -= crown;
   m.stock[g] -= 1;
   world.treasury += price * TAX;
   m.till += price * (1 - TAX);
@@ -164,7 +167,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
     const food = mealOf(m);
     const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
-    if (buy(world, payer, food) || buy(world, payer, food === 'grain' ? 'meat' : 'grain') || dole(world, m)) {
+    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || dole(world, m)) {
       n.hunger = 0;
       continue;
     }
