@@ -39,8 +39,8 @@ export const realmRegime = (r: Realm): Regime => r.regime ?? 'monarchy';
 export const realmAge = (r: Realm) => r.age ?? 1;
 const leanOf = (r: Realm) => temperOf(r.ruler.traits) + REGIME_LEAN[realmRegime(r)];
 const SHARE = 40; // knowledge a friendly neighbour ahead of us shares in a year
-const AGE_UP = 0.07; // yearly chance a realm comes into its next age
-const TAUGHT = 0.12; // and more when a friend of ours is ahead of it
+const AGE_UP = 0.035; // yearly chance a realm comes into its next age
+const TAUGHT = 0.06; // and more when a friend of ours is ahead of it
 
 export const relationWord = (r: number) => (r >= 50 ? 'พันธมิตร' : r >= 15 ? 'มิตร' : r > -15 ? 'เป็นกลาง' : r > -50 ? 'ไม่ไว้ใจ' : 'ศัตรู');
 

@@ -17,19 +17,19 @@ export interface TechDef {
 }
 
 export const TECHS: Record<Tech, TechDef> = {
-  plough: { name: 'คันไถเหล็ก', cost: 120, text: 'ชาวนาเก็บเกี่ยวข้าวได้มากขึ้น 25%', icon: 'plough' },
-  medicine: { name: 'การแพทย์', cost: 180, text: 'โรคระบาดคร่าชีวิตน้อยลง 40%', icon: 'medicine' },
-  metallurgy: { name: 'โลหะวิทยา', cost: 240, text: 'ช่างตีเหล็กใช้ของจากดันเจี้ยนครึ่งเดียวต่ออาวุธหนึ่งชุด', icon: 'metallurgy' },
-  architecture: { name: 'สถาปัตยกรรม', cost: 300, text: 'งานก่อสร้างของราชสำนักถูกลงและเสร็จเร็วขึ้น 25% สร้างหอนาฬิกาได้', icon: 'architecture' },
-  navigation: { name: 'การเดินเรือและแผนที่', cost: 380, text: 'กองคาราวานเดินทางเร็วขึ้น ปลอดภัยขึ้น และได้กำไรมากขึ้น', icon: 'navigation', needs: ['plough'] },
-  arcana: { name: 'เวทศาสตร์', cost: 440, text: 'จอมเวทร่ายเวทได้แรงขึ้นมาก', icon: 'arcana', needs: ['medicine'] },
-  printing: { name: 'การพิมพ์', cost: 500, text: 'เด็กๆ เรียนได้เร็วขึ้น สร้างโรงพิมพ์ได้ ความคิดใหม่ๆ แพร่ไปทั่วเมือง', icon: 'printing', needs: ['architecture'] },
-  irrigation: { name: 'คลองชลประทาน', cost: 350, text: 'ขุดคลองส่งน้ำเข้าทุ่ง ภัยแล้งทำให้ข้าวเสียหายน้อยลงมาก สัตว์และคนแก่ล้มตายน้อยลง', icon: 'irrigation', needs: ['plough'] },
-  levee: { name: 'คันกั้นน้ำ', cost: 420, text: 'คันดินริมแม่น้ำ น้ำท่วมใหญ่เกิดยากขึ้นมาก และเสียหายเพียงครึ่งเดียว', icon: 'levee', needs: ['architecture'] },
-  ironframe: { name: 'โครงเหล็กทนแผ่นดินไหว', cost: 700, text: 'บ้านและอาคารหลวงมีโครงเหล็ก แผ่นดินไหวทำให้บ้านพังและคนตายน้อยลงมาก', icon: 'ironframe', needs: ['architecture', 'metallurgy'] },
-  chemistry: { name: 'เคมี', cost: 600, text: 'ยาและน้ำยาฆ่าเชื้อชนิดใหม่ โรคระบาดคร่าชีวิตน้อยลงอีก 30%', icon: 'chemistry', needs: ['medicine', 'arcana'] },
-  steam: { name: 'เครื่องจักรไอน้ำ', cost: 650, text: 'เครื่องจักรช่วยทุ่นแรง ผลผลิตข้าวเพิ่ม 15% สร้างโรงงานได้', icon: 'steam', needs: ['printing', 'metallurgy'] },
-  railway: { name: 'ทางรถไฟ', cost: 800, text: 'กองคาราวานเดินทางเร็วขึ้นอีก สร้างสถานีรถไฟได้', icon: 'railway', needs: ['steam', 'navigation'] },
+  plough: { name: 'คันไถเหล็ก', cost: 200, text: 'ชาวนาเก็บเกี่ยวข้าวได้มากขึ้น 25%', icon: 'plough' },
+  medicine: { name: 'การแพทย์', cost: 280, text: 'โรคระบาดคร่าชีวิตน้อยลง 40%', icon: 'medicine' },
+  metallurgy: { name: 'โลหะวิทยา', cost: 380, text: 'ช่างตีเหล็กใช้ของจากดันเจี้ยนครึ่งเดียวต่ออาวุธหนึ่งชุด', icon: 'metallurgy' },
+  architecture: { name: 'สถาปัตยกรรม', cost: 480, text: 'งานก่อสร้างของราชสำนักถูกลงและเสร็จเร็วขึ้น 25% สร้างหอนาฬิกาได้', icon: 'architecture' },
+  navigation: { name: 'การเดินเรือและแผนที่', cost: 650, text: 'กองคาราวานเดินทางเร็วขึ้น ปลอดภัยขึ้น และได้กำไรมากขึ้น', icon: 'navigation', needs: ['plough'] },
+  arcana: { name: 'เวทศาสตร์', cost: 750, text: 'จอมเวทร่ายเวทได้แรงขึ้นมาก', icon: 'arcana', needs: ['medicine'] },
+  printing: { name: 'การพิมพ์', cost: 900, text: 'เด็กๆ เรียนได้เร็วขึ้น สร้างโรงพิมพ์ได้ ความคิดใหม่ๆ แพร่ไปทั่วเมือง', icon: 'printing', needs: ['architecture'] },
+  irrigation: { name: 'คลองชลประทาน', cost: 420, text: 'ขุดคลองส่งน้ำเข้าทุ่ง ภัยแล้งทำให้ข้าวเสียหายน้อยลงมาก สัตว์และคนแก่ล้มตายน้อยลง', icon: 'irrigation', needs: ['plough'] },
+  levee: { name: 'คันกั้นน้ำ', cost: 520, text: 'คันดินริมแม่น้ำ น้ำท่วมใหญ่เกิดยากขึ้นมาก และเสียหายเพียงครึ่งเดียว', icon: 'levee', needs: ['architecture'] },
+  ironframe: { name: 'โครงเหล็กทนแผ่นดินไหว', cost: 1300, text: 'บ้านและอาคารหลวงมีโครงเหล็ก แผ่นดินไหวทำให้บ้านพังและคนตายน้อยลงมาก', icon: 'ironframe', needs: ['architecture', 'metallurgy'] },
+  chemistry: { name: 'เคมี', cost: 1500, text: 'ยาและน้ำยาฆ่าเชื้อชนิดใหม่ โรคระบาดคร่าชีวิตน้อยลงอีก 30%', icon: 'chemistry', needs: ['medicine', 'arcana'] },
+  steam: { name: 'เครื่องจักรไอน้ำ', cost: 1800, text: 'เครื่องจักรช่วยทุ่นแรง ผลผลิตข้าวเพิ่ม 15% สร้างโรงงานได้', icon: 'steam', needs: ['printing', 'metallurgy'] },
+  railway: { name: 'ทางรถไฟ', cost: 2400, text: 'กองคาราวานเดินทางเร็วขึ้นอีก สร้างสถานีรถไฟได้', icon: 'railway', needs: ['steam', 'navigation'] },
 };
 export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'irrigation', 'levee', 'navigation', 'arcana', 'printing', 'ironframe', 'chemistry', 'steam', 'railway'];
 
