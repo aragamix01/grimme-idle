@@ -28,7 +28,7 @@ export { balanceOf, cultists } from './cult';
 export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, statueHero } from './era';
 export { cursed, known, perkLevel } from './core';
 export { DUNGEON_KINDS } from './dungeons';
-export { HOME, TERRAIN_TH, relationWord } from './realms';
+export { HOME, TERRAIN_TH, relationWord, realmAge, realmRegime } from './realms';
 export { TRADE, tripDays } from './diplomacy';
 export { WAR_COST, enemyOf, ourForces, theirStrength } from './war';
 export { plagued, realmMiracleCost, realmMiracleReady } from './worldevents';

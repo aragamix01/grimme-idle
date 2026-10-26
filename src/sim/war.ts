@@ -61,7 +61,7 @@ function maybeWar(world: WorldState, rng: Rng): void {
     if (r.fallen || r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
     const hostile = r.relation <= -30;
     // A hostile hawk attacks when it feels the stronger; a greedy one also preys on any cold neighbour it far outmatches.
-    if (hawk(r.ruler.traits) && hostile && theirStrength(r) > strength * 1.1 && chance(rng, 0.25)) return declare(world, r, 'them');
+    if ((hawk(r.ruler.traits) || r.regime === 'junta') && hostile && theirStrength(r) > strength * 1.1 && chance(rng, 0.25)) return declare(world, r, 'them');
     if (r.ruler.traits.includes('greedy') && theirStrength(r) > strength * 1.6 && chance(rng, 0.06)) return declare(world, r, 'them');
     if (k && hostile && hawk(k.traits) && !dove(k.traits) && strength > theirStrength(r) * 1.2 && world.treasury >= 300 && chance(rng, 0.15)) return declare(world, r, 'us');
   }

@@ -225,6 +225,8 @@ export interface Realm {
   x: number; // tile on the world map
   y: number;
   ruler: { name: string; age: number; traits: Trait[] };
+  regime?: Regime; // how they are governed; missing in old saves means a king
+  age?: number; // how far their learning has come (see ages.ts); missing in old saves
   gold: number;
   army: number;
   people: number;

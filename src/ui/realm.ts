@@ -1,4 +1,4 @@
-import { GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
+import { AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 // While the world map is up, the side panel lists every neighbour in full, so nobody has to
@@ -38,7 +38,8 @@ function card(world: WorldState, r: Realm): HTMLElement {
     { className: `realm-card${r.id === picked ? ' realm-card--picked' : ''}` },
     el('div', { className: 'realm-card__head' }, el('b', { textContent: r.name }), el('span', { className: 'chip', textContent: r.war ? 'สงคราม!' : r.pact ? 'พันธมิตร' : relationWord(r.relation) })),
     el('p', { className: 'realm-king__meta', textContent: `ดินแดน${TERRAIN_TH[r.terrain]} · ประชากร ${r.people}` }),
-    el('p', { className: 'realm-king__meta', textContent: `ผู้ปกครอง ${r.ruler.name} (${r.ruler.age} พรรษา) · ${r.ruler.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
+    el('p', { className: 'realm-king__meta', textContent: `${REGIMES[realmRegime(r)].name} · ${AGES[realmAge(r)].name}` }),
+    el('p', { className: 'realm-king__meta', textContent: `${REGIMES[realmRegime(r)].ruler} ${r.ruler.name} (${r.ruler.age} ${realmRegime(r) === 'monarchy' ? 'พรรษา' : 'ปี'}) · ${r.ruler.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
     el('p', { className: 'realm-king__meta', textContent: `กองทัพ ${r.army} · ท้องพระคลัง ${r.gold}` }),
     el('p', { className: 'realm-king__meta', textContent: `ขาย${GOOD_TH[TRADE[r.terrain].sells]} · ต้องการ${GOOD_TH[TRADE[r.terrain].wants]} · คาราวานไปแล้ว ${r.trades ?? 0} ครั้ง` }),
     ...(r.war ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: 'กำลังทำสงครามกับเรา!' })] : []),
