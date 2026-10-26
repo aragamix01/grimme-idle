@@ -1,7 +1,9 @@
 // The god's hand: blessings that fade, curses that bite, dreams that change a heart, and
 // miracles worked on the whole world, from kind rain to plague and eclipse.
 import { pick, type Rng } from './rng';
-import { clamp, known, log, perkLevel } from './core';
+import { clamp, known, log, occupied, perkLevel } from './core';
+import { bringDisaster, flooded } from './disasters';
+import { king } from './society';
 import { plagueStrike } from './worldevents';
 import { CULT_NAMES, sway } from './cult';
 import { getTie, setTie } from './ties';
@@ -153,6 +155,11 @@ export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: n
   wonder: { name: 'สิ่งมหัศจรรย์', text: 'อนุสรณ์สถานแห่งอาณาจักรสูงขึ้นหนึ่งชั้นในชั่วข้ามคืน', cost: 250, icon: 'star', dark: false, big: true },
   bounty: { name: 'ยุ้งฉางล้นเหลือ', text: 'ข้าว +400 กระสอบ สัตว์ในคอก +15 ทุกคนอิ่มท้อง', cost: 150, icon: 'grain', dark: false, big: true },
   uprising: { name: 'ปลุกใจผู้คน', text: 'ใต้การยึดครองของจอมมาร: ขบวนการต่อต้าน +50%', cost: 150, icon: 'sword', dark: false, big: true },
+  quake: { name: 'แผ่นดินไหว', text: 'แผ่นดินแยก บ้านเรือนและอาคารหลวงพังทลาย ผู้คนล้มตาย', cost: 150, icon: 'skull', dark: true, big: true },
+  flood: { name: 'อุทกภัย', text: 'ฝนตกไม่หยุดจนน้ำท่วมใหญ่ ข้าวเสียหาย คนจมน้ำ บ้านพัง', cost: 150, icon: 'rain', dark: true, big: true },
+  drought: { name: 'ภัยแล้ง', text: 'ฝนไม่ตกหลายเดือน ทุ่งนาแห้งแตกระแหง สัตว์และคนแก่ล้มตาย', cost: 120, icon: 'sun', dark: true, big: true },
+  tyranny: { name: 'ใจทรราช', text: 'ผู้ปกครองกลายเป็นคนโลภและอาฆาต ชาวเมืองเกลียดชัง', cost: 150, icon: 'crown', dark: true, big: true },
+  doom: { name: 'ปลุกจอมมาร', text: 'ลางร้ายเต็มทันที จอมมารตื่นขึ้นในไม่ช้า', cost: 400, icon: 'demon', dark: true, big: true },
 };
 const REVIVE_DAYS = 365;
 
@@ -170,6 +177,9 @@ export function miracleBlocked(world: WorldState, k: MiracleKind): string | unde
   if (k === 'aegis' && world.aegis) return 'โล่ศักดิ์สิทธิ์ยังคุ้มครองเมืองอยู่';
   if (k === 'revive' && !reviveTarget(world)) return 'ไม่มีคนสำคัญที่เพิ่งตายในปีนี้';
   if (k === 'uprising' && world.demon?.stage !== 'occupied') return 'ใช้ได้เมื่อจอมมารยึดเมืองเท่านั้น';
+  if ((k === 'quake' || k === 'flood' || k === 'drought') && occupied(world)) return 'เมืองอยู่ใต้การยึดครองของจอมมาร';
+  if (k === 'tyranny' && !king(world)) return 'เมืองไม่มีผู้ปกครอง';
+  if (k === 'doom' && world.demon) return 'จอมมารตื่นอยู่แล้ว';
   return undefined;
 }
 export const MIRACLE_ORDER = Object.keys(MIRACLES) as MiracleKind[];
@@ -232,6 +242,27 @@ function work(world: WorldState, k: MiracleKind, rng: Rng): boolean {
       log(world, 'bless', 'ยุ้งฉางทุกแห่งเต็มล้นด้วยข้าวที่ไม่มีใครปลูก คอกสัตว์มีลูกสัตว์เกิดใหม่เต็มไปหมด');
       return true;
     }
+    case 'quake':
+    case 'flood':
+    case 'drought':
+      sway(world, -4);
+      bringDisaster(world, rng, k === 'flood' ? 'deluge' : k);
+      if (k === 'flood' && !flooded(world)) bringDisaster(world, rng, 'flood');
+      return true;
+    case 'tyranny': {
+      const ruler = king(world)!;
+      ruler.traits = ['greedy', 'vengeful'];
+      ruler.morality = clamp(ruler.morality - 40, -100, 100);
+      for (const n of grown) if (n !== ruler) n.loyalty = clamp(loyaltyOf(n) - 10, 0, 100);
+      sway(world, -3);
+      log(world, 'curse', `เงามืดกระซิบข้างหู${ruler.name}ทุกคืน จนจิตใจกลายเป็นทรราชที่โลภและอาฆาต`, ruler.id);
+      return true;
+    }
+    case 'doom':
+      world.dread = 100;
+      sway(world, -10);
+      log(world, 'cult', 'ท้องฟ้าแดงฉานดั่งเลือด เสียงหัวเราะดังก้องจากใต้พิภพ ผนึกของจอมมารแตกร้าวจนสุดทาง');
+      return true;
     case 'uprising':
       world.demon!.resistance = Math.min(100, (world.demon!.resistance ?? 0) + 50);
       sway(world, 2);

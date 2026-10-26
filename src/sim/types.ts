@@ -259,7 +259,7 @@ export interface War {
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
-export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising';
+export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom';
 
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';
 
