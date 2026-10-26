@@ -5,6 +5,7 @@
 import { chance, int, type Rng } from './rng';
 import { cursed, decreeActive, log, perkLevel, known } from './core';
 import { weatherYield } from './divine';
+import { mastery } from './research';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
 import { caravanHome } from './worldevents';
@@ -130,7 +131,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * ((world.strike ?? 0) > world.day ? 0.5 : 1); // half the hands are out on strike
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * ((world.strike ?? 0) > world.day ? 0.5 : 1); // half the hands are out on strike
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }
@@ -260,6 +261,7 @@ function caravans(world: WorldState, m: Market): void {
   if (gear) m.till -= gearCost;
   if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
   if (built(world, 'station')) gold *= 1.2; // goods go by rail
+  gold *= 1 + mastery(world, 'commerce');
   if (!gold && !buying && !gear) return;
   const charted = known(world, 'navigation'); // maps and a compass: shorter roads, better deals
   if (charted) gold *= 1.15;

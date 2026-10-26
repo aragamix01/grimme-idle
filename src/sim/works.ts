@@ -7,6 +7,7 @@ import { legend } from './quests';
 import { king, payrollReserve } from './society';
 import { PLOTS } from './town';
 import { ensureMarket } from './market';
+import { mastery } from './research';
 import { traveller } from './world';
 import type { Npc, Work, WorldState } from './types';
 
@@ -51,7 +52,7 @@ export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefi
 export const monumentTier = (world: WorldState) => world.monument ?? 0;
 const open = (world: WorldState, k: Work) => k === 'monument' || !built(world, k);
 // Architecture makes every work a quarter cheaper and quicker.
-const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1);
+const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1) * Math.max(0.4, 1 - mastery(world, 'engineering'));
 export const workCost = (world: WorldState, k: Work) => Math.round((WORKS[k].cost + (k === 'monument' ? monumentTier(world) * MONUMENT_STEP : 0)) * plans(world));
 const workDays = (world: WorldState, k: Work) => Math.round(WORKS[k].days * plans(world));
 

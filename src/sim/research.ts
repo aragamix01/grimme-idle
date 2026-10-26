@@ -6,7 +6,7 @@ import { known, log } from './core';
 import { legend } from './quests';
 import { king } from './society';
 import { ageOf, markAge } from './ages';
-import type { Npc, Tech, WorldState } from './types';
+import type { Field, Npc, Tech, WorldState } from './types';
 
 export interface TechDef {
   name: string;
@@ -34,6 +34,53 @@ export const TECHS: Record<Tech, TechDef> = {
 export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'irrigation', 'levee', 'navigation', 'arcana', 'printing', 'ironframe', 'chemistry', 'steam', 'railway'];
 
 const ASK_DAY = 12; // day of the month the king sets a new question
+
+// Once every discovery is made, the scholars go deeper, field by field, without end: each level
+// costs more than the last and adds a little.
+export const FIELDS: Record<Field, { name: string; text: string; icon: string; step: number }> = {
+  agronomy: { name: 'เกษตรศาสตร์ขั้นสูง', text: 'ผลผลิตข้าว', icon: 'plough', step: 0.03 },
+  physick: { name: 'แพทยศาสตร์ขั้นสูง', text: 'โรคระบาดคร่าชีวิตน้อยลง', icon: 'medicine', step: 0.04 },
+  commerce: { name: 'เศรษฐศาสตร์', text: 'กำไรกองคาราวาน', icon: 'navigation', step: 0.04 },
+  engineering: { name: 'วิศวกรรมศาสตร์', text: 'งานก่อสร้างถูกลงและเร็วขึ้น', icon: 'architecture', step: 0.04 },
+};
+export const FIELD_ORDER = Object.keys(FIELDS) as Field[];
+const MASTERY_BASE = 1500;
+const MASTERY_STEP = 500; // per level already reached, in any field
+export const masteryLevel = (world: WorldState, f: Field) => world.mastery?.[f] ?? 0;
+export const masteryCost = (world: WorldState) => MASTERY_BASE + MASTERY_STEP * FIELD_ORDER.reduce((s, f) => s + masteryLevel(world, f), 0);
+// The bonus a field gives: a multiplier above one (yield, profit) or below it (deaths, costs).
+export const mastery = (world: WorldState, f: Field) => masteryLevel(world, f) * FIELDS[f].step;
+
+// Which field the ruler sets next: what has hurt the town lately, and their nature.
+function wantField(world: WorldState, f: Field, ruler: Npc): number {
+  const recent = world.chronicle.filter((e) => e.day > world.day - 730);
+  const has = (tr: Npc['traits'][number]) => (ruler.traits.includes(tr) ? 1 : 0);
+  switch (f) {
+    case 'agronomy':
+      return 1 + recent.filter((e) => /ข้าวหมดตลาด|ความหิวโหย/.test(e.text)).length + has('kind');
+    case 'physick':
+      return 1 + recent.filter((e) => e.text.includes('โรคระบาด')).length + has('kind');
+    case 'commerce':
+      return 1 + has('greedy') * 2;
+    case 'engineering':
+      return 1 + has('brave') + (world.ruins?.length ? 1 : 0);
+  }
+}
+
+function advancedStudy(world: WorldState, rng: Rng): void {
+  const f = world.study;
+  if (f && (world.knowledge ?? 0) >= masteryCost(world)) {
+    world.knowledge! -= masteryCost(world);
+    (world.mastery ??= {})[f] = masteryLevel(world, f) + 1;
+    world.study = undefined;
+    log(world, 'world', `นักปราชญ์ก้าวหน้าใน${FIELDS[f].name}เป็นขั้นที่ ${masteryLevel(world, f)}! ${FIELDS[f].text}ดีขึ้นอีก`);
+  }
+  if (world.study || world.day % 30 !== ASK_DAY) return;
+  const ruler = king(world);
+  if (!ruler) return;
+  world.study = FIELD_ORDER.map((k) => [k, wantField(world, k, ruler) + (chance(rng, 0.5) ? 0.5 : 0)] as const).sort((a, b) => b[1] - a[1])[0][0];
+  log(world, 'politics', `กษัตริย์${ruler.name}สั่งให้นักปราชญ์ศึกษา${FIELDS[world.study].name}ต่อ`, ruler.id);
+}
 
 // How much the town needs each answer right now, as the king sees it.
 function want(world: WorldState, t: Tech, ruler: Npc): number {
@@ -81,6 +128,7 @@ export function researchDay(world: WorldState, rng: Rng): void {
     legend(world, `ค้นพบ${TECHS[t].name}`);
     markAge(world, age);
   }
+  if (TECH_ORDER.every((k) => known(world, k))) return advancedStudy(world, rng);
   if (world.research || world.day % 30 !== ASK_DAY) return;
   const ruler = king(world);
   if (!ruler) return; // no crown, no one to set the question

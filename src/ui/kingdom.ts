@@ -1,4 +1,4 @@
-import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -239,7 +239,29 @@ function researchSection(world: WorldState): HTMLElement {
       }
       return row;
     }),
-  ], world.research ? `กำลังค้นคว้า${TECHS[world.research].name}` : `${age.name}`);
+    ...(TECH_ORDER.every((k) => known(world, k)) ? masteryRows(world, have) : []),
+  ], world.research ? `กำลังค้นคว้า${TECHS[world.research].name}` : world.study ? `กำลังศึกษา${FIELDS[world.study].name}` : `${age.name}`);
+}
+
+// Once everything is found: the endless advanced studies, level by level.
+function masteryRows(world: WorldState, have: number): HTMLElement[] {
+  const cost = masteryCost(world);
+  return FIELD_ORDER.map((f) => {
+    const d = FIELDS[f];
+    const lv = masteryLevel(world, f);
+    const row = el(
+      'li',
+      { className: 'work tech' },
+      el('img', { src: `/assets/sprites/icons/${d.icon}.png`, alt: '', className: 'work__art tech__icon' }),
+      el('div', {}, el('b', { textContent: `${d.name} ขั้น ${lv}` }), el('p', { className: 'realm-king__meta', textContent: `${d.text} ${Math.round(mastery(world, f) * 100)}% · ${world.study === f ? `กำลังศึกษา · ความรู้ ${Math.min(have, cost)}/${cost}` : `ขั้นถัดไปใช้ความรู้ ${cost}`}` })),
+    );
+    if (world.study === f) {
+      const bar = el('i');
+      bar.style.width = `${Math.min(100, (have / cost) * 100)}%`;
+      row.querySelector('div')!.append(el('span', { className: 'tech__bar' }, bar));
+    }
+    return row;
+  });
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.

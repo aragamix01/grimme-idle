@@ -12,7 +12,7 @@ export { troubleChance } from './troubles';
 export { flooded, ruined, stricken } from './disasters';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER, workCost } from './works';
-export { TECHS, TECH_ORDER } from './research';
+export { FIELDS, FIELD_ORDER, TECHS, TECH_ORDER, mastery, masteryCost, masteryLevel } from './research';
 export { REGIMES, council, regimeOf, rulerLook, rulerTitle } from './government';
 export { councilName } from './core';
 export { say } from './lexicon';

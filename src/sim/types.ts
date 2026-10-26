@@ -89,6 +89,7 @@ export interface Charter {
 }
 export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
+export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
 
 export interface Dragon {
@@ -381,6 +382,8 @@ export interface WorldState {
   council?: { vetoes: number; overrides: number; deadlock?: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them
+  mastery?: Partial<Record<Field, number>>; // levels of the endless advanced studies, once every discovery is made
+  study?: Field; // the advanced study under way
   knowledge?: number;
   monument?: number; // tiers of the kingdom's monument raised so far
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
