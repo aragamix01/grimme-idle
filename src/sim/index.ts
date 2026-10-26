@@ -7,6 +7,7 @@ export { ADULT_AGE, ELDER_AGE } from './life';
 export { GOODS, GOOD_TH, MAX_GEAR, SEASON_TH, seasonOf } from './market';
 export { COMMON_JOBS } from './society';
 export { GAME_CAP, HERD_CAP } from './livestock';
+export { troubleChance } from './troubles';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
 export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, statueHero } from './era';

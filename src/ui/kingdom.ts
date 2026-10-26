@@ -1,4 +1,4 @@
-import { WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -47,6 +47,7 @@ export function renderKingdom(world: WorldState): void {
     Math.floor(world.dread ?? 0),
     world.demon && { ...world.demon, power: Math.round(world.demon.power) },
     heroOf(world)?.level,
+    world.golden,
     bestHero(world)?.id,
   ]);
   if (key === lastKey) return;
@@ -73,6 +74,7 @@ export function renderKingdom(world: WorldState): void {
       el('span', { className: 'chip' }, icon('sword', 16), `ทหาร ${soldiers.length} นาย · ภักดี ${avg(soldiers)}`),
       el('span', { className: 'chip' }, icon('crown', 16), `อัศวิน ${knights.length}`),
       el('span', { className: 'chip' }, icon('gold', 16), `ท้องพระคลัง ${Math.floor(world.treasury)}`),
+      ...(world.golden ? [el('span', { className: 'chip chip--gold', title: 'ยุครุ่งเรืองที่ยาวนานมักจบด้วยปัญหา: ราชสำนักโลภ โรคระบาด หรือมังกร' }, icon('star', 16), `ยุครุ่งเรือง ${world.golden} เดือน · เสี่ยงเกิดเรื่อง ${Math.round(troubleChance(world.golden) * 100)}%`)] : []),
     ),
     section(
       'ขุนนางในราชสำนัก',
