@@ -28,6 +28,7 @@ import { researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
 import { spendSurplus } from './treasury';
+import { charterOf } from './charter';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -100,6 +101,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   ensureDungeons(world);
   ensureRealms(world, rng);
   ensureWilds(world);
+  charterOf(world);
   applyCommands(world, commands, rng);
 
   world.day++;
@@ -165,7 +167,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.regime === 'theocracy' ? 0.3 : 0.1) + Math.min(5, world.monument ?? 0) * 0.02; // a priest-ruled town prays all day; pilgrims visit the monument
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.charter?.stateFaith ? 0.3 : 0.1) + Math.min(5, world.monument ?? 0) * 0.02; // a state faith prays all day; pilgrims visit the monument
   world.rng = rng.state;
   return world;
 }

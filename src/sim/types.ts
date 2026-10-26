@@ -74,6 +74,18 @@ export interface Plan {
 
 export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
 
+// The town's constitution (see charter.ts).
+export interface Charter {
+  termYears: number; // years between elections; 0 where nobody is elected
+  termLimit: number | null; // consecutive terms a leader may serve; null for no limit
+  franchise: 'none' | 'all' | 'propertied' | 'lettered'; // who may vote
+  councilVeto: boolean; // whether the council can block decrees
+  taxCap: Tax | null; // the highest tax the ruler may set
+  stateFaith: boolean; // the god's faith is the state's: more prayer, less free inquiry
+  emergency?: boolean; // the ruler holds emergency powers; no elections
+  written: number; // day this charter was written
+  amendments: { day: number; text: string }[];
+}
 export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing';
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument';
@@ -354,6 +366,7 @@ export interface WorldState {
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   regime?: Regime; // how the town is governed; missing means a king
+  charter?: Charter; // missing in saves from before constitutions: written from the regime
   republic?: { since: number; elections: number; nextVote: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
   council?: { vetoes: number; overrides: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found

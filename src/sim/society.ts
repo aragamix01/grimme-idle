@@ -3,6 +3,7 @@
 import { chance, next, pick, type Rng } from './rng';
 import { decreeActive, known, log, occupied } from './core';
 import { RULER_TH } from './lexicon';
+import { writeCharter } from './charter';
 import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
@@ -146,6 +147,7 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
     world.regime = undefined; // whoever seizes power crowns themselves
     world.republic = undefined;
     log(world, 'politics', `${n.name}ล้มการปกครองเดิม แล้วสถาปนาราชบัลลังก์ขึ้นใหม่`, n.id);
+    writeCharter(world, 'สถาปนาราชบัลลังก์ขึ้นใหม่');
   }
   leaveTrade(n);
   n.job = 'king';

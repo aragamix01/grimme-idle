@@ -8,6 +8,7 @@ import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
 import { known } from './core';
 import { RULER_TH } from './lexicon';
+import { charterOf } from './charter';
 import { literacy } from './learning';
 import { isRepublic, proclaimRepublic } from './republic';
 import { sway } from './cult';
@@ -121,6 +122,8 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
   if (k.traits.includes('kind') && world.treasury > reserve * 3) i = Math.max(0, i - 1);
   if (world.regime === 'oligarchy') i = Math.max(0, i - 1); // the rich govern, and tax themselves lightly
   if (world.regime === 'junta') i = Math.min(2, i + 1); // the army must be fed
+  const cap = charterOf(world).taxCap;
+  if (cap) i = Math.min(i, levels.indexOf(cap)); // the charter's ceiling
   const next = levels[i];
   if (next === crown.tax) return;
   const up = levels.indexOf(next) > levels.indexOf(crown.tax);

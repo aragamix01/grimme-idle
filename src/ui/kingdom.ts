@@ -1,4 +1,4 @@
-import { AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -58,6 +58,7 @@ export function renderKingdom(world: WorldState): void {
     world.republic,
     reformers(world).length,
     world.council,
+    world.charter,
     world.techs,
     world.research,
     Math.floor((world.knowledge ?? 0) / 5),
@@ -96,6 +97,7 @@ export function renderKingdom(world: WorldState): void {
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
       `${nobles.length} คน`,
     ),
+    charterSection(world),
     councilSection(world),
     decreesSection(world),
     worksSection(world),
@@ -161,6 +163,15 @@ function occupiedCard(world: WorldState): HTMLElement {
 }
 
 // The king's decrees: which are in force, when each was last issued.
+// The constitution: its clauses, and how the town has amended it.
+function charterSection(world: WorldState): HTMLElement {
+  const c = charterOf(world);
+  const rows = clauses(c).map((t) => el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `§ ${t}` })));
+  rows.push(el('li', { className: 'council' }, el('small', { className: 'realm-king__meta', textContent: `ร่างขึ้นเมื่อ D${c.written}` })));
+  for (const a of c.amendments.slice().reverse()) rows.push(el('li', { className: 'legend' }, icon('book', 16), el('span', { textContent: a.text }), el('time', { textContent: `D${a.day}` })));
+  return section('รัฐธรรมนูญ', rows, c.amendments.length ? `แก้ไขแล้ว ${c.amendments.length} ครั้ง` : 'ยังไม่เคยแก้ไข', 'charter');
+}
+
 // The nobles as the king's council: who sits, how often they have said no, and the last vote.
 function councilSection(world: WorldState): HTMLElement {
   const c = world.council;

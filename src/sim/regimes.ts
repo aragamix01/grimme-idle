@@ -10,6 +10,7 @@ import { approval, crownPower, loyaltyOf } from './politics';
 import { enthrone, king, payrollReserve } from './society';
 import { literacy, literate } from './learning';
 import { proclaimRepublic } from './republic';
+import { writeCharter } from './charter';
 import type { Npc, Regime, WorldState } from './types';
 
 const TURN_DAY = 27; // day of the month the town may change how it is ruled
@@ -39,6 +40,7 @@ export function seize(world: WorldState, r: Regime, n: Npc, how: string, legendT
   world.republic = undefined;
   if (n.job !== 'king') n.formerJob = n.job;
   enthrone(world, n, how, true);
+  writeCharter(world, `${n.name}ขึ้นปกครอง`);
   legend(world, legendText, n.id);
 }
 

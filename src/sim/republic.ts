@@ -8,9 +8,11 @@ import { ensureCrown, loyaltyOf } from './politics';
 import { leaveTrade } from './society';
 import { getTie } from './ties';
 import { literate } from './learning';
+import { charterOf, writeCharter } from './charter';
 import type { Npc, WorldState } from './types';
 
-const TERM = 3 * 365; // days between elections
+// Days between elections, as the charter sets them.
+const term = (world: WorldState) => (charterOf(world).termYears || 3) * 365;
 const CANDIDATES = 3;
 const RICH = 60; // a voter this well off votes with their purse
 
@@ -84,7 +86,7 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
   for (const v of world.npcs) if (v.alive && v.age >= 16) loyaltyNudge(v, backers.get(winner.id)!.includes(v) ? 5 : -3);
   const r = (world.republic ??= { since: world.day, elections: 0, nextVote: 0 });
   r.elections++;
-  r.nextVote = world.day + TERM;
+  r.nextVote = world.day + term(world);
   r.last = { day: world.day, results: ranked.map((c) => ({ id: c.id, name: c.name, votes: votes.get(c.id)! })) };
   const tally = ranked.map((c) => `${c.name} ${votes.get(c.id)} เสียง`).join(' · ');
   log(world, 'politics', `การเลือกตั้งครั้งที่ ${r.elections} (${why}): ${tally} ${winner.name}${kept ? 'ได้รับเลือกอีกสมัย' : 'ได้เป็นผู้นำสภาคนใหม่'}`, winner.id);
@@ -96,6 +98,7 @@ export function proclaimRepublic(world: WorldState, leader: Npc, rng: Rng): void
   log(world, 'politics', `${leader.name}ประกาศว่าเมืองนี้จะไม่มีกษัตริย์อีกต่อไป ชาวเมืองจะเลือกผู้นำของตนเอง สาธารณรัฐถือกำเนิดขึ้น!`, leader.id);
   world.regime = 'republic';
   world.republic = { since: world.day, elections: 0, nextVote: 0 };
+  writeCharter(world, 'สาธารณรัฐถือกำเนิด');
   legend(world, `${leader.name} ก่อตั้งสาธารณรัฐ`, leader.id);
   election(world, rng, 'ครั้งแรกของสาธารณรัฐ');
 }
@@ -103,7 +106,7 @@ export function proclaimRepublic(world: WorldState, leader: Npc, rng: Rng): void
 // The hero who freed the town from the demon leads it by acclaim until the next election.
 export function acclaim(world: WorldState, hero: Npc, how: string): void {
   install(world, hero);
-  world.republic!.nextVote = world.day + TERM;
+  world.republic!.nextVote = world.day + term(world);
   log(world, 'politics', `ชาวเมืองยกให้${hero.name}เป็นผู้นำสภาโดยไม่ต้องเลือกตั้ง (${how})`, hero.id);
 }
 
@@ -113,6 +116,7 @@ export function republicDay(world: WorldState, rng: Rng): void {
   const r = world.republic!;
   const leader = world.npcs.find((n) => n.id === world.kingId && n.alive && n.job === 'king');
   if (!leader) election(world, rng, 'ผู้นำคนเดิมจากไป');
+  else if (charterOf(world).emergency) r.nextVote = Math.max(r.nextVote, world.day + 1); // no votes under emergency powers
   else if (world.day >= r.nextVote) election(world, rng, 'ครบวาระ');
   else if ((world.crown?.unrest ?? 0) >= 2 && chance(rng, 0.5)) {
     world.crown!.unrest = 0;
