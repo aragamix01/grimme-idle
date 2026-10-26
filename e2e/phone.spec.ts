@@ -149,7 +149,7 @@ test('taps on the map still land after the page has scrolled', async ({ page }) 
 
 test('the miracles dialog shows its miracles even while time is stopped', async ({ page }) => {
   await page.locator('#miracle-open').tap();
-  await expect(page.locator('#miracles .miracle')).toHaveCount(9);
+  await expect(page.locator('#miracles .miracle')).toHaveCount(19);
 });
 
 test('keeps can be picked again and again while time is running', async ({ page }) => {
