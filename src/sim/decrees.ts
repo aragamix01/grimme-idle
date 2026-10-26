@@ -7,6 +7,7 @@ import { leaveTrade } from './society';
 import { priceRatio } from './market';
 import { king, payrollReserve } from './society';
 import { traveller } from './world';
+import { putToCouncil } from './government';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -27,6 +28,7 @@ export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', '
 
 const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
+const VETO_WAIT = 60; // days before a decree the council blocked may be put to it again
 const SPARE = 200; // gold kept back beyond the soldiers' pay
 const FULL_TOWN = 80;
 const SHORT = 6; // residents missing before the king sends for labour
@@ -125,6 +127,10 @@ export function decreesDay(world: WorldState, rng: Rng): void {
   if (!k) return;
   const next = DECREE_ORDER.find((d) => !decreeActive(world, d) && ready(world, d) && RULES[d].wants(world, k, rng));
   if (!next) return;
+  if (!putToCouncil(world, next, DECREES[next].name, k, rng)) {
+    (world.decreeAt ??= {})[next] = world.day - COOLDOWN + VETO_WAIT; // the king may try again later
+    return;
+  }
   const what = RULES[next].issue(world, k, rng);
   (world.decrees ??= []).push({ kind: next, since: world.day, until: world.day + DECREES[next].days });
   (world.decreeAt ??= {})[next] = world.day;

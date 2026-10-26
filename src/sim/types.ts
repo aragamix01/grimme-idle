@@ -73,6 +73,7 @@ export interface Plan {
 
 export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
 
+export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing';
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press';
 
@@ -350,6 +351,8 @@ export interface WorldState {
   yearSamples?: { pop: number[]; gold: number[] }; // this year's monthly samples so far
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
+  regime?: Regime; // how the town is governed; missing means a king
+  council?: { vetoes: number; overrides: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them
   knowledge?: number; // what the scholars have worked out, for research to spend; missing before scholars

@@ -1,4 +1,4 @@
-import { DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { REGIMES, council, regimeOf, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -53,6 +53,11 @@ export function renderKingdom(world: WorldState): void {
     world.decrees,
     world.decreeAt,
     world.labour,
+    world.regime,
+    world.council,
+    world.techs,
+    world.research,
+    Math.floor((world.knowledge ?? 0) / 5),
     world.dragon && [world.dragon.hp, world.dragon.hoard, world.dragon.nextStrike],
     bestHero(world)?.id,
   ]);
@@ -87,6 +92,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    councilSection(world),
     decreesSection(world),
     worksSection(world),
     researchSection(world),
@@ -149,6 +155,19 @@ function occupiedCard(world: WorldState): HTMLElement {
 }
 
 // The king's decrees: which are in force, when each was last issued.
+// The nobles as the king's council: who sits, how often they have said no, and the last vote.
+function councilSection(world: WorldState): HTMLElement {
+  const c = world.council;
+  const seats = council(world);
+  const RESULT = { passed: 'ผ่าน', vetoed: 'ถูกยับยั้ง', overridden: 'กษัตริย์ใช้อำนาจข้ามสภา' } as const;
+  const rows = [
+    el('li', { className: 'council' }, el('b', { textContent: `สมาชิก ${seats.length} คน` }), el('p', { className: 'realm-king__meta', textContent: seats.length < 2 ? 'ขุนนางน้อยเกินกว่าจะคัดค้านกษัตริย์ได้' : 'ทุกพระราชโองการต้องผ่านมติสภา เสียงข้างมากคัดค้านได้ เว้นแต่กษัตริย์จะมีอำนาจมากพอ' })),
+    el('li', { className: 'council' }, el('span', { className: 'chip' }, `ยับยั้งมาแล้ว ${c?.vetoes ?? 0} ครั้ง`), el('span', { className: 'chip' }, `ถูกใช้อำนาจข้าม ${c?.overrides ?? 0} ครั้ง`)),
+  ];
+  if (c?.last) rows.push(el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `มติล่าสุด D${c.last.day}: ${DECREES[c.last.decree].name} เห็นชอบ ${c.last.ayes} คัดค้าน ${c.last.nays} · ${RESULT[c.last.result]}` })));
+  return section('สภาขุนนาง', rows);
+}
+
 function decreesSection(world: WorldState): HTMLElement {
   return section(
     'พระราชโองการ',
@@ -168,7 +187,6 @@ function decreesSection(world: WorldState): HTMLElement {
   );
 }
 
-// What the crown has built with its gold, what is going up now, and what it might build next.
 // The scholars' questions: what has been found, what they are on now, and how close they are.
 function researchSection(world: WorldState): HTMLElement {
   const have = Math.floor(world.knowledge ?? 0);
@@ -198,6 +216,7 @@ function researchSection(world: WorldState): HTMLElement {
   );
 }
 
+// What the crown has built with its gold, what is going up now, and what it might build next.
 function worksSection(world: WorldState): HTMLElement {
   const job = world.building;
   return section(
@@ -405,6 +424,7 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
       'div',
       { className: 'realm-king__body' },
       name,
+      el('p', { className: 'realm-king__meta', textContent: `ระบอบ${REGIMES[regimeOf(world)].name} · ${REGIMES[regimeOf(world)].text}` }),
       el('p', { className: 'realm-king__meta', textContent: `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}` }),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),

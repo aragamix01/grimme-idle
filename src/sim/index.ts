@@ -12,6 +12,7 @@ export { troubleChance } from './troubles';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER, workCost } from './works';
 export { TECHS, TECH_ORDER } from './research';
+export { REGIMES, council, regimeOf } from './government';
 export { literacy, literate, schoolAge } from './learning';
 export const PLACES_SCHOOL = PLACES.school;
 export { yearPage } from './annals';
