@@ -3,7 +3,9 @@ import type { FromWorker, OfflineReport, ToWorker } from './protocol';
 import { clearSave, loadSave, writeSave } from './storage';
 
 const AUTOSAVE_EVERY = 10; // days
-const OFFLINE_CAP = 1000; // days simulated while the tab was closed
+const OFFLINE_CAP = 5 * 365; // days simulated while the tab was closed
+const PROGRESS_EVERY = 30; // days between progress reports during a catch-up
+const HIGHLIGHTS = 8;
 const HIGHLIGHT_KINDS = new Set<EventKind>(['battle', 'death', 'disaster', 'bless', 'curse', 'quest', 'rank', 'trade', 'politics', 'cult']);
 
 let world: WorldState | null = null;
@@ -32,13 +34,24 @@ function run(ms: number): void {
 function catchUp(w: WorldState, savedAt: number, ms: number): OfflineReport | null {
   const days = Math.min(Math.floor((Date.now() - savedAt) / ms), OFFLINE_CAP);
   if (days < 1) return null;
-  const fromSeq = w.chronicleSeq;
-  for (let i = 0; i < days; i++) tick(w);
-  const entries = w.chronicle.filter((e) => e.seq > fromSeq);
+  const fromDay = w.day;
   const counts: OfflineReport['counts'] = {};
-  for (const e of entries) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
-  const highlights = entries.filter((e) => HIGHLIGHT_KINDS.has(e.kind)).slice(-5).reverse();
-  return { days, counts, highlights };
+  const highlights: OfflineReport['highlights'] = [];
+  // The chronicle only keeps its latest few hundred entries, so tally each day's as it happens.
+  let seen = w.chronicleSeq;
+  for (let i = 0; i < days; i++) {
+    tick(w);
+    for (const e of w.chronicle) {
+      if (e.seq <= seen) continue;
+      counts[e.kind] = (counts[e.kind] ?? 0) + 1;
+      if (HIGHLIGHT_KINDS.has(e.kind)) highlights.push(e);
+    }
+    if (highlights.length > HIGHLIGHTS) highlights.splice(0, highlights.length - HIGHLIGHTS);
+    seen = w.chronicleSeq;
+    if (i % PROGRESS_EVERY === 0) post({ type: 'catchup', done: i, total: days });
+  }
+  const legends = w.legends.filter((l) => l.day > fromDay);
+  return { days, counts, highlights: highlights.reverse(), legends };
 }
 
 async function start(ms: number): Promise<void> {

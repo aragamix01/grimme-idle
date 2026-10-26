@@ -459,3 +459,11 @@ html:has(dialog[open]) { overflow: hidden; }
   .btn { min-height: 40px; }
 }
 .dragon-portrait { background: #7fd8f8 0 50% / 96px 77px no-repeat; }
+
+.offline-sub { margin: 0 0 4px; font-size: 14px; }
+/* A note over the map while a long absence is caught up on. */
+.catchup {
+  position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 30; max-width: calc(100% - 32px);
+  padding: 10px 16px; background: var(--paper); border: 3px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+  font-weight: 600; text-align: center;
+}

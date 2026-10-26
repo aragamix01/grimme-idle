@@ -11,7 +11,7 @@ import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
 import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
-import { showOfflineReport } from './ui/offline';
+import { hideCatchup, showCatchup, showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
 import { containScroll } from './ui/contain';
@@ -215,6 +215,11 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
     showOfflineReport(msg.report);
     return;
   }
+  if (msg.type === 'catchup') {
+    showCatchup(msg.done, msg.total);
+    return;
+  }
+  hideCatchup();
   world = msg.world;
   scene.setWorld(world);
   mapScene.setWorld(world);

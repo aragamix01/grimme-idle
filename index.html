@@ -64,11 +64,17 @@
     </div>
 
     <div id="bubbles" aria-hidden="true"></div>
+    <div id="catchup" class="catchup" role="status" hidden></div>
 
     <dialog id="offline">
       <h2>ระหว่างที่คุณไม่อยู่</h2>
       <p id="offline-days" class="offline-days"></p>
       <ul id="offline-counts" class="offline-counts"></ul>
+      <section id="offline-legends-sec" hidden>
+        <h3 class="offline-sub">ตำนานที่เกิดขึ้น</h3>
+        <ol id="offline-legends" class="offline-list"></ol>
+      </section>
+      <h3 class="offline-sub">เหตุการณ์ล่าสุด</h3>
       <ol id="offline-highlights" class="offline-list"></ol>
       <form method="dialog"><button class="btn btn--gold">กลับสู่โลก</button></form>
     </dialog>

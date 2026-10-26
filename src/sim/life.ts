@@ -18,11 +18,18 @@ const POPULATION_CAP = 90; // families stop growing when the town is this full
 
 export const isChild = (n: Npc) => n.age < ADULT_AGE;
 export const isElder = (n: Npc) => n.age >= ELDER_AGE;
-const single = (world: WorldState, n: Npc) => {
-  const s = world.npcs.find((x) => x.id === n.spouseId);
-  return !s?.alive;
-};
-const byId = (world: WorldState, id?: number) => world.npcs.find((n) => n.id === id);
+// Who is who and who is still single, built once a day: romance asks it for every pair in town,
+// and a long offline catch-up runs thousands of days of that.
+let index: { npcs: Npc[]; day: number; byId: Map<number, Npc>; single: Set<number>; open: Npc[] } | null = null;
+function lookup(world: WorldState) {
+  if (index?.npcs === world.npcs && index.day === world.day && index.byId.size === world.npcs.length) return index;
+  const byId = new Map(world.npcs.map((n) => [n.id, n]));
+  const single = new Set(world.npcs.filter((n) => !(n.spouseId !== undefined && byId.get(n.spouseId)?.alive)).map((n) => n.id));
+  const open = world.npcs.filter((n) => n.alive && !isChild(n) && single.has(n.id)); // grown, living and unwed
+  return (index = { npcs: world.npcs, day: world.day, byId, single, open });
+}
+const single = (world: WorldState, n: Npc) => lookup(world).single.has(n.id);
+const byId = (world: WorldState, id?: number) => (id === undefined ? undefined : lookup(world).byId.get(id));
 
 // Birthdays are spread over the year so the town doesn't age all at once.
 export const isBirthday = (world: WorldState, n: Npc) => (world.day + n.id * 37) % 365 === 0;
@@ -56,8 +63,9 @@ export function crushOf(world: WorldState, n: Npc): Npc | undefined {
   if (isChild(n) || !single(world, n)) return undefined;
   let best: Npc | undefined;
   let bestTie = COURT_TIE - 1;
-  for (const o of world.npcs) {
-    if (o === n || !o.alive || isChild(o) || !single(world, o) || related(n, o)) continue;
+  const { open, single: unwed } = lookup(world);
+  for (const o of open) {
+    if (o === n || !o.alive || !unwed.has(o.id) || related(n, o)) continue;
     const t = getTie(world, n.id, o.id);
     if (t > bestTie) {
       bestTie = t;
@@ -87,6 +95,8 @@ export function romance(world: WorldState, rng: Rng): void {
     if (getTie(world, a.id, b.id) < MARRY_TIE || Math.abs(a.morality - b.morality) > 80 || !chance(rng, MARRY_CHANCE)) continue;
     a.spouseId = b.id;
     b.spouseId = a.id;
+    lookup(world).single.delete(a.id);
+    lookup(world).single.delete(b.id);
     log(world, 'bond', `${a.name} และ${b.name} แต่งงานกัน`, a.id);
   }
 }
