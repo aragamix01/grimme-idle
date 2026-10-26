@@ -8,6 +8,7 @@ import { weatherYield } from './divine';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
 import { caravanHome } from './worldevents';
+import { built } from './works';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
@@ -152,8 +153,10 @@ export function marketDay(world: WorldState, rng: Rng): void {
   const m = ensureMarket(world);
   if (world.day % 365 === Math.round(SEASONS.indexOf('autumn') * 91.25)) log(world, 'world', 'ฤดูเก็บเกี่ยวมาถึง ทุ่งนาเหลืองอร่าม');
   if (world.day % 365 === Math.round(SEASONS.indexOf('winter') * 91.25)) log(world, 'world', 'ฤดูหนาวมาเยือน ทุ่งนาแทบไม่ให้ผล');
-  m.stock.grain = Math.max(0, m.stock.grain - m.stock.grain * SPOIL);
-  m.stock.meat = Math.max(0, m.stock.meat - m.stock.meat * MEAT_SPOIL);
+  // The royal granary keeps the rats and the damp out.
+  const granary = built(world, 'granary');
+  m.stock.grain = Math.max(0, m.stock.grain - m.stock.grain * SPOIL * (granary ? 0.4 : 1));
+  m.stock.meat = Math.max(0, m.stock.meat - m.stock.meat * MEAT_SPOIL * (granary ? 0.6 : 1));
 
   // Meals: a sack of grain or a cut of meat, whichever is cheaper today. Children eat from a parent's purse.
   const byId = new Map(world.npcs.map((n) => [n.id, n]));

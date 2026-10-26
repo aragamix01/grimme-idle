@@ -87,6 +87,9 @@ export const doorOf = (key: string, tx: number, ty: number) => {
   return { x: tx + Math.floor(w / 32), y: ty + Math.ceil(h / 16) };
 };
 
+// Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
+export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 } } as const;
+
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
 export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
 export const PASTURE = { x0: 14, y0: 19, x1: 24, y1: 23 }; // grazing, east of it
@@ -158,6 +161,9 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
     for (let y = ty; y < ty + Math.ceil(h / 16); y++) for (let x = tx; x < tx + Math.ceil(w / 16); x++) block(x, y);
     props.push({ key, x: tx, y: ty, anchor: 'top' });
   }
+
+  // The royal plots are fenced off whether or not anything stands on them yet.
+  for (const p of Object.values(PLOTS)) for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 1; x++) block(x, y);
 
   // Dungeons: their mound blocks, and a trail leads from the east gate to each door.
   const clearing = new Set<string>();

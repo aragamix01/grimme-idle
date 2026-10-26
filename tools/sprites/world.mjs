@@ -93,7 +93,7 @@ function townWall() {
 }
 
 // Round tower with a pointed roof, on the corners and either side of each gate.
-function gateTower() {
+export function gateTower() {
   const g = new Grid(16, 40);
   g.vline(8, 0, 4, 'M').rect(9, 0, 4, 3, 'r').set(12, 2, '.');
   g.tri(7.5, 3, 8, 11, 'b');
@@ -215,7 +215,7 @@ const ROOFS = {
   pink: ['p', 'P', 'w'],
 };
 
-function roof(g, x, y, w, h, kind) {
+export function roof(g, x, y, w, h, kind) {
   const [base, dark, light] = ROOFS[kind];
   g.rect(x, y, w, h, base);
   g.hline(x + 1, y, w - 2, light);
@@ -227,7 +227,7 @@ function roof(g, x, y, w, h, kind) {
   g.set(x, y, '.').set(x + w - 1, y, '.');
 }
 
-function wall(g, x, y, w, h, kind = 'plaster') {
+export function wall(g, x, y, w, h, kind = 'plaster') {
   if (kind === 'stone') {
     g.rect(x, y, w, h, 'x');
     for (let j = y + 2; j < y + h; j += 3) {
@@ -241,7 +241,7 @@ function wall(g, x, y, w, h, kind = 'plaster') {
   g.hline(x, y, w, kind === 'stone' ? 'X' : 'C'); // shadow under the eave
 }
 
-function windowAt(g, x, y, w = 6, h = 5) {
+export function windowAt(g, x, y, w = 6, h = 5) {
   g.rect(x, y, w, h, 'M');
   g.rect(x + 1, y + 1, w - 2, h - 2, 'a');
   g.vline(x + Math.floor(w / 2), y + 1, h - 2, 'M');
@@ -250,7 +250,7 @@ function windowAt(g, x, y, w = 6, h = 5) {
   g.set(x + 1, y + h, 'r').set(x + w - 2, y + h, 'p');
 }
 
-function door(g, x, y, w, h) {
+export function door(g, x, y, w, h) {
   g.rect(x, y, w, h, 'M');
   g.rect(x + 1, y + 1, w - 2, h - 1, 'N');
   for (let i = x + 2; i < x + w - 1; i += 2) g.vline(i, y + 2, h - 2, 'h');
@@ -258,13 +258,13 @@ function door(g, x, y, w, h) {
   g.set(x + w - 3, y + Math.floor(h / 2) + 1, 'y');
 }
 
-function sign(g, x, y, icon) {
+export function sign(g, x, y, icon) {
   g.rect(x, y, 8, 6, 'M');
   g.rect(x + 1, y + 1, 6, 4, 'n');
   g.stamp(icon, x + 2, y + 1);
 }
 
-function flag(g, x, y, c) {
+export function flag(g, x, y, c) {
   g.vline(x, y, 7, 'M');
   g.rect(x + 1, y, 4, 3, c);
   g.set(x + 4, y + 2, '.');
@@ -285,7 +285,7 @@ function house(roofKind = 'brown') {
   return finishBuilding(g);
 }
 
-function shop() {
+export function shop() {
   const g = new Grid(32, 32);
   roof(g, 1, 2, 30, 14, 'red');
   wall(g, 3, 16, 26, 14);
@@ -335,7 +335,7 @@ function guild() {
   return finishBuilding(g);
 }
 
-function church() {
+export function church() {
   const g = new Grid(32, 48);
   // bell tower
   g.stamp(['..y..', '.yyy.', '..y..'], 13, 0);
@@ -353,7 +353,7 @@ function church() {
   return finishBuilding(g);
 }
 
-function castle() {
+export function castle() {
   const g = new Grid(64, 56);
   const tower = (x) => {
     g.tri(x + 6, 0, 7, 14, 'b');

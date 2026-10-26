@@ -20,6 +20,7 @@ import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
+import { built, crownWorks } from './works';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -120,6 +121,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   worldEvents(world, rng);
   troubles(world, rng);
   dragonDay(world, rng);
+  crownWorks(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
@@ -386,7 +388,8 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
     maybeDiscover(world, npc, rng); // fangs, hides and crystals for the shop
     d.power = Math.max(10, d.power - 5);
     // Each level is harder to earn than the last; only level-ups make the chronicle.
-    if (chance(rng, 2 / (npc.level + 1))) {
+    // The training yard turns a good day in the dungeon into a lesson that sticks.
+    if (chance(rng, (built(world, 'yard') ? 3 : 2) / (npc.level + 1))) {
       npc.level++;
       log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
     }

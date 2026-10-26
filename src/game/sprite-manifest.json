@@ -461,6 +461,41 @@
     "frameHeight": 36,
     "frames": 1
   },
+  "granary": {
+    "file": "assets/sprites/buildings/granary.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "watchtower": {
+    "file": "assets/sprites/buildings/watchtower.png",
+    "group": "buildings",
+    "frameWidth": 16,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "yard": {
+    "file": "assets/sprites/buildings/yard.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "scaffold": {
+    "file": "assets/sprites/buildings/scaffold.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "lot": {
+    "file": "assets/sprites/props/lot.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",

@@ -9,6 +9,7 @@ export { COMMON_JOBS } from './society';
 export { GAME_CAP, HERD_CAP } from './livestock';
 export { troubleChance } from './troubles';
 export { DRAGON_RELIC } from './dragon';
+export { WORKS, WORK_ORDER } from './works';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
 export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, statueHero } from './era';

@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { ADULT_AGE, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
-import { MAP_H, MAP_W, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
 import manifest from '../sprite-manifest.json';
@@ -235,7 +235,11 @@ export class WorldScene extends Phaser.Scene {
     const key = w ? `${w.day}:${w.chronicleSeq}` : '';
     if (!w || key === this.lastKey) return;
     this.lastKey = key;
-    const townKey = w.dungeons.map((d) => `${d.id}:${d.boss && d.boss.slainDay === undefined ? 1 : 0}`).join(',');
+    const townKey = [
+      w.dungeons.map((d) => `${d.id}:${d.boss && d.boss.slainDay === undefined ? 1 : 0}`).join(','),
+      Object.keys(w.works ?? {}).join(','),
+      w.building?.kind,
+    ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
       for (const o of this.townObjs) o.destroy();
@@ -440,8 +444,15 @@ export class WorldScene extends Phaser.Scene {
         else if (rand() < 0.06) this.add.image(px, py, 'flowers').setOrigin(0);
         else this.add.image(px, py, 'grass', Math.floor(rand() * 3)).setOrigin(0);
       }
+    // The crown's works: upgraded buildings swap their art, new ones stand on the royal plots.
+    const upgrade: Record<string, string> = w.works?.watchtowers !== undefined ? { 'gate-tower': 'watchtower' } : {};
+    for (const [kind, plot] of Object.entries(PLOTS) as [keyof typeof PLOTS, { x: number; y: number }][]) {
+      if (w.works?.[kind] !== undefined) this.placeProp({ key: kind, x: plot.x, y: plot.y, anchor: 'top' });
+      else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
+      else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
+    }
     for (const p of town.props) {
-      const img = this.placeProp(p);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p);
       if (p.key === 'guild') this.guildBounds = img.getBounds();
       for (const [x, y, ww, h] of WINDOWS[p.key] ?? []) {
         this.glow.fillStyle(0xffb347, 0.35).fillRect(img.x + x - 1, img.y + y - 1, ww + 2, h + 2);

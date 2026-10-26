@@ -1,4 +1,4 @@
-import { troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { WORKS, WORK_ORDER, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -48,6 +48,8 @@ export function renderKingdom(world: WorldState): void {
     world.demon && { ...world.demon, power: Math.round(world.demon.power) },
     heroOf(world)?.level,
     world.golden,
+    world.works,
+    world.building,
     world.dragon && [world.dragon.hp, world.dragon.hoard, world.dragon.nextStrike],
     bestHero(world)?.id,
   ]);
@@ -82,6 +84,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    worksSection(world),
     warSection(world),
     neighbours(world),
     cultSection(world),
@@ -133,6 +136,25 @@ function occupiedCard(world: WorldState): HTMLElement {
 }
 
 // Before it wakes: how near the dread is. After: the lord, the town's hold, and the hero.
+// What the crown has built with its gold, what is going up now, and what it might build next.
+function worksSection(world: WorldState): HTMLElement {
+  const job = world.building;
+  return section(
+    'งานก่อสร้างของราชสำนัก',
+    WORK_ORDER.map((k) => {
+      const w = WORKS[k];
+      const done = world.works?.[k] !== undefined;
+      const status = done ? 'สร้างเสร็จแล้ว' : job?.kind === k ? `กำลังสร้าง อีก ${Math.max(0, job.done - world.day)} วัน` : `ยังไม่ได้สร้าง · ${w.cost} ทอง`;
+      return el(
+        'li',
+        { className: `work${done ? ' work--done' : ''}` },
+        el('img', { src: `/assets/sprites/buildings/${k === 'watchtowers' ? 'watchtower' : k}.png`, alt: '', className: 'work__art' }),
+        el('div', {}, el('b', { textContent: w.name }), el('p', { className: 'realm-king__meta', textContent: `${w.text} · ${status}` })),
+      );
+    }),
+  );
+}
+
 // The dragon on the hills: how hurt it is, what it has taken, and when it comes again.
 function dragonSection(world: WorldState): HTMLElement {
   const d = world.dragon!;

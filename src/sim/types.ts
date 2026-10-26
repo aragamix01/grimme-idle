@@ -66,6 +66,8 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
+export type Work = 'granary' | 'watchtowers' | 'yard';
+
 export interface Dragon {
   name: string;
   hp: number;
@@ -315,6 +317,8 @@ export interface WorldState {
   legacy?: Legacy;
   dragon?: Dragon; // drawn by a rich treasury; roosts outside town until slain or sated
   dragonsSlain?: number;
+  works?: Partial<Record<Work, number>>; // the crown's finished buildings, by the day each was done
+  building?: { kind: Work; done: number }; // the work under way, and the day it will stand
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   game?: number; // deer left in the forest
