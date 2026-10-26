@@ -12,7 +12,8 @@
     "server:deploy": "wrangler deploy --config server/wrangler.toml",
     "sprites": "node tools/sprites/build.mjs",
     "deploy": "npm run build && wrangler deploy",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "balance": "node tools/balance/run.mjs"
   },
   "dependencies": {
     "phaser": "^4.2.1"
