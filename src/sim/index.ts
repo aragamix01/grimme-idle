@@ -1,3 +1,4 @@
+import { PLACES } from './places';
 export * from './types';
 export { COMMAND_COST, applyCommands, costOf, createWorld, tick } from './world';
 export { JOB_TH, TRAIT_TH } from './names';
@@ -10,6 +11,8 @@ export { GAME_CAP, HERD_CAP } from './livestock';
 export { troubleChance } from './troubles';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER } from './works';
+export { literacy, literate, schoolAge } from './learning';
+export const PLACES_SCHOOL = PLACES.school;
 export { yearPage } from './annals';
 export { DECREES, DECREE_ORDER, decreeActive } from './decrees';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';

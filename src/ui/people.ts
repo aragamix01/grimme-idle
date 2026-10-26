@@ -1,4 +1,4 @@
-import { ADULT_AGE, ELDER_AGE, JOB_TH, RANKS, TRAIT_TH, loyaltyOf, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 
 const view = document.getElementById('people')!;
@@ -45,6 +45,9 @@ export function renderPeople(world: WorldState): void {
   view.replaceChildren(overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living));
 }
 
+// A child in class right now: on their way to, or sitting in, the school.
+const atSchool = (n: Npc) => n.plan?.x === PLACES_SCHOOL.x && n.plan?.y === PLACES_SCHOOL.y;
+
 function overview(world: WorldState, living: Npc[], adults: Npc[]): HTMLElement {
   const children = living.filter((n) => n.age < ADULT_AGE);
   const elders = adults.filter((n) => n.age >= ELDER_AGE);
@@ -67,6 +70,9 @@ function overview(world: WorldState, living: Npc[], adults: Npc[]): HTMLElement 
       tile('ผู้อาวุโส', elders.length),
       tile('ครอบครัว', Math.floor(couples)),
       tile('หิวโหย', hungry.length, hungry.length ? ' people-tile--bad' : ''),
+      tile('รู้หนังสือ', `${Math.round(literacy(world) * 100)}%`),
+      tile('ไปโรงเรียน', world.works?.school !== undefined ? children.filter(atSchool).length : '-'),
+      tile('ความรู้', Math.floor(world.knowledge ?? 0)),
     ),
     el(
       'p',
@@ -201,7 +207,7 @@ function childrenSection(living: Npc[]): HTMLElement {
       'summary',
       {},
       portrait,
-      el('span', { className: 'people-job__name' }, el('b', { textContent: 'เด็ก' }), el('small', { textContent: `ใกล้เป็นผู้ใหญ่ ${kids.filter((n) => n.age >= ADULT_AGE - 2).length} คน` })),
+      el('span', { className: 'people-job__name' }, el('b', { textContent: 'เด็ก' }), el('small', { textContent: `ใกล้เป็นผู้ใหญ่ ${kids.filter((n) => n.age >= ADULT_AGE - 2).length} คน · วัยเรียน ${kids.filter(schoolAge).length} คน` })),
       el('span', { className: 'people-job__count', textContent: String(kids.length) }),
     ),
     el('div', { className: 'people-crew' }, ...kids.slice(0, 24).map(chip)),

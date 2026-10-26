@@ -52,6 +52,8 @@ export interface Npc {
   cursedUntil?: number; // day the curse lifts
   relic?: string; // taken from a slain dungeon boss; adds strength
   hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
+  schooling?: number; // children: days of lessons, at school or from a parent who can read
+  lettered?: boolean; // can read and write; missing means whatever their trade implies (see literate)
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)

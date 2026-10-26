@@ -1,4 +1,4 @@
-import { ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { PLACES_SCHOOL, literate, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -68,10 +68,17 @@ const WORK_TH: Partial<Record<Job, string>> = {
   soldier: 'ยืนยามเฝ้าเมือง',
 };
 
+// Letters: a grown-up reads or not; a child shows how far their lessons have come.
+function schooled(npc: Npc): string {
+  if (npc.age >= ADULT_AGE) return literate(npc) ? ' · อ่านออกเขียนได้' : '';
+  return npc.schooling ? ` · เรียนมา ${Math.floor(npc.schooling)} วัน` : '';
+}
+
 // What the NPC is up to, in words the player can follow on the map.
 function activity(world: WorldState, npc: Npc): string {
   if (!npc.alive) return npc.left ? 'ย้ายออกจากเมืองไปแล้ว' : 'จากไปแล้ว';
   if (npc.age < ADULT_AGE) {
+    if (npc.plan?.x === PLACES_SCHOOL.x && npc.plan?.y === PLACES_SCHOOL.y) return 'เรียนหนังสืออยู่ที่โรงเรียน';
     const parent = world.npcs.find((n) => n.id === npc.plan?.target);
     return parent ? `เดินตาม${parent.name}` : 'วิ่งเล่นอยู่ในเมือง';
   }
@@ -193,7 +200,7 @@ function header(npc: Npc, doing: string, day: number, guild?: { name: string; le
       { className: 'npc__id' },
       el('h3', { className: 'npc__name', textContent: npc.name }),
       chips,
-      el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
+      el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}${schooled(npc)}` }),
       el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,

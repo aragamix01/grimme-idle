@@ -4,6 +4,8 @@ import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { JOB_TH } from './names';
 import { PLACES } from './places';
 import { inheritedJob } from './society';
+import { graduate, lesson, schoolAge } from './learning';
+import { built } from './works';
 import { addTie, getTie, setTie } from './ties';
 import type { Npc, Trait, WorldState } from './types';
 
@@ -50,6 +52,7 @@ export function birthday(world: WorldState, n: Npc, rng: Rng): void {
 function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
   const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p);
   n.job = inheritedJob(world, parents, rng);
+  graduate(world, n, rng);
   if (n.job === 'swordsman' || n.job === 'mage') {
     n.rank = 0;
     n.renown = 0;
@@ -170,8 +173,11 @@ export function homeOf(n: Npc, world?: WorldState): { x: number; y: number } {
 // Children tag along after a parent or play in the square.
 export function childDay(world: WorldState, n: Npc, rng: Rng): void {
   const parents = (n.parentIds ?? []).map((id) => byId(world, id)).filter((p): p is Npc => !!p?.alive && p.inside === undefined);
+  const school = built(world, 'school') && schoolAge(n);
   if (!n.plan || n.plan.days <= 0) {
-    if (parents.length && chance(rng, 0.6)) {
+    if (school && chance(rng, 0.6)) {
+      n.plan = makePlan('idle', PLACES.school, int(rng, 3, 5)); // off to lessons
+    } else if (parents.length && chance(rng, 0.6)) {
       const p = pick(rng, parents);
       n.plan = makePlan('idle', p, int(rng, 2, 5), p.id);
     } else {
@@ -185,5 +191,8 @@ export function childDay(world: WorldState, n: Npc, rng: Rng): void {
     p.y = following.y + 1;
   }
   if (!atSpot(n, p, following ? 1 : 0)) stepToward(world, n, p, rng);
-  else p.days--;
+  else {
+    p.days--;
+    lesson(n, school && p.x === PLACES.school.x && p.y === PLACES.school.y, following);
+  }
 }

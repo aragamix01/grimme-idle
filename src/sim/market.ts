@@ -345,7 +345,7 @@ function leave(world: WorldState, n: Npc): void {
   log(world, 'world', `${n.name} ทิ้งเมืองไปเพราะความหิวโหย`, n.id);
 }
 
-// When grain is dear the poor take up the plough; when it's dirt cheap farmers try trade;
+// When grain is dear the poor (and the clergy and scholars past their last two) take up the plough; when it's dirt cheap farmers try trade;
 // and someone with nothing left and few scruples turns thief.
 export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   const r = priceRatio(world, 'grain');
@@ -359,7 +359,7 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
     npc.guildId = undefined;
     return true;
   }
-  if (['merchant', 'thief', 'innkeeper', 'courtesan'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
+  if (['merchant', 'thief', 'innkeeper', 'courtesan', 'priest', 'scholar'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
     log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพง`, npc.id);
     npc.job = 'farmer';
     return true;
