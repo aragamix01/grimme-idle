@@ -97,6 +97,20 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "alchemist": {
+    "file": "assets/sprites/characters/alchemist.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "engineer": {
+    "file": "assets/sprites/characters/engineer.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",

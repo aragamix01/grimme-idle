@@ -7,7 +7,7 @@ import { buy, ensureMarket, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { JOB_TH } from './names';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
-import type { Job, Npc, WorldState } from './types';
+import type { Job, Npc, Tech, WorldState } from './types';
 
 // How newcomers and grown children spread across the trades. The king and nobles are
 // never picked: they are crowned and titled.
@@ -25,7 +25,11 @@ const JOB_WEIGHTS: [Job, number][] = [
   ['courtesan', 3],
   ['priest', 3],
   ['scholar', 3],
+  ['alchemist', 2],
+  ['engineer', 2],
 ];
+// Trades that only exist once the scholars have found what they rest on.
+const NEEDS: Partial<Record<Job, Tech>> = { alchemist: 'arcana', engineer: 'architecture' };
 export const COMMON_JOBS: readonly Job[] = JOB_WEIGHTS.map(([j]) => j);
 export const isGentry = (n: Npc) => n.job === 'king' || n.job === 'noble';
 
@@ -54,7 +58,7 @@ const PATROL_REACH = 4; // tiles a soldier on duty can see
 export function pickJob(rng: Rng, world?: WorldState): Job {
   const army = world ? living(world, 'soldier').length : 0;
   const affordable = !world || (!occupied(world) && army < ARMY_TARGET && world.treasury >= SALARY * 3 * (army + 1));
-  const weights = JOB_WEIGHTS.filter(([j]) => affordable || j !== 'soldier');
+  const weights = JOB_WEIGHTS.filter(([j]) => (affordable || j !== 'soldier') && (!NEEDS[j] || (world && known(world, NEEDS[j]!))));
   let r = next(rng) * weights.reduce((s, [, w]) => s + w, 0);
   for (const [job, w] of weights) if ((r -= w) < 0) return job;
   return 'farmer';
@@ -135,10 +139,10 @@ export function enthrone(world: WorldState, n: Npc, how: string): void {
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1]];
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1]];
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
-    if (living(world, job).length >= need) continue;
+    if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!))) continue;
     const merchants = living(world, 'merchant').length;
     const pool = world.npcs.filter(
       (n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined && (n.job === 'farmer' || (n.job === 'merchant' && job !== 'merchant' && merchants > 2)),

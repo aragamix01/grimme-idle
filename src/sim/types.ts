@@ -13,6 +13,8 @@ export type Job =
   | 'courtesan'
   | 'priest'
   | 'scholar'
+  | 'alchemist'
+  | 'engineer'
   | 'noble'
   | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';

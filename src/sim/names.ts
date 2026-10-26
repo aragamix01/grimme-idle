@@ -31,6 +31,8 @@ export const JOB_TH: Record<Job, string> = {
   courtesan: 'นางคณิกา',
   priest: 'นักบวช',
   scholar: 'นักปราชญ์',
+  alchemist: 'นักเล่นแร่แปรธาตุ',
+  engineer: 'วิศวกร',
   noble: 'ขุนนาง',
   king: 'กษัตริย์',
 };

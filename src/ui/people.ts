@@ -22,7 +22,7 @@ const CLASSES: { name: string; color: string; jobs: Job[] }[] = [
   { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith'] },
   { name: 'ชาวนาและปศุสัตว์', color: '#56a832', jobs: ['farmer', 'herder', 'hunter'] },
   { name: 'งานบริการและศาสนา', color: '#f582b8', jobs: ['innkeeper', 'courtesan', 'priest'] },
-  { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar'] },
+  { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar', 'alchemist', 'engineer'] },
   { name: 'นอกกฎหมาย', color: '#463c56', jobs: ['thief'] },
 ];
 
@@ -186,6 +186,10 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
         world.works?.school !== undefined ? 'มีโรงเรียนหลวงให้สอนหนังสือ (ความรู้ ×2)' : 'ยังไม่มีโรงเรียน ค้นคว้ากันในห้องสมุดปราสาท',
         world.research ? `กำลังค้นคว้าเรื่อง${TECHS[world.research].name}` : 'ยังไม่มีเรื่องให้ค้นคว้า',
       ];
+    case 'alchemist':
+      return [`ปรุงยาอยู่ตอนนี้ ${working} คน`, 'ยารักษาทำให้นักผจญภัยรอดจากดันเจี้ยนมากขึ้น และโรคระบาดเบาลง'];
+    case 'engineer':
+      return [`คุมงานอยู่ตอนนี้ ${working} คน`, world.building ? `กำลังเร่งสร้าง อีก ${Math.max(0, world.building.done - world.day)} วันเสร็จ` : 'ยังไม่มีงานก่อสร้าง วาดแบบอยู่ที่ปราสาท'];
     case 'thief':
       return [
         `อยู่สมาคมเงา ${members.filter((n) => n.guildId !== undefined).length} คน`,

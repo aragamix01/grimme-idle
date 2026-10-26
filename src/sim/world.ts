@@ -21,8 +21,9 @@ import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
-import { built, crownWorks } from './works';
-import { pressDay, study } from './learning';
+import { WORKS, built, crownWorks } from './works';
+import { BUILDINGS, doorOf } from './town';
+import { brew, draughts, engineer, pressDay, study } from './learning';
 import { researchDay } from './research';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
@@ -246,6 +247,14 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
   arrive(world, npc, p, rng);
 }
 
+// Where the crown's work stands: its royal plot, the building being rebuilt, or the castle.
+function siteOf(world: WorldState): { x: number; y: number } {
+  const w = world.building && WORKS[world.building.kind];
+  if (w?.plot) return { x: w.plot.x + 1, y: w.plot.y + 2 };
+  const b = w?.replaces && BUILDINGS.find(([k]) => k === w.replaces);
+  return b ? doorOf(...b) : PLACES.castle;
+}
+
 function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
   const home = homeOf(npc, world);
   // Someone sweet on another drifts to wherever they are.
@@ -301,6 +310,12 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'scholar':
       // At the school once there is one; before that, among the books in the castle.
       return chance(rng, 0.75) ? plan('work', built(world, 'school') ? PLACES.school : PLACES.castle, int(rng, 6, 12)) : idle();
+    case 'alchemist':
+      // Brewing in the back of the shop, where the dungeon finds are kept.
+      return chance(rng, 0.7) ? plan('work', near(PLACES.shop), int(rng, 5, 10)) : idle();
+    case 'engineer':
+      // On the crown's building site if there is one, else drawing plans at the castle.
+      return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();
     case 'noble':
       return chance(rng, 0.5) ? plan('idle', near(pick(rng, [PLACES.manor, PLACES.castle])), int(rng, 3, 8)) : idle();
     case 'king':
@@ -367,6 +382,8 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       } else if (npc.job === 'merchant') tendShop(world, npc, rng, hasSmith(world));
       else if (npc.job === 'blacksmith') smith(world, npc, rng);
       else if (npc.job === 'scholar') study(world, npc, rng);
+      else if (npc.job === 'alchemist') brew(world, npc, rng);
+      else if (npc.job === 'engineer') engineer(world, rng);
       else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
@@ -415,7 +432,7 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
       log(world, 'battle', `${npc.name} พิชิต ${d.name} ขึ้นเลเวล ${npc.level}`, npc.id);
     }
   } else {
-    if (chance(rng, 0.08)) return kill(world, npc, `หายไปใน ${d.name}`);
+    if (chance(rng, draughts(world) ? 0.05 : 0.08)) return kill(world, npc, `หายไปใน ${d.name}`); // a healing draught saves some
     wearGear(npc, rng);
   }
   npc.plan = plan('return', PLACES.guild, 0);

@@ -412,6 +412,20 @@ const SCHOLAR_CAP = [
 ];
 const BOOK = ['..........rrrr..', '..........rccr..', '..........rccr..', '..........rrrr..'];
 
+// The alchemist's brass goggles and a bubbling green flask; the engineer's cap and a long rule.
+const GOGGLES = ['..MMMMMMMMMMMM..', '...xxxx..xxxx...', '...xakx..xkax...', '...xxxx..xxxx...'];
+const FLASK = ['...........cc...', '...........cc...', '..........cvvc..', '..........vpvv..', '...........vv...'];
+const ENGINEER_CAP = [
+  '................',
+  '................',
+  '................',
+  '....yyyyyyyy....',
+  '...yyyyyyyyyy...',
+  '..yyyyyyyyyyyy..',
+  '.yyyyyyyyyyyyyy.',
+];
+const RULE = ['..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............'];
+
 const MUG = ['...........ccc..', '...........yyyc.', '...........yyyc.', '...........yyy..'];
 
 const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pppppppppppp..', '..PPPPPPPPPPPP..'];
@@ -533,6 +547,14 @@ const JOBS = {
   scholar: {
     slots: { 1: 'B', 2: 'y', 3: 'B', 4: 'M', 5: 'x' },
     layers: [[HAIR_SHORT], [SCHOLAR_CAP], [BEARD, 0, 10], [BOOK, 0, 13]],
+  },
+  alchemist: {
+    slots: { 1: 'G', 2: 'M', 3: 'G', 4: 'M', 5: 'O' },
+    layers: [[HAIR_LONG], [GOGGLES, 0, 6], [FLASK, 0, 12]],
+  },
+  engineer: {
+    slots: { 1: 'N', 2: 'M', 3: 'b', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [ENGINEER_CAP], [RULE, 0, 7]],
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },

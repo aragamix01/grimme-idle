@@ -54,6 +54,25 @@ export function graduate(world: WorldState, n: Npc, rng: Rng): void {
   n.level += days >= TOP_OF_CLASS ? 2 : 1;
 }
 
+// An alchemist brews healing draughts from dungeon finds and sells them across the shop counter.
+export function brew(world: WorldState, npc: Npc, rng: Rng): void {
+  const m = world.market;
+  if (!m || m.stock.loot < 1 || m.till < DRAUGHT || !chance(rng, 0.25)) return;
+  m.stock.loot -= 1;
+  m.till -= DRAUGHT;
+  npc.gold += DRAUGHT;
+}
+const DRAUGHT = 6; // gold a batch of draughts fetches
+
+// An engineer on the crown's building site: good planning takes days off the work.
+export function engineer(world: WorldState, rng: Rng): void {
+  const job = world.building;
+  if (job && job.done > world.day + 1 && chance(rng, 0.2)) job.done--;
+}
+
+// Draughts on hand: adventurers come back from the dungeon more often, plagues kill fewer.
+export const draughts = (world: WorldState) => world.npcs.some((n) => n.alive && n.job === 'alchemist' && n.age >= 16);
+
 export const knowledgeOf = (world: WorldState) => world.knowledge ?? 0;
 
 // A day of study, at the school if the town has one, else in the castle's library.
