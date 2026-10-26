@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
+import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -90,6 +90,8 @@ export class WorldScene extends Phaser.Scene {
   private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blight!: Phaser.GameObjects.Rectangle;
   private raining = false;
+  private storm = false; // the long rains: a darker sky
+  private flood!: Phaser.GameObjects.Container;
   private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
   private herd: Beast[] = [];
   private dragon: Phaser.GameObjects.Sprite | null = null;
@@ -134,6 +136,9 @@ export class WorldScene extends Phaser.Scene {
       .setOrigin(0)
       .setDepth(1)
       .setVisible(false);
+    // Floodwater over the low ground south of the walls, the crops showing faintly through.
+    this.flood = this.add.container(0, 0).setDepth(2).setVisible(false).setAlpha(0.8);
+    for (let y = FIELDS.y0 - 1; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) this.flood.add(this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow'));
 
     // Gold ring under the selected NPC's feet.
     this.selectRing = this.add.graphics().setVisible(false);
@@ -241,6 +246,7 @@ export class WorldScene extends Phaser.Scene {
       Object.keys(w.works ?? {}).join(','),
       w.building?.kind,
       ageOf(w), // a new age rebuilds the houses
+      (w.ruins ?? []).map((r) => `${r.x}.${r.y}`).join(','), // homes brought down or rebuilt
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -273,12 +279,18 @@ export class WorldScene extends Phaser.Scene {
 
   private syncWeather(w: WorldState): void {
     const weather = weatherOf(w);
-    if ((weather === 'rain') !== this.rain.emitting) {
-      if (weather === 'rain') this.rain.start();
+    const wet = weather === 'rain' || weather === 'deluge';
+    if (wet !== this.rain.emitting) {
+      if (wet) this.rain.start();
       else this.rain.stop();
     }
-    this.blight.setVisible(weather === 'blight');
-    this.raining = weather === 'rain';
+    // Blight browns the fields; drought bleaches them.
+    this.blight.setVisible(weather === 'blight' || weather === 'drought');
+    if (weather === 'drought') this.blight.setFillStyle(0xd9a441, 0.4);
+    else this.blight.setFillStyle(0x6b4a1c, 0.5);
+    this.flood.setVisible(flooded(w));
+    this.raining = wet;
+    this.storm = weather === 'deluge';
   }
 
   // The dragon arrives over the hills, and on its death (or leaving) falls or flies away.
@@ -457,7 +469,7 @@ export class WorldScene extends Phaser.Scene {
       else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
     }
     for (const p of town.props) {
-      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: this.aged(p.key) } : p);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: ruined(w, p.x, p.y) ? 'rubble' : this.aged(p.key) } : p);
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
@@ -524,7 +536,7 @@ export class WorldScene extends Phaser.Scene {
     const evil = Math.max(dread, Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1));
     const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
     // Rain greys the day a little.
-    const gloom = this.raining ? 0.18 : 0;
+    const gloom = this.storm ? 0.3 : this.raining ? 0.18 : 0;
     this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * (w.demon?.stage === 'occupied' ? 0.32 : 0.22), gloom));
     this.glow.setAlpha(Phaser.Math.Clamp((night - 0.4) / 0.4, 0, 1));
   }
@@ -540,6 +552,7 @@ export class WorldScene extends Phaser.Scene {
       }
       if (e.kind === 'battle' && e.text.includes('บุกประตูเมือง')) this.raid(w);
       if (e.kind === 'disaster' && e.text.includes('พ่นไฟใส่เมือง')) this.dragonRaid();
+      if (e.kind === 'disaster' && e.text.includes('แผ่นดินไหว')) this.cameras.main.shake(1800, 0.012);
     }
     this.seenSeq = w.chronicleSeq;
   }

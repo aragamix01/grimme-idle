@@ -156,7 +156,8 @@ export const miracleWait = (world: WorldState, k: MiracleKind) => Math.max(0, MI
 export const weatherOf = (world: WorldState) => (world.weather && world.weather.until > world.day ? world.weather.kind : undefined);
 export const weatherYield = (world: WorldState) => {
   const w = weatherOf(world);
-  return w === 'rain' ? 1.6 : w === 'blight' ? 0.3 : 1;
+  if ((world.flood ?? 0) > world.day) return 0; // the fields are under water
+  return w === 'rain' ? 1.6 : w === 'blight' ? 0.3 : w === 'drought' ? 0.25 : w === 'deluge' ? 0.5 : 1;
 };
 
 export function miracle(world: WorldState, k: MiracleKind, rng: Rng): boolean {

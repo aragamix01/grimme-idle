@@ -58,7 +58,7 @@ function mayVote(world: WorldState, v: Npc): boolean {
 // The disasters of the sitting leader's time in office.
 function blameOf(world: WorldState): number {
   const since = world.republic?.inOffice ?? world.crown?.since ?? 0;
-  const bad = world.chronicle.filter((e) => e.day > since && /ข้าวหมดตลาด|ความหิวโหย|โรคระบาดในเมือง|แพ้สงคราม|มอนสเตอร์ล้นออกจาก/.test(e.text)).length;
+  const bad = world.chronicle.filter((e) => e.day > since && /ข้าวหมดตลาด|ความหิวโหย|โรคระบาดในเมือง|แพ้สงคราม|มอนสเตอร์ล้นออกจาก|ไม่ส่งความช่วยเหลือ/.test(e.text)).length;
   return Math.min(4, bad);
 }
 

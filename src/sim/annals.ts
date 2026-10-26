@@ -36,6 +36,7 @@ const WEIGHTS: [RegExp, number, string?][] = [
   [/ลัทธิ/, 4],
   [/เลื่อนเป็นนักผจญภัยแรงก์ [AS]|ขึ้นสู่แรงก์ [AS]/, 4],
   [/โรคระบาดในคอกสัตว์/, 4],
+  [/แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่|ภัยแล้งแผ่ไป|ฝนตกไม่หยุด/, 7, 'disaster'],
 ];
 
 // The year's name and picture, from its most telling theme.
@@ -46,6 +47,7 @@ const THEMES: Record<string, { title: string; art: string }> = {
   war: { title: 'ปีแห่งสงคราม', art: 'monsters/raider' },
   crown: { title: 'ปีผลัดแผ่นดิน', art: 'characters/king' },
   plague: { title: 'ปีแห่งโรคระบาด', art: 'icons/plague' },
+  disaster: { title: 'ปีแห่งภัยพิบัติ', art: 'buildings/rubble' },
   stampede: { title: 'ปีมอนสเตอร์บุกเมือง', art: 'monsters/goblin' },
   famine: { title: 'ปีข้าวยากหมากแพง', art: 'icons/grain' },
   works: { title: 'ปีแห่งการก่อสร้าง', art: 'buildings/scaffold' },
@@ -57,7 +59,7 @@ const THEMES: Record<string, { title: string; art: string }> = {
   election: { title: 'ปีเลือกตั้ง', art: 'characters/consul' },
   calm: { title: 'ปีสงบสุข', art: 'characters/farmer' },
 };
-const THEME_ORDER = ['hero', 'demon', 'dragon', 'war', 'regime', 'revolt', 'crown', 'age', 'plague', 'stampede', 'famine', 'discovery', 'election', 'works'];
+const THEME_ORDER = ['hero', 'demon', 'dragon', 'war', 'regime', 'revolt', 'crown', 'age', 'disaster', 'plague', 'stampede', 'famine', 'discovery', 'election', 'works'];
 
 // Our own town's news first: quest reports and single deaths are the chronicle's daily bread, and
 // a neighbour's troubles only matter to us when it's our war.

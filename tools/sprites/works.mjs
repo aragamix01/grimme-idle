@@ -72,6 +72,25 @@ function scaffold() {
   return finish(g);
 }
 
+// A home brought down by flood or quake: one wall still standing, the roof caved in across
+// a heap of rubble, broken beams poking out.
+function rubble() {
+  const g = new Grid(32, 32);
+  wall(g, 3, 12, 9, 17); // the last wall standing, its top broken off
+  g.set(3, 12, '.').set(4, 12, '.').set(5, 13, '.').set(3, 13, '.');
+  g.rect(6, 16, 3, 4, 'k'); // a gaping window
+  g.disc(18, 25, 9, 'x');
+  g.disc(14, 27, 5, 'X');
+  g.disc(24, 26, 5, 'T');
+  for (const [x, y] of [[13, 21], [19, 19], [24, 22], [11, 25], [21, 26], [27, 24]]) g.rect(x, y, 3, 2, 'X').set(x, y, 'z');
+  // the fallen roof, slanting down across the heap
+  for (let i = 0; i < 12; i++) g.hline(10 + i, 12 + Math.floor(i / 1.5), 4, i % 3 ? 'r' : 'R');
+  g.vline(26, 13, 12, 'M').set(25, 13, 'N').set(27, 14, 'N'); // a beam sticking up
+  g.hline(12, 20, 9, 'M');
+  g.hline(1, 30, 30, 'T');
+  return finish(g);
+}
+
 // A signpost on an empty royal plot, the crown painted on the board.
 function lot() {
   const g = new Grid(16, 16);
@@ -190,6 +209,7 @@ export function works() {
     { name: 'watchtower', group: 'buildings', frames: [watchtower()] },
     { name: 'yard', group: 'buildings', frames: [yard()] },
     { name: 'scaffold', group: 'buildings', frames: [scaffold()] },
+    { name: 'rubble', group: 'buildings', frames: [rubble()] },
     { name: 'lot', group: 'props', frames: [lot()] },
     { name: 'cathedral', group: 'buildings', frames: [cathedral()] },
     { name: 'market-hall', group: 'buildings', frames: [marketHall()] },

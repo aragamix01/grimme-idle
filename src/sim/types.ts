@@ -351,7 +351,10 @@ export interface WorldState {
   demon?: DemonLord;
   demonsSlain?: number;
   slayers?: string[]; // heroes who slew a demon lord this era
-  weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
+  weather?: { kind: 'rain' | 'blight' | 'drought' | 'deluge'; until: number }; // a miracle's weather over the fields, or nature's
+  flood?: number; // day the floodwaters go down
+  ruins?: { x: number; y: number; until: number }[]; // homes brought down, by tile, and the day each is rebuilt
+  disasterAt?: number; // day of nature's last blow
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy;
   dragon?: Dragon; // drawn by a rich treasury; roosts outside town until slain or sated

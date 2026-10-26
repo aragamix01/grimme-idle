@@ -874,6 +874,13 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "rubble": {
+    "file": "assets/sprites/buildings/rubble.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
   "lot": {
     "file": "assets/sprites/props/lot.png",
     "group": "props",

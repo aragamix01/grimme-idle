@@ -134,6 +134,9 @@ function lineFor(world: WorldState, n: Npc): string | undefined {
   const weather = weatherOf(world);
   if (weather === 'rain' && r < 0.4) return any(['ฝนดีจัง ข้าวงามแน่', 'เปียกหมดเลย!', 'ขอบคุณสำหรับฝน']);
   if (weather === 'blight' && r < 0.4) return any(['ข้าวเน่าหมดแล้ว…', 'ปีนี้จะอดตายไหม']);
+  if (weather === 'drought' && r < 0.4) return any(['ร้อนจะตายอยู่แล้ว', 'บ่อน้ำแห้งหมดแล้ว…', 'ขอฝนสักหยดเถอะ']);
+  if (weather === 'deluge' && r < 0.4) return any(['ฝนไม่หยุดเลย…', 'บ้านรั่วหมดแล้ว', 'ข้าวขึ้นราหมดแล้ว']);
+  if (world.ruins?.length && r < 0.15) return any(['บ้านฉันพังหมดแล้ว…', 'ต้องสร้างใหม่ทั้งหมด', 'ไม่มีที่ซุกหัวนอน']);
   if (n.cultist && r < 0.15) return '(กระซิบ) คืนนี้ที่ดันเจี้ยน…';
   if ((n.loyalty ?? 50) < 30 && n.job !== 'king' && r < 0.4) return any(['ภาษีแพงจัง', 'กษัตริย์ไม่เคยสนเราเลย', 'สักวันจะลุกฮือ!']);
   if (seasonOf(world.day) === 'winter' && r < 0.2) return any(['หนาวจัง…', 'อยากนั่งข้างเตาผิง']);

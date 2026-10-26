@@ -20,6 +20,7 @@ import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
+import { disastersDay } from './disasters';
 import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
@@ -135,6 +136,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   warDay(world, rng);
   worldEvents(world, rng);
   troubles(world, rng);
+  disastersDay(world, rng);
   dragonDay(world, rng);
   crownWorks(world, rng);
   spendSurplus(world);

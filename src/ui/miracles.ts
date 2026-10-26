@@ -18,6 +18,8 @@ export function initMiracles(handler: (kind: MiracleKind) => void): void {
   };
 }
 
+const WEATHER_TH = { rain: 'ฝนฉ่ำ', blight: 'โรคพืช', drought: 'ภัยแล้ง', deluge: 'ฝนตกไม่หยุด' } as const;
+
 export function renderMiracles(world: WorldState): void {
   last = world;
   if (!dialog.open) return;
@@ -29,7 +31,7 @@ export function renderMiracles(world: WorldState): void {
   body.replaceChildren(
     el('p', {
       className: 'realm-king__meta',
-      textContent: weather ? `${weather === 'rain' ? 'ฝนฉ่ำ' : 'โรคพืช'}ยังปกคลุมทุ่งนาอีก ${left} วัน` : 'บันดาลสิ่งต่างๆ ให้เกิดกับทั้งโลก แต่ละอย่างต้องรอ 30 วันก่อนใช้ซ้ำ',
+      textContent: weather ? `${WEATHER_TH[weather]}ยังปกคลุมทุ่งนาอีก ${left} วัน${weather === 'drought' ? ' (ฝนฉ่ำของเทพเจ้าช่วยยุติได้)' : ''}` : 'บันดาลสิ่งต่างๆ ให้เกิดกับทั้งโลก แต่ละอย่างต้องรอ 30 วันก่อนใช้ซ้ำ',
     }),
     group(world, 'พรแห่งแสง', false),
     group(world, 'ภัยแห่งความมืด', true),
