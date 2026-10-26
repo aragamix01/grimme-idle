@@ -54,6 +54,7 @@ const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; 
 // The pasture's mix of beasts, in the order they join the herd; deer roam the forest.
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
+const DRAGON_ROOST = { x: 34 * TILE, y: 2 * TILE }; // above the hills past the eastern forest
 const BEAST_SPEED = 10; // pixels a second
 
 interface Beast {
@@ -88,6 +89,8 @@ export class WorldScene extends Phaser.Scene {
   private raining = false;
   private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
   private herd: Beast[] = [];
+  private dragon: Phaser.GameObjects.Sprite | null = null;
+  private swooping = false; // the dragon is mid-raid, so it stops circling its roost
   private deer: Beast[] = [];
 
   constructor() {
@@ -215,6 +218,11 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.turnSky(delta);
     this.amble(delta);
+    // The dragon wheels slowly above its roost on the hills past the forest.
+    if (this.dragon && !this.swooping) {
+      const t = this.time.now / 2600;
+      this.dragon.setPosition(DRAGON_ROOST.x + Math.cos(t) * 28, DRAGON_ROOST.y + Math.sin(t) * 10).setFlipX(Math.sin(t) > 0);
+    }
     if (this.selectedId !== null) {
       const s = this.npcSprites.get(this.selectedId);
       if (s?.visible) this.selectRing.setPosition(s.x, s.y - 1).setDepth(s.depth - 1);
@@ -237,6 +245,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncKeep(w);
     this.syncWeather(w);
+    this.syncDragon(w);
     this.syncBeasts(this.herd, w.herd ?? 0, 'pasture');
     this.syncBeasts(this.deer, Math.min(MAX_DEER, Math.ceil((w.game ?? 0) / 3)), 'forest');
     this.watchChronicle(w);
@@ -262,6 +271,57 @@ export class WorldScene extends Phaser.Scene {
     }
     this.blight.setVisible(weather === 'blight');
     this.raining = weather === 'rain';
+  }
+
+  // The dragon arrives over the hills, and on its death (or leaving) falls or flies away.
+  private syncDragon(w: WorldState): void {
+    if (w.dragon && !this.dragon) {
+      const d = this.add.sprite(DRAGON_ROOST.x, DRAGON_ROOST.y, 'dragon').setScale(1.5).setDepth(19_998).play('dragon-walk');
+      this.dragon = d;
+      if (this.seenSeq >= 0) {
+        // In from off the map's edge.
+        this.swooping = true;
+        d.setPosition(MAP_W * TILE + 40, -30);
+        this.tweens.add({ targets: d, x: DRAGON_ROOST.x, y: DRAGON_ROOST.y, duration: 2200, ease: 'Sine.out', onComplete: () => (this.swooping = false) });
+      }
+    } else if (!w.dragon && this.dragon) {
+      const d = this.dragon;
+      this.dragon = null;
+      this.swooping = false;
+      const slain = w.chronicle.slice(-8).some((e) => e.text.includes('สังหารมังกร'));
+      this.tweens.add(
+        slain
+          ? { targets: d, y: d.y + 60, angle: 80, alpha: 0, duration: 1600, ease: 'Quad.in', onComplete: () => d.destroy() }
+          : { targets: d, x: MAP_W * TILE + 60, y: -40, duration: 2000, ease: 'Sine.in', onComplete: () => d.destroy() },
+      );
+    }
+  }
+
+  // A raid: it dives over the town trailing fire, shakes the walls, and climbs back to its roost.
+  private dragonRaid(): void {
+    const d = this.dragon;
+    if (!d) return;
+    this.swooping = true;
+    const over = { x: 13 * TILE, y: 8 * TILE };
+    d.setFlipX(true);
+    this.tweens.chain({
+      targets: d,
+      tweens: [
+        { x: over.x, y: over.y, duration: 1100, ease: 'Quad.in' },
+        { x: 2 * TILE, y: 4 * TILE, duration: 900, ease: 'Linear', onStart: () => this.burn(over) },
+        { x: DRAGON_ROOST.x, y: DRAGON_ROOST.y, duration: 1600, ease: 'Sine.inOut', onStart: () => d.setFlipX(false) },
+      ],
+      onComplete: () => (this.swooping = false),
+    });
+  }
+
+  private burn(at: { x: number; y: number }): void {
+    this.cameras.main.shake(700, 0.008);
+    this.cameras.main.flash(300, 255, 140, 40);
+    for (let i = 0; i < 10; i++) {
+      const f = this.add.circle(at.x + Phaser.Math.Between(-70, 50), at.y + Phaser.Math.Between(-20, 50), Phaser.Math.Between(3, 6), i % 2 ? 0xf5902e : 0xffd23f).setDepth(19_997);
+      this.tweens.add({ targets: f, y: f.y - 20, alpha: 0, scale: 0.3, duration: 900 + i * 60, onComplete: () => f.destroy() });
+    }
   }
 
   // A random open tile in the pasture or the forest, as a pixel spot a beast can stand on.
@@ -434,6 +494,7 @@ export class WorldScene extends Phaser.Scene {
         if (d) this.stampede(w, d, e.text.includes('จอมมาร'));
       }
       if (e.kind === 'battle' && e.text.includes('บุกประตูเมือง')) this.raid(w);
+      if (e.kind === 'disaster' && e.text.includes('พ่นไฟใส่เมือง')) this.dragonRaid();
     }
     this.seenSeq = w.chronicleSeq;
   }

@@ -167,6 +167,13 @@
     "frameHeight": 32,
     "frames": 2
   },
+  "dragon": {
+    "file": "assets/sprites/monsters/dragon.png",
+    "group": "monsters",
+    "frameWidth": 40,
+    "frameHeight": 32,
+    "frames": 2
+  },
   "boss-cave": {
     "file": "assets/sprites/monsters/boss-cave.png",
     "group": "monsters",

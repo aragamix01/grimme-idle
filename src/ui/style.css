@@ -458,3 +458,4 @@ html:has(dialog[open]) { overflow: hidden; }
   .chip--button { min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
   .btn { min-height: 40px; }
 }
+.dragon-portrait { background: #7fd8f8 0 50% / 96px 77px no-repeat; }

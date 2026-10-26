@@ -48,6 +48,7 @@ export function renderKingdom(world: WorldState): void {
     world.demon && { ...world.demon, power: Math.round(world.demon.power) },
     heroOf(world)?.level,
     world.golden,
+    world.dragon && [world.dragon.hp, world.dragon.hoard, world.dragon.nextStrike],
     bestHero(world)?.id,
   ]);
   if (key === lastKey) return;
@@ -62,6 +63,7 @@ export function renderKingdom(world: WorldState): void {
         ? kingCard(world, king)
         : el('p', { className: 'guild-empty', textContent: 'บัลลังก์ว่างอยู่' }),
     demonSection(world),
+    ...(world.dragon ? [dragonSection(world)] : []),
     el(
       'div',
       { className: 'realm-meters' },
@@ -131,6 +133,29 @@ function occupiedCard(world: WorldState): HTMLElement {
 }
 
 // Before it wakes: how near the dread is. After: the lord, the town's hold, and the hero.
+// The dragon on the hills: how hurt it is, what it has taken, and when it comes again.
+function dragonSection(world: WorldState): HTMLElement {
+  const d = world.dragon!;
+  const portrait = el('div', { className: 'demon-portrait dragon-portrait' });
+  portrait.style.backgroundImage = 'url(/assets/sprites/monsters/dragon.png)';
+  const hp = Math.round((d.hp / d.maxHp) * 100);
+  return section(`มังกร${d.name}`, [
+    el(
+      'li',
+      { className: 'realm-king' },
+      portrait,
+      el(
+        'div',
+        { className: 'realm-king__info' },
+        el('p', { className: 'realm-king__meta', textContent: `เกาะอยู่บนเนินเขามาแล้ว ${world.day - d.came} วัน · ปล้นทองไปแล้ว ${d.hoard} เหรียญ` }),
+        el('p', { className: 'realm-king__meta', textContent: `จะบุกเมืองอีกใน ${Math.max(0, d.nextStrike - world.day)} วัน นักรบที่เก่งที่สุด 6 คนจะออกไปสู้` }),
+      ),
+    ),
+    el('li', { className: 'realm-meters' }, meter('พลังชีวิตมังกร', hp, hp > 50 ? 'weak' : 'strong')),
+    empty('อวยพรนักรบให้แข็งแกร่งและรอดจากไฟ ผู้สังหารจะได้สมบัติในรังมังกรและเกล็ดมังกร'),
+  ]);
+}
+
 function demonSection(world: WorldState): HTMLElement {
   const lord = world.demon;
   if (!lord) {

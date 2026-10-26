@@ -66,6 +66,15 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
+export interface Dragon {
+  name: string;
+  hp: number;
+  maxHp: number;
+  came: number; // day it arrived
+  nextStrike: number; // day of its next raid on the town
+  hoard: number; // gold it has carried off; the slayers' reward
+}
+
 export type DungeonKind = 'cave' | 'den' | 'fort' | 'crypt';
 
 export interface Boss {
@@ -304,6 +313,8 @@ export interface WorldState {
   weather?: { kind: 'rain' | 'blight'; until: number }; // a miracle's weather over the fields
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   legacy?: Legacy;
+  dragon?: Dragon; // drawn by a rich treasury; roosts outside town until slain or sated
+  dragonsSlain?: number;
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   game?: number; // deer left in the forest

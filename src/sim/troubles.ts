@@ -5,6 +5,7 @@ import { chance, pick, type Rng } from './rng';
 import { approval, intrigue } from './politics';
 import { king } from './society';
 import { plagueStrike } from './worldevents';
+import { dragonArrives } from './dragon';
 import type { WorldState } from './types';
 
 const GOLDEN_TREASURY = 900;
@@ -45,7 +46,7 @@ export function troubles(world: WorldState, rng: Rng): void {
   const months = (world.golden = (world.golden ?? 0) + 1);
   if (!chance(rng, troubleChance(months))) return;
   const k = king(world);
-  const kinds: ((w: WorldState, r: Rng) => boolean)[] = [crowdPlague];
+  const kinds: ((w: WorldState, r: Rng) => boolean)[] = [crowdPlague, dragonArrives];
   if (k) kinds.push((w, r) => intrigue(w, k, r));
   // Try the kinds in a random order until one takes; whatever happens shakes the town out of its ease.
   for (let left = [...kinds]; left.length; ) {
