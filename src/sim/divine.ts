@@ -1,7 +1,7 @@
 // The god's hand: blessings that fade, curses that bite, dreams that change a heart, and
 // miracles worked on the whole world, from kind rain to plague and eclipse.
 import { pick, type Rng } from './rng';
-import { clamp, log, perkLevel } from './core';
+import { clamp, known, log, perkLevel } from './core';
 import { plagueStrike } from './worldevents';
 import { CULT_NAMES, sway } from './cult';
 import { getTie, setTie } from './ties';
@@ -157,7 +157,7 @@ export const weatherOf = (world: WorldState) => (world.weather && world.weather.
 export const weatherYield = (world: WorldState) => {
   const w = weatherOf(world);
   if ((world.flood ?? 0) > world.day) return 0; // the fields are under water
-  return w === 'rain' ? 1.6 : w === 'blight' ? 0.3 : w === 'drought' ? 0.25 : w === 'deluge' ? 0.5 : 1;
+  return w === 'rain' ? 1.6 : w === 'blight' ? 0.3 : w === 'drought' ? (known(world, 'irrigation') ? 0.6 : 0.25) : w === 'deluge' ? 0.5 : 1;
 };
 
 export function miracle(world: WorldState, k: MiracleKind, rng: Rng): boolean {

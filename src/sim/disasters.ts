@@ -6,7 +6,7 @@
 // rest sleep rough until the builders (farmers taken on by the crown) put the houses back up.
 // The god's kind rain ends a drought.
 import { chance, int, next, type Rng } from './rng';
-import { kill, log, loyaltyNudge, occupied } from './core';
+import { kill, known, log, loyaltyNudge, occupied } from './core';
 import { weatherOf } from './divine';
 import { ensureMarket, priceRatio, seasonOf } from './market';
 import { plagueStrike } from './worldevents';
@@ -193,7 +193,7 @@ function drought(world: WorldState, rng: Rng): void {
 function deluge(world: WorldState, rng: Rng): void {
   world.weather = { kind: 'deluge', until: world.day + int(rng, 45, 75) };
   log(world, 'disaster', 'ฝนตกไม่หยุดทั้งวันทั้งคืน ทุ่งนาจมน้ำ ข้าวในยุ้งเริ่มขึ้นรา');
-  if (chance(rng, 0.4)) flood(world, rng);
+  if (chance(rng, known(world, 'levee') ? 0.15 : 0.4)) flood(world, rng);
 }
 
 function flood(world: WorldState, rng: Rng): void {
@@ -202,9 +202,10 @@ function flood(world: WorldState, rng: Rng): void {
   const lost = Math.floor(m.stock.grain * (world.works?.granary !== undefined ? 0.2 : 0.4));
   m.stock.grain -= lost;
   world.herd = Math.floor((world.herd ?? 0) * 0.7);
-  const dead = toll(world, rng, 0.015, 'จมน้ำตายในน้ำท่วมใหญ่');
-  const homes = ruinHomes(world, rng, int(rng, 2, 5));
-  const fell = FLOODS.filter((k) => world.works?.[k] !== undefined && chance(rng, 0.2)).map((k) => collapse(world, k));
+  const banked = known(world, 'levee') ? 0.5 : 1; // the levees hold back the worst of it
+  const dead = toll(world, rng, 0.015 * banked, 'จมน้ำตายในน้ำท่วมใหญ่');
+  const homes = ruinHomes(world, rng, Math.round(int(rng, 2, 5) * banked));
+  const fell = FLOODS.filter((k) => world.works?.[k] !== undefined && chance(rng, 0.2 * banked)).map((k) => collapse(world, k));
   losses(world, 0.15);
   for (const n of living(world)) loyaltyNudge(n, -4);
   const fled = exodus(world, rng, homes, 'น้ำท่วม');
@@ -213,9 +214,10 @@ function flood(world: WorldState, rng: Rng): void {
 }
 
 function quake(world: WorldState, rng: Rng): void {
-  const dead = toll(world, rng, 0.025, 'ถูกบ้านถล่มทับตายในแผ่นดินไหว');
-  const homes = ruinHomes(world, rng, int(rng, 3, 8));
-  const fell = WORK_ORDER.filter((k) => world.works?.[k] !== undefined && chance(rng, 0.3)).map((k) => collapse(world, k));
+  const framed = known(world, 'ironframe') ? 0.35 : 1; // iron-framed walls stand
+  const dead = toll(world, rng, 0.025 * framed, 'ถูกบ้านถล่มทับตายในแผ่นดินไหว');
+  const homes = ruinHomes(world, rng, Math.round(int(rng, 3, 8) * framed));
+  const fell = WORK_ORDER.filter((k) => world.works?.[k] !== undefined && chance(rng, 0.3 * framed)).map((k) => collapse(world, k));
   if (world.building && chance(rng, 0.5)) {
     fell.push(`นั่งร้าน${WORKS[world.building.kind].name}ที่กำลังสร้างพังลงมา`);
     world.building = undefined;
@@ -233,15 +235,16 @@ function quake(world: WorldState, rng: Rng): void {
 function wearOn(world: WorldState, rng: Rng): void {
   const w = weatherOf(world);
   if (w === 'drought') {
-    world.herd = Math.floor((world.herd ?? 0) * 0.85);
-    const dead = living(world).filter((n) => n.age >= 58 && chance(rng, 0.05));
+    const watered = known(world, 'irrigation');
+    world.herd = Math.floor((world.herd ?? 0) * (watered ? 0.93 : 0.85));
+    const dead = living(world).filter((n) => n.age >= 58 && chance(rng, watered ? 0.02 : 0.05));
     for (const n of dead) kill(world, n, 'สิ้นใจเพราะความร้อนแล้งที่ยาวนาน');
     for (const n of living(world)) loyaltyNudge(n, -2);
   } else if (w === 'deluge') {
     const m = ensureMarket(world);
     m.stock.grain = Math.floor(m.stock.grain * (world.works?.granary !== undefined ? 0.94 : 0.85));
     if (chance(rng, 0.3)) plagueStrike(world, rng, 0.35, 'ไข้จากน้ำขังระบาดไปทั่วเมือง');
-    else if (!flooded(world) && chance(rng, 0.2)) flood(world, rng);
+    else if (!flooded(world) && chance(rng, known(world, 'levee') ? 0.07 : 0.2)) flood(world, rng);
   }
 }
 
@@ -284,7 +287,7 @@ export function disastersDay(world: WorldState, rng: Rng): void {
   const kinds: [number, (w: WorldState, r: Rng) => void][] = [
     [calm && season === 'summer' ? DROUGHT : 0, drought],
     [calm && (season === 'spring' || season === 'autumn') ? DELUGE : 0, deluge],
-    [season === 'spring' && !flooded(world) ? FLOOD : 0, flood],
+    [season === 'spring' && !flooded(world) ? FLOOD * (known(world, 'levee') ? 0.4 : 1) : 0, flood],
     [QUAKE, quake],
   ];
   let roll = next(rng);

@@ -1385,6 +1385,27 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "irrigation": {
+    "file": "assets/sprites/icons/irrigation.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "levee": {
+    "file": "assets/sprites/icons/levee.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "ironframe": {
+    "file": "assets/sprites/icons/ironframe.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "chemistry": {
     "file": "assets/sprites/icons/chemistry.png",
     "group": "icons",

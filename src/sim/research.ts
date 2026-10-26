@@ -24,11 +24,14 @@ export const TECHS: Record<Tech, TechDef> = {
   navigation: { name: 'การเดินเรือและแผนที่', cost: 380, text: 'กองคาราวานเดินทางเร็วขึ้น ปลอดภัยขึ้น และได้กำไรมากขึ้น', icon: 'navigation', needs: ['plough'] },
   arcana: { name: 'เวทศาสตร์', cost: 440, text: 'จอมเวทร่ายเวทได้แรงขึ้นมาก', icon: 'arcana', needs: ['medicine'] },
   printing: { name: 'การพิมพ์', cost: 500, text: 'เด็กๆ เรียนได้เร็วขึ้น สร้างโรงพิมพ์ได้ ความคิดใหม่ๆ แพร่ไปทั่วเมือง', icon: 'printing', needs: ['architecture'] },
+  irrigation: { name: 'คลองชลประทาน', cost: 350, text: 'ขุดคลองส่งน้ำเข้าทุ่ง ภัยแล้งทำให้ข้าวเสียหายน้อยลงมาก สัตว์และคนแก่ล้มตายน้อยลง', icon: 'irrigation', needs: ['plough'] },
+  levee: { name: 'คันกั้นน้ำ', cost: 420, text: 'คันดินริมแม่น้ำ น้ำท่วมใหญ่เกิดยากขึ้นมาก และเสียหายเพียงครึ่งเดียว', icon: 'levee', needs: ['architecture'] },
+  ironframe: { name: 'โครงเหล็กทนแผ่นดินไหว', cost: 700, text: 'บ้านและอาคารหลวงมีโครงเหล็ก แผ่นดินไหวทำให้บ้านพังและคนตายน้อยลงมาก', icon: 'ironframe', needs: ['architecture', 'metallurgy'] },
   chemistry: { name: 'เคมี', cost: 600, text: 'ยาและน้ำยาฆ่าเชื้อชนิดใหม่ โรคระบาดคร่าชีวิตน้อยลงอีก 30%', icon: 'chemistry', needs: ['medicine', 'arcana'] },
   steam: { name: 'เครื่องจักรไอน้ำ', cost: 650, text: 'เครื่องจักรช่วยทุ่นแรง ผลผลิตข้าวเพิ่ม 15% สร้างโรงงานได้', icon: 'steam', needs: ['printing', 'metallurgy'] },
   railway: { name: 'ทางรถไฟ', cost: 800, text: 'กองคาราวานเดินทางเร็วขึ้นอีก สร้างสถานีรถไฟได้', icon: 'railway', needs: ['steam', 'navigation'] },
 };
-export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'navigation', 'arcana', 'printing', 'chemistry', 'steam', 'railway'];
+export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'irrigation', 'levee', 'navigation', 'arcana', 'printing', 'ironframe', 'chemistry', 'steam', 'railway'];
 
 const ASK_DAY = 12; // day of the month the king sets a new question
 
@@ -51,6 +54,13 @@ function want(world: WorldState, t: Tech, ruler: Npc): number {
       return 1 + has('brave') + (world.demon || (world.dread ?? 0) >= 50 ? 2 : 0);
     case 'printing':
       return 1 + has('kind') + (world.works?.school !== undefined ? 1 : 0);
+    // The town wants the defence against whatever has hurt it lately.
+    case 'irrigation':
+      return recent.filter((e) => /ภัยแล้งแผ่ไป/.test(e.text)).length * 3 + has('kind') * 0.5;
+    case 'levee':
+      return recent.filter((e) => /น้ำท่วมใหญ่!|ฝนตกไม่หยุดทั้งวัน/.test(e.text)).length * 3 + has('kind') * 0.5;
+    case 'ironframe':
+      return recent.filter((e) => /แผ่นดินไหวครั้งใหญ่/.test(e.text)).length * 4 + has('kind') * 0.5;
     case 'chemistry':
       return 1 + has('kind') + recent.filter((e) => e.text.includes('โรคระบาด')).length;
     case 'steam':
