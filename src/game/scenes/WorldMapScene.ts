@@ -16,7 +16,7 @@ export class WorldMapScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private built = false;
   private labels = new Map<number, Phaser.GameObjects.Text>();
-  private keeps = new Map<number, { castle: Phaser.GameObjects.Image; flag: Phaser.GameObjects.Image; sick: Phaser.GameObjects.Image }>();
+  private keeps = new Map<number, { castle: Phaser.GameObjects.Image; flag: Phaser.GameObjects.Image; sick: Phaser.GameObjects.Image; ruin: Phaser.GameObjects.Image }>();
   private lastKey = '';
   private wagon: Phaser.GameObjects.Sprite | null = null;
   private swords: Phaser.GameObjects.Image | null = null;
@@ -77,7 +77,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.swords.setVisible(!!foe);
     if (foe) this.swords.setPosition(((foe.x + HOME.x) / 2) * TILE + TILE / 2, ((foe.y + HOME.y) / 2) * TILE + TILE / 2).setAngle(Math.sin(this.time.now / 150) * 12);
     // Relations and rulers change slowly; refresh the labels when they do.
-    const key = JSON.stringify(w.realms.map((r) => [r.ruler.name, Math.round(r.relation / 10), !!r.fallen, (r.plagueUntil ?? 0) > w.day]));
+    const key = JSON.stringify(w.realms.map((r) => [r.ruler.name, Math.round(r.relation / 10), !!r.fallen, (r.plagueUntil ?? 0) > w.day, (r.disaster?.until ?? 0) > w.day]));
     if (key === this.lastKey) return;
     this.lastKey = key;
     for (const r of w.realms) {
@@ -88,6 +88,7 @@ export class WorldMapScene extends Phaser.Scene {
       k.castle.setTint(r.fallen ? 0x6a4a7a : 0xffffff);
       k.flag.setTint(r.fallen ? 0x2a1a2e : (FLAG[r.color] ?? 0xffffff));
       k.sick.setVisible((r.plagueUntil ?? 0) > w.day && !r.fallen);
+      k.ruin.setVisible((r.disaster?.until ?? 0) > w.day && !r.fallen);
     }
   }
 
@@ -161,7 +162,8 @@ export class WorldMapScene extends Phaser.Scene {
       const castle = this.add.image(cx, cy, 'wm-castle').setOrigin(0.5, 1).setDepth(10_000);
       const flag = this.add.image(cx + 4, cy - 24, 'wm-flag').setOrigin(0, 0).setTint(FLAG[r.color] ?? 0xffffff).setDepth(10_001);
       const sick = this.add.image(cx - 14, cy - 22, 'plague').setDepth(10_001).setVisible(false);
-      this.keeps.set(r.id, { castle, flag, sick });
+      const ruin = this.add.image(cx + 14, cy - 2, 'rubble').setOrigin(0.5, 1).setScale(0.5).setDepth(10_001).setVisible(false);
+      this.keeps.set(r.id, { castle, flag, sick, ruin });
       this.labels.set(r.id, this.label(cx, cy + 2, r.name));
     }
   }

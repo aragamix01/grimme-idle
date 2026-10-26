@@ -237,6 +237,7 @@ export interface Realm {
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
   plagueUntil?: number;
+  disaster?: { kind: 'drought' | 'flood' | 'quake'; until: number }; // nature's blow, and the day they've recovered
   fallen?: boolean; // taken by the demon lord
   miracleAt?: number; // day the god last worked a miracle on them
 }

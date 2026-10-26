@@ -1,4 +1,4 @@
-import { AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
+import { stricken, AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 // While the world map is up, the side panel lists every neighbour in full, so nobody has to
@@ -44,6 +44,7 @@ function card(world: WorldState, r: Realm): HTMLElement {
     el('p', { className: 'realm-king__meta', textContent: `ขาย${GOOD_TH[TRADE[r.terrain].sells]} · ต้องการ${GOOD_TH[TRADE[r.terrain].wants]} · คาราวานไปแล้ว ${r.trades ?? 0} ครั้ง` }),
     ...(r.war ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: 'กำลังทำสงครามกับเรา!' })] : []),
     ...(r.fallen ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: 'ถูกจอมมารยึดครอง รอผู้กล้ามาปลดปล่อย' })] : []),
+    ...(stricken(world, r) && !r.fallen ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: `${({ drought: 'ภัยแล้ง', flood: 'น้ำท่วม', quake: 'แผ่นดินไหว' } as const)[r.disaster!.kind]} อีก ${r.disaster!.until - world.day} วันจะฟื้นตัว (บันดาลพรช่วยได้)` })] : []),
     ...(plagued(world, r) ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: `โรคระบาดอีก ${r.plagueUntil! - world.day} วัน คาราวานเสี่ยงติดเชื้อ` })] : []),
     ...(r.fallen ? [] : [miracles(world, r)]),
     ...(r.pact || r.wed ? [el('p', { className: 'realm-king__meta', textContent: [r.pact ? 'พันธมิตรตามสนธิสัญญา' : '', r.wed ? `${r.wed}อภิเษกกับราชวงศ์นี้` : ''].filter(Boolean).join(' · ') })] : []),

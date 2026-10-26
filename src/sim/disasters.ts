@@ -8,10 +8,12 @@ import { kill, log, loyaltyNudge, occupied } from './core';
 import { weatherOf } from './divine';
 import { ensureMarket, seasonOf } from './market';
 import { plagueStrike } from './worldevents';
+import { traveller } from './world';
+import { clamp } from './core';
 import { king, payrollReserve } from './society';
 import { BUILDINGS } from './town';
 import { WORKS, WORK_ORDER } from './works';
-import type { Work, WorldState } from './types';
+import type { Realm, Terrain, Work, WorldState } from './types';
 
 const DAY = 27; // day of the month nature may strike
 const GAP = 300; // days between disasters at the least
@@ -21,6 +23,13 @@ const FLOOD = 0.008; // monthly chance in spring, of a flood without the long ra
 const QUAKE = 0.004; // monthly chance in any season
 const RUBBLE_DAYS = [150, 300] as const; // how long a fallen home lies before it's rebuilt
 const RELIEF_EACH = 8; // gold the crown spends per townsperson on relief
+
+const REALM_ODDS = 0.006; // monthly chance a neighbour is struck
+const REALM_DAYS = 120; // how long it takes them to recover
+// What each land suffers.
+const REALM_KINDS: Record<Terrain, NonNullable<Realm['disaster']>['kind'][]> = { coast: ['flood', 'quake'], mountain: ['quake'], desert: ['drought'], forest: ['flood', 'drought'] };
+const REALM_TH = { drought: 'ภัยแล้ง', flood: 'น้ำท่วมใหญ่', quake: 'แผ่นดินไหว' } as const;
+export const stricken = (world: WorldState, r: Realm) => (r.disaster?.until ?? 0) > world.day;
 
 const HOMES = BUILDINGS.filter(([k]) => k.startsWith('house')).map(([, x, y]) => ({ x, y }));
 // Low ground that floods; high ground and stone that shakes.
@@ -157,9 +166,36 @@ function wearOn(world: WorldState, rng: Rng): void {
   }
 }
 
+// Neighbours suffer too: they lose people, gold and soldiers, and some of the homeless come to us.
+function realmDisasters(world: WorldState, rng: Rng): void {
+  for (const r of world.realms ?? []) {
+    if (r.fallen || stricken(world, r) || !chance(rng, REALM_ODDS)) continue;
+    const kinds = REALM_KINDS[r.terrain];
+    const kind = kinds[int(rng, 0, kinds.length - 1)];
+    r.disaster = { kind, until: world.day + REALM_DAYS };
+    const lost = Math.round(r.people * (kind === 'drought' ? 0.08 : 0.12));
+    r.people = Math.max(50, r.people - lost);
+    r.gold = Math.round(r.gold * 0.7);
+    r.army = Math.max(3, Math.round(r.army * 0.9));
+    const fled = r.relation > -30 ? int(rng, 1, 3) : 0;
+    for (let i = 0; i < fled; i++) traveller(world, rng);
+    log(world, 'world', `${REALM_TH[kind]}ถล่ม${r.name} ผู้คนล้มตายราว ${lost} คน${fled ? ` ผู้ประสบภัย ${fled} คนหนีมาพึ่งเมืองของเรา` : ''}`);
+  }
+}
+
+// Our gods' blessing on a stricken neighbour: they don't forget it.
+export function aidRealm(world: WorldState, r: Realm): void {
+  if (!stricken(world, r)) return;
+  r.relation = clamp(r.relation + 10, -100, 100);
+  r.disaster!.until = world.day + Math.ceil((r.disaster!.until - world.day) / 2);
+  log(world, 'world', `ชาวเมือง${r.name}ที่ประสบ${REALM_TH[r.disaster!.kind]}ต่างซาบซึ้งในพรของเทพเจ้าของเรา`);
+}
+
 export function disastersDay(world: WorldState, rng: Rng): void {
   if (world.ruins?.length && world.ruins.some((r) => r.until <= world.day)) world.ruins = world.ruins.filter((r) => r.until > world.day);
-  if (world.day % 30 !== DAY || occupied(world)) return;
+  if (world.day % 30 !== DAY) return;
+  realmDisasters(world, rng);
+  if (occupied(world)) return;
   wearOn(world, rng);
   if (world.day - (world.disasterAt ?? 0) < GAP) return;
   const season = seasonOf(world.day);

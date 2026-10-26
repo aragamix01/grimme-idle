@@ -6,6 +6,7 @@ import { clamp, kill, log, perkLevel, known } from './core';
 import { draughts } from './learning';
 import { legend } from './quests';
 import { traveller } from './world';
+import { aidRealm } from './disasters';
 import type { Realm, RealmMiracle, WorldState } from './types';
 
 const PLAGUE_DAYS = 120;
@@ -108,6 +109,7 @@ export function realmMiracle(world: WorldState, realmId: number, kind: RealmMira
   if (!r || !realmMiracleReady(world, r)) return false;
   r.miracleAt = world.day;
   if (kind === 'bless') {
+    aidRealm(world, r);
     r.gold += 150;
     r.people = Math.round(r.people * 1.05);
     r.relation = clamp(r.relation + 10, -100, 100);
