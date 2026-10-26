@@ -258,7 +258,7 @@ export interface War {
   storm?: number; // the god's storm on theirs
 }
 
-export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
+export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision' | 'ambition';
 export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom';
 
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';

@@ -40,6 +40,7 @@ import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, typ
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
+export const AMBITION_COST = 60; // a dream of power
 export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST, perk: 0, war: 0, realm: 0 } as const;
 // The faith a power takes, less for a god with the gentle-grace gift.
 export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
@@ -525,7 +526,7 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
     if (world.faith >= cost && miracle(world, cmd.kind, rng)) world.faith -= cost;
     return;
   }
-  const cost = costOf(world, cmd.type);
+  const cost = cmd.type === 'dream' && cmd.kind === 'ambition' ? Math.round(AMBITION_COST * (1 - 0.1 * perkLevel(world, 'grace'))) : costOf(world, cmd.type);
   if (world.faith < cost) return;
   if (cmd.type === 'divineQuest') {
     world.faith -= cost;
@@ -544,6 +545,6 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (!npc) return;
   if (cmd.type === 'bless') bless(world, npc);
   else if (cmd.type === 'curse') curse(world, npc);
-  else if (!dream(world, npc, cmd.job, cmd.kind)) return; // nothing to dream of: the faith is kept
+  else if (!dream(world, npc, cmd.job, cmd.kind, rng)) return; // nothing to dream of: the faith is kept
   world.faith -= cost;
 }

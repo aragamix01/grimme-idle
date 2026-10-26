@@ -4,7 +4,7 @@
 // reading town reforms itself into a republic, sooner if the god blesses its reformers or sends
 // its ruler a vision. Each regime then favours its own: soldiers, the rich, or the faithful.
 import { chance, pick, type Rng } from './rng';
-import { log, occupied } from './core';
+import { kill, log, occupied } from './core';
 import { legend } from './quests';
 import { approval, crownPower, loyaltyOf } from './politics';
 import { enthrone, king, payrollReserve } from './society';
@@ -108,6 +108,47 @@ export function reformVision(world: WorldState, ruler: Npc, rng: Rng): string {
   }
   if (!ruler.traits.includes('kind')) ruler.traits = [...ruler.traits.filter((t) => t !== 'vengeful' && t !== 'greedy').slice(0, 1), 'kind'];
   return 'ตื่นขึ้นมาด้วยหัวใจที่อ่อนโยนลง';
+}
+
+// The god's dream of power: the dreamer wakes certain they should rule and moves at once, each
+// by the road open to them. A soldier takes the army, a rich merchant buys the crown, a priest
+// calls the faithful, a reader calls for a republic, anyone else raises the poor against the
+// throne. An unpopular ruler falls easily; a loved one is hard to unseat, and a failed bid ends
+// on the scaffold or in exile.
+export function ambition(world: WorldState, n: Npc, rng: Rng): boolean {
+  const ruler = king(world);
+  if (!ruler || n === ruler || n.age < 16 || occupied(world)) return false;
+  if (!n.traits.some((t) => t === 'greedy' || t === 'vengeful' || t === 'brave')) n.traits = [...n.traits.slice(0, 1), 'greedy'];
+  const soldiers = adults(world).filter((o) => o.job === 'soldier' || o.knight);
+  const road: [Regime, number, string, string] =
+    n.job === 'soldier' || n.knight
+      ? ['junta', soldiers.length / 20, `${n.name}ตื่นจากฝันแล้วปลุกระดมทหาร นำกองทัพบุกวัง`, 'ยึดอำนาจโดยกองทัพ']
+      : (n.job === 'merchant' || n.job === 'noble') && n.gold >= 150
+        ? ['oligarchy', n.gold / 1500, `${n.name}ตื่นจากฝันแล้วทุ่มทองซื้อตัวขุนนางและทหาร หมายชิงอำนาจ`, 'ซื้ออำนาจด้วยทองคำ']
+        : n.job === 'priest'
+          ? ['theocracy', world.faith / 2000, `${n.name}ตื่นจากฝันแล้วประกาศว่าเทพเจ้าเลือกตนให้ปกครอง เรียกผู้ศรัทธาลุกขึ้น`, 'ได้รับเลือกจากเทพเจ้า']
+          : literate(n) && n.morality > 0
+            ? ['republic', literacy(world) * 0.3, `${n.name}ตื่นจากฝันแล้วเขียนใบปลิวปลุกระดมให้โค่นผู้ปกครอง ตั้งสาธารณรัฐ`, 'ปฏิวัติ']
+            : ['monarchy', 0, `${n.name}ตื่นจากฝันว่าตนเกิดมาเพื่อครองบัลลังก์ ปลุกคนยากจนลุกฮือ`, 'ลุกฮือโค่นราชบัลลังก์'];
+  const [r, edge, call, how] = road;
+  log(world, 'politics', call, n.id);
+  const odds = Math.min(0.85, 0.2 + (100 - approval(world)) / 150 + edge - crownPower(world).total / 400);
+  if (!chance(rng, odds)) {
+    for (const o of adults(world)) o.loyalty = Math.max(0, loyaltyOf(o) - 3); // the crackdown after
+    if (chance(rng, 0.5)) kill(world, n, `ก่อการล้มเหลว ถูก${ruler.name}จับประหาร`);
+    else {
+      n.alive = false;
+      n.left = true;
+      n.plan = undefined;
+      log(world, 'politics', `การก่อการของ${n.name}ล้มเหลว ต้องหนีออกจากเมืองไปตลอดกาล`, n.id);
+    }
+    return true;
+  }
+  log(world, 'politics', `${ruler.name}ถูกโค่นอำนาจ!`, n.id);
+  retire(ruler, rng);
+  if (r === 'republic') proclaimRepublic(world, n, rng);
+  else seize(world, r, n, how, `${n.name} ${how}`);
+  return true;
 }
 
 // A ruler who loses power lives on as a noble (or goes back to their old trade).

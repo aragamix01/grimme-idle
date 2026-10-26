@@ -14,7 +14,7 @@ import { traveller } from './world';
 import { JOB_TH } from './names';
 import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
 import { insight } from './learning';
-import { reformVision } from './regimes';
+import { ambition, reformVision } from './regimes';
 
 export const BLESS_DAYS = 365;
 export const CURSE_DAYS = 180;
@@ -56,7 +56,8 @@ export function curse(world: WorldState, n: Npc): void {
   log(world, 'curse', `${n.name} ต้องคำสาปแห่งกบ${n.morality < 0 ? ' ผู้คนกระซิบว่าเป็นกรรมตามสนอง' : ''}`, n.id);
 }
 
-export function dream(world: WorldState, n: Npc, job?: Job, kind?: DreamKind): boolean {
+export function dream(world: WorldState, n: Npc, job?: Job, kind?: DreamKind, rng?: Rng): boolean {
+  if (kind === 'ambition') return ambition(world, n, rng ?? { state: world.rng });
   if (kind === 'repent') return repent(world, n);
   if (kind === 'love') return love(world, n);
   if (kind === 'nightmare') return nightmare(world, n);

@@ -1,4 +1,4 @@
-import { PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -288,6 +288,8 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
   if (choosingDream && can(COMMAND_COST.dream)) {
     // Dreams that change a heart, then dreams of a new calling.
     const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : npc.job === 'scholar' ? [['vision', 'นิมิตแห่งปัญญา'] as [DreamKind, string]] : npc.job === 'king' ? [['vision', 'นิมิตแห่งการปฏิรูป'] as [DreamKind, string]] : [])];
+    // The dream of power, for anyone but the ruler, and dearer.
+    if (npc.age >= ADULT_AGE && world.npcs.some((n) => n.alive && n.id === world.kingId) && npc.id !== world.kingId && world.demon?.stage !== 'occupied' && can(AMBITION_COST)) kinds.push(['ambition', `ฝันถึงอำนาจ (${AMBITION_COST})`]);
     const hearts = kinds.map(([kind, label]) => {
       const b = el('button', { type: 'button', className: 'chip chip--button', textContent: label });
       b.onclick = () => {

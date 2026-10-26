@@ -1,6 +1,6 @@
 import { PLACES } from './places';
 export * from './types';
-export { COMMAND_COST, applyCommands, costOf, createWorld, tick } from './world';
+export { AMBITION_COST, COMMAND_COST, applyCommands, costOf, createWorld, tick } from './world';
 export { JOB_TH, TRAIT_TH } from './names';
 export { RANKS, rankName } from './quests';
 export { tieLabel, topTies } from './ties';
