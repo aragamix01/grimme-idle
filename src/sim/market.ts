@@ -130,7 +130,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * ((world.strike ?? 0) > world.day ? 0.5 : 1); // half the hands are out on strike
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * ((world.strike ?? 0) > world.day ? 0.5 : 1); // half the hands are out on strike
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }
@@ -259,10 +259,11 @@ function caravans(world: WorldState, m: Market): void {
   const gear = trade.sells === 'gear' && m.stock.gear < TARGET.gear && m.till >= gearCost + 50 ? 3 : 0;
   if (gear) m.till -= gearCost;
   if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
+  if (built(world, 'station')) gold *= 1.2; // goods go by rail
   if (!gold && !buying && !gear) return;
   const charted = known(world, 'navigation'); // maps and a compass: shorter roads, better deals
   if (charted) gold *= 1.15;
-  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: Math.round(tripDays(realm) * (charted ? 0.7 : 1)) };
+  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: Math.round(tripDays(realm) * (charted ? 0.7 : 1) * (known(world, 'railway') ? 0.6 : 1)) };
   merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };
   log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานไป${buying ? 'ซื้อข้าว' : 'ค้าขาย'}ที่${realm.name}`, merchant.id);
 }

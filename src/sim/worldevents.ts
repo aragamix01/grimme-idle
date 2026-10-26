@@ -20,7 +20,7 @@ const standing = (world: WorldState) => (world.realms ?? []).filter((r) => !r.fa
 export function plagueStrike(world: WorldState, rng: Rng, severity: number, how: string): number {
   const priests = world.npcs.filter((n) => n.alive && n.age >= 16 && n.job === 'priest').length;
   const hall = world.works?.cathedral !== undefined; // the cathedral's infirmary
-  const care = (1 - Math.min(hall ? 0.65 : 0.5, priests * (hall ? 0.15 : 0.1))) * (known(world, 'medicine') ? 0.6 : 1) * (draughts(world) ? 0.85 : 1);
+  const care = (1 - Math.min(hall ? 0.65 : 0.5, priests * (hall ? 0.15 : 0.1))) * (known(world, 'medicine') ? 0.6 : 1) * (known(world, 'chemistry') ? 0.7 : 1) * (draughts(world) ? 0.85 : 1) * (world.works?.factory !== undefined ? 1.15 : 1); // the factory's smoke
   let dead = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.inside !== undefined) continue;

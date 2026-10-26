@@ -346,6 +346,7 @@ const FEATHER_CAP = [
 ];
 
 const RUFF = ['...wwwwwwwwww...'];
+const NECKTIE = ['......wkkw......', '.......kk.......', '.......kk.......'];
 
 // Hunter: a green cap with a long feather, a bow on the back and a quiver.
 const HUNTER_CAP = [
@@ -671,11 +672,12 @@ function child(frame, facing = 'down') {
 }
 
 // Clothes by civilisation's age: undyed homespun in the first, the jobs' own colours in the
-// second, and a white ruffed collar in the third.
+// second, a white ruffed collar in the third, and a collar and necktie in the industrial age.
 const HOMESPUN = { b: 'h', B: 'H', i: 'n', r: 'N', R: 'M', u: 'n', v: 'h', V: 'H', p: 'C', P: 'N', G: 'N', g: 'n', O: 'N', l: 'H', X: 'M', x: 'C', d: 'H', D: 'N' };
 const AGE_LOOKS = {
   '-age0': (def) => ({ ...def, slots: Object.fromEntries(Object.entries(def.slots).map(([k, v]) => [k, k === '5' ? v : HOMESPUN[v] ?? v])) }),
   '-age2': (def) => ({ ...def, layers: [...(def.layers ?? []), [RUFF, 0, 13]] }),
+  '-age3': (def) => ({ ...def, layers: [...(def.layers ?? []), [NECKTIE, 0, 13]] }),
 };
 const TIMELESS = new Set(['cultist', 'hero']); // robes and armour that no age changes
 

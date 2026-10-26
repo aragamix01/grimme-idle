@@ -211,7 +211,7 @@ export function updateMood(world: WorldState): void {
         ? SONGS.dark
         : t > 0.3 && t < 0.7
           ? SONGS.night
-          : [SONGS.dayOld, SONGS.day, SONGS.dayNew][ageOf(world)]; // the day's tune follows the age
+          : [SONGS.dayOld, SONGS.day, SONGS.dayNew, SONGS.dayNew][ageOf(world)]; // the day's tune follows the age
   if (next !== song) {
     song = next;
     step = 0; // start the new tune from its first bar

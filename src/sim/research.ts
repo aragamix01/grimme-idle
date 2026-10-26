@@ -24,8 +24,11 @@ export const TECHS: Record<Tech, TechDef> = {
   navigation: { name: 'การเดินเรือและแผนที่', cost: 380, text: 'กองคาราวานเดินทางเร็วขึ้น ปลอดภัยขึ้น และได้กำไรมากขึ้น', icon: 'navigation', needs: ['plough'] },
   arcana: { name: 'เวทศาสตร์', cost: 440, text: 'จอมเวทร่ายเวทได้แรงขึ้นมาก', icon: 'arcana', needs: ['medicine'] },
   printing: { name: 'การพิมพ์', cost: 500, text: 'เด็กๆ เรียนได้เร็วขึ้น สร้างโรงพิมพ์ได้ ความคิดใหม่ๆ แพร่ไปทั่วเมือง', icon: 'printing', needs: ['architecture'] },
+  chemistry: { name: 'เคมี', cost: 600, text: 'ยาและน้ำยาฆ่าเชื้อชนิดใหม่ โรคระบาดคร่าชีวิตน้อยลงอีก 30%', icon: 'chemistry', needs: ['medicine', 'arcana'] },
+  steam: { name: 'เครื่องจักรไอน้ำ', cost: 650, text: 'เครื่องจักรช่วยทุ่นแรง ผลผลิตข้าวเพิ่ม 15% สร้างโรงงานได้', icon: 'steam', needs: ['printing', 'metallurgy'] },
+  railway: { name: 'ทางรถไฟ', cost: 800, text: 'กองคาราวานเดินทางเร็วขึ้นอีก สร้างสถานีรถไฟได้', icon: 'railway', needs: ['steam', 'navigation'] },
 };
-export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'navigation', 'arcana', 'printing'];
+export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'navigation', 'arcana', 'printing', 'chemistry', 'steam', 'railway'];
 
 const ASK_DAY = 12; // day of the month the king sets a new question
 
@@ -48,6 +51,12 @@ function want(world: WorldState, t: Tech, ruler: Npc): number {
       return 1 + has('brave') + (world.demon || (world.dread ?? 0) >= 50 ? 2 : 0);
     case 'printing':
       return 1 + has('kind') + (world.works?.school !== undefined ? 1 : 0);
+    case 'chemistry':
+      return 1 + has('kind') + recent.filter((e) => e.text.includes('โรคระบาด')).length;
+    case 'steam':
+      return 1 + has('greedy') + has('brave');
+    case 'railway':
+      return 1 + has('greedy') + ((world.realms ?? []).filter((r) => (r.trades ?? 0) >= 5).length ? 1 : 0);
   }
 }
 

@@ -91,11 +91,11 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 };
 
 // Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
-export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 } } as const;
+export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 } } as const;
 
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
 export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
-export const PASTURE = { x0: 14, y0: 19, x1: 24, y1: 23 }; // grazing, east of it
+export const PASTURE = { x0: 14, y0: 20, x1: 24, y1: 23 }; // grazing, east of it (the factory and station plots are at its north edge)
 export const FOREST = { x0: 28, y0: 0, x1: 39, y1: 24 }; // hunting grounds past the east gate
 
 // Where an NPC stands to enter a dungeon drawn at (d.x, d.y).
@@ -206,7 +206,9 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
   for (let x = 0; x < MAP_W; x += 2) if (rand() < 0.5) deco('bush', x, 0);
   // A fence keeps the crows out of the fields and the beasts in the pasture.
   for (let x = FIELDS.x0; x <= PASTURE.x1; x++) if (x !== 13) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
-  for (let x = PASTURE.x0; x < 22; x++) props.push({ key: 'fence', x, y: PASTURE.y0 - 1, anchor: 'bottom' });
+  // Along the pasture's north edge the factory and station plots (fenced off themselves) stand in for the fence.
+  const onPlot = (x: number) => [PLOTS.factory, PLOTS.station].some((p) => x >= p.x && x <= p.x + 1);
+  for (let x = PASTURE.x0; x < 22; x++) if (!onPlot(x)) props.push({ key: 'fence', x, y: PASTURE.y0 - 1, anchor: 'bottom' });
   deco('haystack', 15, 20);
   deco('haystack', 20, 23);
   deco('trough', 18, 21);

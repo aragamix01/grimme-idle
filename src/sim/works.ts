@@ -6,6 +6,8 @@ import { known, log } from './core';
 import { legend } from './quests';
 import { king, payrollReserve } from './society';
 import { PLOTS } from './town';
+import { ensureMarket } from './market';
+import { traveller } from './world';
 import type { Npc, Work, WorldState } from './types';
 
 export interface WorkDef {
@@ -33,9 +35,14 @@ export const WORKS: Record<Work, WorkDef> = {
   clocktower: { name: 'หอนาฬิกา', cost: 700, days: 90, text: 'ระฆังบอกเวลาทำให้ทุกคนทำงานตรงเวลา ผลผลิตข้าวและความรู้เพิ่ม 10%', art: 'clocktower', plot: PLOTS.clocktower },
   press: { name: 'โรงพิมพ์', cost: 800, days: 90, text: 'หนังสือราคาถูก ผู้ใหญ่หัดอ่านเองได้ นักปราชญ์ค้นคว้าได้ไวขึ้น 25%', art: 'press', plot: PLOTS.press },
   monument: { name: 'อนุสรณ์สถานแห่งอาณาจักร', cost: MONUMENT_COST, days: 120, text: 'สร้างต่อเติมได้ไม่รู้จบ ทุกระดับทำให้ชาวเมืองภาคภูมิใจและศรัทธามากขึ้น', art: 'monument-1', plot: PLOTS.monument },
+  factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น', art: 'factory', plot: PLOTS.factory },
+  station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20%', art: 'station', plot: PLOTS.station },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'palace', 'monument'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'palace', 'monument'];
+const FACTORY_GEAR = 4; // arms the factory turns out each month
+const FACTORY_GOLD = 80; // and what its other goods fetch for the crown
+const STATION_VISITORS = 0.3; // monthly chance a train brings a newcomer
 
 const SPARE = 300; // gold the crown keeps back beyond the soldiers' pay before it builds
 const ASK_DAY = 8; // day of the month the king considers a new work
@@ -76,6 +83,10 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
       return known(world, 'architecture') ? 1 + (ruler.traits.includes('greedy') ? 0 : 1) : 0;
     case 'press':
       return known(world, 'printing') ? 2 + (ruler.traits.includes('kind') ? 1 : 0) : 0;
+    case 'factory':
+      return known(world, 'steam') ? 2 + (ruler.traits.includes('greedy') ? 1 : 0) : 0;
+    case 'station':
+      return known(world, 'railway') ? 2 : 0;
     case 'monument':
       return 0.5; // after everything the town needs; a vain ruler is the same as anyone here
     case 'palace':
@@ -84,7 +95,18 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
   }
 }
 
+// Monthly: the factory's output, and who the trains bring.
+function industry(world: WorldState, rng: Rng): void {
+  if (world.day % 30 !== ASK_DAY) return;
+  if (built(world, 'factory')) {
+    ensureMarket(world).stock.gear += FACTORY_GEAR;
+    world.treasury += FACTORY_GOLD;
+  }
+  if (built(world, 'station') && chance(rng, STATION_VISITORS)) traveller(world, rng);
+}
+
 export function crownWorks(world: WorldState, rng: Rng): void {
+  industry(world, rng);
   const job = world.building;
   if (job && world.day >= job.done) {
     (world.works ??= {})[job.kind] = world.day;

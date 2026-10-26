@@ -1,7 +1,7 @@
 // The crown's building works: new buildings for the royal plots, grander versions of old ones,
 // the scaffolding that stands while they go up, and the sign on an empty plot.
 import { Grid } from './lib.mjs';
-import { castle, church, door, flag, roof, shop, sign, wall, windowAt } from './world.mjs';
+import { brick, castle, church, door, flag, roof, shop, sign, wall, windowAt } from './world.mjs';
 
 const finish = (g) => g.outline('o');
 
@@ -88,6 +88,40 @@ function rubble() {
   g.vline(26, 13, 12, 'M').set(25, 13, 'N').set(27, 14, 'N'); // a beam sticking up
   g.hline(12, 20, 9, 'M');
   g.hline(1, 30, 30, 'T');
+  return finish(g);
+}
+
+// A brick factory under a saw-tooth roof, a tall smokestack puffing at one end.
+function factory() {
+  const g = new Grid(32, 32);
+  g.rect(25, 2, 4, 14, 'R').hline(24, 2, 6, 'X').hline(25, 6, 4, 'r'); // the smokestack
+  g.disc(23, 1.5, 1.5, 'x').disc(20, 1, 1, 'z');
+  for (let i = 0; i < 4; i++) {
+    const x = 1 + i * 6;
+    for (let j = 0; j < 6; j++) g.vline(x + j, 14 - j, j + 1, j === 5 ? 'a' : 'X'); // a tooth: slate slope, glass face
+  }
+  g.hline(1, 15, 30, 'l');
+  brick(g, 2, 16, 28, 14);
+  for (const x of [4, 10, 22]) g.rect(x, 18, 4, 5, 'M').rect(x + 1, 19, 2, 3, 'y'); // windows lit by the furnace
+  g.rect(15, 21, 6, 9, 'M').rect(16, 22, 4, 8, 'X').vline(18, 22, 8, 'M'); // the sliding door
+  g.rect(2, 27, 3, 3, 'C').rect(26, 27, 3, 3, 'x'); // crates and pig iron
+  g.hline(2, 30, 28, 'X');
+  return finish(g);
+}
+
+// A railway station: a canopy on iron posts over the platform, a clock, and rails in front.
+function station() {
+  const g = new Grid(32, 32);
+  roof(g, 2, 6, 28, 7, 'red');
+  g.disc(16, 4, 3, 'c').set(16, 3, 'k').set(16, 4, 'k').set(17, 4, 'k'); // the clock
+  brick(g, 4, 13, 24, 9);
+  for (const x of [6, 12, 20]) g.rect(x, 15, 3, 4, 'a').set(x, 15, 'w');
+  door(g, 15, 15, 3, 7);
+  g.rect(2, 22, 28, 3, 'x').hline(2, 22, 28, 'z'); // the platform
+  for (const x of [3, 28]) g.vline(x, 12, 10, 'X');
+  g.hline(0, 27, 32, 'M').hline(0, 30, 32, 'M'); // rails
+  for (let x = 1; x < 32; x += 4) g.vline(x, 26, 6, 'N'); // sleepers
+  g.hline(0, 27, 32, 'z').hline(0, 30, 32, 'z');
   return finish(g);
 }
 
@@ -210,6 +244,8 @@ export function works() {
     { name: 'yard', group: 'buildings', frames: [yard()] },
     { name: 'scaffold', group: 'buildings', frames: [scaffold()] },
     { name: 'rubble', group: 'buildings', frames: [rubble()] },
+    { name: 'factory', group: 'buildings', frames: [factory()] },
+    { name: 'station', group: 'buildings', frames: [station()] },
     { name: 'lot', group: 'props', frames: [lot()] },
     { name: 'cathedral', group: 'buildings', frames: [cathedral()] },
     { name: 'market-hall', group: 'buildings', frames: [marketHall()] },

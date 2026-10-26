@@ -274,8 +274,10 @@ export function flag(g, x, y, c) {
 const finishBuilding = (g) => g.outline('o');
 
 // A house by civilisation's age: thatch and no chimney at first, tiles and a stone chimney,
-// then a dormer window in the roof and flower boxes under the windows.
+// then a dormer window in the roof and flower boxes under the windows, then brick under slate
+// with a smoking chimney and tall sash windows.
 function house(roofKind = 'brown', age = 1) {
+  if (age === 3) return brickHouse(roofKind);
   const g = new Grid(32, 32);
   if (age > 0) g.rect(22, 0, 4, 6, 'x').hline(22, 0, 4, 'X');
   roof(g, 1, 3, 30, 15, age === 0 ? 'thatch' : roofKind);
@@ -286,6 +288,31 @@ function house(roofKind = 'brown', age = 1) {
   windowAt(g, 5, 20);
   windowAt(g, 21, 20);
   if (age === 2) for (const x of [5, 21]) g.hline(x, 25, 6, 'N').set(x + 1, 24, 'r').set(x + 3, 24, 'p').set(x + 4, 24, 'y');
+  g.hline(3, 30, 26, 'X');
+  return finishBuilding(g);
+}
+
+// Red brick, mortar lines staggered.
+export function brick(g, x, y, w, h) {
+  g.rect(x, y, w, h, 'r');
+  for (let j = y + 2; j < y + h; j += 3) {
+    g.hline(x, j, w, 'R');
+    for (let i = x + ((j - y) % 2 ? 1 : 4); i < x + w; i += 6) g.vline(i, j - 2, 2, 'R');
+  }
+}
+
+function brickHouse(roofKind) {
+  const g = new Grid(32, 32);
+  g.rect(22, 3, 4, 5, 'R').hline(21, 3, 6, 'X'); // the chimney
+  g.disc(20, 1.5, 1.5, 'x').set(23, 1, 'z').set(18, 0, 'z'); // its smoke
+  roof(g, 1, 6, 30, 12, 'slate');
+  g.hline(1, 6, 30, roofKind === 'red' ? 'r' : roofKind === 'blue' ? 'b' : 'N'); // a painted ridge
+  brick(g, 3, 18, 26, 12);
+  door(g, 13, 22, 6, 8);
+  for (const x of [5, 21]) {
+    g.rect(x, 19, 6, 7, 'M').rect(x + 1, 20, 4, 5, 'a').hline(x + 1, 22, 4, 'M').set(x + 1, 20, 'w');
+    g.hline(x, 26, 6, 'z'); // stone sill
+  }
   g.hline(3, 30, 26, 'X');
   return finishBuilding(g);
 }
@@ -548,6 +575,7 @@ export function buildings() {
     ...['', '-red', '-blue'].flatMap((c) => [
       { name: `house${c}-age0`, group: 'buildings', frames: [house(c ? c.slice(1) : 'brown', 0)] },
       { name: `house${c}-age2`, group: 'buildings', frames: [house(c ? c.slice(1) : 'brown', 2)] },
+      { name: `house${c}-age3`, group: 'buildings', frames: [house(c ? c.slice(1) : 'brown', 3)] },
     ]),
     { name: 'shop', group: 'buildings', frames: [shop()] },
     { name: 'inn', group: 'buildings', frames: [inn()] },

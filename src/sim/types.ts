@@ -87,8 +87,8 @@ export interface Charter {
   amendments: { day: number; text: string }[];
 }
 export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
-export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument';
+export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
 
 export interface Dragon {
   name: string;
