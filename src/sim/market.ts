@@ -23,6 +23,7 @@ const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
 const TAX = 0.1; // of every purchase, to the crown
 const TITHE_EVERY = 30; // days between church collections
 const TITHE_FLOOR = 60; // gold anyone may keep untouched
+const ALMS_KEPT = 400; // the church's larder holds this much; the rest is spent at the market
 const TITHE = 0.1; // of savings above the floor; the kind give twice as much
 const SPOIL = 0.001; // share of the grain store lost to rats each day
 const MEAT_SPOIL = 0.01; // salted meat keeps, but not like grain
@@ -170,7 +171,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
     const food = mealOf(m);
     const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
-    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || dole(world, m)) {
+    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || charity(world, m) || dole(world, m)) {
       n.hunger = 0;
       continue;
     }
@@ -203,10 +204,18 @@ function tithe(world: WorldState): void {
     n.gold -= gift;
     collected += gift;
   }
-  // The priests keep a share for their living; the rest goes to the crown's purse.
+  // The priests keep a share for their living and the church's larder another; the rest goes
+  // to the crown's purse.
   const share = priests.length ? Math.floor((collected * 0.3) / priests.length) : 0;
   for (const p of priests) p.gold += share;
-  world.treasury += collected - share * priests.length;
+  // The church's larder buys bread for whoever goes hungry; what it can't use goes to the market.
+  const larder = Math.floor(collected * 0.35);
+  world.alms = (world.alms ?? 0) + larder;
+  if (world.alms > ALMS_KEPT) {
+    ensureMarket(world).till += world.alms - ALMS_KEPT;
+    world.alms = ALMS_KEPT;
+  }
+  world.treasury += collected - share * priests.length - larder;
 }
 
 // A merchant takes a caravan out the west gate to the neighbouring towns: carrying surplus to
@@ -318,6 +327,17 @@ function armGuilds(world: WorldState, m: Market): void {
 const mealOf = (m: Market): Good => (m.stock.meat >= 1 && (m.price.meat / BASE.meat < m.price.grain / BASE.grain || m.stock.grain < 1) ? 'meat' : 'grain');
 
 // The church feeds those who can't pay, out of the crown's purse, while there's food to buy.
+// A meal from the church's larder, before the crown's dole.
+function charity(world: WorldState, m: Market): boolean {
+  const food = mealOf(m);
+  const price = m.price[food];
+  if (m.stock[food] < 1 || (world.alms ?? 0) < price) return false;
+  world.alms! -= price;
+  m.stock[food] -= 1;
+  m.till += price;
+  return true;
+}
+
 function dole(world: WorldState, m: Market): boolean {
   const food = mealOf(m);
   const price = m.price[food];

@@ -357,7 +357,8 @@ export interface WorldState {
   council?: { vetoes: number; overrides: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them
-  knowledge?: number; // what the scholars have worked out, for research to spend; missing before scholars
+  knowledge?: number;
+  alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves

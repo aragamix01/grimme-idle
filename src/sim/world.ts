@@ -27,6 +27,7 @@ import { brew, draughts, engineer, pressDay, study } from './learning';
 import { researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
+import { spendSurplus } from './treasury';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -132,6 +133,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   troubles(world, rng);
   dragonDay(world, rng);
   crownWorks(world, rng);
+  spendSurplus(world);
   researchDay(world, rng);
   pressDay(world, rng);
   decreesDay(world, rng);
