@@ -282,6 +282,21 @@ export type EventKind =
   | 'politics'
   | 'cult';
 
+// One year of the annals: its name, its picture, how the town fared month by month, and what mattered.
+export interface YearRecord {
+  year: number;
+  title: string;
+  art: string; // sprite path under assets/sprites, without .png
+  pop: number[]; // townsfolk, sampled monthly
+  gold: number[]; // treasury, sampled monthly
+  born: number;
+  died: number;
+  arrived: number;
+  left: number;
+  king?: string; // who reigned at the year's end
+  highlights: { day: number; kind: EventKind; text: string; npcId?: number }[];
+}
+
 export interface ChronicleEntry {
   seq: number;
   day: number;
@@ -325,6 +340,8 @@ export interface WorldState {
   decrees?: { kind: Decree; since: number; until: number }[]; // the king's decrees in force
   decreeAt?: Partial<Record<Decree, number>>; // day each was last issued
   labour?: number; // hired workers still on the road to town
+  annals?: YearRecord[]; // the last few years, one page each
+  yearSamples?: { pop: number[]; gold: number[] }; // this year's monthly samples so far
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   game?: number; // deer left in the forest

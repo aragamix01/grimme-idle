@@ -431,7 +431,7 @@ html:has(dialog[open]) { overflow: hidden; }
   #logo { width: 132px; }
   .npc { padding: 12px; }
   .log { flex: none; }
-  #feed { max-height: 60vh; }
+  #feed, .annals { max-height: 60vh; }
   /* The map stays in view while the panels scroll under it. */
   #game { position: sticky; top: 0; z-index: 4; background: var(--meadow-deep); }
   /* A picked NPC opens as a sheet over the bottom of the screen, not far below the fold. */
@@ -473,3 +473,31 @@ html:has(dialog[open]) { overflow: hidden; }
 .work__art { width: 40px; height: 40px; object-fit: contain; object-position: bottom; image-rendering: pixelated; }
 .work .realm-king__meta { margin: 0; }
 .decree__seal { display: grid; place-items: center; width: 40px; height: 32px; font-size: 20px; color: var(--gold-deep); }
+
+/* ---- annals: one card per year ---- */
+.annals { display: grid; align-content: start; gap: 10px; padding: 4px 6px 12px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--paper-edge) transparent; }
+.annals > .log-note { margin: 0; font-size: 13px; color: var(--ink-muted); }
+.year { display: grid; gap: 8px; padding: 10px; background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.3); }
+.year--live { border-style: dashed; background: var(--paper); }
+.year__head { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
+.year__art { width: 56px; height: 56px; background: #c8f27a no-repeat; border: 2px solid var(--outline); image-rendering: pixelated; box-sizing: content-box; }
+.year__no { margin: 0; font: 500 12px var(--font-num); color: var(--ink-muted); }
+.year__title { margin: 0; font-size: 17px; line-height: 1.3; }
+.year__head .realm-king__meta { margin: 0; }
+.year__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.year__chips .chip { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.year__charts { display: grid; gap: 4px; }
+.year__chart { display: grid; grid-template-columns: 76px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+.year__chart b { font: 500 12px var(--font-num); font-variant-numeric: tabular-nums; }
+.year__bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; align-items: end; height: 26px; padding: 2px; background: var(--paper); border: 2px solid var(--paper-edge); }
+.year__bars i { display: block; min-height: 2px; }
+.year__bars--pop i { background: #56a832; }
+.year__bars--gold i { background: var(--gold-deep); }
+.year__bars .year__bar--empty { height: 2px; background: var(--paper-edge); }
+.year__events { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--paper-edge); }
+.year__events .entry { grid-template-columns: 24px 1fr auto; }
+.year__events .entry p { font-size: 13px; line-height: 20px; }
+.year__events .entry:first-child { background: none; }
+.entry--link { cursor: pointer; }
+.entry--link:hover p { text-decoration: underline; }
+#log-filter button { white-space: nowrap; }

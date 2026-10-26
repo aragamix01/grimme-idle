@@ -50,10 +50,12 @@
             <span class="log-note">เรื่องเล่าล่าสุดของโลก</span>
             <div class="seg seg--small" role="group" aria-label="กรองพงศาวดาร" id="log-filter">
               <button type="button" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+              <button type="button" data-filter="years" aria-pressed="false">รายปี</button>
               <button type="button" data-filter="npc" disabled>คนนี้</button>
             </div>
           </div>
           <ol id="feed" role="tabpanel"></ol>
+          <div id="annals" class="annals" hidden></div>
           <div id="guild" class="guild" role="tabpanel" hidden></div>
           <div id="market" class="guild market" role="tabpanel" hidden></div>
           <div id="kingdom" class="guild kingdom" role="tabpanel" hidden></div>

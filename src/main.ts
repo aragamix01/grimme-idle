@@ -11,6 +11,7 @@ import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
 import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard } from './ui/npcCard';
+import { renderAnnals } from './ui/annals';
 import { hideCatchup, showCatchup, showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
@@ -45,6 +46,7 @@ const send = (msg: ToWorker) => worker.postMessage(msg);
 let world: WorldState | null = null;
 let selected: number | null = null;
 let filterToNpc = false;
+let showYears = false; // the chronicle tab shows the yearly annals instead of the feed
 type Tab = 'log' | 'guild' | 'market' | 'kingdom' | 'people';
 let tab: Tab = 'log';
 
@@ -78,6 +80,7 @@ function render(): void {
   renderMiracles(world);
   renderNpcCard(world, selected);
   if (onMap) renderRealms(world);
+  else if (tab === 'log' && showYears) renderAnnals(world, (id) => select(id));
   else if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
   else if (tab === 'market') renderMarket(world);
@@ -92,7 +95,8 @@ function setTab(next: Tab): void {
     b.setAttribute('aria-selected', String(on));
     b.setAttribute('aria-pressed', String(on));
   }
-  document.getElementById('feed')!.hidden = next !== 'log';
+  document.getElementById('feed')!.hidden = next !== 'log' || showYears;
+  document.getElementById('annals')!.hidden = next !== 'log' || !showYears;
   document.getElementById('log-tools')!.hidden = next !== 'log';
   document.getElementById('guild')!.hidden = next !== 'guild';
   document.getElementById('market')!.hidden = next !== 'market';
@@ -106,15 +110,16 @@ function select(id: number | null): void {
   scene.select(id);
   const npcTab = document.querySelector<HTMLButtonElement>('[data-filter="npc"]')!;
   npcTab.disabled = id === null;
-  if (id === null) setFilter(false);
+  if (id === null && filterToNpc) setFilter('all');
   render();
 }
 
-function setFilter(toNpc: boolean): void {
-  filterToNpc = toNpc;
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) {
-    b.setAttribute('aria-pressed', String((b.dataset.filter === 'npc') === toNpc));
-  }
+function setFilter(mode: 'all' | 'npc' | 'years'): void {
+  filterToNpc = mode === 'npc';
+  showYears = mode === 'years';
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) b.setAttribute('aria-pressed', String(b.dataset.filter === mode));
+  document.getElementById('feed')!.hidden = tab !== 'log' || showYears;
+  document.getElementById('annals')!.hidden = tab !== 'log' || !showYears;
   render();
 }
 
@@ -192,7 +197,7 @@ addEventListener('pointerdown', () => startSound(), { once: true });
 addEventListener('click', (e) => (e.target as Element).closest?.('button') && click(), true);
 
 for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) {
-  b.onclick = () => setFilter(b.dataset.filter === 'npc');
+  b.onclick = () => setFilter(b.dataset.filter as 'all' | 'npc' | 'years');
 }
 
 const SPEEDS: Record<string, number> = { 0: 0, 1: TICK_MS, 3: TICK_MS / 3 };

@@ -23,6 +23,7 @@ import { troubles } from './troubles';
 import { dragonDay } from './dragon';
 import { built, crownWorks } from './works';
 import { BOUNTY, decreesDay } from './decrees';
+import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -125,6 +126,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   dragonDay(world, rng);
   crownWorks(world, rng);
   decreesDay(world, rng);
+  annalsDay(world);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
