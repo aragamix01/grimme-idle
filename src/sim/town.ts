@@ -2,6 +2,9 @@
 // and WorldScene (what gets drawn where), so the two can never drift apart.
 import { createRng, next } from './rng';
 
+// How many people the town is built for; the trades, the army and the granary scale from it.
+export const TOWN_SIZE = 120;
+
 export const MAP_W = 40;
 export const MAP_H = 25;
 

@@ -5,6 +5,7 @@ import { decreeActive, known, log, occupied } from './core';
 import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
+import { TOWN_SIZE } from './town';
 import { JOB_TH } from './names';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
@@ -48,7 +49,7 @@ const TRIBUTE_FLOOR = 100;
 const STIPEND = 5; // the king's own pay, each payday
 const KNIGHT_PAY = 8;
 const SCHOLAR_PAY = 3; // the crown keeps its scholars in ink and bread
-const ARMY_TARGET = 8; // the crown recruits up to this many while it can pay them
+const ARMY_TARGET = Math.round(TOWN_SIZE / 10); // the crown recruits up to this many while it can pay them
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
 const ALE = 2;

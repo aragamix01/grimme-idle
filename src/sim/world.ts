@@ -9,7 +9,7 @@ import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
 import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
-import { WALL } from './town';
+import { TOWN_SIZE, WALL } from './town';
 import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
@@ -39,10 +39,10 @@ export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_
 // The faith a power takes, less for a god with the gentle-grace gift.
 export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
   type === 'perk' || type === 'war' || type === 'realm' ? 0 : Math.max(1, Math.round(COMMAND_COST[type] * (1 - 0.1 * perkLevel(world, 'grace'))));
-const TOWN_SIZE = 80;
+
 const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
-const MIN_ADVENTURERS = 20; // below this, newcomers come as adventurers
+const MIN_ADVENTURERS = Math.round(TOWN_SIZE / 4); // below this, newcomers come as adventurers
 const ADVENTURE_CHANCE = 0.04; // solo dungeon trips are rare and risky; most adventuring goes through quests
 const DANGER_POWER = 60; // past this, adventurers head for the dungeon on their own more often
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle

@@ -11,11 +11,12 @@ import { caravanHome } from './worldevents';
 import { built } from './works';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
+import { TOWN_SIZE } from './town';
 
 export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'loot', 'gear'];
 export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
 const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25 };
-const TARGET: Record<Good, number> = { grain: 300, meat: 60, wool: 15, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
+const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town

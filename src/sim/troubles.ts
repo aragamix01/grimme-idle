@@ -7,14 +7,15 @@ import { king } from './society';
 import { plagueStrike } from './worldevents';
 import { dragonArrives } from './dragon';
 import type { WorldState } from './types';
+import { TOWN_SIZE } from './town';
 
 const GOLDEN_TREASURY = 900;
 const GOLDEN_APPROVAL = 52;
 const CALM_MONTHS = 6; // a golden age runs this long before it starts to strain
 const STRAIN = 0.04; // added to the monthly chance of trouble for each month past CALM_MONTHS
 const MAX_CHANCE = 0.35;
-const CROWDED = 70; // townsfolk past which sickness spreads street to street
-const PACKED = 88; // so many that it may break out in any month, golden or not
+const CROWDED = TOWN_SIZE - 10; // townsfolk past which sickness spreads street to street
+const PACKED = TOWN_SIZE + 8; // so many that it may break out in any month, golden or not
 
 // A prosperous, peaceful month: money in the treasury, a content town, nobody starving, no war.
 export function goldenMonth(world: WorldState): boolean {

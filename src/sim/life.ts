@@ -3,6 +3,7 @@ import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { JOB_TH } from './names';
 import { PLACES } from './places';
+import { TOWN_SIZE } from './town';
 import { inheritedJob } from './society';
 import { priceRatio } from './market';
 import { graduate, lesson, schoolAge } from './learning';
@@ -17,13 +18,16 @@ const COURT_TIE = 40; // close enough to seek each other out
 const MARRY_CHANCE = 0.02; // per eligible couple per day
 const BIRTH_CHANCE = 0.0015; // per couple per day
 const MAX_CHILDREN = 3;
-const POPULATION_CAP = 90; // families stop growing when the town is this full
+const POPULATION_CAP = TOWN_SIZE + 10; // families stop growing when the town is this full
 
 export const isChild = (n: Npc) => n.age < ADULT_AGE;
 export const isElder = (n: Npc) => n.age >= ELDER_AGE;
 // Who is who and who is still single, built once a day: romance asks it for every pair in town,
 // and a long offline catch-up runs thousands of days of that.
 let index: { npcs: Npc[]; day: number; byId: Map<number, Npc>; single: Set<number>; open: Npc[] } | null = null;
+// Crushes change slowly, so they are worked out afresh only every few days.
+const CRUSH_EVERY = 5;
+let crushCache: { ties: WorldState['ties']; bucket: number; map: Map<number, Npc> } | null = null;
 function lookup(world: WorldState) {
   if (index?.npcs === world.npcs && index.day === world.day && index.byId.size === world.npcs.length) return index;
   const byId = new Map(world.npcs.map((n) => [n.id, n]));
@@ -66,18 +70,35 @@ function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
 // Who this NPC is sweet on: their closest single adult friend, if close enough.
 export function crushOf(world: WorldState, n: Npc): Npc | undefined {
   if (isChild(n) || !single(world, n)) return undefined;
-  let best: Npc | undefined;
-  let bestTie = COURT_TIE - 1;
-  const { open, single: unwed } = lookup(world);
-  for (const o of open) {
-    if (o === n || !o.alive || !unwed.has(o.id) || related(n, o)) continue;
-    const t = getTie(world, n.id, o.id);
-    if (t > bestTie) {
-      bestTie = t;
-      best = o;
-    }
+  const c = crushes(world).get(n.id);
+  return c && c.alive && single(world, c) ? c : undefined; // someone who has married since is off the market
+}
+
+// Everyone's crush at once, read off the ties that are warm enough, rather than asking every
+// pair in town for every single: a town of a hundred and more would spend its days on it.
+function crushes(world: WorldState): Map<number, Npc> {
+  const bucket = Math.floor(world.day / CRUSH_EVERY);
+  if (crushCache?.ties === world.ties && crushCache.bucket === bucket) return crushCache.map;
+  const idx = lookup(world);
+  const open = new Map(idx.open.map((n) => [n.id, n]));
+  const best = new Map<number, [Npc, number]>();
+  const consider = (n: Npc, o: Npc, t: number) => {
+    const cur = best.get(n.id);
+    if (!cur || t > cur[1] || (t === cur[1] && o.id < cur[0].id)) best.set(n.id, [o, t]);
+  };
+  for (const k in world.ties) {
+    const t = world.ties[k];
+    if (t < COURT_TIE) continue;
+    const dash = k.indexOf('-');
+    const a = open.get(Number(k.slice(0, dash)));
+    const b = a && open.get(Number(k.slice(dash + 1)));
+    if (!a || !b || related(a, b)) continue;
+    consider(a, b, t);
+    consider(b, a, t);
   }
-  return best;
+  const map = new Map([...best].map(([id, [o]]) => [id, o]));
+  crushCache = { ties: world.ties, bucket, map };
+  return map;
 }
 
 const related = (a: Npc, b: Npc) =>

@@ -8,6 +8,7 @@ import { priceRatio } from './market';
 import { king, payrollReserve } from './society';
 import { traveller } from './world';
 import { putToCouncil } from './government';
+import { TOWN_SIZE } from './town';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -30,7 +31,7 @@ const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
 const VETO_WAIT = 60; // days before a decree the council blocked may be put to it again
 const SPARE = 200; // gold kept back beyond the soldiers' pay
-const FULL_TOWN = 80;
+const FULL_TOWN = TOWN_SIZE;
 const SHORT = 6; // residents missing before the king sends for labour
 const WAGE = 35; // gold per worker: the crier, the road, and a purse to settle in
 const recent = (world: WorldState, days: number, re: RegExp) => world.chronicle.filter((e) => e.day > world.day - days && re.test(e.text)).length;
