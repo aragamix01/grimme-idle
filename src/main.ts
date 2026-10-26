@@ -196,7 +196,7 @@ function unfold(open: boolean): void {
   if (open) foldTimer = window.setTimeout(() => unfold(false), FOLD_MS);
 }
 menu.onclick = () => unfold(!gameEl.classList.contains('tools-open'));
-for (const id of ['worldmap', 'sound', 'zoom']) document.getElementById(id)!.addEventListener('click', () => gameEl.classList.contains('tools-open') && unfold(true));
+for (const id of ['worldmap', 'sound', 'daynight', 'zoom']) document.getElementById(id)!.addEventListener('click', () => gameEl.classList.contains('tools-open') && unfold(true));
 
 // Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
 const sound = document.getElementById('sound')!;
@@ -210,6 +210,30 @@ sound.onclick = () => {
   showSound();
 };
 addEventListener('pointerdown', () => startSound(), { once: true });
+
+// Day and night can be held at noon: at 3x the sky flickers. The choice is remembered.
+const dayNight = document.getElementById('daynight')!;
+const DAYNIGHT_KEY = 'grimm-daynight';
+const showDayNight = () => {
+  dayNight.setAttribute('aria-pressed', String(scene.dayNight));
+  dayNight.querySelector('img')!.src = `/assets/sprites/icons/${scene.dayNight ? 'daynight' : 'sun'}.png`;
+  dayNight.title = scene.dayNight ? 'กลางวันกลางคืนหมุนเวียน (แตะเพื่อให้เป็นกลางวันตลอด)' : 'กลางวันตลอด (แตะเพื่อเปิดกลางวันกลางคืน)';
+};
+try {
+  scene.dayNight = localStorage.getItem(DAYNIGHT_KEY) !== 'off';
+} catch {
+  // storage blocked: keep the default
+}
+showDayNight();
+dayNight.onclick = () => {
+  scene.dayNight = !scene.dayNight;
+  try {
+    localStorage.setItem(DAYNIGHT_KEY, scene.dayNight ? 'on' : 'off');
+  } catch {
+    // storage blocked: the choice lasts this visit
+  }
+  showDayNight();
+};
 addEventListener('click', (e) => (e.target as Element).closest?.('button') && click(), true);
 
 for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) {

@@ -594,6 +594,20 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "daynight": {
+    "file": "assets/sprites/icons/daynight.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "sun": {
+    "file": "assets/sprites/icons/sun.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "zoom": {
     "file": "assets/sprites/icons/zoom.png",
     "group": "icons",

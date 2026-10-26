@@ -78,6 +78,7 @@ export class WorldScene extends Phaser.Scene {
   private townObjs: Phaser.GameObjects.GameObject[] = [];
   private lastKey = '';
   tickMs = 500;
+  dayNight = true; // false holds the sky at noon (the player's choice: fast speeds flicker)
   onSelect: (id: number | null) => void = () => {};
   onGuild: () => void = () => {};
   private guildBounds: Phaser.Geom.Rectangle | null = null;
@@ -507,7 +508,7 @@ export class WorldScene extends Phaser.Scene {
     this.clock += (w.day - this.clock) * Math.min(1, delta / this.tickMs);
     const t = (this.clock % CYCLE_DAYS) / CYCLE_DAYS; // 0 noon, 0.5 midnight
     const dark = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
-    const night = Phaser.Math.Clamp((dark - 0.3) / 0.5, 0, 1);
+    const night = this.dayNight ? Phaser.Math.Clamp((dark - 0.3) / 0.5, 0, 1) : 0;
     const sky = Phaser.Display.Color.Interpolate.ColorWithColor(DUSK, NIGHT, 100, Math.round(night * 100));
     // A dark world stains the sky blood red, even at noon.
     // The demon lord's shadow darkens it further, most of all over an occupied town.

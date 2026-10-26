@@ -174,3 +174,19 @@ test('the map buttons fold behind the menu button and fold away again', async ({
   await page.waitForTimeout(4500);
   await expect(page.locator('#worldmap')).toBeHidden();
 });
+
+test('day and night can be held at noon, and the choice is remembered', async ({ page }) => {
+  const alpha = () => page.evaluate(() => (window as any).__grimm.scene.sky.alpha as number);
+  await page.evaluate(() => {
+    const sc = (window as any).__grimm.scene;
+    sc.world.day = sc.clock = 8; // midnight, held: time is stopped
+  });
+  await page.waitForTimeout(200);
+  expect(await alpha()).toBeGreaterThan(0.3);
+  await mapButton(page, '#daynight');
+  await page.waitForTimeout(200);
+  expect(await alpha()).toBeLessThan(0.05);
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
+  await expect(page.locator('#daynight')).toHaveAttribute('aria-pressed', 'false');
+});

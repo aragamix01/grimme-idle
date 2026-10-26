@@ -32,6 +32,8 @@ img, canvas { image-rendering: pixelated; }
 .zoom-btn[aria-pressed="true"] { background: var(--gold); }
 .sound-btn { right: 104px; }
 .map-btn { right: 56px; }
+.daynight-btn { right: 152px; }
+.daynight-btn[aria-pressed="true"] { background: var(--paper); }
 .menu-btn { display: none; }
 .menu-btn__bars, .menu-btn__bars::before, .menu-btn__bars::after { display: block; width: 14px; height: 3px; background: var(--outline); }
 .menu-btn__bars { position: relative; }
@@ -461,7 +463,8 @@ html:has(dialog[open]) { overflow: hidden; }
   #game.on-map .menu-btn { background: var(--gold); opacity: 1; }
   #game.tools-open .map-btn { top: 42px; }
   #game.tools-open .sound-btn { top: 82px; }
-  #game.tools-open #zoom { top: 122px; }
+  #game.tools-open .daynight-btn { top: 122px; }
+  #game.tools-open #zoom { top: 162px; }
 }
 
 /* Fingers need bigger targets than a mouse. */
