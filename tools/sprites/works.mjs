@@ -159,6 +159,31 @@ function press() {
   return finish(g);
 }
 
+// The kingdom's monument, grander with each tier: a hero's statue on a plinth; then flower
+// beds and banners; then the statue gilded over a fountain.
+function monument(tier) {
+  const g = new Grid(32, 32);
+  const metal = tier >= 3 ? ['y', 'Y'] : ['x', 'X'];
+  if (tier >= 3) {
+    g.ellipse(15.5, 27, 14, 4, 'x').ellipse(15.5, 27, 12, 3, 'a'); // the fountain's basin
+    g.set(9, 26, 'w').set(22, 27, 'w');
+  } else g.rect(4, 26, 24, 4, 't');
+  if (tier >= 2) {
+    for (const x of [2, 25]) g.rect(x, 22, 5, 4, 'G').set(x + 1, 22, 'r').set(x + 3, 23, 'p').set(x + 2, 24, 'y');
+    flag(g, 3, 8, 'r');
+    flag(g, 27, 8, 'r');
+  }
+  g.rect(10, 18, 12, 9, 'x').hline(10, 18, 12, 'z').hline(10, 26, 12, 'X'); // plinth
+  g.rect(12, 21, 8, 2, 'y'); // the plaque
+  // the statue: a figure raising a sword
+  const [m, d] = metal;
+  g.disc(15.5, 6, 2.6, m);
+  g.rect(13, 9, 6, 6, m).vline(18, 9, 6, d);
+  g.rect(13, 15, 2, 3, m).rect(17, 15, 2, 3, d);
+  g.vline(20, 2, 8, 'z').hline(19, 9, 3, d);
+  return finish(g);
+}
+
 export function works() {
   return [
     { name: 'granary', group: 'buildings', frames: [granary()] },
@@ -172,6 +197,7 @@ export function works() {
     { name: 'school', group: 'buildings', frames: [school()] },
     { name: 'clocktower', group: 'buildings', frames: [clocktower()] },
     { name: 'press', group: 'buildings', frames: [press()] },
+    ...[1, 2, 3].map((t) => ({ name: `monument-${t}`, group: 'buildings', frames: [monument(t)] })),
   ];
 }
 

@@ -451,7 +451,8 @@ export class WorldScene extends Phaser.Scene {
     const rising = w.building && WORKS[w.building.kind].replaces; // a building under scaffolding
     for (const k of WORK_ORDER) if (w.works?.[k] !== undefined && WORKS[k].replaces) upgrade[WORKS[k].replaces!] = WORKS[k].art;
     for (const [kind, plot] of Object.entries(PLOTS) as [keyof typeof PLOTS, { x: number; y: number }][]) {
-      if (w.works?.[kind] !== undefined) this.placeProp({ key: kind, x: plot.x, y: plot.y, anchor: 'top' });
+      if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
+      else if (w.works?.[kind] !== undefined) this.placeProp({ key: kind === 'monument' ? `monument-${Math.min(3, w.monument ?? 1)}` : kind, x: plot.x, y: plot.y, anchor: 'top' });
       else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
       else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
     }

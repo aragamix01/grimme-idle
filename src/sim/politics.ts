@@ -81,7 +81,7 @@ function drift(world: WorldState, k: Npc): void {
     if (n.job === 'noble' && ambitious(n)) by -= 1;
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
-    by += regimeFeeling(world, n);
+    by += regimeFeeling(world, n) + Math.min(5, world.monument ?? 0) * 0.2; // pride in the monument
     nudge(n, by);
   }
 }

@@ -91,7 +91,7 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 };
 
 // Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
-export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 } } as const;
+export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 } } as const;
 
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
 export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road

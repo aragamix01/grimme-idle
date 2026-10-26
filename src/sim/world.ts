@@ -165,7 +165,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.regime === 'theocracy' ? 0.3 : 0.1); // a priest-ruled town prays all day
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.regime === 'theocracy' ? 0.3 : 0.1) + Math.min(5, world.monument ?? 0) * 0.02; // a priest-ruled town prays all day; pilgrims visit the monument
   world.rng = rng.state;
   return world;
 }

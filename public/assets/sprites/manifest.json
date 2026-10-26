@@ -923,6 +923,27 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "monument-1": {
+    "file": "assets/sprites/buildings/monument-1.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "monument-2": {
+    "file": "assets/sprites/buildings/monument-2.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "monument-3": {
+    "file": "assets/sprites/buildings/monument-3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",

@@ -18,6 +18,11 @@ export interface WorkDef {
   replaces?: string; // ...or the building it rebuilds in place
 }
 
+// The monument is never finished: each tier costs more than the last, so a rich crown always
+// has somewhere to put its gold.
+const MONUMENT_COST = 1500;
+const MONUMENT_STEP = 800;
+
 export const WORKS: Record<Work, WorkDef> = {
   granary: { name: 'ยุ้งฉางหลวง', cost: 500, days: 60, text: 'ข้าวเน่าเสียช้าลงมาก เนื้อเก็บได้นานขึ้น', art: 'granary', plot: PLOTS.granary },
   watchtowers: { name: 'หอธนูประจำประตูเมือง', cost: 700, days: 90, text: 'ป้องกันเมืองตอนมอนสเตอร์ทะลักได้ดีขึ้น', art: 'watchtower', replaces: 'gate-tower' },
@@ -27,17 +32,20 @@ export const WORKS: Record<Work, WorkDef> = {
   school: { name: 'โรงเรียนหลวง', cost: 600, days: 75, text: 'นักปราชญ์ได้สอนหนังสือ ค้นคว้าได้ความรู้เพิ่มเป็นเท่าตัว', art: 'school', plot: PLOTS.school },
   clocktower: { name: 'หอนาฬิกา', cost: 700, days: 90, text: 'ระฆังบอกเวลาทำให้ทุกคนทำงานตรงเวลา ผลผลิตข้าวและความรู้เพิ่ม 10%', art: 'clocktower', plot: PLOTS.clocktower },
   press: { name: 'โรงพิมพ์', cost: 800, days: 90, text: 'หนังสือราคาถูก ผู้ใหญ่หัดอ่านเองได้ นักปราชญ์ค้นคว้าได้ไวขึ้น 25%', art: 'press', plot: PLOTS.press },
+  monument: { name: 'อนุสรณ์สถานแห่งอาณาจักร', cost: MONUMENT_COST, days: 120, text: 'สร้างต่อเติมได้ไม่รู้จบ ทุกระดับทำให้ชาวเมืองภาคภูมิใจและศรัทธามากขึ้น', art: 'monument-1', plot: PLOTS.monument },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'palace'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'palace', 'monument'];
 
 const SPARE = 300; // gold the crown keeps back beyond the soldiers' pay before it builds
 const ASK_DAY = 8; // day of the month the king considers a new work
 
 export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefined;
+export const monumentTier = (world: WorldState) => world.monument ?? 0;
+const open = (world: WorldState, k: Work) => k === 'monument' || !built(world, k);
 // Architecture makes every work a quarter cheaper and quicker.
 const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1);
-export const workCost = (world: WorldState, k: Work) => Math.round(WORKS[k].cost * plans(world));
+export const workCost = (world: WorldState, k: Work) => Math.round((WORKS[k].cost + (k === 'monument' ? monumentTier(world) * MONUMENT_STEP : 0)) * plans(world));
 const workDays = (world: WorldState, k: Work) => Math.round(WORKS[k].days * plans(world));
 
 // How much the town needs each work right now, as the king sees it.
@@ -68,6 +76,8 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
       return known(world, 'architecture') ? 1 + (ruler.traits.includes('greedy') ? 0 : 1) : 0;
     case 'press':
       return known(world, 'printing') ? 2 + (ruler.traits.includes('kind') ? 1 : 0) : 0;
+    case 'monument':
+      return 0.5; // after everything the town needs; a vain ruler is the same as anyone here
     case 'palace':
       // Only a vain or grasping king builds himself a palace; a kind one never would.
       return ruler.traits.includes('kind') ? 0 : ruler.traits.includes('greedy') ? 3 : ruler.traits.includes('vengeful') ? 1 : 0;
@@ -79,8 +89,14 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   if (job && world.day >= job.done) {
     (world.works ??= {})[job.kind] = world.day;
     world.building = undefined;
-    log(world, 'world', `${WORKS[job.kind].name}สร้างเสร็จแล้ว! ${WORKS[job.kind].text}`);
-    legend(world, `สร้าง${WORKS[job.kind].name}`);
+    if (job.kind === 'monument') {
+      world.monument = monumentTier(world) + 1;
+      log(world, 'world', `${WORKS.monument.name}ระดับ ${world.monument} สร้างเสร็จแล้ว! ชาวเมืองมาชื่นชมกันทั้งเมือง`);
+      legend(world, `สร้าง${WORKS.monument.name}ระดับ ${world.monument}`);
+    } else {
+      log(world, 'world', `${WORKS[job.kind].name}สร้างเสร็จแล้ว! ${WORKS[job.kind].text}`);
+      legend(world, `สร้าง${WORKS[job.kind].name}`);
+    }
   }
   if (world.building || world.day % 30 !== ASK_DAY) return;
   const ruler = king(world);
@@ -88,7 +104,7 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   // A greedy king sits on his gold more often than not.
   if (ruler.traits.includes('greedy') && chance(rng, 0.5)) return;
   const budget = world.treasury - payrollReserve(world) - SPARE;
-  const k = WORK_ORDER.filter((w) => !built(world, w) && workCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
+  const k = WORK_ORDER.filter((w) => open(world, w) && workCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
   if (!k) return;
   world.treasury -= workCost(world, k);
   world.building = { kind: k, done: world.day + workDays(world, k) };

@@ -76,7 +76,7 @@ export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'l
 
 export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument';
 
 export interface Dragon {
   name: string;
@@ -358,6 +358,7 @@ export interface WorldState {
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them
   knowledge?: number;
+  monument?: number; // tiers of the kingdom's monument raised so far
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];

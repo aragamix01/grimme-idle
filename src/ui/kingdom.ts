@@ -234,6 +234,16 @@ function worksSection(world: WorldState): HTMLElement {
     WORK_ORDER.map((k) => {
       const w = WORKS[k];
       const done = world.works?.[k] !== undefined;
+      if (k === 'monument') {
+        const tier = world.monument ?? 0;
+        const status = job?.kind === k ? `กำลังสร้างระดับ ${tier + 1} อีก ${Math.max(0, job.done - world.day)} วัน` : `ระดับ ${tier} · ระดับถัดไป ${workCost(world, k)} ทอง`;
+        return el(
+          'li',
+          { className: `work${tier ? ' work--done' : ''}` },
+          el('img', { src: `/assets/sprites/buildings/monument-${Math.min(3, Math.max(1, tier))}.png`, alt: '', className: 'work__art' }),
+          el('div', {}, el('b', { textContent: w.name }), el('p', { className: 'realm-king__meta', textContent: `${w.text} · ${status}` })),
+        );
+      }
       const status = done ? 'สร้างเสร็จแล้ว' : job?.kind === k ? `กำลังสร้าง อีก ${Math.max(0, job.done - world.day)} วัน` : `ยังไม่ได้สร้าง · ${workCost(world, k)} ทอง`;
       return el(
         'li',
