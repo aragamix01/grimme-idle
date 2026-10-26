@@ -10,6 +10,7 @@ export const ERA_YEARS = 10; // an era may close after this long even without a 
 const OCCUPIED_YEARS = 2; // ...or after this long under the demon lord, as a dark age
 const YEAR = 365;
 const ERAS_KEPT = 20;
+export const FAITH_PER_STAR = 200; // faith left unspent at the close becomes stars
 
 export const PERKS: Record<Perk, { name: string; text: string; max: number; base: number; step: number }> = {
   faith: { name: 'ศรัทธาตั้งต้น', text: 'เริ่มยุคใหม่พร้อมศรัทธา +25 ต่อขั้น', max: 5, base: 2, step: 2 },
@@ -40,11 +41,11 @@ export function eraTitle(world: WorldState): string {
 }
 
 // Stars the era is worth: the years it lasted, demon lords slain, the light it ended in,
-// the people alive at its close and the legends told of it.
+// the people alive at its close, the legends told of it, and the faith the god never spent.
 export function starsFor(world: WorldState): number {
   const years = Math.min(ERA_YEARS, world.day / YEAR);
   const people = world.npcs.filter((n) => n.alive).length;
-  const raw = years + (world.demonsSlain ?? 0) * 5 + Math.max(0, balanceOf(world)) / 10 + people / 20 + world.legends.length * 0.25;
+  const raw = years + (world.demonsSlain ?? 0) * 5 + Math.max(0, balanceOf(world)) / 10 + people / 20 + world.legends.length * 0.25 + world.faith / FAITH_PER_STAR;
   return Math.max(1, Math.floor(raw));
 }
 

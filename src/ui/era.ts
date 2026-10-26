@@ -1,4 +1,4 @@
-import { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, perkCost, perkLevel, starsFor, starsOf, type Perk, type WorldState } from '../sim';
+import { FAITH_PER_STAR, ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, perkCost, perkLevel, starsFor, starsOf, type Perk, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const open = document.getElementById('era-open') as HTMLButtonElement;
@@ -64,7 +64,7 @@ function current(world: WorldState, ready: boolean): HTMLElement {
     'section',
     { className: 'era-now' },
     el('p', { className: 'era-now__title', textContent: `ยุคที่ ${eraOf(world)} · ${eraTitle(world)}` }),
-    el('p', { className: 'realm-king__meta', textContent: `ผ่านมาแล้ว ${years} ปี · ปิดยุคตอนนี้จะได้ดาว ${starsFor(world)} ดวง` }),
+    el('p', { className: 'realm-king__meta', textContent: `ผ่านมาแล้ว ${years} ปี · ปิดยุคตอนนี้จะได้ดาว ${starsFor(world)} ดวง (ศรัทธาที่เหลือทุก ${FAITH_PER_STAR} แต้มกลายเป็นดาว 1 ดวง)` }),
     btn,
     el('p', { className: 'realm-king__meta', textContent: why }),
   );
