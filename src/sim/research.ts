@@ -5,6 +5,7 @@ import { chance, type Rng } from './rng';
 import { known, log } from './core';
 import { legend } from './quests';
 import { king } from './society';
+import { ageOf, markAge } from './ages';
 import type { Npc, Tech, WorldState } from './types';
 
 export interface TechDef {
@@ -53,11 +54,13 @@ function want(world: WorldState, t: Tech, ruler: Npc): number {
 export function researchDay(world: WorldState, rng: Rng): void {
   const t = world.research;
   if (t && (world.knowledge ?? 0) >= TECHS[t].cost) {
+    const age = ageOf(world);
     world.knowledge! -= TECHS[t].cost;
     (world.techs ??= {})[t] = world.day;
     world.research = undefined;
     log(world, 'world', `นักปราชญ์ค้นพบ${TECHS[t].name}! ${TECHS[t].text}`);
     legend(world, `ค้นพบ${TECHS[t].name}`);
+    markAge(world, age);
   }
   if (world.research || world.day % 30 !== ASK_DAY) return;
   const ruler = king(world);

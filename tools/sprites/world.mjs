@@ -213,6 +213,7 @@ const ROOFS = {
   brown: ['N', 'M', 'n'],
   slate: ['X', 'l', 'x'],
   pink: ['p', 'P', 'w'],
+  thatch: ['n', 'N', 'y'],
 };
 
 export function roof(g, x, y, w, h, kind) {
@@ -272,15 +273,19 @@ export function flag(g, x, y, c) {
 
 const finishBuilding = (g) => g.outline('o');
 
-function house(roofKind = 'brown') {
+// A house by civilisation's age: thatch and no chimney at first, tiles and a stone chimney,
+// then a dormer window in the roof and flower boxes under the windows.
+function house(roofKind = 'brown', age = 1) {
   const g = new Grid(32, 32);
-  g.rect(22, 0, 4, 6, 'x').hline(22, 0, 4, 'X');
-  roof(g, 1, 3, 30, 15, roofKind);
-  g.rect(22, 0, 4, 4, 'x').hline(21, 0, 6, 'X');
+  if (age > 0) g.rect(22, 0, 4, 6, 'x').hline(22, 0, 4, 'X');
+  roof(g, 1, 3, 30, 15, age === 0 ? 'thatch' : roofKind);
+  if (age > 0) g.rect(22, 0, 4, 4, 'x').hline(21, 0, 6, 'X');
+  if (age === 2) windowAt(g, 12, 8, 8, 6);
   wall(g, 3, 18, 26, 12);
   door(g, 13, 22, 6, 8);
   windowAt(g, 5, 20);
   windowAt(g, 21, 20);
+  if (age === 2) for (const x of [5, 21]) g.hline(x, 25, 6, 'N').set(x + 1, 24, 'r').set(x + 3, 24, 'p').set(x + 4, 24, 'y');
   g.hline(3, 30, 26, 'X');
   return finishBuilding(g);
 }
@@ -540,6 +545,10 @@ export function buildings() {
     { name: 'house', group: 'buildings', frames: [house()] },
     { name: 'house-red', group: 'buildings', frames: [house('red')] },
     { name: 'house-blue', group: 'buildings', frames: [house('blue')] },
+    ...['', '-red', '-blue'].flatMap((c) => [
+      { name: `house${c}-age0`, group: 'buildings', frames: [house(c ? c.slice(1) : 'brown', 0)] },
+      { name: `house${c}-age2`, group: 'buildings', frames: [house(c ? c.slice(1) : 'brown', 2)] },
+    ]),
     { name: 'shop', group: 'buildings', frames: [shop()] },
     { name: 'inn', group: 'buildings', frames: [inn()] },
     { name: 'guild', group: 'buildings', frames: [guild()] },

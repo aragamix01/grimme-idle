@@ -15,6 +15,7 @@ export { TECHS, TECH_ORDER } from './research';
 export { REGIMES, council, regimeOf, rulerLook, rulerTitle } from './government';
 export { councilName } from './core';
 export { reformers } from './regimes';
+export { AGES, AGE_SUFFIX, ageOf } from './ages';
 export { literacy, literate, schoolAge } from './learning';
 export const PLACES_SCHOOL = PLACES.school;
 export { yearPage } from './annals';

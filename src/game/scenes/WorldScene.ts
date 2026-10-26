@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState, rulerLook } from '../../sim';
+import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -240,6 +240,7 @@ export class WorldScene extends Phaser.Scene {
       w.dungeons.map((d) => `${d.id}:${d.boss && d.boss.slainDay === undefined ? 1 : 0}`).join(','),
       Object.keys(w.works ?? {}).join(','),
       w.building?.kind,
+      ageOf(w), // a new age rebuilds the houses
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -455,7 +456,7 @@ export class WorldScene extends Phaser.Scene {
       else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
     }
     for (const p of town.props) {
-      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: this.aged(p.key) } : p);
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
@@ -487,6 +488,12 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     this.townBuilt = true;
+  }
+
+  // The art for this age, if there is any: houses and clothes change, the rest stays.
+  private aged(key: string): string {
+    const k = key + AGE_SUFFIX[this.world ? ageOf(this.world) : 1];
+    return this.textures.exists(k) ? k : key;
   }
 
   private placeProp(p: Placed): Phaser.GameObjects.Image {
@@ -621,12 +628,13 @@ export class WorldScene extends Phaser.Scene {
 
   private syncNpc(npc: Npc): void {
     // Children share one sprite until they pick a calling; cultists don their robes for the walk to a ritual.
-    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job === 'king' ? rulerLook(this.world!) : npc.job;
+    const look: string = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job === 'king' ? rulerLook(this.world!) : npc.job;
+    const dressed = look === 'child' ? look : this.aged(look);
     let sprite = this.npcSprites.get(npc.id);
     const px = npc.x * TILE + TILE / 2;
     const py = npc.y * TILE + TILE;
     if (!sprite) {
-      sprite = this.add.sprite(px, py, look).setOrigin(0.5, 1).play(`${look}-down`);
+      sprite = this.add.sprite(px, py, dressed).setOrigin(0.5, 1).play(`${dressed}-down`);
       sprite.anims.setProgress(Math.random());
       this.npcSprites.set(npc.id, sprite);
     }
@@ -643,7 +651,7 @@ export class WorldScene extends Phaser.Scene {
     const dy = py - sprite.y;
     const facing = Math.abs(dx) >= Math.abs(dy) && dx !== 0 ? 'side' : dy < 0 ? 'up' : 'down';
     sprite.setFlipX(facing === 'side' && dx < 0);
-    sprite.play(`${look}-${facing}`, sprite.texture.key === look);
+    sprite.play(`${dressed}-${facing}`, sprite.texture.key === dressed);
     this.tweens.add({
       targets: sprite,
       x: px,

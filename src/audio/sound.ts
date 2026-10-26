@@ -2,7 +2,7 @@
 // A tiny sequencer plays a square-wave lead, a triangle bass and noise drums; the tune
 // follows the world's mood. Effects answer chronicle events. Browsers only allow sound
 // after a user gesture, so the context starts on the first tap once sound is on.
-import type { ChronicleEntry, EventKind, WorldState } from '../sim';
+import { ageOf, type ChronicleEntry, type EventKind, type WorldState } from '../sim';
 
 type Step = number | null; // semitones above the song's base note, or a rest
 interface Song {
@@ -16,7 +16,27 @@ interface Song {
 }
 
 const _ = null;
-const SONGS: Record<'day' | 'night' | 'dark' | 'occupied', Song> = {
+const SONGS: Record<'day' | 'night' | 'dark' | 'occupied' | 'dayOld' | 'dayNew', Song> = {
+  // The first age's day: a plain pentatonic folk tune on a soft flute-like triangle.
+  dayOld: {
+    bpm: 100,
+    base: 72,
+    bassBase: 48,
+    wave: 'triangle',
+    drums: 'soft',
+    lead: [0, _, 2, 4, 7, _, 4, 2, 0, _, _, _, 9, 7, 4, _, 2, _, 4, 7, 9, _, 7, 4, 2, 4, 2, 0, 0, _, _, _],
+    bass: [0, _, _, _, 7, _, _, _, 0, _, _, _, 9, _, _, _, 2, _, _, _, 7, _, _, _, 0, _, _, _, 7, _, _, _],
+  },
+  // The third age's day: quicker, with a run up the scale like a court dance.
+  dayNew: {
+    bpm: 128,
+    base: 72,
+    bassBase: 48,
+    wave: 'square',
+    drums: 'pop',
+    lead: [0, 2, 4, 5, 7, 9, 11, 12, 11, 7, 9, 5, 7, 4, 2, _, 4, 5, 7, 12, 9, 7, 5, 4, 2, 4, 5, 2, 0, _, 12, _],
+    bass: [0, 7, 12, 7, 5, 9, 12, 9, 7, 11, 14, 11, 0, 7, 12, _, 5, 9, 12, 9, 7, 11, 14, 11, 0, 7, 0, _, 0, _, _, _],
+  },
   // Bright market-day tune in C major.
   day: {
     bpm: 112,
@@ -191,7 +211,7 @@ export function updateMood(world: WorldState): void {
         ? SONGS.dark
         : t > 0.3 && t < 0.7
           ? SONGS.night
-          : SONGS.day;
+          : [SONGS.dayOld, SONGS.day, SONGS.dayNew][ageOf(world)]; // the day's tune follows the age
   if (next !== song) {
     song = next;
     step = 0; // start the new tune from its first bar

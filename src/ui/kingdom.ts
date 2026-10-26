@@ -1,4 +1,4 @@
-import { reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -192,9 +192,17 @@ function decreesSection(world: WorldState): HTMLElement {
 // The scholars' questions: what has been found, what they are on now, and how close they are.
 function researchSection(world: WorldState): HTMLElement {
   const have = Math.floor(world.knowledge ?? 0);
-  return section(
-    'งานค้นคว้าของนักปราชญ์',
-    TECH_ORDER.map((k) => {
+  const age = AGES[ageOf(world)];
+  const found = Object.keys(world.techs ?? {}).length;
+  return section('งานค้นคว้าของนักปราชญ์', [
+    // The age the town's learning has brought it to, and what the next one takes.
+    el(
+      'li',
+      { className: 'council' },
+      el('span', { className: 'chip chip--gold', textContent: age.name }),
+      el('p', { className: 'realm-king__meta', textContent: `${age.text}${age.next ? ` · สมัยถัดไป: ${age.next} (ตอนนี้ ${found})` : ''}` }),
+    ),
+    ...TECH_ORDER.map((k) => {
       const t = TECHS[k];
       const done = known(world, k);
       const status = done ? `ค้นพบแล้ว D${world.techs![k]}` : world.research === k
@@ -215,7 +223,7 @@ function researchSection(world: WorldState): HTMLElement {
       }
       return row;
     }),
-  );
+  ]);
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.

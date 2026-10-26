@@ -670,13 +670,27 @@ function child(frame, facing = 'down') {
   return g.shade(SHADE).outline('o');
 }
 
+// Clothes by civilisation's age: undyed homespun in the first, the jobs' own colours in the
+// second, and a white ruffed collar in the third.
+const HOMESPUN = { b: 'h', B: 'H', i: 'n', r: 'N', R: 'M', u: 'n', v: 'h', V: 'H', p: 'C', P: 'N', G: 'N', g: 'n', O: 'N', l: 'H', X: 'M', x: 'C', d: 'H', D: 'N' };
+const AGE_LOOKS = {
+  '-age0': (def) => ({ ...def, slots: Object.fromEntries(Object.entries(def.slots).map(([k, v]) => [k, k === '5' ? v : HOMESPUN[v] ?? v])) }),
+  '-age2': (def) => ({ ...def, layers: [...(def.layers ?? []), [RUFF, 0, 13]] }),
+};
+const TIMELESS = new Set(['cultist', 'hero']); // robes and armour that no age changes
+
 export function characters() {
   return [
-    ...Object.entries(JOBS).map(([name, def]) => ({
-      name,
-      group: 'characters',
-      frames: walkFrames((frame, facing) => build({ ...def, frame, facing })),
-    })),
+    ...Object.entries(JOBS).flatMap(([name, def]) => [
+      { name, group: 'characters', frames: walkFrames((frame, facing) => build({ ...def, frame, facing })) },
+      ...(TIMELESS.has(name)
+        ? []
+        : Object.entries(AGE_LOOKS).map(([suffix, dress]) => ({
+            name: name + suffix,
+            group: 'characters',
+            frames: walkFrames((frame, facing) => build({ ...dress(def), frame, facing })),
+          }))),
+    ]),
     { name: 'child', group: 'characters', frames: walkFrames(child) },
   ];
 }

@@ -6,8 +6,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "swordsman-age0": {
+    "file": "assets/sprites/characters/swordsman-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "swordsman-age2": {
+    "file": "assets/sprites/characters/swordsman-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "mage": {
     "file": "assets/sprites/characters/mage.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "mage-age0": {
+    "file": "assets/sprites/characters/mage-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "mage-age2": {
+    "file": "assets/sprites/characters/mage-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -20,8 +48,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "merchant-age0": {
+    "file": "assets/sprites/characters/merchant-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "merchant-age2": {
+    "file": "assets/sprites/characters/merchant-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "farmer": {
     "file": "assets/sprites/characters/farmer.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "farmer-age0": {
+    "file": "assets/sprites/characters/farmer-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "farmer-age2": {
+    "file": "assets/sprites/characters/farmer-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -34,8 +90,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "hunter-age0": {
+    "file": "assets/sprites/characters/hunter-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "hunter-age2": {
+    "file": "assets/sprites/characters/hunter-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "herder": {
     "file": "assets/sprites/characters/herder.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "herder-age0": {
+    "file": "assets/sprites/characters/herder-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "herder-age2": {
+    "file": "assets/sprites/characters/herder-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -48,8 +132,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "thief-age0": {
+    "file": "assets/sprites/characters/thief-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "thief-age2": {
+    "file": "assets/sprites/characters/thief-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "soldier": {
     "file": "assets/sprites/characters/soldier.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "soldier-age0": {
+    "file": "assets/sprites/characters/soldier-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "soldier-age2": {
+    "file": "assets/sprites/characters/soldier-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -62,8 +174,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "noble-age0": {
+    "file": "assets/sprites/characters/noble-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "noble-age2": {
+    "file": "assets/sprites/characters/noble-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "blacksmith": {
     "file": "assets/sprites/characters/blacksmith.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "blacksmith-age0": {
+    "file": "assets/sprites/characters/blacksmith-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "blacksmith-age2": {
+    "file": "assets/sprites/characters/blacksmith-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -76,8 +216,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "innkeeper-age0": {
+    "file": "assets/sprites/characters/innkeeper-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "innkeeper-age2": {
+    "file": "assets/sprites/characters/innkeeper-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "courtesan": {
     "file": "assets/sprites/characters/courtesan.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "courtesan-age0": {
+    "file": "assets/sprites/characters/courtesan-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "courtesan-age2": {
+    "file": "assets/sprites/characters/courtesan-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -97,8 +265,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "scholar-age0": {
+    "file": "assets/sprites/characters/scholar-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "scholar-age2": {
+    "file": "assets/sprites/characters/scholar-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "alchemist": {
     "file": "assets/sprites/characters/alchemist.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "alchemist-age0": {
+    "file": "assets/sprites/characters/alchemist-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "alchemist-age2": {
+    "file": "assets/sprites/characters/alchemist-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -111,8 +307,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "engineer-age0": {
+    "file": "assets/sprites/characters/engineer-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "engineer-age2": {
+    "file": "assets/sprites/characters/engineer-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "consul": {
     "file": "assets/sprites/characters/consul.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "consul-age0": {
+    "file": "assets/sprites/characters/consul-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "consul-age2": {
+    "file": "assets/sprites/characters/consul-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -125,8 +349,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "pontiff-age0": {
+    "file": "assets/sprites/characters/pontiff-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "pontiff-age2": {
+    "file": "assets/sprites/characters/pontiff-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "oligarch": {
     "file": "assets/sprites/characters/oligarch.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "oligarch-age0": {
+    "file": "assets/sprites/characters/oligarch-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "oligarch-age2": {
+    "file": "assets/sprites/characters/oligarch-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -139,6 +391,20 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "general-age0": {
+    "file": "assets/sprites/characters/general-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "general-age2": {
+    "file": "assets/sprites/characters/general-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",
@@ -146,8 +412,36 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "priest-age0": {
+    "file": "assets/sprites/characters/priest-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "priest-age2": {
+    "file": "assets/sprites/characters/priest-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "king": {
     "file": "assets/sprites/characters/king.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "king-age0": {
+    "file": "assets/sprites/characters/king-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "king-age2": {
+    "file": "assets/sprites/characters/king-age2.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -421,6 +715,48 @@
   },
   "house-blue": {
     "file": "assets/sprites/buildings/house-blue.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-age0": {
+    "file": "assets/sprites/buildings/house-age0.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-age2": {
+    "file": "assets/sprites/buildings/house-age2.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-red-age0": {
+    "file": "assets/sprites/buildings/house-red-age0.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-red-age2": {
+    "file": "assets/sprites/buildings/house-red-age2.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-blue-age0": {
+    "file": "assets/sprites/buildings/house-blue-age0.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "house-blue-age2": {
+    "file": "assets/sprites/buildings/house-blue-age2.png",
     "group": "buildings",
     "frameWidth": 32,
     "frameHeight": 32,
