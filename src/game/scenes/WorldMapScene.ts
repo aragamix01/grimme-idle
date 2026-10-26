@@ -20,7 +20,17 @@ export class WorldMapScene extends Phaser.Scene {
   private lastKey = '';
   private wagon: Phaser.GameObjects.Sprite | null = null;
   private swords: Phaser.GameObjects.Image | null = null;
+  private ring: Phaser.GameObjects.Graphics | null = null;
+  private picked: number | null = null;
   onRealm: (realm: Realm | null) => void = () => {};
+
+  // A gold ring under the keep picked from the map or the side panel.
+  pick(id: number | null): void {
+    this.picked = id;
+    const r = this.world?.realms?.find((x) => x.id === id);
+    if (!this.ring || !r) return void this.ring?.setVisible(false);
+    this.ring.setVisible(true).setPosition(r.x * TILE + TILE / 2, (r.y + 1) * TILE);
+  }
 
   constructor() {
     super({ key: 'worldmap', active: false });
@@ -53,7 +63,13 @@ export class WorldMapScene extends Phaser.Scene {
     if (!w?.realms) return;
     // The town scene loads every texture; wait for the last ones before laying the map out.
     if (!this.built && !this.textures.exists('wm-town')) return;
-    if (!this.built) this.build(w);
+    if (!this.built) {
+      this.build(w);
+      this.ring = this.add.graphics().setDepth(9_999);
+      this.ring.lineStyle(3, 0x3b2416).strokeEllipse(0, 0, 34, 14);
+      this.ring.lineStyle(2, 0xffd23f).strokeEllipse(0, 0, 32, 12);
+      this.pick(this.picked);
+    }
     this.moveWagon(w);
     // Crossed swords halfway to the realm we are at war with.
     const foe = w.war && w.realms.find((r) => r.id === w.war!.realmId);
