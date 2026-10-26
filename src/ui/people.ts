@@ -1,4 +1,4 @@
-import { TECHS, ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
+import { rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 
 const view = document.getElementById('people')!;
@@ -103,7 +103,7 @@ function classBar(adults: Npc[]): HTMLElement {
 
 function jobSection(world: WorldState, job: Job, members: Npc[]): HTMLElement {
   const portrait = el('span', { className: 'people-job__face' });
-  portrait.style.backgroundImage = `url(/assets/sprites/characters/${job}.png)`;
+  portrait.style.backgroundImage = `url(/assets/sprites/characters/${job === 'king' ? rulerLook(world) : job}.png)`;
   const gold = avg(members, (n) => n.gold);
   const loyal = avg(members, loyaltyOf);
   const details = el('details', { className: 'people-job', open: open.has(job) });
@@ -112,7 +112,7 @@ function jobSection(world: WorldState, job: Job, members: Npc[]): HTMLElement {
     'summary',
     {},
     portrait,
-    el('span', { className: 'people-job__name' }, el('b', { textContent: JOB_TH[job] }), el('small', { textContent: members.length ? `${wealth(gold)} · ${mood(loyal)}` : 'ยังไม่มีใครทำ' })),
+    el('span', { className: 'people-job__name' }, el('b', { textContent: job === 'king' ? rulerTitle(world) : JOB_TH[job] }), el('small', { textContent: members.length ? `${wealth(gold)} · ${mood(loyal)}` : 'ยังไม่มีใครทำ' })),
     el('span', { className: 'people-job__count', textContent: String(members.length) }),
   );
   if (!members.length) {

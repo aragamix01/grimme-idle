@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
+import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState, rulerLook } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -621,7 +621,7 @@ export class WorldScene extends Phaser.Scene {
 
   private syncNpc(npc: Npc): void {
     // Children share one sprite until they pick a calling; cultists don their robes for the walk to a ritual.
-    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
+    const look = npc.age < ADULT_AGE ? 'child' : npc.plan?.kind === 'ritual' ? 'cultist' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job === 'king' ? rulerLook(this.world!) : npc.job;
     let sprite = this.npcSprites.get(npc.id);
     const px = npc.x * TILE + TILE / 2;
     const py = npc.y * TILE + TILE;

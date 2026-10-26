@@ -54,6 +54,7 @@ export interface Npc {
   cursedUntil?: number; // day the curse lifts
   relic?: string; // taken from a slain dungeon boss; adds strength
   hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
+  formerJob?: Job; // whoever holds elected office: the trade they go back to when voted out
   schooling?: number; // children: days of lessons, at school or from a parent who can read
   lettered?: boolean; // can read and write; missing means whatever their trade implies (see literate)
 }
@@ -352,6 +353,7 @@ export interface WorldState {
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   regime?: Regime; // how the town is governed; missing means a king
+  republic?: { since: number; elections: number; nextVote: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
   council?: { vetoes: number; overrides: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them

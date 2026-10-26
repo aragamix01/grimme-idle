@@ -25,6 +25,7 @@ import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
 import { brew, draughts, engineer, pressDay, study } from './learning';
 import { researchDay } from './research';
+import { republicDay } from './republic';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -101,6 +102,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
 
   world.day++;
   holdCourt(world, rng);
+  republicDay(world, rng);
   rule(world, rng);
   darkness(world, rng);
   demonDay(world, rng);

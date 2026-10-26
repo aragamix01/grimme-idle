@@ -426,6 +426,11 @@ const ENGINEER_CAP = [
 ];
 const RULE = ['..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............'];
 
+// The elected leader: a laurel wreath, a blue sash across a cream robe, the charter in hand.
+const LAUREL = ['................', '................', '...GgG....GgG...', '..GGG......GGG..', '.GG..........GG.', '.G............G.'];
+const SASH = ['....bb..........', '......bb........', '........bb......'];
+const CHARTER = ['..........cccc..', '..........yccy..', '..........cccc..'];
+
 const MUG = ['...........ccc..', '...........yyyc.', '...........yyyc.', '...........yyy..'];
 
 const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pppppppppppp..', '..PPPPPPPPPPPP..'];
@@ -555,6 +560,10 @@ const JOBS = {
   engineer: {
     slots: { 1: 'N', 2: 'M', 3: 'b', 4: 'M', 5: 'h' },
     layers: [[HAIR_SHORT], [ENGINEER_CAP], [RULE, 0, 7]],
+  },
+  consul: {
+    slots: { 1: 'c', 2: 'b', 3: 'c', 4: 'N', 5: 'h' },
+    layers: [[HAIR_SHORT], [LAUREL], [SASH, 0, 13], [CHARTER, 0, 13]],
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },

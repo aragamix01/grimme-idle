@@ -1,4 +1,4 @@
-import { REGIMES, council, regimeOf, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -54,6 +54,7 @@ export function renderKingdom(world: WorldState): void {
     world.decreeAt,
     world.labour,
     world.regime,
+    world.republic,
     world.council,
     world.techs,
     world.research,
@@ -165,7 +166,7 @@ function councilSection(world: WorldState): HTMLElement {
     el('li', { className: 'council' }, el('span', { className: 'chip' }, `ยับยั้งมาแล้ว ${c?.vetoes ?? 0} ครั้ง`), el('span', { className: 'chip' }, `ถูกใช้อำนาจข้าม ${c?.overrides ?? 0} ครั้ง`)),
   ];
   if (c?.last) rows.push(el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `มติล่าสุด D${c.last.day}: ${DECREES[c.last.decree].name} เห็นชอบ ${c.last.ayes} คัดค้าน ${c.last.nays} · ${RESULT[c.last.result]}` })));
-  return section('สภาขุนนาง', rows);
+  return section(councilName(world), rows);
 }
 
 function decreesSection(world: WorldState): HTMLElement {
@@ -412,8 +413,9 @@ function personChip(n: Npc): HTMLElement {
 
 function kingCard(world: WorldState, k: Npc): HTMLElement {
   const portrait = el('div', { className: 'npc__portrait' });
-  portrait.style.backgroundImage = 'url(/assets/sprites/characters/king.png)';
-  const name = el('button', { type: 'button', className: 'realm-king__name', textContent: `กษัตริย์${k.name}` });
+  portrait.style.backgroundImage = `url(/assets/sprites/characters/${rulerLook(world)}.png)`;
+  const name = el('button', { type: 'button', className: 'realm-king__name', textContent: `${rulerTitle(world)}${k.name}` });
+  const r = world.republic;
   name.onclick = () => handlers.onSelectNpc(k.id);
   const tax = world.crown?.tax ?? 'normal';
   return el(
@@ -425,10 +427,26 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
       { className: 'realm-king__body' },
       name,
       el('p', { className: 'realm-king__meta', textContent: `ระบอบ${REGIMES[regimeOf(world)].name} · ${REGIMES[regimeOf(world)].text}` }),
-      el('p', { className: 'realm-king__meta', textContent: `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}` }),
+      el('p', { className: 'realm-king__meta', textContent: r ? `อายุ ${k.age} ปี · ดำรงตำแหน่งตั้งแต่ D${world.crown?.since ?? 0} · เลือกตั้งครั้งหน้าอีก ${Math.max(0, r.nextVote - world.day)} วัน` : `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}` }),
+      ...(r?.last ? [ballot(r.last.results, r.elections, r.last.day)] : []),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),
     ),
+  );
+}
+
+// The last election's count: one bar per candidate, the winner first.
+function ballot(results: { name: string; votes: number }[], round: number, day: number): HTMLElement {
+  const total = results.reduce((s, c) => s + c.votes, 0) || 1;
+  return el(
+    'div',
+    { className: 'ballot' },
+    el('small', { textContent: `ผลเลือกตั้งครั้งที่ ${round} (D${day})` }),
+    ...results.map((c, i) => {
+      const fill = el('i');
+      fill.style.width = `${(c.votes / total) * 100}%`;
+      return el('div', { className: `ballot__row${i === 0 ? ' ballot__row--won' : ''}` }, el('span', { textContent: c.name }), el('span', { className: 'ballot__bar' }, fill), el('b', { textContent: String(c.votes) }));
+    }),
   );
 }
 

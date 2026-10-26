@@ -3,7 +3,7 @@
 import { chance, next, pick, type Rng } from './rng';
 import { decreeActive, known, log, occupied } from './core';
 import { addTie } from './ties';
-import { buy, ensureMarket, sell } from './market';
+import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { JOB_TH } from './names';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
@@ -28,6 +28,8 @@ const JOB_WEIGHTS: [Job, number][] = [
   ['alchemist', 2],
   ['engineer', 2],
 ];
+// Learned trades the crown only fills from the fields when the town is fed.
+const BOOKISH: readonly Job[] = ['scholar', 'alchemist', 'engineer'];
 // Trades that only exist once the scholars have found what they rest on.
 const NEEDS: Partial<Record<Job, Tech>> = { alchemist: 'arcana', engineer: 'architecture' };
 export const COMMON_JOBS: readonly Job[] = JOB_WEIGHTS.map(([j]) => j);
@@ -91,7 +93,8 @@ export function inheritedJob(world: WorldState, parents: Npc[], rng: Rng): Job {
 export function holdCourt(world: WorldState, rng: Rng): void {
   let crowned = king(world);
   // Under the demon lord there is no throne to fill, only trades to keep going.
-  if (occupied(world)) {
+  // Nor under a republic: its office is filled by vote (see republic.ts), and nobody is titled.
+  if (occupied(world) || world.regime === 'republic') {
     if (world.day % COURT_EVERY === 0) fillTrades(world, rng);
     return;
   }
@@ -125,6 +128,11 @@ export function holdCourt(world: WorldState, rng: Rng): void {
 // Put someone on the throne. A new reign gives everyone a fresh start: loyalty drifts
 // back toward the middle, whatever they thought of the last king.
 export function enthrone(world: WorldState, n: Npc, how: string): void {
+  if (world.regime && world.regime !== 'monarchy') {
+    world.regime = undefined; // whoever seizes power crowns themselves
+    world.republic = undefined;
+    log(world, 'politics', `${n.name}ล้มการปกครองเดิม แล้วสถาปนาราชบัลลังก์ขึ้นใหม่`, n.id);
+  }
   leaveTrade(n);
   n.job = 'king';
   n.knight = undefined;
@@ -143,6 +151,7 @@ const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
     if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!))) continue;
+    if (BOOKISH.includes(job) && priceRatio(world, 'grain') >= 1.5) continue; // no farmer is spared for books while bread is dear
     const merchants = living(world, 'merchant').length;
     const pool = world.npcs.filter(
       (n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined && (n.job === 'farmer' || (n.job === 'merchant' && job !== 'merchant' && merchants > 2)),

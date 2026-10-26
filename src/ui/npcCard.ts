@@ -1,4 +1,4 @@
-import { PLACES_SCHOOL, literate, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 
 const card = document.getElementById('npc-card')!;
@@ -43,7 +43,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   // On phones the card is a scrolling sheet: keep the reader's place across rebuilds, start at the top for someone new.
   const scroll = shownId === npc.id ? card.scrollTop : 0;
   shownId = npc.id;
-  card.replaceChildren(bar(npc), header(npc, doing, world.day, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
   card.scrollTop = scroll;
 }
 
@@ -167,14 +167,15 @@ function relations(world: WorldState, ties: { id: number; value: number }[]): HT
   return el('div', { className: 'npc__rels' }, el('h4', { textContent: 'ความสัมพันธ์' }), body);
 }
 
-function header(npc: Npc, doing: string, day: number, guild?: { name: string; leads: boolean }): HTMLElement {
+function header(npc: Npc, doing: string, world: WorldState, guild?: { name: string; leads: boolean }): HTMLElement {
+  const day = world.day;
   const portrait = el('div', { className: 'npc__portrait' });
-  const look = npc.age < ADULT_AGE ? 'child' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job;
+  const look = npc.age < ADULT_AGE ? 'child' : npc.hero && npc.job !== 'king' ? 'hero' : npc.job === 'king' ? rulerLook(world) : npc.job;
   portrait.style.backgroundImage = `url(/assets/sprites/characters/${look}.png)`;
   const chips = el(
     'div',
     { className: 'npc__chips' },
-    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : JOB_TH[npc.job] }),
+    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : JOB_TH[npc.job] }),
     ...(npc.age >= ADULT_AGE ? [el('span', { className: 'chip', textContent: `LV ${npc.level}` })] : []),
     ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
     ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),

@@ -2,7 +2,7 @@
 // council and vote on every decree, and a council that says no can stop one, unless the king
 // is strong enough to override them and willing to pay for it in their loyalty.
 import { chance, type Rng } from './rng';
-import { log, loyaltyNudge } from './core';
+import { RULER_TH, log, loyaltyNudge } from './core';
 import { crownPower, loyaltyOf } from './politics';
 import { getTie } from './ties';
 import type { Decree, Npc, Regime, WorldState } from './types';
@@ -14,14 +14,17 @@ export interface RegimeDef {
 }
 
 export const REGIMES: Record<Regime, RegimeDef> = {
-  monarchy: { name: 'ราชาธิปไตย', ruler: 'กษัตริย์', text: 'กษัตริย์ปกครอง โดยมีสภาขุนนางคอยถ่วงดุล' },
-  republic: { name: 'สาธารณรัฐ', ruler: 'ผู้นำสภา', text: 'ชาวเมืองเลือกผู้นำของตนเองทุกสองสามปี' },
-  theocracy: { name: 'เทวาธิปไตย', ruler: 'มหานักบวช', text: 'นักบวชปกครองในนามของเทพเจ้า' },
-  oligarchy: { name: 'คณาธิปไตยพ่อค้า', ruler: 'ประธานสมาคมการค้า', text: 'พ่อค้าผู้มั่งคั่งที่สุดร่วมกันปกครอง' },
-  junta: { name: 'คณะทหาร', ruler: 'จอมทัพ', text: 'ทหารยึดอำนาจและปกครองด้วยกำลัง' },
+  monarchy: { name: 'ราชาธิปไตย', ruler: RULER_TH.monarchy, text: 'กษัตริย์ปกครอง โดยมีสภาขุนนางคอยถ่วงดุล' },
+  republic: { name: 'สาธารณรัฐ', ruler: RULER_TH.republic, text: 'ชาวเมืองเลือกผู้นำของตนเองทุกสองสามปี' },
+  theocracy: { name: 'เทวาธิปไตย', ruler: RULER_TH.theocracy, text: 'นักบวชปกครองในนามของเทพเจ้า' },
+  oligarchy: { name: 'คณาธิปไตยพ่อค้า', ruler: RULER_TH.oligarchy, text: 'พ่อค้าผู้มั่งคั่งที่สุดร่วมกันปกครอง' },
+  junta: { name: 'คณะทหาร', ruler: RULER_TH.junta, text: 'ทหารยึดอำนาจและปกครองด้วยกำลัง' },
 };
 
 export const regimeOf = (world: WorldState): Regime => world.regime ?? 'monarchy';
+// The ruler's title, and the sprite they wear, under the town's regime.
+export const rulerTitle = (world: WorldState) => REGIMES[regimeOf(world)].ruler;
+export const rulerLook = (world: WorldState) => (regimeOf(world) === 'republic' ? 'consul' : 'king');
 
 const OVERRIDE_POWER = 70; // a crown this strong can ignore its council
 const SNUB = -8; // loyalty a councillor loses when the king overrides their no

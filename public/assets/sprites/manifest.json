@@ -111,6 +111,13 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "consul": {
+    "file": "assets/sprites/characters/consul.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",

@@ -487,6 +487,14 @@ html:has(dialog[open]) { overflow: hidden; }
 .work:not(.work--done) .work__art { opacity: 0.4; filter: grayscale(1); }
 .work__art { width: 40px; height: 40px; object-fit: contain; object-position: bottom; image-rendering: pixelated; }
 .work .realm-king__meta { margin: 0; }
+.ballot { display: grid; gap: 2px; margin-top: 4px; }
+.ballot small { font-size: 11px; color: var(--ink-muted); }
+.ballot__row { display: grid; grid-template-columns: 72px 1fr 28px; gap: 6px; align-items: center; font-size: 12px; }
+.ballot__row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ballot__bar { height: 8px; background: var(--paper); border: 2px solid var(--outline); }
+.ballot__bar i { display: block; height: 100%; background: var(--paper-edge); }
+.ballot__row--won .ballot__bar i { background: var(--gold); }
+.ballot__row b { font: 500 12px var(--font-num); text-align: right; }
 .council { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 4px; }
 .council .realm-king__meta { margin: 0; flex-basis: 100%; }
 .tech__icon { width: 32px; height: 32px; justify-self: center; image-rendering: pixelated; }

@@ -10,6 +10,7 @@ import { might } from './market';
 import { afterStampede, loyaltyOf } from './politics';
 import { isAdventurer, legend } from './quests';
 import { enthrone, king, leaveTrade } from './society';
+import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
 import type { DemonLord, Npc, WorldState } from './types';
 
@@ -311,7 +312,8 @@ function slay(world: WorldState, lord: DemonLord, hero: Npc): void {
   const freed = lord.stage === 'occupied';
   world.demon = undefined;
   if (freed) {
-    enthrone(world, hero, 'ปราบจอมมารและปลดปล่อยอาณาจักร');
+    if (isRepublic(world)) acclaim(world, hero, 'ปราบจอมมารและปลดปล่อยเมือง');
+    else enthrone(world, hero, 'ปราบจอมมารและปลดปล่อยอาณาจักร');
     for (const n of adults(world)) n.loyalty = Math.min(100, loyaltyOf(n) + 25);
     if (world.crown) world.crown.tax = 'low';
     log(world, 'politics', 'อาณาจักรได้รับอิสรภาพคืน ชาวเมืองออกมาเฉลิมฉลองทั่วทุกถนน');

@@ -6,6 +6,9 @@ import { clamp, decreeActive, kill, log } from './core';
 import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
+import { known } from './core';
+import { literacy } from './learning';
+import { isRepublic, proclaimRepublic } from './republic';
 import { sway } from './cult';
 import type { Crown, Npc, Tax, WorldState } from './types';
 
@@ -17,6 +20,7 @@ const FESTIVAL_COST = 250;
 const FESTIVAL_GAP = 240; // days between festivals at the most
 const PLOT_POWER = 45; // nobles only plot against a crown weaker than this
 const UNREST_APPROVAL = 25; // two months below this and the streets rise
+const REFORM_LITERACY = 0.45; // share of readers past which a revolution ends the monarchy
 
 export const loyaltyOf = (n: Npc) => n.loyalty ?? 50;
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16 && n.job !== 'king');
@@ -243,7 +247,7 @@ function depose(world: WorldState, old: Npc, usurper: Npc, rng: Rng): void {
 // Two bad months in a row and the poorest, angriest commoner leads the town against the palace.
 function unrest(world: WorldState, crown: Crown, k: Npc, rng: Rng): void {
   crown.unrest = approval(world) < UNREST_APPROVAL ? crown.unrest + 1 : Math.max(0, crown.unrest - 1);
-  if (crown.unrest < 2) return;
+  if (crown.unrest < 2 || isRepublic(world)) return; // a republic answers anger at the ballot box
   crown.unrest = 0;
   const commoners = adults(world).filter((n) => !['noble', 'soldier'].includes(n.job) && !n.knight && n.questId === undefined && n.inside === undefined);
   const angry = commoners.filter((n) => loyaltyOf(n) < 30);
@@ -257,8 +261,10 @@ function unrest(world: WorldState, crown: Crown, k: Npc, rng: Rng): void {
     const loot = Math.floor(world.treasury / 2);
     world.treasury -= loot;
     for (const n of angry) n.gold += Math.floor(loot / angry.length);
-    enthrone(world, leader, 'นำการปฏิวัติของชาวเมือง');
     legend(world, `${leader.name} นำชาวเมืองโค่นกษัตริย์${k.name}`, leader.id);
+    // A town that reads has heard of other ways to be ruled: it does without a king.
+    if (known(world, 'printing') || literacy(world) >= REFORM_LITERACY) proclaimRepublic(world, leader, rng);
+    else enthrone(world, leader, 'นำการปฏิวัติของชาวเมือง');
     return;
   }
   kill(world, leader, 'ถูกทหารปราบระหว่างการลุกฮือ');
