@@ -367,7 +367,7 @@ export interface WorldState {
   herd?: number; // beasts in the pasture; missing in saves from before herders
   regime?: Regime; // how the town is governed; missing means a king
   charter?: Charter; // missing in saves from before constitutions: written from the regime
-  republic?: { since: number; elections: number; nextVote: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
+  republic?: { since: number; elections: number; nextVote: number; streak?: number; inOffice?: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
   council?: { vetoes: number; overrides: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them

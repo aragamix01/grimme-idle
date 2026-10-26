@@ -1,7 +1,11 @@
-// The republic: no crown, only an office the townsfolk fill by vote every few years. A handful
-// of the town's most prominent people stand; each voter backs whoever they are closest to, who
-// shares their trade, or who speaks for their purse, the rich for the rich and the poor for the kind.
+// The republic: no crown, only an office the townsfolk fill by vote every few years. The field
+// mixes the establishment with new faces: the sitting leader (unless the charter's term limit
+// bars them), the most prominent of the rest, a populist the poor love, and a reformer who reads.
+// Each voter the charter lets vote backs whoever they are closest to, who shares their trade, or
+// who speaks for their purse; a leader long in office wears on them, and is blamed for the
+// famines, plagues and lost wars of their term. Where there is a free press, scandal can sink anyone.
 import { chance, next, type Rng } from './rng';
+import { known } from './core';
 import { log, loyaltyNudge, occupied } from './core';
 import { legend } from './quests';
 import { ensureCrown, loyaltyOf } from './politics';
@@ -13,35 +17,82 @@ import type { Npc, WorldState } from './types';
 
 // Days between elections, as the charter sets them.
 const term = (world: WorldState) => (charterOf(world).termYears || 3) * 365;
-const CANDIDATES = 3;
 const RICH = 60; // a voter this well off votes with their purse
+const FATIGUE = 0.35; // appeal a leader loses for each year in office
+const BLAME = 0.6; // and for each disaster of their term (most 4)
+const SCANDAL = -2.5; // appeal lost by a candidate the press has exposed
 
 export const isRepublic = (world: WorldState) => world.regime === 'republic';
 
 // How prominent someone is: wealth, deeds, friends, letters.
 function standing(world: WorldState, n: Npc): number {
   const friends = world.npcs.filter((o) => o.alive && o !== n && getTie(world, n.id, o.id) >= 40).length;
-  return n.gold / 40 + n.level * 0.5 + (n.renown ?? 0) / 10 + friends * 0.4 + (literate(n) ? 1 : 0) + (n.job === 'noble' ? 1 : 0) + (n.id === world.kingId ? 2 : 0);
+  return n.gold / 40 + n.level * 0.5 + (n.renown ?? 0) / 10 + friends * 0.4 + (literate(n) ? 1 : 0) + (n.job === 'noble' ? 1 : 0);
+}
+const friendsOf = (world: WorldState, n: Npc) => world.npcs.filter((o) => o.alive && o !== n && getTie(world, n.id, o.id) >= 15).length;
+
+// The field: the sitting leader if the charter allows another term, the most prominent of the
+// rest, a populist (the poor's best-liked kind or brave soul), and a reformer who reads.
+function candidates(world: WorldState): { field: Npc[]; barred?: Npc } {
+  const r = world.republic;
+  const limit = charterOf(world).termLimit;
+  const sitting = world.npcs.find((n) => n.id === world.kingId && n.alive && n.job === 'king');
+  const barred = sitting && limit !== null && (r?.streak ?? 0) >= limit ? sitting : undefined;
+  const eligible = world.npcs.filter((n) => n.alive && n.age >= 25 && n.age <= 68 && n.job !== 'thief' && !n.cultist && n.questId === undefined && n.inside === undefined && n !== sitting);
+  const field: Npc[] = sitting && !barred ? [sitting] : [];
+  const add = (n?: Npc) => n && !field.includes(n) && field.push(n);
+  add(eligible.slice().sort((a, b) => standing(world, b) - standing(world, a))[0]);
+  add(eligible.filter((n) => n.gold < RICH && (n.traits.includes('kind') || n.traits.includes('brave'))).sort((a, b) => friendsOf(world, b) - friendsOf(world, a))[0]);
+  add(eligible.filter((n) => literate(n) && n.morality > 20).sort((a, b) => b.level + b.morality / 20 - (a.level + a.morality / 20))[0]);
+  if (field.length < 2) add(eligible.sort((a, b) => standing(world, b) - standing(world, a)).find((n) => !field.includes(n)));
+  return { field, barred };
 }
 
-function candidates(world: WorldState): Npc[] {
-  const eligible = world.npcs.filter((n) => n.alive && n.age >= 25 && n.age <= 68 && n.job !== 'thief' && !n.cultist && n.questId === undefined && n.inside === undefined);
-  return eligible.sort((a, b) => standing(world, b) - standing(world, a)).slice(0, CANDIDATES);
+// Who the charter lets vote.
+function mayVote(world: WorldState, v: Npc): boolean {
+  if (!v.alive || v.age < 16 || v.inside !== undefined) return false;
+  const f = charterOf(world).franchise;
+  return f === 'propertied' ? v.gold >= 30 : f === 'lettered' ? literate(v) : true;
 }
 
-// One voter's pull toward one candidate.
-function appeal(world: WorldState, v: Npc, c: Npc, rng: Rng): number {
+// The disasters of the sitting leader's time in office.
+function blameOf(world: WorldState): number {
+  const since = world.republic?.inOffice ?? world.crown?.since ?? 0;
+  const bad = world.chronicle.filter((e) => e.day > since && /ข้าวหมดตลาด|ความหิวโหย|โรคระบาดในเมือง|แพ้สงคราม|มอนสเตอร์ล้นออกจาก/.test(e.text)).length;
+  return Math.min(4, bad);
+}
+
+// One voter's pull toward one candidate. `wear` is what the sitting leader's years and failures cost them.
+function appeal(world: WorldState, v: Npc, c: Npc, rng: Rng, wear: number, shamed: Set<number>): number {
   if (v === c) return 100; // everyone votes for themselves
   const trade = (c.formerJob ?? c.job) === v.job ? 1 : 0;
   const purse = v.gold >= RICH ? (c.gold >= 100 || c.traits.includes('greedy') ? 1 : 0) : (c.traits.includes('kind') ? 1.2 : 0) + (c.gold < RICH ? 0.5 : 0);
-  const sitting = c.id === world.kingId ? (loyaltyOf(v) - 50) / 25 : 0; // the content keep the incumbent, the angry throw them out
+  const sitting = c.id === world.kingId ? (loyaltyOf(v) - 50) / 25 - wear : 0; // the content keep the incumbent, the angry and the bored throw them out
   const danger = c.traits.includes('brave') && (world.war || world.demon) ? 1 : 0;
-  return getTie(world, v.id, c.id) / 20 + trade + purse + sitting + danger + next(rng) * 2 - 1;
+  return getTie(world, v.id, c.id) / 20 + trade + purse + sitting + danger + (shamed.has(c.id) ? SCANDAL : 0) + next(rng) * 2 - 1;
+}
+
+// With printing, broadsheets dig up the wicked and the grasping among the candidates.
+function scandals(world: WorldState, field: Npc[], rng: Rng): Set<number> {
+  const out = new Set<number>();
+  if (!known(world, 'printing')) return out;
+  for (const c of field) {
+    const dirt = c.morality < -10 ? 'เรื่องเลวร้ายในอดีต' : c.gold >= 300 ? 'ทรัพย์สินที่ได้มาอย่างน่าสงสัย' : undefined;
+    if (!dirt || !chance(rng, 0.5)) continue;
+    out.add(c.id);
+    log(world, 'politics', `ใบปลิวทั่วเมืองเปิดโปง${dirt}ของ${c.name} ผู้สมัครรับเลือกตั้ง`, c.id);
+  }
+  return out;
 }
 
 // Put the winner in office; the one they replace goes back to their old trade.
 function install(world: WorldState, winner: Npc): void {
   const old = world.npcs.find((n) => n.id === world.kingId);
+  const r = world.republic;
+  if (r) {
+    r.streak = old === winner ? (r.streak ?? 1) + 1 : 1;
+    if (old !== winner) r.inOffice = world.day;
+  }
   if (old && old !== winner && old.alive && old.job === 'king') {
     old.job = old.formerJob ?? 'merchant';
     old.formerJob = undefined;
@@ -63,16 +114,20 @@ function install(world: WorldState, winner: Npc): void {
 
 // Hold an election now. Returns the winner, if anyone stood.
 export function election(world: WorldState, rng: Rng, why: string): Npc | undefined {
-  const field = candidates(world);
+  const { field, barred } = candidates(world);
   if (!field.length) return undefined;
+  if (barred) log(world, 'politics', `${barred.name}ดำรงตำแหน่งครบ ${charterOf(world).termLimit} สมัยตามรัฐธรรมนูญแล้ว ลงสมัครอีกไม่ได้`, barred.id);
+  const years = (world.day - (world.republic?.inOffice ?? world.crown?.since ?? world.day)) / 365;
+  const wear = years * FATIGUE + blameOf(world) * BLAME;
+  const shamed = scandals(world, field, rng);
   const votes = new Map(field.map((c) => [c.id, 0]));
   const backers = new Map<number, Npc[]>(field.map((c) => [c.id, []]));
   for (const v of world.npcs) {
-    if (!v.alive || v.age < 16 || v.inside !== undefined) continue;
+    if (!mayVote(world, v)) continue;
     let best = field[0];
     let top = -Infinity;
     for (const c of field) {
-      const a = appeal(world, v, c, rng);
+      const a = appeal(world, v, c, rng, wear, shamed);
       if (a > top) [best, top] = [c, a];
     }
     votes.set(best.id, votes.get(best.id)! + 1);
