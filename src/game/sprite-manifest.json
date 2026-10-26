@@ -531,6 +531,20 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "clocktower": {
+    "file": "assets/sprites/buildings/clocktower.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "press": {
+    "file": "assets/sprites/buildings/press.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",
@@ -729,6 +743,27 @@
   },
   "architecture": {
     "file": "assets/sprites/icons/architecture.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "navigation": {
+    "file": "assets/sprites/icons/navigation.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "arcana": {
+    "file": "assets/sprites/icons/arcana.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "printing": {
+    "file": "assets/sprites/icons/printing.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

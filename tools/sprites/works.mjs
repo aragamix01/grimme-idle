@@ -127,6 +127,38 @@ function school() {
   return finish(g);
 }
 
+// A slim stone clock tower with a blue spire and a big cream face, on a plaza of flagstones.
+function clocktower() {
+  const g = new Grid(32, 32);
+  g.rect(2, 26, 28, 5, 'x');
+  for (let x = 4; x < 30; x += 5) g.vline(x, 26, 5, 'X');
+  g.tri(15.5, 0, 6, 7, 'b');
+  g.set(15, 0, 'y').set(16, 0, 'y');
+  wall(g, 10, 7, 12, 21, 'stone');
+  g.disc(15.5, 12.5, 4.2, 'c');
+  g.set(15, 10, 'k').set(15, 11, 'k').set(15, 12, 'k').set(16, 12, 'k').set(17, 12, 'k'); // hands at three
+  for (const [x, y] of [[15, 9], [19, 12], [15, 16], [12, 12]]) g.set(x, y, 'Y');
+  g.rect(13, 21, 6, 7, 'k').rect(14, 22, 4, 6, 'N');
+  return finish(g);
+}
+
+// A tall timber print shop: a slate roof, a window showing the press, and a sheet of paper on the sign.
+function press() {
+  const g = new Grid(32, 32);
+  roof(g, 2, 3, 28, 11, 'slate');
+  g.rect(22, 0, 3, 5, 'X').set(23, 0, 'l'); // the chimney
+  wall(g, 3, 14, 26, 16);
+  for (const x of [3, 15, 28]) g.vline(x, 14, 16, 'M');
+  g.hline(3, 21, 26, 'M');
+  windowAt(g, 5, 16, 8, 6);
+  g.rect(7, 18, 4, 2, 'X'); // the press inside
+  door(g, 19, 22, 6, 8);
+  sign(g, 17, 14, ['cccc', 'cXXc', 'cccc', 'cXXc']);
+  for (const [x, y] of [[4, 27], [8, 28]]) g.rect(x, y, 3, 2, 'c').set(x + 1, y, 'C');
+  g.hline(1, 30, 30, 'X');
+  return finish(g);
+}
+
 export function works() {
   return [
     { name: 'granary', group: 'buildings', frames: [granary()] },
@@ -138,6 +170,8 @@ export function works() {
     { name: 'market-hall', group: 'buildings', frames: [marketHall()] },
     { name: 'palace', group: 'buildings', frames: [palace()] },
     { name: 'school', group: 'buildings', frames: [school()] },
+    { name: 'clocktower', group: 'buildings', frames: [clocktower()] },
+    { name: 'press', group: 'buildings', frames: [press()] },
   ];
 }
 

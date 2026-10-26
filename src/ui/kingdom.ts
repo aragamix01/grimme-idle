@@ -177,7 +177,11 @@ function researchSection(world: WorldState): HTMLElement {
     TECH_ORDER.map((k) => {
       const t = TECHS[k];
       const done = known(world, k);
-      const status = done ? `ค้นพบแล้ว D${world.techs![k]}` : world.research === k ? `กำลังค้นคว้า · ความรู้ ${Math.min(have, t.cost)}/${t.cost}` : `ยังไม่ได้ค้นคว้า · ใช้ความรู้ ${t.cost}`;
+      const status = done ? `ค้นพบแล้ว D${world.techs![k]}` : world.research === k
+          ? `กำลังค้นคว้า · ความรู้ ${Math.min(have, t.cost)}/${t.cost}`
+          : (t.needs ?? []).some((n) => !known(world, n))
+            ? `ต้องค้นพบ${t.needs!.map((n) => TECHS[n].name).join(' ')}ก่อน · ใช้ความรู้ ${t.cost}`
+            : `ยังไม่ได้ค้นคว้า · ใช้ความรู้ ${t.cost}`;
       const row = el(
         'li',
         { className: `work tech${done ? ' work--done' : ''}` },

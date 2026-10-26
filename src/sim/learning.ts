@@ -3,6 +3,7 @@
 // teaching sharpens their own thinking.
 import { chance, type Rng } from './rng';
 import { built } from './works';
+import { known } from './core';
 import type { Job, Npc, WorldState } from './types';
 
 const KNOW_PER_DAY = 0.08; // one scholar's day at the desk, before level, school and blessing
@@ -11,6 +12,7 @@ const SCHOOL_AGE = 6; // children younger than this only play
 const LETTERED_AT = 150; // days of lessons before a child can read for good
 const TOP_OF_CLASS = 400; // days of lessons that make a child start grown life a step ahead
 const HOME_LESSON = 0.15; // a day spent beside a parent who reads counts for this much
+const SELF_TAUGHT = 0.03; // monthly chance a grown-up learns to read from the press's cheap books
 
 // Trades that cannot be done without letters: anyone who comes to town in one of them reads.
 const LETTERED_JOBS: readonly Job[] = ['scholar', 'priest', 'noble', 'king', 'mage'];
@@ -26,10 +28,18 @@ export function literacy(world: WorldState): number {
 }
 
 // A child's day of lessons: a full day at the school, or a little from a parent who reads.
-export function lesson(n: Npc, atSchool: boolean, parent?: Npc): void {
+// Printed primers make every lesson count for more.
+export function lesson(world: WorldState, n: Npc, atSchool: boolean, parent?: Npc): void {
   if (!schoolAge(n)) return;
-  if (atSchool) n.schooling = (n.schooling ?? 0) + 1;
-  else if (parent && literate(parent)) n.schooling = (n.schooling ?? 0) + HOME_LESSON;
+  const books = known(world, 'printing') ? 1.5 : 1;
+  if (atSchool) n.schooling = (n.schooling ?? 0) + books;
+  else if (parent && literate(parent)) n.schooling = (n.schooling ?? 0) + HOME_LESSON * books;
+}
+
+// With a press in town, cheap books reach grown-ups too: a few teach themselves to read each month.
+export function pressDay(world: WorldState, rng: Rng): void {
+  if (world.day % 30 !== 4 || !built(world, 'press')) return;
+  for (const n of world.npcs) if (n.alive && n.age >= 16 && n.age < 50 && !literate(n) && chance(rng, SELF_TAUGHT)) n.lettered = true;
 }
 
 // At sixteen the lessons tell: a child who learned to read is lettered for life, may take up
@@ -48,7 +58,8 @@ export const knowledgeOf = (world: WorldState) => world.knowledge ?? 0;
 
 // A day of study, at the school if the town has one, else in the castle's library.
 export function study(world: WorldState, npc: Npc, rng: Rng): void {
-  const rate = KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1);
+  const rate =
+    KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1);
   world.knowledge = knowledgeOf(world) + rate;
   if (chance(rng, 0.004)) npc.level++; // years of reading tell, slowly
 }

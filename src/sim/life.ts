@@ -193,6 +193,6 @@ export function childDay(world: WorldState, n: Npc, rng: Rng): void {
   if (!atSpot(n, p, following ? 1 : 0)) stepToward(world, n, p, rng);
   else {
     p.days--;
-    lesson(n, school && p.x === PLACES.school.x && p.y === PLACES.school.y, following);
+    lesson(world, n, school && p.x === PLACES.school.x && p.y === PLACES.school.y, following);
   }
 }

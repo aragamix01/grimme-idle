@@ -128,7 +128,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1);
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1);
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }
@@ -145,7 +145,9 @@ export function buyGear(world: WorldState, npc: Npc): void {
 
 export const gearPower = (npc: Npc) => (npc.gear ?? 0) * GEAR_POWER;
 // Fighting strength: levels, gear, and the god's favour or wrath.
-export const might = (world: WorldState, n: Npc) => 10 + n.level * 4 + (n.blessed ? 10 : 0) - (cursed(world, n) ? 10 : 0) + gearPower(n) + (n.relic ? RELIC_POWER : 0);
+export const might = (world: WorldState, n: Npc) =>
+  10 + n.level * 4 + (n.blessed ? 10 : 0) - (cursed(world, n) ? 10 : 0) + gearPower(n) + (n.relic ? RELIC_POWER : 0) + (n.job === 'mage' && known(world, 'arcana') ? ARCANA_POWER : 0);
+const ARCANA_POWER = 8; // what the scholars' spell-lore adds to a mage
 
 // Dents and broken blades: a lost fight may cost a gear level.
 export function wearGear(npc: Npc, rng: Rng): void {
@@ -248,7 +250,9 @@ function caravans(world: WorldState, m: Market): void {
   if (gear) m.till -= gearCost;
   if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
   if (!gold && !buying && !gear) return;
-  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: tripDays(realm) };
+  const charted = known(world, 'navigation'); // maps and a compass: shorter roads, better deals
+  if (charted) gold *= 1.15;
+  m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: Math.round(tripDays(realm) * (charted ? 0.7 : 1)) };
   merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };
   log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานไป${buying ? 'ซื้อข้าว' : 'ค้าขาย'}ที่${realm.name}`, merchant.id);
 }
@@ -274,7 +278,7 @@ export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
   if (!c) return;
   const realm = world.realms?.find((r) => r.id === c.realmId);
   // Roads through unfriendly country are riskier; an ally's patrols keep them safe.
-  const risk = BANDITS + (realm && realm.relation < -15 ? 0.08 : 0) - (realm?.pact ? 0.03 : 0);
+  const risk = BANDITS + (realm && realm.relation < -15 ? 0.08 : 0) - (realm?.pact ? 0.03 : 0) - (known(world, 'navigation') ? 0.04 : 0);
   if (chance(rng, risk)) {
     log(world, 'trade', `กองคาราวานของพ่อค้า${npc.name}ถูกโจรป่าปล้นระหว่างทาง สินค้าหายเกลี้ยง`, npc.id);
     return;

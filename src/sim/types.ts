@@ -71,8 +71,8 @@ export interface Plan {
 
 export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
 
-export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school';
+export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press';
 
 export interface Dragon {
   name: string;

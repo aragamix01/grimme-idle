@@ -22,7 +22,7 @@ import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
 import { built, crownWorks } from './works';
-import { study } from './learning';
+import { pressDay, study } from './learning';
 import { researchDay } from './research';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
@@ -128,6 +128,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   dragonDay(world, rng);
   crownWorks(world, rng);
   researchDay(world, rng);
+  pressDay(world, rng);
   decreesDay(world, rng);
   annalsDay(world);
   healBosses(world);
