@@ -1,5 +1,6 @@
 import { PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
+import { localize } from './lexicon';
 
 const card = document.getElementById('npc-card')!;
 const hint = document.getElementById('npc-hint')!;
@@ -44,6 +45,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   const scroll = shownId === npc.id ? card.scrollTop : 0;
   shownId = npc.id;
   card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  localize(card, world);
   card.scrollTop = scroll;
 }
 

@@ -14,6 +14,7 @@ export { WORKS, WORK_ORDER, workCost } from './works';
 export { TECHS, TECH_ORDER } from './research';
 export { REGIMES, council, regimeOf, rulerLook, rulerTitle } from './government';
 export { councilName } from './core';
+export { say } from './lexicon';
 export { reformers } from './regimes';
 export { AGES, AGE_SUFFIX, ageOf } from './ages';
 export { literacy, literate, schoolAge } from './learning';

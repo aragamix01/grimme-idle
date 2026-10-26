@@ -1,4 +1,4 @@
-import { ADULT_AGE, cursed, seasonOf, weatherOf, type EventKind, type Job, type Npc, type WorldState } from '../sim';
+import { ADULT_AGE, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
 
 // Short reactions that pop over an NPC's head when something happens to them.
 const LINES: Partial<Record<EventKind, string[]>> = {
@@ -83,7 +83,7 @@ export function pushBubbles(world: WorldState, selected: number | null = null): 
     const lines = LINES[e.kind];
     if (!lines) continue;
     const word = BY_WORD.find(([w]) => e.text.includes(w));
-    say(e.npcId, word ? word[1] : lines[e.seq % lines.length]);
+    say(e.npcId, reword(world, word ? word[1] : lines[e.seq % lines.length]));
   }
   lastSeq = world.chronicleSeq;
   // Ambient chatter once per new day, so pausing doesn't flood the screen.
@@ -100,8 +100,16 @@ export function pushBubbles(world: WorldState, selected: number | null = null): 
 
 function chatter(world: WorldState, n: Npc): void {
   const line = lineFor(world, n);
-  if (line) say(n.id, line);
+  if (line) say(n.id, reword(world, line));
 }
+
+// What a ruler says outside a monarchy.
+const RULER_LINES: Record<Exclude<Regime, 'monarchy'>, string[]> = {
+  republic: ['ข้ารับใช้ประชาชน', 'อย่าลืมไปเลือกตั้งนะ', 'สภาต้องฟังเสียงทุกคน'],
+  theocracy: ['เทพเจ้าทรงนำทางเรา', 'จงสวดภาวนาทุกเช้า', 'ศรัทธาคือกฎหมาย'],
+  oligarchy: ['ทองคือพลัง', 'การค้าต้องไม่หยุด', 'กำไรปีนี้สวยมาก'],
+  junta: ['ระเบียบต้องมาก่อน!', 'ทหาร ตรงไป!', 'ห้ามใครขัดคำสั่ง'],
+};
 
 const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)];
 
@@ -131,6 +139,7 @@ function lineFor(world: WorldState, n: Npc): string | undefined {
   if (seasonOf(world.day) === 'winter' && r < 0.2) return any(['หนาวจัง…', 'อยากนั่งข้างเตาผิง']);
   const friend = friendNear(world, n);
   if (friend && r < 0.25) return `สวัสดี ${friend.name}!`;
+  if (n.job === 'king' && world.regime && world.regime !== 'monarchy') return any(RULER_LINES[world.regime]);
   if (p === 'work' && WORK[n.job]) return any(WORK[n.job]!);
   return any(r < 0.5 && WORK[n.job] ? WORK[n.job]! : IDLE);
 }

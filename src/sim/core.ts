@@ -1,24 +1,18 @@
 // Small helpers shared by the world loop and the guild.
 import { chance, type Rng } from './rng';
-import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Regime, Tech, WorldState } from './types';
+import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Tech, WorldState } from './types';
+import { COUNCIL_TH, say } from './lexicon';
 import type { Spot } from './places';
 import { walk } from './nav';
 
 const CHRONICLE_LIMIT = 500;
 
-// Who holds power under each regime, and what the nobles' council is called there.
-export const RULER_TH: Record<Regime, string> = { monarchy: 'กษัตริย์', republic: 'ผู้นำสภา', theocracy: 'มหานักบวช', oligarchy: 'ประธานสมาคมการค้า', junta: 'จอมทัพ' };
-const COUNCIL_TH: Record<Regime, string> = { monarchy: 'สภาขุนนาง', republic: 'วุฒิสภา', theocracy: 'สภาสงฆ์', oligarchy: 'สภาพ่อค้า', junta: 'สภาขุนศึก' };
-// Court news is written as if a king rules; outside a monarchy the titles are swapped for the real ones.
-function retitle(world: WorldState, text: string): string {
-  const r = world.regime;
-  if (!r || r === 'monarchy') return text;
-  return text.replaceAll('สภาขุนนาง', COUNCIL_TH[r]).replaceAll('พระราชโองการ', 'ประกาศ').replaceAll('กษัตริย์', RULER_TH[r]);
-}
+// Court news is written as if a king rules; outside a monarchy it is reworded for the regime.
+export { RULER_TH } from './lexicon';
 export const councilName = (world: WorldState) => COUNCIL_TH[world.regime ?? 'monarchy'];
 
 export function log(world: WorldState, kind: EventKind, text: string, npcId?: number): void {
-  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text: retitle(world, text), npcId });
+  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text: say(world, text, true), npcId });
   if (world.chronicle.length > CHRONICLE_LIMIT) world.chronicle.shift();
 }
 

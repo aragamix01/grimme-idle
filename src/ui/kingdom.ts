@@ -1,5 +1,6 @@
 import { AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
+import { localize } from './lexicon';
 
 const view = document.getElementById('kingdom')!;
 
@@ -109,6 +110,7 @@ export function renderKingdom(world: WorldState): void {
         : [empty('ราชสำนักยังสงบ')],
     ),
   );
+  localize(view, world);
 }
 
 // Light against dark: a marker on a demon-to-gold bar, with a word for where the world stands.
@@ -410,7 +412,7 @@ function warSection(world: WorldState): HTMLElement {
 // The neighbouring kingdoms and how they feel about us; the world map shows where they lie.
 function neighbours(world: WorldState): HTMLElement {
   const realms = world.realms ?? [];
-  return section(
+  const s = section(
     'อาณาจักรเพื่อนบ้าน',
     realms.map((r) =>
       el(
@@ -422,6 +424,8 @@ function neighbours(world: WorldState): HTMLElement {
       ),
     ),
   );
+  s.dataset.foreign = ''; // their kings stay kings whatever we are
+  return s;
 }
 
 function personChip(n: Npc): HTMLElement {

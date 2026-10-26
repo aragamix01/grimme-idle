@@ -2,7 +2,8 @@
 // council and vote on every decree, and a council that says no can stop one, unless the king
 // is strong enough to override them and willing to pay for it in their loyalty.
 import { chance, type Rng } from './rng';
-import { RULER_TH, log, loyaltyNudge } from './core';
+import { log, loyaltyNudge } from './core';
+import { RULER_TH } from './lexicon';
 import { crownPower, loyaltyOf } from './politics';
 import { getTie } from './ties';
 import type { Decree, Npc, Regime, WorldState } from './types';

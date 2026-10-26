@@ -1,5 +1,6 @@
 import { GOODS, GOOD_TH, SEASON_TH, seasonOf, type Good, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
+import { localize } from './lexicon';
 
 const view = document.getElementById('market')!;
 
@@ -49,6 +50,7 @@ export function renderMarket(world: WorldState): void {
         : [empty('ตลาดยังสงบ')],
     ),
   );
+  localize(view, world);
 }
 
 function goodRow(g: Good, price: number, stock: number, history: number[], alert: number): HTMLElement {

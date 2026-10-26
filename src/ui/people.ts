@@ -1,5 +1,6 @@
 import { rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
+import { localize } from './lexicon';
 
 const view = document.getElementById('people')!;
 
@@ -43,6 +44,7 @@ export function renderPeople(world: WorldState): void {
   lastKey = key;
 
   view.replaceChildren(overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living));
+  localize(view, world);
 }
 
 // A child in class right now: on their way to, or sitting in, the school.

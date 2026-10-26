@@ -1,4 +1,4 @@
-import { DUNGEON_KINDS, costOf, JOB_TH, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { say, DUNGEON_KINDS, costOf, JOB_TH, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -129,7 +129,7 @@ function stageText(q: Quest): string {
 
 function patronText(world: WorldState, q: Quest, byId: Map<number, Npc>): string {
   if (q.divine) return 'เทพเจ้า';
-  if (q.crown) return 'ราชสำนัก';
+  if (q.crown) return say(world, 'ราชสำนัก');
   const g = world.guilds.find((x) => x.id === q.patronGuildId);
   if (g) return g.name;
   const p = q.patronId !== undefined ? byId.get(q.patronId) : undefined;
