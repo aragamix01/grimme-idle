@@ -7,6 +7,13 @@ test.beforeEach(async ({ page }) => {
   await page.locator('#speed button[data-speed="0"]').tap(); // hold the world still
 });
 
+// On a phone the map's buttons fold behind a menu button: open it first when needed.
+async function mapButton(page: Page, id: string) {
+  const b = page.locator(id);
+  if (!(await b.isVisible())) await page.locator('#map-menu').tap();
+  await b.tap();
+}
+
 // Where a world-map keep sits on screen.
 async function keepPos(page: Page, index: number) {
   await page.waitForFunction(() => (window as any).__grimm.scene.game.scene.getScene('worldmap').built === true);
@@ -41,7 +48,7 @@ async function fillPage(page: Page) {
 const picked = (page: Page) => page.locator('#realms .realm-card--picked');
 
 test('the world map lists every neighbour, and a tapped keep is picked out', async ({ page }) => {
-  await page.locator('#worldmap').tap();
+  await mapButton(page, '#worldmap');
   await expect(page.locator('#realms .realm-card')).toHaveCount(4);
   await expect(page.locator('#side-tabs')).toBeHidden();
   for (const i of [0, 1, 2, 3, 0]) {
@@ -50,14 +57,14 @@ test('the world map lists every neighbour, and a tapped keep is picked out', asy
     await expect(picked(page)).toHaveAttribute('data-realm', String(pos.id));
   }
   // Back to town: the tabs return and the list goes.
-  await page.locator('#worldmap').tap();
+  await mapButton(page, '#worldmap');
   await expect(page.locator('#side-tabs')).toBeVisible();
   await expect(page.locator('#realms')).toBeHidden();
   await expect(page.locator('#feed')).toBeVisible();
 });
 
 test('tapping a realm card picks it', async ({ page }) => {
-  await page.locator('#worldmap').tap();
+  await mapButton(page, '#worldmap');
   const second = page.locator('#realms .realm-card').nth(1);
   await second.locator('.realm-card__head').tap();
   await expect(second).toHaveClass(/realm-card--picked/);
@@ -128,11 +135,11 @@ test('taps on the map still land after the page has scrolled', async ({ page }) 
   await page.evaluate(() => scrollTo(0, 250));
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
-  await page.locator('#worldmap').tap();
+  await mapButton(page, '#worldmap');
   const pos = await keepPos(page, 2);
   await page.touchscreen.tap(pos.x, pos.y);
   await expect(picked(page)).toHaveAttribute('data-realm', String(pos.id));
-  await page.locator('#worldmap').tap(); // back to town
+  await mapButton(page, '#worldmap'); // back to town
   await page.waitForFunction(() => !(window as any).__grimm.scene.sys.isSleeping());
   await page.waitForTimeout(800); // let the townsfolk settle where they are drawn
   const npc = await npcPos(page);
@@ -147,7 +154,7 @@ test('the miracles dialog shows its miracles even while time is stopped', async 
 
 test('keeps can be picked again and again while time is running', async ({ page }) => {
   await page.locator('#speed button[data-speed="1"]').tap();
-  await page.locator('#worldmap').tap();
+  await mapButton(page, '#worldmap');
   for (let round = 0; round < 3; round++) {
     for (const i of [0, 3]) {
       const pos = await keepPos(page, i);
@@ -156,4 +163,14 @@ test('keeps can be picked again and again while time is running', async ({ page 
       await page.waitForTimeout(1200); // let a couple of days pass, the list rebuilding under it
     }
   }
+});
+
+test('the map buttons fold behind the menu button and fold away again', async ({ page }) => {
+  await expect(page.locator('#map-menu')).toBeVisible();
+  await expect(page.locator('#worldmap')).toBeHidden();
+  await page.locator('#map-menu').tap();
+  await expect(page.locator('#worldmap')).toBeVisible();
+  await expect(page.locator('#sound')).toBeVisible();
+  await page.waitForTimeout(4500);
+  await expect(page.locator('#worldmap')).toBeHidden();
 });

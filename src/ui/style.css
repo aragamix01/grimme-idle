@@ -32,6 +32,12 @@ img, canvas { image-rendering: pixelated; }
 .zoom-btn[aria-pressed="true"] { background: var(--gold); }
 .sound-btn { right: 104px; }
 .map-btn { right: 56px; }
+.menu-btn { display: none; }
+.menu-btn__bars, .menu-btn__bars::before, .menu-btn__bars::after { display: block; width: 14px; height: 3px; background: var(--outline); }
+.menu-btn__bars { position: relative; }
+.menu-btn__bars::before, .menu-btn__bars::after { content: ''; position: absolute; left: 0; }
+.menu-btn__bars::before { top: -5px; }
+.menu-btn__bars::after { top: 5px; }
 .realms { display: grid; gap: 8px; }
 .realm-card {
   display: grid; gap: 2px; padding: 8px 10px; cursor: pointer;
@@ -445,11 +451,17 @@ html:has(dialog[open]) { overflow: hidden; }
     background: var(--paper-raised); border-bottom: 2px solid var(--paper-edge); font-size: 15px;
   }
   .npc__head .npc__close { display: none; }
-  .zoom-btn { width: 34px; height: 34px; top: 6px; }
+  .zoom-btn { width: 34px; height: 34px; top: 6px; right: 6px; }
   .zoom-btn img { width: 20px; height: 20px; }
-  .zoom-btn:not(.sound-btn):not(.map-btn) { right: 6px; }
-  .map-btn { right: 46px; }
-  .sound-btn { right: 86px; }
+  /* The map's buttons fold behind one small menu button so the town stays in view; it opens
+     into a column down the right edge and folds itself away when left alone. */
+  .menu-btn { display: grid; width: 30px; height: 30px; opacity: 0.8; }
+  #game:not(.tools-open) .zoom-btn:not(.menu-btn) { display: none; }
+  #game.tools-open .menu-btn { opacity: 1; background: var(--gold); }
+  #game.on-map .menu-btn { background: var(--gold); opacity: 1; }
+  #game.tools-open .map-btn { top: 42px; }
+  #game.tools-open .sound-btn { top: 82px; }
+  #game.tools-open #zoom { top: 122px; }
 }
 
 /* Fingers need bigger targets than a mouse. */

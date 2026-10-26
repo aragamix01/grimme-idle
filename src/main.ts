@@ -156,6 +156,7 @@ mapBtn.onclick = () => {
   onMap = !onMap;
   mapBtn.setAttribute('aria-pressed', String(onMap));
   zoom.hidden = onMap;
+  gameEl.classList.toggle('on-map', onMap); // the folded menu button turns gold while the world map is up
   document.getElementById('side-tabs')!.hidden = onMap;
   document.getElementById('realms')!.hidden = !onMap;
   for (const id of ['feed', 'log-tools', 'guild', 'market', 'kingdom', 'people']) document.getElementById(id)!.hidden = true;
@@ -181,6 +182,21 @@ const pick = (id: number) => {
 };
 mapScene.onRealm = (realm) => realm && pick(realm.id); // a tap on open ground keeps the pick
 initRealms({ onMiracle: (realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }), onPick: pick });
+
+// On phones the map's buttons fold behind one menu button (CSS hides them while folded) and
+// fold away again a few seconds after the last tap.
+const gameEl = document.getElementById('game')!;
+const menu = document.getElementById('map-menu')!;
+const FOLD_MS = 4000;
+let foldTimer = 0;
+function unfold(open: boolean): void {
+  gameEl.classList.toggle('tools-open', open);
+  menu.setAttribute('aria-expanded', String(open));
+  clearTimeout(foldTimer);
+  if (open) foldTimer = window.setTimeout(() => unfold(false), FOLD_MS);
+}
+menu.onclick = () => unfold(!gameEl.classList.contains('tools-open'));
+for (const id of ['worldmap', 'sound', 'zoom']) document.getElementById(id)!.addEventListener('click', () => gameEl.classList.contains('tools-open') && unfold(true));
 
 // Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
 const sound = document.getElementById('sound')!;
