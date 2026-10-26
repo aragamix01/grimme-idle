@@ -25,7 +25,7 @@ export { yearPage } from './annals';
 export { DECREES, DECREE_ORDER, decreeActive } from './decrees';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';
-export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, FAITH_PER_STAR, statueHero } from './era';
+export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, starsParts, FAITH_PER_STAR, statueHero } from './era';
 export { cursed, known, perkLevel } from './core';
 export { DUNGEON_KINDS } from './dungeons';
 export { HOME, TERRAIN_TH, relationWord, realmAge, realmRegime } from './realms';

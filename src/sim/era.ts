@@ -4,6 +4,7 @@
 import { createWorld } from './world';
 import { balanceOf } from './cult';
 import { perkLevel } from './core';
+import { ageOf } from './ages';
 import type { EraRecord, Legacy, Perk, WorldState } from './types';
 
 export const ERA_YEARS = 10; // an era may close after this long even without a great deed
@@ -40,13 +41,33 @@ export function eraTitle(world: WorldState): string {
   return 'ยุคสงบสุข';
 }
 
-// Stars the era is worth: the years it lasted, demon lords slain, the light it ended in,
-// the people alive at its close, the legends told of it, and the faith the god never spent.
+const LONG_YEARS = 50; // years past ERA_YEARS still count, at half, up to this
+const PER_AGE = 4; // stars for each age of learning the town came into
+const PER_TECH = 0.5;
+const PER_MASTERY = 1;
+const PER_TIER = 0.5; // each tier of the monument
+
+// Stars the era is worth, part by part: the years it lasted (a long era still pays, at half after
+// the first ten), how far its learning came, what it built, the demon lords slain, the light it
+// ended in, the people alive at its close, the legends told of it, and the faith never spent.
+export function starsParts(world: WorldState): [label: string, stars: number][] {
+  const y = world.day / YEAR;
+  const mastery = Object.values(world.mastery ?? {}).reduce((s, n) => s + (n ?? 0), 0);
+  return [
+    ['ปี', Math.min(ERA_YEARS, y) + Math.max(0, Math.min(y, LONG_YEARS) - ERA_YEARS) / 2],
+    ['สมัย', ageOf(world) * PER_AGE],
+    ['วิทยาการ', Object.keys(world.techs ?? {}).length * PER_TECH + mastery * PER_MASTERY],
+    ['อนุสรณ์สถาน', (world.monument ?? 0) * PER_TIER],
+    ['ปราบจอมมาร', (world.demonsSlain ?? 0) * 5],
+    ['แสงสว่าง', Math.max(0, balanceOf(world)) / 10],
+    ['ชาวเมือง', world.npcs.filter((n) => n.alive).length / 20],
+    ['ตำนาน', world.legends.length * 0.25],
+    ['ศรัทธา', world.faith / FAITH_PER_STAR],
+  ];
+}
+
 export function starsFor(world: WorldState): number {
-  const years = Math.min(ERA_YEARS, world.day / YEAR);
-  const people = world.npcs.filter((n) => n.alive).length;
-  const raw = years + (world.demonsSlain ?? 0) * 5 + Math.max(0, balanceOf(world)) / 10 + people / 20 + world.legends.length * 0.25 + world.faith / FAITH_PER_STAR;
-  return Math.max(1, Math.floor(raw));
+  return Math.max(1, Math.floor(starsParts(world).reduce((s, [, n]) => s + n, 0)));
 }
 
 export function buyPerk(world: WorldState, p: Perk): boolean {
