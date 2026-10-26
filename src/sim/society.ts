@@ -2,6 +2,7 @@
 // pleasures people spend their money on. Who holds which rank is decided here.
 import { chance, next, pick, type Rng } from './rng';
 import { decreeActive, known, log, occupied } from './core';
+import { RULER_TH } from './lexicon';
 import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
@@ -155,7 +156,7 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
   crown.since = world.day;
   crown.unrest = 0;
   for (const o of world.npcs) if (o.alive && o !== n) o.loyalty = Math.round(loyaltyOf(o) * 0.6 + 50 * 0.4);
-  log(world, 'politics', `${n.name} ขึ้นครองบัลลังก์เป็นกษัตริย์ (${how})`, n.id);
+  log(world, 'politics', `${n.name} ขึ้นครองบัลลังก์เป็น${RULER_TH[world.regime ?? 'monarchy']} (${how})`, n.id);
 }
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
@@ -233,7 +234,7 @@ export function payroll(world: WorldState): void {
       s.loyalty = Math.max(0, loyaltyOf(s) - 8);
       if (s.unpaid < DESERT_AFTER && loyaltyOf(s) >= 10) continue;
     }
-    const why = (s.unpaid ?? 0) >= DESERT_AFTER ? 'เพราะไม่ได้รับเงินเดือน' : 'เพราะหมดศรัทธาในกษัตริย์';
+    const why = (s.unpaid ?? 0) >= DESERT_AFTER ? 'เพราะไม่ได้รับเงินเดือน' : `เพราะหมดศรัทธาใน${RULER_TH[world.regime ?? 'monarchy']}`;
     s.unpaid = 0;
     s.job = s.morality < 0 ? 'thief' : 'farmer';
     s.plan = undefined;

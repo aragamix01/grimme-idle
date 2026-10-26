@@ -302,6 +302,7 @@ export interface YearRecord {
   arrived: number;
   left: number;
   king?: string; // who reigned at the year's end
+  ruler?: string; // their title under the regime of the day; missing in years before regimes
   highlights: { day: number; kind: EventKind; text: string; npcId?: number }[];
 }
 

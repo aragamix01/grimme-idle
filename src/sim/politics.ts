@@ -7,6 +7,7 @@ import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
 import { known } from './core';
+import { RULER_TH } from './lexicon';
 import { literacy } from './learning';
 import { isRepublic, proclaimRepublic } from './republic';
 import { sway } from './cult';
@@ -230,7 +231,7 @@ export function intrigue(world: WorldState, k: Npc, rng: Rng): boolean {
     // Poison: quiet, and nobody need know who.
     if (chance(rng, 0.4)) {
       kill(world, k, 'สิ้นพระชนม์กะทันหันหลังงานเลี้ยงฉลองความรุ่งเรือง');
-      if (chance(rng, 0.4)) kill(world, schemer, 'ถูกจับได้ว่าวางยาพิษกษัตริย์ ถูกประหารกลางจัตุรัส');
+      if (chance(rng, 0.4)) kill(world, schemer, `ถูกจับได้ว่าวางยาพิษ${RULER_TH[world.regime ?? 'monarchy']} ถูกประหารกลางจัตุรัส`);
       else log(world, 'politics', `ข่าวลือหนาหูว่า${schemer.name}อยู่เบื้องหลังการสิ้นพระชนม์ แต่ไม่มีใครพิสูจน์ได้`, schemer.id);
     } else kill(world, schemer, `ลอบวางยาพิษกษัตริย์${k.name}ไม่สำเร็จ ถูกจับและประหาร`);
     return true;

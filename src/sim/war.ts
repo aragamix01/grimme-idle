@@ -127,7 +127,7 @@ export function endWar(world: WorldState, enemy: Realm, how: 'won' | 'lost' | 'd
     log(world, 'politics', how === 'sued' ? `กษัตริย์${k?.name ?? ''}ขอสงบศึกกับ${enemy.name} ยอมจ่าย ${loot} ทอง` : `อาณาจักรของเราแพ้สงคราม ทหาร${enemy.name}ปล้นเมืองไป ${loot} ทอง`);
   } else {
     enemy.relation = how === 'vision' ? 10 : -10;
-    log(world, 'politics', how === 'vision' ? `กษัตริย์ทั้งสองฝันเห็นนิมิตเดียวกัน สงครามกับ${enemy.name}ยุติลงอย่างสันติ` : `สงครามกับ${enemy.name}ยืดเยื้อจนทั้งสองฝ่ายหมดแรง จึงยอมสงบศึก`);
+    log(world, 'politics', how === 'vision' ? `ผู้ปกครองทั้งสองฝ่ายฝันเห็นนิมิตเดียวกัน สงครามกับ${enemy.name}ยุติลงอย่างสันติ` : `สงครามกับ${enemy.name}ยืดเยื้อจนทั้งสองฝ่ายหมดแรง จึงยอมสงบศึก`);
   }
 }
 

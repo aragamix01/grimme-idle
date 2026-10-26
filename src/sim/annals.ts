@@ -1,6 +1,8 @@
 // The annals: at the turn of each year the chronicle's year is boiled down to a page, so the
 // player can see what the last few years were about at a glance. The chronicle itself only keeps
 // its latest few hundred entries; the annals keep the shape of each year long after.
+import { RULER_TH } from './lexicon';
+import { rulerLook } from './government';
 import type { ChronicleEntry, WorldState, YearRecord } from './types';
 
 const KEPT = 10; // years of annals the save keeps
@@ -8,6 +10,9 @@ const HIGHLIGHTS = 5;
 
 // How much an entry matters to the year's story, and the theme it gives the year.
 const WEIGHTS: [RegExp, number, string?][] = [
+  [/สาธารณรัฐถือกำเนิด|ตั้งคณะทหาร|ปกครองเมืองในนามของเทพเจ้า|รวมกันขึ้นปกครองเมือง|สละราชสมบัติ|ล้มการปกครองเดิม/, 11, 'regime'],
+  [/ก้าวเข้าสู่สมัย/, 10, 'age'],
+  [/ลุกฮือ/, 9, 'revolt'],
   [/ปราบจอมมาร.+ได้สำเร็จ/, 12, 'hero'],
   [/ยึดครองอาณาจักร|เมืองแตก/, 12, 'demon'],
   [/จอมมาร.+ตื่นจากนิทรา/, 11, 'demon'],
@@ -15,8 +20,10 @@ const WEIGHTS: [RegExp, number, string?][] = [
   [/มังกร.+บินมาเกาะ/, 10, 'dragon'],
   [/ประกาศสงคราม|ยกทัพ|บุกประตูเมือง/, 9, 'war'],
   [/สงครามจบลง/, 9, 'war'],
-  [/ขึ้นครองบัลลังก์/, 9, 'crown'],
-  [/สิ้นพระชนม์|ปลงพระชนม์|ชิงบัลลังก์/, 9, 'crown'],
+  [/ขึ้นครองบัลลังก์|ขึ้นปกครองเป็น/, 9, 'crown'],
+  [/สิ้นพระชนม์|ปลงพระชนม์|ชิงบัลลังก์|ชิงอำนาจ/, 9, 'crown'],
+  [/การเลือกตั้งครั้งที่/, 7, 'election'],
+  [/นักปราชญ์ค้นพบ/, 7, 'discovery'],
   [/โรคระบาด/, 8, 'plague'],
   [/มอนสเตอร์ล้นออกจาก/, 7, 'stampede'],
   [/สร้างเสร็จ/, 7, 'works'],
@@ -43,15 +50,20 @@ const THEMES: Record<string, { title: string; art: string }> = {
   famine: { title: 'ปีข้าวยากหมากแพง', art: 'icons/grain' },
   works: { title: 'ปีแห่งการก่อสร้าง', art: 'buildings/scaffold' },
   golden: { title: 'ปีทองแห่งความรุ่งเรือง', art: 'icons/gold' },
+  regime: { title: 'ปีเปลี่ยนการปกครอง', art: 'icons/banner' },
+  revolt: { title: 'ปีแห่งการลุกฮือ', art: 'icons/sword' },
+  age: { title: 'ปีก้าวสู่สมัยใหม่', art: 'buildings/clocktower' },
+  discovery: { title: 'ปีแห่งการค้นพบ', art: 'icons/book' },
+  election: { title: 'ปีเลือกตั้ง', art: 'characters/consul' },
   calm: { title: 'ปีสงบสุข', art: 'characters/farmer' },
 };
-const THEME_ORDER = ['hero', 'demon', 'dragon', 'war', 'crown', 'plague', 'stampede', 'famine', 'works'];
+const THEME_ORDER = ['hero', 'demon', 'dragon', 'war', 'regime', 'revolt', 'crown', 'age', 'plague', 'stampede', 'famine', 'discovery', 'election', 'works'];
 
 // Our own town's news first: quest reports and single deaths are the chronicle's daily bread, and
 // a neighbour's troubles only matter to us when it's our war.
 function weigh(world: WorldState, e: ChronicleEntry): [RegExp, number, string?] | undefined {
   if (/เควส|ออกเดินทาง/.test(e.text)) return undefined;
-  if (e.kind === 'death' && !/กษัตริย์|ผู้กล้า|มังกร|จอมมาร/.test(e.text)) return undefined;
+  if (e.kind === 'death' && !/กษัตริย์|ผู้นำสภา|มหานักบวช|ประธานสมาคม|จอมทัพ|ผู้กล้า|มังกร|จอมมาร/.test(e.text)) return undefined;
   const w = WEIGHTS.find(([re]) => re.test(e.text));
   if (!w || w[2] === 'war' || w[2] === 'hero') return w;
   const abroad = (world.realms ?? []).some((r) => e.text.includes(r.name));
@@ -82,7 +94,7 @@ export function yearPage(world: WorldState, year: number, from: number, to: numb
   return {
     year,
     title: THEMES[theme].title,
-    art: THEMES[theme].art,
+    art: theme === 'crown' ? `characters/${rulerLook(world)}` : THEMES[theme].art, // the new ruler, as the regime dresses them
     pop,
     gold,
     born: count(/ต้อนรับลูกคนใหม่/),
@@ -90,6 +102,7 @@ export function yearPage(world: WorldState, year: number, from: number, to: numb
     arrived: count(/มาถึงเมือง/),
     left: count(/ทิ้งเมือง/),
     king: king?.alive && king.job === 'king' ? king.name : undefined,
+    ruler: RULER_TH[world.regime ?? 'monarchy'],
     highlights,
   };
 }

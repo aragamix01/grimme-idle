@@ -54,7 +54,7 @@ function card(page: YearRecord, live: boolean, onNpc: (id: number) => void): HTM
         {},
         el('p', { className: 'year__no', textContent: live ? `ปีที่ ${page.year} · ยังไม่จบปี` : `ปีที่ ${page.year}` }),
         el('h3', { className: 'year__title', textContent: page.title }),
-        el('p', { className: 'realm-king__meta', textContent: page.king ? `รัชสมัยกษัตริย์${page.king}` : 'บัลลังก์ว่าง' }),
+        el('p', { className: 'realm-king__meta', textContent: page.king ? (page.ruler && page.ruler !== 'กษัตริย์' ? `สมัย${page.ruler}${page.king}` : `รัชสมัยกษัตริย์${page.king}`) : 'บัลลังก์ว่าง' }),
       ),
     ),
     el('div', { className: 'year__chips' }, chip(`เกิด ${page.born}`), chip(`ตาย ${page.died}`), chip(`ย้ายเข้า ${page.arrived}`), ...(page.left ? [chip(`ทิ้งเมือง ${page.left}`)] : [])),
