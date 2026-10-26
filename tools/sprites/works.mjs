@@ -1,7 +1,7 @@
 // The crown's building works: new buildings for the royal plots, grander versions of old ones,
 // the scaffolding that stands while they go up, and the sign on an empty plot.
 import { Grid } from './lib.mjs';
-import { door, roof, sign, wall } from './world.mjs';
+import { castle, church, door, flag, roof, shop, sign, wall } from './world.mjs';
 
 const finish = (g) => g.outline('o');
 
@@ -81,6 +81,37 @@ function lot() {
   return finish(g);
 }
 
+// The church rebuilt as a cathedral: blue roofs, a gilded spire and two side towers.
+function cathedral() {
+  const g = church().remap({ X: 'B', l: 'B', x: 'b' });
+  for (const x of [1, 24]) {
+    g.tri(x + 3.5, 10, 4, 10, 'b');
+    wall(g, x, 20, 7, 12, 'plaster');
+    g.rect(x + 2, 23, 3, 5, 'a').set(x + 2, 23, 'w');
+    g.set(x + 3, 8, 'y').set(x + 3, 9, 'y').set(x + 2, 9, 'y').set(x + 4, 9, 'y');
+  }
+  g.rect(14, 0, 4, 2, 'y');
+  return finish(g);
+}
+
+// The shop grown into a market hall: an orange roof, a second awning and the merchants' flag.
+function marketHall() {
+  const g = shop().remap({ r: 'O', R: 'Q', u: 'n' });
+  for (let i = 0; i < 8; i++) g.vline(20 + i, 15, 2, i % 4 < 2 ? 'G' : 'c');
+  for (const [x, y] of [[2, 28], [26, 28]]) g.rect(x, y, 4, 2, 'N').set(x + 1, y, 'r').set(x + 2, y, 'y');
+  flag(g, 26, 0, 'g');
+  return finish(g);
+}
+
+// The castle gilded into a palace: golden roofs and a banner on every tower.
+function palace() {
+  const g = castle().remap({ b: 'y', B: 'Y' });
+  flag(g, 8, 0, 'p');
+  flag(g, 55, 0, 'p');
+  for (let x = 14; x < 50; x += 6) g.set(x, 36, 'y').set(x, 37, 'Y');
+  return finish(g);
+}
+
 export function works() {
   return [
     { name: 'granary', group: 'buildings', frames: [granary()] },
@@ -88,6 +119,9 @@ export function works() {
     { name: 'yard', group: 'buildings', frames: [yard()] },
     { name: 'scaffold', group: 'buildings', frames: [scaffold()] },
     { name: 'lot', group: 'props', frames: [lot()] },
+    { name: 'cathedral', group: 'buildings', frames: [cathedral()] },
+    { name: 'market-hall', group: 'buildings', frames: [marketHall()] },
+    { name: 'palace', group: 'buildings', frames: [palace()] },
   ];
 }
 

@@ -350,7 +350,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
         if (!npc.alive) return;
       } else if (npc.job === 'merchant') tendShop(world, npc, rng, hasSmith(world));
       else if (npc.job === 'blacksmith') smith(world, npc, rng);
-      else if (npc.job === 'priest') world.faith += 0.02; // prayers said for the god who watches
+      else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
       if (--p.days <= 0) npc.plan = undefined;

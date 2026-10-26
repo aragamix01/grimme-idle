@@ -37,7 +37,7 @@ export function approval(world: WorldState): number {
 // treasury and a contented people.
 export function crownPower(world: WorldState) {
   const army = Math.min(40, armed(world).reduce((s, n) => s + (1 + (n.gear ?? 0) * 0.5) * (loyaltyOf(n) / 100), 0) * 4);
-  const court = Math.min(20, adults(world).filter((n) => n.job === 'noble').reduce((s, n) => s + (loyaltyOf(n) / 100) * 8, 0));
+  const court = Math.min(20, adults(world).filter((n) => n.job === 'noble').reduce((s, n) => s + (loyaltyOf(n) / 100) * 8, 0)) + (world.works?.palace !== undefined ? 8 : 0); // a palace awes the court
   const purse = Math.min(15, world.treasury / 100);
   const people = approval(world) * 0.25;
   return { army, court, purse, people, total: Math.round(army + court + purse + people) };
@@ -71,6 +71,8 @@ function drift(world: WorldState, k: Npc): void {
     by += getTie(world, n.id, k.id) / 40;
     if (n.knight) by += 1;
     if (n.job === 'noble' && ambitious(n)) by -= 1;
+    // The palace pleases the court and galls the poor.
+    if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
     nudge(n, by);
   }
 }

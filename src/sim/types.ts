@@ -66,7 +66,7 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
-export type Work = 'granary' | 'watchtowers' | 'yard';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace';
 
 export interface Dragon {
   name: string;

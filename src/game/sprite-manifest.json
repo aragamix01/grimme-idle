@@ -496,6 +496,27 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "cathedral": {
+    "file": "assets/sprites/buildings/cathedral.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 48,
+    "frames": 1
+  },
+  "market-hall": {
+    "file": "assets/sprites/buildings/market-hall.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "palace": {
+    "file": "assets/sprites/buildings/palace.png",
+    "group": "buildings",
+    "frameWidth": 64,
+    "frameHeight": 56,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",

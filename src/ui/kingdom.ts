@@ -148,7 +148,7 @@ function worksSection(world: WorldState): HTMLElement {
       return el(
         'li',
         { className: `work${done ? ' work--done' : ''}` },
-        el('img', { src: `/assets/sprites/buildings/${k === 'watchtowers' ? 'watchtower' : k}.png`, alt: '', className: 'work__art' }),
+        el('img', { src: `/assets/sprites/buildings/${w.art}.png`, alt: '', className: 'work__art' }),
         el('div', {}, el('b', { textContent: w.name }), el('p', { className: 'realm-king__meta', textContent: `${w.text} · ${status}` })),
       );
     }),

@@ -74,9 +74,9 @@ const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
-function payOut(m: Market, g: Good, n: number, rng: Rng): number {
+function payOut(m: Market, g: Good, n: number, rng: Rng, hall = false): number {
   if (m.stock[g] >= TARGET[g] * GLUT[g]) return 0; // the shelves are full; it rots unsold
-  const each = m.price[g] * 0.75;
+  const each = m.price[g] * (hall ? 0.85 : 0.75); // the market hall's traders bid each other up
   let owed = 0;
   for (let i = 0; i < n; i++) owed += Math.floor(each) + (chance(rng, each % 1) ? 1 : 0);
   const paid = Math.min(Math.floor(m.till), owed);
@@ -89,7 +89,7 @@ export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng):
   if (n <= 0) return 0;
   const m = ensureMarket(world);
   const trade = world.guilds.some((x) => x.id === npc.guildId && x.kind === 'merchants');
-  const paid = payOut(m, g, n, rng);
+  const paid = payOut(m, g, n, rng, built(world, 'market'));
   const got = trade ? Math.ceil(paid * 1.1) : paid; // the association haggles for its members
   npc.gold += got;
   return got;
@@ -243,6 +243,7 @@ function caravans(world: WorldState, m: Market): void {
   const gearCost = BASE.gear * 0.8 * 3;
   const gear = trade.sells === 'gear' && m.stock.gear < TARGET.gear && m.till >= gearCost + 50 ? 3 : 0;
   if (gear) m.till -= gearCost;
+  if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
   if (!gold && !buying && !gear) return;
   m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, realmId: realm.id, days: tripDays(realm) };
   merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };

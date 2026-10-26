@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
+import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, type DungeonKind, type Npc, type WorldState } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -445,7 +445,9 @@ export class WorldScene extends Phaser.Scene {
         else this.add.image(px, py, 'grass', Math.floor(rand() * 3)).setOrigin(0);
       }
     // The crown's works: upgraded buildings swap their art, new ones stand on the royal plots.
-    const upgrade: Record<string, string> = w.works?.watchtowers !== undefined ? { 'gate-tower': 'watchtower' } : {};
+    const upgrade: Record<string, string> = {};
+    const rising = w.building && WORKS[w.building.kind].replaces; // a building under scaffolding
+    for (const k of WORK_ORDER) if (w.works?.[k] !== undefined && WORKS[k].replaces) upgrade[WORKS[k].replaces!] = WORKS[k].art;
     for (const [kind, plot] of Object.entries(PLOTS) as [keyof typeof PLOTS, { x: number; y: number }][]) {
       if (w.works?.[kind] !== undefined) this.placeProp({ key: kind, x: plot.x, y: plot.y, anchor: 'top' });
       else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
@@ -453,6 +455,11 @@ export class WorldScene extends Phaser.Scene {
     }
     for (const p of town.props) {
       const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p);
+      if (p.key === rising && p.anchor === 'top') {
+        const b = img.getBounds();
+        const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
+        s.setDepth(img.depth + 1);
+      }
       if (p.key === 'guild') this.guildBounds = img.getBounds();
       for (const [x, y, ww, h] of WINDOWS[p.key] ?? []) {
         this.glow.fillStyle(0xffb347, 0.35).fillRect(img.x + x - 1, img.y + y - 1, ww + 2, h + 2);
