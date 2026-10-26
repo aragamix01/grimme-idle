@@ -1,4 +1,4 @@
-import { WORKS, WORK_ORDER, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -50,6 +50,9 @@ export function renderKingdom(world: WorldState): void {
     world.golden,
     world.works,
     world.building,
+    world.decrees,
+    world.decreeAt,
+    world.labour,
     world.dragon && [world.dragon.hp, world.dragon.hoard, world.dragon.nextStrike],
     bestHero(world)?.id,
   ]);
@@ -84,6 +87,7 @@ export function renderKingdom(world: WorldState): void {
       'ขุนนางในราชสำนัก',
       nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
     ),
+    decreesSection(world),
     worksSection(world),
     warSection(world),
     neighbours(world),
@@ -136,6 +140,26 @@ function occupiedCard(world: WorldState): HTMLElement {
 }
 
 // Before it wakes: how near the dread is. After: the lord, the town's hold, and the hero.
+// The king's decrees: which are in force, when each was last issued.
+function decreesSection(world: WorldState): HTMLElement {
+  return section(
+    'พระราชโองการ',
+    DECREE_ORDER.map((k) => {
+      const d = DECREES[k];
+      const on = world.decrees?.find((x) => x.kind === k && x.until > world.day);
+      const last = world.decreeAt?.[k];
+      const status = on ? `มีผลอยู่ อีก ${on.until - world.day} วัน` : last !== undefined ? `ออกล่าสุดวันที่ ${last}` : 'ยังไม่เคยออก';
+      const extra = k === 'labour' && world.labour ? ` · แรงงานกำลังเดินทางมาอีก ${world.labour} คน` : '';
+      return el(
+        'li',
+        { className: `work${decreeActive(world, k) ? ' work--done' : ''} decree` },
+        el('span', { className: 'decree__seal', textContent: on ? '✦' : '·' }),
+        el('div', {}, el('b', { textContent: d.name }), el('p', { className: 'realm-king__meta', textContent: `${d.text} · ${status}${extra}` })),
+      );
+    }),
+  );
+}
+
 // What the crown has built with its gold, what is going up now, and what it might build next.
 function worksSection(world: WorldState): HTMLElement {
   const job = world.building;

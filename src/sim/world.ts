@@ -21,6 +21,7 @@ import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
 import { built, crownWorks } from './works';
+import { decreesDay } from './decrees';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
@@ -122,6 +123,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   troubles(world, rng);
   dragonDay(world, rng);
   crownWorks(world, rng);
+  decreesDay(world, rng);
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
@@ -154,26 +156,27 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   return world;
 }
 
-// A newcomer walks in through the west gate and heads for the inn.
-export function traveller(world: WorldState, rng: Rng): void {
-  {
-    const npc = spawnNpc(world, rng);
-    // Adventurers die far more often than farmers; word of guild work draws fighters in when it's short-handed.
-    const adventurers = world.npcs.filter((n) => n.alive && isAdventurer(n)).length;
-    if (adventurers < MIN_ADVENTURERS && !isAdventurer(npc)) {
-      npc.job = pick(rng, ['swordsman', 'mage'] as const);
-      npc.rank = 0;
-      npc.renown = 0;
-    } else {
-      const wanted = arrivalJob(world, rng);
-      if (wanted && !isAdventurer(npc)) npc.job = wanted;
-    }
-    npc.x = PLACES.gate.x;
-    npc.y = PLACES.gate.y;
-    npc.plan = plan('arrive', PLACES.inn, 5);
-    world.npcs.push(npc);
-    log(world, 'world', `นักเดินทาง ${npc.name} (${JOB_TH[npc.job]}) มาถึงเมือง`, npc.id);
+// A newcomer walks in through the west gate and heads for the inn; hired labour comes with a job.
+export function traveller(world: WorldState, rng: Rng, hired?: Npc['job']): void {
+  const npc = spawnNpc(world, rng);
+  // Adventurers die far more often than farmers; word of guild work draws fighters in when it's short-handed.
+  const adventurers = world.npcs.filter((n) => n.alive && isAdventurer(n)).length;
+  if (hired) {
+    npc.job = hired;
+    npc.rank = npc.renown = undefined;
+  } else if (adventurers < MIN_ADVENTURERS && !isAdventurer(npc)) {
+    npc.job = pick(rng, ['swordsman', 'mage'] as const);
+    npc.rank = 0;
+    npc.renown = 0;
+  } else {
+    const wanted = arrivalJob(world, rng);
+    if (wanted && !isAdventurer(npc)) npc.job = wanted;
   }
+  npc.x = PLACES.gate.x;
+  npc.y = PLACES.gate.y;
+  npc.plan = plan('arrive', PLACES.inn, 5);
+  world.npcs.push(npc);
+  log(world, 'world', hired ? `${npc.name} (${JOB_TH[npc.job]}) แรงงานที่ราชสำนักจ้างมา เดินทางมาถึงเมือง` : `นักเดินทาง ${npc.name} (${JOB_TH[npc.job]}) มาถึงเมือง`, npc.id);
 }
 
 // Prefer a name nobody living has; once the pool runs out, number the repeat.

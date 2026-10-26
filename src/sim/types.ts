@@ -66,6 +66,8 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
+export type Decree = 'labour';
+
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace';
 
 export interface Dragon {
@@ -319,6 +321,9 @@ export interface WorldState {
   dragonsSlain?: number;
   works?: Partial<Record<Work, number>>; // the crown's finished buildings, by the day each was done
   building?: { kind: Work; done: number }; // the work under way, and the day it will stand
+  decrees?: { kind: Decree; since: number; until: number }[]; // the king's decrees in force
+  decreeAt?: Partial<Record<Decree, number>>; // day each was last issued
+  labour?: number; // hired workers still on the road to town
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
   game?: number; // deer left in the forest

@@ -472,3 +472,4 @@ html:has(dialog[open]) { overflow: hidden; }
 .work:not(.work--done) .work__art { opacity: 0.4; filter: grayscale(1); }
 .work__art { width: 40px; height: 40px; object-fit: contain; object-position: bottom; image-rendering: pixelated; }
 .work .realm-king__meta { margin: 0; }
+.decree__seal { display: grid; place-items: center; width: 40px; height: 32px; font-size: 20px; color: var(--gold-deep); }
