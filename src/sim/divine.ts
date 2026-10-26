@@ -150,8 +150,11 @@ export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: n
 };
 export const MIRACLE_ORDER = Object.keys(MIRACLES) as MiracleKind[];
 
-export const miracleCost = (world: WorldState, k: MiracleKind) => Math.max(1, Math.round(MIRACLES[k].cost * (1 - 0.1 * perkLevel(world, 'grace'))));
 export const miracleReady = (world: WorldState, k: MiracleKind) => world.day - (world.miracleAt?.[k] ?? -MIRACLE_GAP) >= MIRACLE_GAP;
+// A miracle may be worked again before its wait is up, at twice the price, and twice again each
+// time after until it has rested a full wait.
+export const miracleRushed = (world: WorldState, k: MiracleKind) => (miracleReady(world, k) ? 0 : (world.miracleRush?.[k] ?? 0) + 1);
+export const miracleCost = (world: WorldState, k: MiracleKind) => Math.max(1, Math.round(MIRACLES[k].cost * 2 ** miracleRushed(world, k) * (1 - 0.1 * perkLevel(world, 'grace'))));
 export const miracleWait = (world: WorldState, k: MiracleKind) => Math.max(0, MIRACLE_GAP - (world.day - (world.miracleAt?.[k] ?? -MIRACLE_GAP)));
 export const weatherOf = (world: WorldState) => (world.weather && world.weather.until > world.day ? world.weather.kind : undefined);
 export const weatherYield = (world: WorldState) => {
@@ -161,8 +164,10 @@ export const weatherYield = (world: WorldState) => {
 };
 
 export function miracle(world: WorldState, k: MiracleKind, rng: Rng): boolean {
-  if (!miracleReady(world, k) || !work(world, k, rng)) return false;
+  const rushed = miracleRushed(world, k);
+  if (!work(world, k, rng)) return false;
   (world.miracleAt ??= {})[k] = world.day;
+  (world.miracleRush ??= {})[k] = rushed;
   return true;
 }
 

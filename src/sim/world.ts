@@ -521,7 +521,7 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
     return;
   }
   if (cmd.type === 'miracle') {
-    const cost = miracleCost(world, cmd.kind);
+    const cost = miracleCost(world, cmd.kind); // priced before it's worked: working it starts the wait again
     if (world.faith >= cost && miracle(world, cmd.kind, rng)) world.faith -= cost;
     return;
   }

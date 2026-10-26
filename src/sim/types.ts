@@ -360,6 +360,7 @@ export interface WorldState {
   ruins?: { x: number; y: number; until: number }[]; // homes brought down, by tile, and the day each is rebuilt
   disasterAt?: number; // day of nature's last blow
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
+  miracleRush?: Partial<Record<MiracleKind, number>>; // times each was worked again before its wait was up
   legacy?: Legacy;
   dragon?: Dragon; // drawn by a rich treasury; roosts outside town until slain or sated
   dragonsSlain?: number;
