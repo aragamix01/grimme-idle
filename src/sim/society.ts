@@ -310,9 +310,11 @@ export function guardNear(world: WorldState, x: number, y: number): Npc | undefi
 }
 
 // How well the garrison shields the town when monsters pour in: 0 (nobody) to 0.7.
-export function garrison(world: WorldState): { soldiers: Npc[]; shield: number } {
+// Hunters loose arrows from the walls beside the garrison: less than a soldier, more with practice.
+export function garrison(world: WorldState): { soldiers: Npc[]; hunters: Npc[]; shield: number } {
   const soldiers = living(world, 'soldier').filter((s) => s.inside === undefined);
-  const strength = soldiers.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0);
-  return { soldiers, shield: Math.min(0.7, strength * 0.05) };
+  const hunters = living(world, 'hunter').filter((s) => s.inside === undefined);
+  const strength = soldiers.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0) + hunters.reduce((s, n) => s + 0.5 + Math.min(3, n.level) * 0.15, 0);
+  return { soldiers, hunters, shield: Math.min(0.7, strength * 0.05) };
 }
 

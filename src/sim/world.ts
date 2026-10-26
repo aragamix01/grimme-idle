@@ -127,12 +127,13 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
       d.power = 30;
       // Children are hidden indoors; fighters stand in the way, so they're the ones who fall.
       // The garrison holds the streets, sparing the townsfolk behind them.
-      const { soldiers, shield } = garrison(world);
+      const { soldiers, hunters, shield } = garrison(world);
       if (soldiers.length) log(world, 'battle', `ทหาร ${soldiers.length} นายออกรบปกป้องเมืองจากฝูงมอนสเตอร์`);
+      if (hunters.length) log(world, 'battle', `พราน ${hunters.length} คนขึ้นกำแพงยิงธนูช่วยปกป้องเมือง`, hunters[0].id);
       for (const npc of world.npcs) {
         if (!npc.alive || isChild(npc)) continue;
         // Deadlier kinds of dungeon spill deadlier monsters.
-        const risk = tierOf(d) * (npc.job === 'soldier' ? 0.1 / (1 + (npc.gear ?? 0)) : (isAdventurer(npc) ? 0.08 : 0.04) * (1 - shield));
+        const risk = tierOf(d) * (npc.job === 'soldier' ? 0.1 / (1 + (npc.gear ?? 0)) : npc.job === 'hunter' ? 0.05 : (isAdventurer(npc) ? 0.08 : 0.04) * (1 - shield));
         if (chance(rng, risk)) kill(world, npc, npc.job === 'soldier' ? 'สละชีพปกป้องเมืองจากมอนสเตอร์' : 'ถูกมอนสเตอร์ล้มลง');
       }
       afterStampede(world, shield);

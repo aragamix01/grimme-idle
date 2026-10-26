@@ -56,12 +56,14 @@ const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', '
 const MAX_DEER = 6;
 const DRAGON_ROOST = { x: 34 * TILE, y: 2 * TILE }; // above the hills past the eastern forest
 const BEAST_SPEED = 10; // pixels a second
+const FLEE_AT = 40; // pixels: how close a hunter gets before a deer bolts
 
 interface Beast {
   sprite: Phaser.GameObjects.Sprite;
   to: { x: number; y: number } | null; // where it is ambling, or null while it grazes
   wait: number; // ms left grazing before it wanders on
   area: 'pasture' | 'forest';
+  fleeing?: boolean; // a deer bounding away from a hunter
 }
 
 export class WorldScene extends Phaser.Scene {
@@ -359,9 +361,23 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // Beasts graze a while, then amble somewhere nearby, every frame and between ticks alike.
+  // Deer bolt from a hunter who comes too close.
   private amble(delta: number): void {
+    const hunters = this.world ? this.world.npcs.filter((n) => n.alive && n.job === 'hunter').map((n) => this.npcSprites.get(n.id)).filter((s) => s?.visible) : [];
     for (const b of [...this.herd, ...this.deer]) {
       const s = b.sprite;
+      const near = b.area === 'forest' ? hunters.find((h) => Phaser.Math.Distance.Between(h!.x, h!.y, s.x, s.y) < FLEE_AT) : undefined;
+      if (near && !b.fleeing) {
+        const away = new Phaser.Math.Vector2(s.x - near.x, s.y - near.y).normalize().scale(FLEE_AT * 1.5);
+        b.to = {
+          x: Phaser.Math.Clamp(s.x + away.x, FOREST.x0 * TILE, (FOREST.x1 + 1) * TILE - 4),
+          y: Phaser.Math.Clamp(s.y + away.y, FOREST.y0 * TILE + 12, (FOREST.y1 + 1) * TILE - 2),
+        };
+        b.fleeing = true;
+        s.setFlipX(b.to.x < s.x);
+        s.anims.resume();
+        s.anims.timeScale = 2.5;
+      }
       if (!b.to) {
         if ((b.wait -= delta) > 0) continue;
         const next = this.beastSpot(b.area);
@@ -374,10 +390,12 @@ export class WorldScene extends Phaser.Scene {
         continue;
       }
       const dist = Phaser.Math.Distance.Between(s.x, s.y, b.to.x, b.to.y);
-      const step = (BEAST_SPEED * (b.area === 'forest' ? 1.6 : 1) * delta) / 1000;
+      const step = (BEAST_SPEED * (b.fleeing ? 5 : b.area === 'forest' ? 1.6 : 1) * delta) / 1000;
       if (dist <= step) {
         s.setPosition(b.to.x, b.to.y);
         b.to = null;
+        b.fleeing = false;
+        s.anims.timeScale = 1;
         b.wait = Phaser.Math.Between(2000, 9000);
         s.anims.pause();
       } else s.setPosition(s.x + ((b.to.x - s.x) / dist) * step, s.y + ((b.to.y - s.y) / dist) * step);
