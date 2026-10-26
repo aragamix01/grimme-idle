@@ -699,6 +699,41 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "book": {
+    "file": "assets/sprites/icons/book.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "plough": {
+    "file": "assets/sprites/icons/plough.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "medicine": {
+    "file": "assets/sprites/icons/medicine.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "metallurgy": {
+    "file": "assets/sprites/icons/metallurgy.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "architecture": {
+    "file": "assets/sprites/icons/architecture.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "grain": {
     "file": "assets/sprites/icons/grain.png",
     "group": "icons",

@@ -1,4 +1,4 @@
-import { ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
+import { TECHS, ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 
 const view = document.getElementById('people')!;
@@ -184,6 +184,7 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
         `ค้นคว้าอยู่ตอนนี้ ${working} คน`,
         `ความรู้สะสม ${Math.floor(world.knowledge ?? 0)} แต้ม`,
         world.works?.school !== undefined ? 'มีโรงเรียนหลวงให้สอนหนังสือ (ความรู้ ×2)' : 'ยังไม่มีโรงเรียน ค้นคว้ากันในห้องสมุดปราสาท',
+        world.research ? `กำลังค้นคว้าเรื่อง${TECHS[world.research].name}` : 'ยังไม่มีเรื่องให้ค้นคว้า',
       ];
     case 'thief':
       return [

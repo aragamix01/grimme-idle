@@ -71,6 +71,7 @@ export interface Plan {
 
 export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
 
+export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture';
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school';
 
 export interface Dragon {
@@ -347,6 +348,8 @@ export interface WorldState {
   yearSamples?: { pop: number[]; gold: number[] }; // this year's monthly samples so far
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
+  techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
+  research?: Tech; // the question the crown has set them
   knowledge?: number; // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];

@@ -5,7 +5,7 @@ import { chance, type Rng } from './rng';
 import { built } from './works';
 import type { Job, Npc, WorldState } from './types';
 
-const KNOW_PER_DAY = 0.06; // one scholar's day at the desk, before level, school and blessing
+const KNOW_PER_DAY = 0.08; // one scholar's day at the desk, before level, school and blessing
 const INSIGHT = 15; // knowledge from a dream the god sends a scholar
 const SCHOOL_AGE = 6; // children younger than this only play
 const LETTERED_AT = 150; // days of lessons before a child can read for good

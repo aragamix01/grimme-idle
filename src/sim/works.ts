@@ -2,7 +2,7 @@
 // building on one of the royal plots outside the walls, or an old one rebuilt grander. Which
 // one is the king's call: what the town has been suffering, and what kind of king he is.
 import { chance, type Rng } from './rng';
-import { log } from './core';
+import { known, log } from './core';
 import { legend } from './quests';
 import { king, payrollReserve } from './society';
 import { PLOTS } from './town';
@@ -33,6 +33,10 @@ const SPARE = 300; // gold the crown keeps back beyond the soldiers' pay before 
 const ASK_DAY = 8; // day of the month the king considers a new work
 
 export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefined;
+// Architecture makes every work a quarter cheaper and quicker.
+const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1);
+export const workCost = (world: WorldState, k: Work) => Math.round(WORKS[k].cost * plans(world));
+const workDays = (world: WorldState, k: Work) => Math.round(WORKS[k].days * plans(world));
 
 // How much the town needs each work right now, as the king sees it.
 function want(world: WorldState, k: Work, ruler: Npc): number {
@@ -78,9 +82,9 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   // A greedy king sits on his gold more often than not.
   if (ruler.traits.includes('greedy') && chance(rng, 0.5)) return;
   const budget = world.treasury - payrollReserve(world) - SPARE;
-  const k = WORK_ORDER.filter((w) => !built(world, w) && WORKS[w].cost <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
+  const k = WORK_ORDER.filter((w) => !built(world, w) && workCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
   if (!k) return;
-  world.treasury -= WORKS[k].cost;
-  world.building = { kind: k, done: world.day + WORKS[k].days };
-  log(world, 'politics', `กษัตริย์${ruler.name}ทุ่มทอง ${WORKS[k].cost} เหรียญสร้าง${WORKS[k].name}`, ruler.id);
+  world.treasury -= workCost(world, k);
+  world.building = { kind: k, done: world.day + workDays(world, k) };
+  log(world, 'politics', `กษัตริย์${ruler.name}ทุ่มทอง ${workCost(world, k)} เหรียญสร้าง${WORKS[k].name}`, ruler.id);
 }

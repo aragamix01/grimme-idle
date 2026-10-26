@@ -487,6 +487,9 @@ html:has(dialog[open]) { overflow: hidden; }
 .work:not(.work--done) .work__art { opacity: 0.4; filter: grayscale(1); }
 .work__art { width: 40px; height: 40px; object-fit: contain; object-position: bottom; image-rendering: pixelated; }
 .work .realm-king__meta { margin: 0; }
+.tech__icon { width: 32px; height: 32px; justify-self: center; image-rendering: pixelated; }
+.tech__bar { display: block; height: 6px; margin-top: 4px; background: var(--paper); border: 2px solid var(--outline); }
+.tech__bar i { display: block; height: 100%; background: #4a86e0; }
 .decree__seal { display: grid; place-items: center; width: 40px; height: 32px; font-size: 20px; color: var(--gold-deep); }
 
 /* ---- annals: one card per year ---- */

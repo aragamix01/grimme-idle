@@ -2,7 +2,7 @@
 // among themselves and sending refugees our way, the demon lord swallowing whole kingdoms,
 // and the god's miracles worked on other realms.
 import { chance, int, pick, type Rng } from './rng';
-import { clamp, kill, log, perkLevel } from './core';
+import { clamp, kill, log, perkLevel, known } from './core';
 import { legend } from './quests';
 import { traveller } from './world';
 import type { Realm, RealmMiracle, WorldState } from './types';
@@ -18,7 +18,7 @@ const standing = (world: WorldState) => (world.realms ?? []).filter((r) => !r.fa
 export function plagueStrike(world: WorldState, rng: Rng, severity: number, how: string): number {
   const priests = world.npcs.filter((n) => n.alive && n.age >= 16 && n.job === 'priest').length;
   const hall = world.works?.cathedral !== undefined; // the cathedral's infirmary
-  const care = 1 - Math.min(hall ? 0.65 : 0.5, priests * (hall ? 0.15 : 0.1));
+  const care = (1 - Math.min(hall ? 0.65 : 0.5, priests * (hall ? 0.15 : 0.1))) * (known(world, 'medicine') ? 0.6 : 1);
   let dead = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.inside !== undefined) continue;

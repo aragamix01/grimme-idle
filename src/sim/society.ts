@@ -1,7 +1,7 @@
 // The town beyond adventuring: a king with nobles and soldiers, and the trades and
 // pleasures people spend their money on. Who holds which rank is decided here.
 import { chance, next, pick, type Rng } from './rng';
-import { decreeActive, log, occupied } from './core';
+import { decreeActive, known, log, occupied } from './core';
 import { addTie } from './ties';
 import { buy, ensureMarket, sell } from './market';
 import { PLACES, type Spot } from './places';
@@ -276,11 +276,13 @@ export function leisure(world: WorldState, rng: Rng): void {
   }
 }
 
-// A blacksmith at the anvil turns two lots of dungeon loot into a set of gear.
+// A blacksmith at the anvil turns two lots of dungeon loot into a set of gear (one, once the
+// scholars have worked out how metals mix).
 export function smith(world: WorldState, npc: Npc, rng: Rng): void {
   const m = ensureMarket(world);
-  if (m.stock.loot >= 2 && chance(rng, 0.35)) {
-    m.stock.loot -= 2;
+  const need = known(world, 'metallurgy') ? 1 : 2;
+  if (m.stock.loot >= need && chance(rng, 0.35)) {
+    m.stock.loot -= need;
     sell(world, npc, 'gear', 1, rng);
     return;
   }

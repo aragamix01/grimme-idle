@@ -1,4 +1,4 @@
-import { DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -89,6 +89,7 @@ export function renderKingdom(world: WorldState): void {
     ),
     decreesSection(world),
     worksSection(world),
+    researchSection(world),
     warSection(world),
     neighbours(world),
     cultSection(world),
@@ -168,6 +169,31 @@ function decreesSection(world: WorldState): HTMLElement {
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.
+// The scholars' questions: what has been found, what they are on now, and how close they are.
+function researchSection(world: WorldState): HTMLElement {
+  const have = Math.floor(world.knowledge ?? 0);
+  return section(
+    'งานค้นคว้าของนักปราชญ์',
+    TECH_ORDER.map((k) => {
+      const t = TECHS[k];
+      const done = known(world, k);
+      const status = done ? `ค้นพบแล้ว D${world.techs![k]}` : world.research === k ? `กำลังค้นคว้า · ความรู้ ${Math.min(have, t.cost)}/${t.cost}` : `ยังไม่ได้ค้นคว้า · ใช้ความรู้ ${t.cost}`;
+      const row = el(
+        'li',
+        { className: `work tech${done ? ' work--done' : ''}` },
+        el('img', { src: `/assets/sprites/icons/${t.icon}.png`, alt: '', className: 'work__art tech__icon' }),
+        el('div', {}, el('b', { textContent: t.name }), el('p', { className: 'realm-king__meta', textContent: `${t.text} · ${status}` })),
+      );
+      if (world.research === k) {
+        const bar = el('i');
+        bar.style.width = `${Math.min(100, (have / t.cost) * 100)}%`;
+        row.querySelector('div')!.append(el('span', { className: 'tech__bar' }, bar));
+      }
+      return row;
+    }),
+  );
+}
+
 function worksSection(world: WorldState): HTMLElement {
   const job = world.building;
   return section(
@@ -175,7 +201,7 @@ function worksSection(world: WorldState): HTMLElement {
     WORK_ORDER.map((k) => {
       const w = WORKS[k];
       const done = world.works?.[k] !== undefined;
-      const status = done ? 'สร้างเสร็จแล้ว' : job?.kind === k ? `กำลังสร้าง อีก ${Math.max(0, job.done - world.day)} วัน` : `ยังไม่ได้สร้าง · ${w.cost} ทอง`;
+      const status = done ? 'สร้างเสร็จแล้ว' : job?.kind === k ? `กำลังสร้าง อีก ${Math.max(0, job.done - world.day)} วัน` : `ยังไม่ได้สร้าง · ${workCost(world, k)} ทอง`;
       return el(
         'li',
         { className: `work${done ? ' work--done' : ''}` },

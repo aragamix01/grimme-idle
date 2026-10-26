@@ -1,6 +1,6 @@
 // Small helpers shared by the world loop and the guild.
 import { chance, type Rng } from './rng';
-import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, WorldState } from './types';
+import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Tech, WorldState } from './types';
 import type { Spot } from './places';
 import { walk } from './nav';
 
@@ -26,6 +26,8 @@ export function kill(world: WorldState, npc: Npc, reason: string): void {
 export function makePlan(kind: PlanKind, at: Spot, days: number, target?: number): Plan {
   return { kind, x: at.x, y: at.y, days, target };
 }
+
+export const known = (world: WorldState, t: Tech) => world.techs?.[t] !== undefined;
 
 export const perkLevel = (world: WorldState, p: Perk) => world.legacy?.perks[p] ?? 0;
 
