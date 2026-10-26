@@ -20,7 +20,7 @@ const CLASSES: { name: string; color: string; jobs: Job[] }[] = [
   { name: 'ราชวงศ์และขุนนาง', color: '#9a66e0', jobs: ['king', 'noble'] },
   { name: 'ทหาร', color: '#e8503a', jobs: ['soldier'] },
   { name: 'นักผจญภัย', color: '#4a86e0', jobs: ['swordsman', 'mage'] },
-  { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith'] },
+  { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith', 'builder'] },
   { name: 'ชาวนาและปศุสัตว์', color: '#56a832', jobs: ['farmer', 'herder', 'hunter'] },
   { name: 'งานบริการและศาสนา', color: '#f582b8', jobs: ['innkeeper', 'courtesan', 'priest'] },
   { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar', 'alchemist', 'engineer'] },
@@ -192,6 +192,8 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
       return [`ปรุงยาอยู่ตอนนี้ ${working} คน`, 'ยารักษาทำให้นักผจญภัยรอดจากดันเจี้ยนมากขึ้น และโรคระบาดเบาลง'];
     case 'engineer':
       return [`คุมงานอยู่ตอนนี้ ${working} คน`, world.building ? `กำลังเร่งสร้าง อีก ${Math.max(0, world.building.done - world.day)} วันเสร็จ` : 'ยังไม่มีงานก่อสร้าง วาดแบบอยู่ที่ปราสาท'];
+    case 'builder':
+      return [`ทำงานอยู่ตอนนี้ ${working} คน`, world.ruins?.length ? `บ้านพังรอสร้างใหม่ ${world.ruins.length} หลัง คนไร้บ้านราว ${world.ruins.length * 3} คน` : 'ไม่มีบ้านพังแล้ว ช่วยงานก่อสร้างของราชสำนัก'];
     case 'thief':
       return [
         `อยู่สมาคมเงา ${members.filter((n) => n.guildId !== undefined).length} คน`,

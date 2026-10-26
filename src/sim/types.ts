@@ -15,6 +15,7 @@ export type Job =
   | 'scholar'
   | 'alchemist'
   | 'engineer'
+  | 'builder'
   | 'noble'
   | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';

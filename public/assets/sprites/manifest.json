@@ -398,6 +398,34 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "builder": {
+    "file": "assets/sprites/characters/builder.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "builder-age0": {
+    "file": "assets/sprites/characters/builder-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "builder-age2": {
+    "file": "assets/sprites/characters/builder-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "builder-age3": {
+    "file": "assets/sprites/characters/builder-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "engineer": {
     "file": "assets/sprites/characters/engineer.png",
     "group": "characters",

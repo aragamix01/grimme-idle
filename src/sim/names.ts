@@ -33,6 +33,7 @@ export const JOB_TH: Record<Job, string> = {
   scholar: 'นักปราชญ์',
   alchemist: 'นักเล่นแร่แปรธาตุ',
   engineer: 'วิศวกร',
+  builder: 'ช่างก่อสร้าง',
   noble: 'ขุนนาง',
   king: 'กษัตริย์',
 };

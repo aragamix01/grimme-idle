@@ -69,6 +69,7 @@ const WORK_TH: Partial<Record<Job, string>> = {
   scholar: 'ค้นคว้าตำราอยู่',
   alchemist: 'ปรุงยาอยู่หลังร้านค้า',
   engineer: 'คุมงานก่อสร้าง',
+  builder: 'สร้างบ้านที่พังขึ้นใหม่',
   soldier: 'ยืนยามเฝ้าเมือง',
 };
 

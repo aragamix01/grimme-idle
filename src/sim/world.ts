@@ -20,7 +20,7 @@ import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
-import { disastersDay } from './disasters';
+import { disastersDay, rebuild, ruinSite } from './disasters';
 import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
@@ -328,6 +328,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'engineer':
       // On the crown's building site if there is one, else drawing plans at the castle.
       return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();
+    case 'builder':
+      // At a fallen home, else on the crown's site.
+      return chance(rng, 0.75) ? plan('work', ruinSite(world) ?? siteOf(world), int(rng, 6, 12)) : idle();
     case 'noble':
       return chance(rng, 0.5) ? plan('idle', near(pick(rng, [PLACES.manor, PLACES.castle])), int(rng, 3, 8)) : idle();
     case 'king':
@@ -396,6 +399,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       else if (npc.job === 'scholar') study(world, npc, rng);
       else if (npc.job === 'alchemist') brew(world, npc, rng);
       else if (npc.job === 'engineer') engineer(world, rng);
+      else if (npc.job === 'builder') rebuild(world, npc, rng);
       else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues

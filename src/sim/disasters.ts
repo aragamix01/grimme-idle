@@ -2,11 +2,13 @@
 // the herd, rains that will not stop and rot the grain, the great flood they bring down on
 // the fields, and the earthquake. They kill, bring down homes and the crown's buildings, and
 // leave everyone poorer. A kind ruler sends relief and the town rebuilds faster; a greedy one
-// keeps the gold and the town remembers. The god's kind rain ends a drought.
+// keeps the gold and the town remembers. Some of those who lost their homes leave for good; the
+// rest sleep rough until the builders (farmers taken on by the crown) put the houses back up.
+// The god's kind rain ends a drought.
 import { chance, int, next, type Rng } from './rng';
 import { kill, log, loyaltyNudge, occupied } from './core';
 import { weatherOf } from './divine';
-import { ensureMarket, seasonOf } from './market';
+import { ensureMarket, priceRatio, seasonOf } from './market';
 import { plagueStrike } from './worldevents';
 import { traveller } from './world';
 import { clamp } from './core';
@@ -23,6 +25,10 @@ const FLOOD = 0.008; // monthly chance in spring, of a flood without the long ra
 const QUAKE = 0.004; // monthly chance in any season
 const RUBBLE_DAYS = [150, 300] as const; // how long a fallen home lies before it's rebuilt
 const RELIEF_EACH = 8; // gold the crown spends per townsperson on relief
+const HOMELESS_PER_RUIN = 3; // people sleeping rough for each home down
+const BUILDERS_PER_RUIN = 0.5; // builders the crown takes on for each home down
+const MAX_BUILDERS = 6;
+const BUILDER_WAGE = 1; // gold a day from the treasury
 
 const REALM_ODDS = 0.006; // monthly chance a neighbour is struck
 const REALM_DAYS = 120; // how long it takes them to recover
@@ -74,6 +80,77 @@ function collapse(world: WorldState, k: Work): string {
   delete world.works![k];
   return `${WORKS[k].name}พังทลาย`;
 }
+
+// Some of the newly homeless give up on the town: an unhappy one leaves, and their spouse with them.
+function exodus(world: WorldState, rng: Rng, homes: number, how: string): number {
+  const gone: string[] = [];
+  const pool = living(world).filter((n) => n.age >= 16 && n.job !== 'king' && n.job !== 'noble' && (n.loyalty ?? 50) < 40);
+  for (let i = 0; i < homes && pool.length; i++) {
+    const n = pool.splice(int(rng, 0, pool.length - 1), 1)[0];
+    if (!chance(rng, 0.5)) continue;
+    for (const m of [n, world.npcs.find((o) => o.id === n.spouseId && o.alive && o.job !== 'king')]) {
+      if (!m) continue;
+      m.alive = false;
+      m.left = true;
+      m.plan = undefined;
+      gone.push(m.name);
+    }
+  }
+  if (gone.length) log(world, 'world', `บ้านพังใน${how} ${gone.join(', ')} เก็บข้าวของที่เหลือแล้วทิ้งเมืองไป`);
+  return gone.length;
+}
+
+// Each month while homes are down: the homeless sleep rough, and in winter the frail among them die of it.
+function homeless(world: WorldState, rng: Rng): void {
+  const ruins = world.ruins?.length ?? 0;
+  if (!ruins) return;
+  const poor = living(world).filter((n) => n.age >= 16 && n.job !== 'king').sort((a, b) => a.gold - b.gold).slice(0, ruins * HOMELESS_PER_RUIN);
+  for (const n of poor) {
+    loyaltyNudge(n, -1);
+    if (seasonOf(world.day) === 'winter' && n.age >= 58 && chance(rng, 0.04)) kill(world, n, 'หนาวตายเพราะไม่มีบ้านให้ซุกหัวนอน');
+  }
+}
+
+// The crown takes farmers on as builders while homes are down, and lets them go once all stand.
+function hireBuilders(world: WorldState, rng: Rng): void {
+  const builders = living(world).filter((n) => n.job === 'builder');
+  // Bread comes first: while grain is dear the builders go back to the fields.
+  const want = priceRatio(world, 'grain') >= 1.6 ? 0 : Math.min(MAX_BUILDERS, Math.ceil((world.ruins?.length ?? 0) * BUILDERS_PER_RUIN));
+  if (builders.length < want && world.treasury > 100) {
+    const farmers = living(world).filter((n) => n.job === 'farmer' && n.age >= 16 && n.questId === undefined);
+    for (let i = builders.length; i < want && farmers.length > 6; i++) {
+      const n = farmers.splice(int(rng, 0, farmers.length - 1), 1)[0];
+      n.formerJob = 'farmer';
+      n.job = 'builder';
+      n.plan = undefined;
+      log(world, 'world', `${n.name}รับจ้างเป็นช่างก่อสร้าง ช่วยสร้างบ้านที่พังขึ้นใหม่`, n.id);
+    }
+  } else if (!want && (!world.building || priceRatio(world, 'grain') >= 1.6)) {
+    for (const n of builders) {
+      n.job = n.formerJob ?? 'farmer';
+      n.formerJob = undefined;
+      n.plan = undefined;
+    }
+  }
+}
+
+// A builder's day: the oldest rubble first, paid by the crown; with none left, the crown's own works.
+export function rebuild(world: WorldState, n: { gold: number }, rng: Rng): void {
+  const ruin = world.ruins?.length ? world.ruins.reduce((a, b) => (a.until <= b.until ? a : b)) : undefined;
+  if (ruin) {
+    if (chance(rng, 0.6)) ruin.until--;
+    if (world.treasury >= BUILDER_WAGE) {
+      world.treasury -= BUILDER_WAGE;
+      n.gold += BUILDER_WAGE;
+    }
+  } else if (world.building && world.building.done > world.day + 1 && chance(rng, 0.15)) world.building.done--;
+}
+
+// Where builders stand: in front of a fallen home, else on the crown's site.
+export const ruinSite = (world: WorldState) => {
+  const r = world.ruins?.[0];
+  return r ? { x: r.x + 1, y: r.y + 2 } : undefined;
+};
 
 // Everyone's goods and stores are spoiled: a part of every purse goes on mending.
 function losses(world: WorldState, share: number): void {
@@ -130,7 +207,8 @@ function flood(world: WorldState, rng: Rng): void {
   const fell = FLOODS.filter((k) => world.works?.[k] !== undefined && chance(rng, 0.2)).map((k) => collapse(world, k));
   losses(world, 0.15);
   for (const n of living(world)) loyaltyNudge(n, -4);
-  log(world, 'disaster', `น้ำท่วมใหญ่! แม่น้ำล้นตลิ่งท่วมทุ่งนาและบ้านเรือน ผู้คนจมน้ำตาย ${dead} คน บ้านพัง ${homes} หลัง ข้าวเสียหาย ${lost} กระสอบ${fell.length ? ` ${fell.join(' ')}` : ''}`);
+  const fled = exodus(world, rng, homes, 'น้ำท่วม');
+  log(world, 'disaster', `น้ำท่วมใหญ่! แม่น้ำล้นตลิ่งท่วมทุ่งนาและบ้านเรือน ผู้คนจมน้ำตาย ${dead} คน บ้านพัง ${homes} หลัง ข้าวเสียหาย ${lost} กระสอบ${fell.length ? ` ${fell.join(' ')}` : ''}${fled ? ` ทิ้งเมืองไป ${fled} คน` : ''}`);
   relief(world, rng);
 }
 
@@ -146,7 +224,8 @@ function quake(world: WorldState, rng: Rng): void {
   losses(world, 0.2);
   for (const d of world.dungeons) d.power += 25; // the deep places stir
   for (const n of living(world)) loyaltyNudge(n, -5);
-  log(world, 'disaster', `แผ่นดินไหวครั้งใหญ่! บ้านเรือนพังทลาย ${homes} หลัง มีผู้เสียชีวิต ${dead} คน${fell.length ? ` ${fell.join(' ')}` : ''}`);
+  const fled = exodus(world, rng, homes, 'แผ่นดินไหว');
+  log(world, 'disaster', `แผ่นดินไหวครั้งใหญ่! บ้านเรือนพังทลาย ${homes} หลัง มีผู้เสียชีวิต ${dead} คน${fell.length ? ` ${fell.join(' ')}` : ''}${fled ? ` ทิ้งเมืองไป ${fled} คน` : ''}`);
   relief(world, rng);
 }
 
@@ -197,6 +276,8 @@ export function disastersDay(world: WorldState, rng: Rng): void {
   realmDisasters(world, rng);
   if (occupied(world)) return;
   wearOn(world, rng);
+  homeless(world, rng);
+  hireBuilders(world, rng);
   if (world.day - (world.disasterAt ?? 0) < GAP) return;
   const season = seasonOf(world.day);
   const calm = !weatherOf(world); // the god's weather holds nature off

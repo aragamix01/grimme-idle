@@ -565,6 +565,10 @@ const JOBS = {
     slots: { 1: 'G', 2: 'M', 3: 'G', 4: 'M', 5: 'O' },
     layers: [[HAIR_LONG], [GOGGLES, 0, 6], [FLASK, 0, 12]],
   },
+  builder: {
+    slots: { 1: 'b', 2: 'M', 3: 'B', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [ENGINEER_CAP.map((r) => r.replaceAll('y', 'O'))], [HAMMER, 0, 9]],
+  },
   engineer: {
     slots: { 1: 'N', 2: 'M', 3: 'b', 4: 'M', 5: 'h' },
     layers: [[HAIR_SHORT], [ENGINEER_CAP], [RULE, 0, 7]],
