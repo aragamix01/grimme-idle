@@ -90,6 +90,13 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "scholar": {
+    "file": "assets/sprites/characters/scholar.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",
@@ -515,6 +522,13 @@
     "group": "buildings",
     "frameWidth": 64,
     "frameHeight": 56,
+    "frames": 1
+  },
+  "school": {
+    "file": "assets/sprites/buildings/school.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
     "frames": 1
   },
   "dungeon-den": {

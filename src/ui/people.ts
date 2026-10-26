@@ -22,6 +22,7 @@ const CLASSES: { name: string; color: string; jobs: Job[] }[] = [
   { name: 'พ่อค้าและช่าง', color: '#f5902e', jobs: ['merchant', 'blacksmith'] },
   { name: 'ชาวนาและปศุสัตว์', color: '#56a832', jobs: ['farmer', 'herder', 'hunter'] },
   { name: 'งานบริการและศาสนา', color: '#f582b8', jobs: ['innkeeper', 'courtesan', 'priest'] },
+  { name: 'ปัญญาชน', color: '#5e3aa8', jobs: ['scholar'] },
   { name: 'นอกกฎหมาย', color: '#463c56', jobs: ['thief'] },
 ];
 
@@ -172,6 +173,12 @@ function specifics(world: WorldState, job: Job, members: Npc[]): string[] {
       return [`รับแขกอยู่ ${working} คน`, `แฉแผนกบฏมาแล้ว ${world.chronicle.filter((e) => e.text.startsWith('นางคณิกา')).length} ครั้ง (ในบันทึก)`];
     case 'priest':
       return [`สวดภาวนาอยู่ ${working} คน`, `ศรัทธาสะสม ${Math.floor(world.faith)}`];
+    case 'scholar':
+      return [
+        `ค้นคว้าอยู่ตอนนี้ ${working} คน`,
+        `ความรู้สะสม ${Math.floor(world.knowledge ?? 0)} แต้ม`,
+        world.works?.school !== undefined ? 'มีโรงเรียนหลวงให้สอนหนังสือ (ความรู้ ×2)' : 'ยังไม่มีโรงเรียน ค้นคว้ากันในห้องสมุดปราสาท',
+      ];
     case 'thief':
       return [
         `อยู่สมาคมเงา ${members.filter((n) => n.guildId !== undefined).length} คน`,

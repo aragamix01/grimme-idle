@@ -1,7 +1,7 @@
 // The crown's building works: new buildings for the royal plots, grander versions of old ones,
 // the scaffolding that stands while they go up, and the sign on an empty plot.
 import { Grid } from './lib.mjs';
-import { castle, church, door, flag, roof, shop, sign, wall } from './world.mjs';
+import { castle, church, door, flag, roof, shop, sign, wall, windowAt } from './world.mjs';
 
 const finish = (g) => g.outline('o');
 
@@ -112,6 +112,21 @@ function palace() {
   return finish(g);
 }
 
+// A schoolhouse with a bell cupola, tall windows either side and an open book over the door.
+function school() {
+  const g = new Grid(32, 32);
+  g.tri(15.5, 0, 4, 3, 'R');
+  g.rect(13, 3, 6, 4, 'c').rect(15, 4, 2, 2, 'y'); // the bell
+  roof(g, 1, 6, 30, 10, 'red');
+  wall(g, 2, 16, 28, 14);
+  windowAt(g, 4, 19);
+  windowAt(g, 22, 19);
+  door(g, 13, 22, 6, 8);
+  sign(g, 12, 15, ['cccc', 'cMMc', 'cccc', 'BBBB']);
+  g.hline(1, 30, 30, 'X');
+  return finish(g);
+}
+
 export function works() {
   return [
     { name: 'granary', group: 'buildings', frames: [granary()] },
@@ -122,6 +137,7 @@ export function works() {
     { name: 'cathedral', group: 'buildings', frames: [cathedral()] },
     { name: 'market-hall', group: 'buildings', frames: [marketHall()] },
     { name: 'palace', group: 'buildings', frames: [palace()] },
+    { name: 'school', group: 'buildings', frames: [school()] },
   ];
 }
 

@@ -1,6 +1,6 @@
 // Tiles NPCs walk to, taken from the town layout so they always sit in front of
 // the buildings WorldScene draws.
-import { BUILDINGS, doorOf } from './town';
+import { BUILDINGS, PLOTS, doorOf } from './town';
 
 export { FIELDS, FOREST, PASTURE, dungeonDoor } from './town';
 
@@ -26,6 +26,7 @@ export const PLACES = {
   manor: door('manor'),
   barn: door('barn'),
   castle: door('castle'),
+  school: { x: PLOTS.school.x + 1, y: PLOTS.school.y + 2 },
   homes: BUILDINGS.filter(([k]) => k.startsWith('house')).map((b) => doorOf(...b)),
   square: { x: 13, y: 10 },
   // Open-air spots so a crowd of sixty spreads out instead of piling onto a few doorsteps.

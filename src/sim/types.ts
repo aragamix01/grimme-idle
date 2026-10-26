@@ -12,6 +12,7 @@ export type Job =
   | 'innkeeper'
   | 'courtesan'
   | 'priest'
+  | 'scholar'
   | 'noble'
   | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';
@@ -68,7 +69,7 @@ export interface Plan {
 
 export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
 
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school';
 
 export interface Dragon {
   name: string;
@@ -344,6 +345,7 @@ export interface WorldState {
   yearSamples?: { pop: number[]; gold: number[] }; // this year's monthly samples so far
   golden?: number; // months in a row of peace and plenty; long golden ages breed trouble
   herd?: number; // beasts in the pasture; missing in saves from before herders
+  knowledge?: number; // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves

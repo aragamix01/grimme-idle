@@ -30,6 +30,7 @@ export const JOB_TH: Record<Job, string> = {
   innkeeper: 'เจ้าของโรงเตี๊ยม',
   courtesan: 'นางคณิกา',
   priest: 'นักบวช',
+  scholar: 'นักปราชญ์',
   noble: 'ขุนนาง',
   king: 'กษัตริย์',
 };

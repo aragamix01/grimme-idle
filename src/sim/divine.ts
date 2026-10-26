@@ -11,6 +11,7 @@ import { loyaltyOf } from './politics';
 import { traveller } from './world';
 import { JOB_TH } from './names';
 import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
+import { insight } from './learning';
 
 export const BLESS_DAYS = 365;
 export const CURSE_DAYS = 180;
@@ -112,8 +113,14 @@ function nightmare(world: WorldState, n: Npc): boolean {
   return true;
 }
 
-// An adventurer dreams an ancient sword form and wakes the better for it.
+// An adventurer dreams an ancient sword form and wakes the better for it; a scholar dreams
+// the answer to a question that has stumped them for years.
 function vision(world: WorldState, n: Npc): boolean {
+  if (n.job === 'scholar') {
+    const got = insight(world, n);
+    log(world, 'dream', `${n.name} ฝันเห็นตำราที่ไม่มีใครเคยเขียน ตื่นมาจดได้ทั้งเล่ม ความรู้ของเมือง +${got}`, n.id);
+    return true;
+  }
   if (!isAdventurer(n)) return false;
   n.level++;
   n.renown = (n.renown ?? 0) + 2;

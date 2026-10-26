@@ -64,6 +64,7 @@ const WORK_TH: Partial<Record<Job, string>> = {
   innkeeper: 'ขายเบียร์อยู่ที่โรงเตี๊ยม',
   courtesan: 'รับแขกอยู่ที่หอนางโลม',
   priest: 'สวดภาวนาอยู่ที่โบสถ์',
+  scholar: 'ค้นคว้าตำราอยู่',
   soldier: 'ยืนยามเฝ้าเมือง',
 };
 
@@ -273,7 +274,7 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
   }
   if (choosingDream && can(COMMAND_COST.dream)) {
     // Dreams that change a heart, then dreams of a new calling.
-    const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : [])];
+    const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : npc.job === 'scholar' ? [['vision', 'นิมิตแห่งปัญญา'] as [DreamKind, string]] : [])];
     const hearts = kinds.map(([kind, label]) => {
       const b = el('button', { type: 'button', className: 'chip chip--button', textContent: label });
       b.onclick = () => {

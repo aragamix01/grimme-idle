@@ -22,6 +22,7 @@ import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { dragonDay } from './dragon';
 import { built, crownWorks } from './works';
+import { study } from './learning';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -294,6 +295,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return chance(rng, 0.75) ? plan('work', PLACES.church, int(rng, 5, 10)) : idle();
     case 'soldier':
       return chance(rng, 0.7) ? plan('work', patrolPost(rng), int(rng, 4, 8)) : idle();
+    case 'scholar':
+      // At the school once there is one; before that, among the books in the castle.
+      return chance(rng, 0.75) ? plan('work', built(world, 'school') ? PLACES.school : PLACES.castle, int(rng, 6, 12)) : idle();
     case 'noble':
       return chance(rng, 0.5) ? plan('idle', near(pick(rng, [PLACES.manor, PLACES.castle])), int(rng, 3, 8)) : idle();
     case 'king':
@@ -359,6 +363,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
         if (!npc.alive) return;
       } else if (npc.job === 'merchant') tendShop(world, npc, rng, hasSmith(world));
       else if (npc.job === 'blacksmith') smith(world, npc, rng);
+      else if (npc.job === 'scholar') study(world, npc, rng);
       else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues

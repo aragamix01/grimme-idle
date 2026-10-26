@@ -24,9 +24,10 @@ export const WORKS: Record<Work, WorkDef> = {
   yard: { name: 'ลานฝึกนักรบ', cost: 600, days: 75, text: 'นักผจญภัยเลเวลขึ้นเร็วขึ้นเมื่อลงดันเจี้ยน', art: 'yard', plot: PLOTS.yard },
   cathedral: { name: 'มหาวิหาร', cost: 900, days: 120, text: 'นักบวชสวดได้ศรัทธามากขึ้นเท่าตัว และรักษาโรคระบาดได้ดีขึ้น', art: 'cathedral', replaces: 'church' },
   market: { name: 'หอตลาดใหญ่', cost: 800, days: 90, text: 'ร้านรับซื้อของในราคาดีขึ้น กองคาราวานได้กำไรมากขึ้น', art: 'market-hall', replaces: 'shop' },
+  school: { name: 'โรงเรียนหลวง', cost: 600, days: 75, text: 'นักปราชญ์ได้สอนหนังสือ ค้นคว้าได้ความรู้เพิ่มเป็นเท่าตัว', art: 'school', plot: PLOTS.school },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'palace'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'palace'];
 
 const SPARE = 300; // gold the crown keeps back beyond the soldiers' pay before it builds
 const ASK_DAY = 8; // day of the month the king considers a new work
@@ -51,6 +52,12 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
       return 1 + (ruler.traits.includes('kind') ? 1 : 0) + ((world.balance ?? 0) < 0 ? 1 : 0);
     case 'market':
       return 1 + (ruler.traits.includes('greedy') ? 1 : 0) + (world.npcs.filter((n) => n.alive && n.job === 'merchant').length >= 3 ? 1 : 0);
+    case 'school': {
+      // Wanted once the town has scholars to teach in it, more by a kind king with children to raise.
+      const scholars = world.npcs.filter((n) => n.alive && n.job === 'scholar' && n.age >= 16).length;
+      const kids = world.npcs.filter((n) => n.alive && n.age < 16).length;
+      return scholars ? 1 + (scholars >= 2 ? 1 : 0) + (kids >= 12 ? 1 : 0) + (ruler.traits.includes('kind') ? 1 : 0) : 0;
+    }
     case 'palace':
       // Only a vain or grasping king builds himself a palace; a kind one never would.
       return ruler.traits.includes('kind') ? 0 : ruler.traits.includes('greedy') ? 3 : ruler.traits.includes('vengeful') ? 1 : 0;

@@ -24,6 +24,7 @@ const JOB_WEIGHTS: [Job, number][] = [
   ['innkeeper', 3],
   ['courtesan', 3],
   ['priest', 3],
+  ['scholar', 3],
 ];
 export const COMMON_JOBS: readonly Job[] = JOB_WEIGHTS.map(([j]) => j);
 export const isGentry = (n: Npc) => n.job === 'king' || n.job === 'noble';
@@ -40,6 +41,7 @@ const TRIBUTE = 0.1; // nobles pay this share of their wealth above TRIBUTE_FLOO
 const TRIBUTE_FLOOR = 100;
 const STIPEND = 5; // the king's own pay, each payday
 const KNIGHT_PAY = 8;
+const SCHOLAR_PAY = 3; // the crown keeps its scholars in ink and bread
 const ARMY_TARGET = 8; // the crown recruits up to this many while it can pay them
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
@@ -133,7 +135,7 @@ export function enthrone(world: WorldState, n: Npc, how: string): void {
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1]];
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1]];
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
     if (living(world, job).length >= need) continue;
@@ -187,6 +189,11 @@ export function payroll(world: WorldState): void {
     world.treasury -= KNIGHT_PAY;
     n.gold += KNIGHT_PAY;
     n.loyalty = Math.min(100, loyaltyOf(n) + 2);
+  }
+  for (const s of living(world, 'scholar')) {
+    if (world.treasury < SCHOLAR_PAY + SALARY * 3) break; // soldiers are paid first
+    world.treasury -= SCHOLAR_PAY;
+    s.gold += SCHOLAR_PAY;
   }
   for (const s of living(world, 'soldier')) {
     if (world.treasury >= SALARY) {
@@ -287,7 +294,7 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
 
 // Gold the crown holds back for the next few paydays before spending on anything else.
 export const payrollReserve = (world: WorldState) =>
-  living(world, 'soldier').length * SALARY * 3 + world.npcs.filter((n) => n.alive && n.knight).length * KNIGHT_PAY * 3 + STIPEND * 3;
+  living(world, 'soldier').length * SALARY * 3 + world.npcs.filter((n) => n.alive && n.knight).length * KNIGHT_PAY * 3 + living(world, 'scholar').length * SCHOLAR_PAY * 3 + STIPEND * 3;
 
 export const hasSmith = (world: WorldState) => living(world, 'blacksmith').length > 0;
 

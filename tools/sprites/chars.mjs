@@ -400,6 +400,18 @@ const HAMMER = [
 const APRON = ['.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....', '.....NNNNNN.....'];
 const WHITE_APRON = APRON.map((r) => r.replaceAll('N', 'c'));
 
+// The scholar's square cap with its gold tassel, and a red-bound book under the arm.
+const SCHOLAR_CAP = [
+  '................',
+  '................',
+  '................',
+  '.llllllllllllll.',
+  '....llllllll.y..',
+  '....llllllll.y..',
+  '.............y..',
+];
+const BOOK = ['..........rrrr..', '..........rccr..', '..........rccr..', '..........rrrr..'];
+
 const MUG = ['...........ccc..', '...........yyyc.', '...........yyyc.', '...........yyy..'];
 
 const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pppppppppppp..', '..PPPPPPPPPPPP..'];
@@ -517,6 +529,10 @@ const JOBS = {
     slots: { 1: 'd', 2: 'D', 3: 'd', 4: 'M', 5: 'd' },
     layers: [[CULT_HOOD], [CANDLE, 0, 10]],
     remap: { k: 'D' }, // eyes glow red under the hood
+  },
+  scholar: {
+    slots: { 1: 'B', 2: 'y', 3: 'B', 4: 'M', 5: 'x' },
+    layers: [[HAIR_SHORT], [SCHOLAR_CAP], [BEARD, 0, 10], [BOOK, 0, 13]],
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },
