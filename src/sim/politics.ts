@@ -9,7 +9,7 @@ import { enthrone, king, payrollReserve } from './society';
 import { known } from './core';
 import { RULER_TH } from './lexicon';
 import { charterOf } from './charter';
-import { literacy } from './learning';
+import { literacy, literate } from './learning';
 import { isRepublic, proclaimRepublic } from './republic';
 import { sway } from './cult';
 import type { Crown, Npc, Tax, WorldState } from './types';
@@ -84,6 +84,7 @@ function drift(world: WorldState, k: Npc): void {
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
     by += regimeFeeling(world, n) + Math.min(5, world.monument ?? 0) * 0.2; // pride in the monument
+    if (world.charter?.emergency && world.regime !== 'junta' && literate(n)) by -= 0.4; // readers chafe under emergency rule
     nudge(n, by);
   }
 }

@@ -52,7 +52,7 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
 // The council votes on a decree the king wants. True if it goes ahead.
 export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: Npc, rng: Rng): boolean {
   const seats = council(world);
-  if (seats.length < 2 || !charterOf(world).councilVeto) return true; // too few lords, or no veto in the charter
+  if (seats.length < 2 || !charterOf(world).councilVeto || charterOf(world).emergency) return true; // too few lords, no veto in the charter, or emergency powers
   const nays = seats.filter((n) => lean(world, n, d, ruler) + (chance(rng, 0.5) ? 0.5 : -0.5) < 0);
   const c = (world.council ??= { vetoes: 0, overrides: 0 });
   const tally = `${seats.length - nays.length} ต่อ ${nays.length}`;

@@ -29,6 +29,7 @@ import { republicDay } from './republic';
 import { regimeDay } from './regimes';
 import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
+import { amendmentsDay } from './amend';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -108,6 +109,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   holdCourt(world, rng);
   republicDay(world, rng);
   regimeDay(world, rng);
+  amendmentsDay(world, rng);
   rule(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
