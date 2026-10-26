@@ -284,7 +284,7 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
   }
   if (choosingDream && can(COMMAND_COST.dream)) {
     // Dreams that change a heart, then dreams of a new calling.
-    const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : npc.job === 'scholar' ? [['vision', 'นิมิตแห่งปัญญา'] as [DreamKind, string]] : [])];
+    const kinds: [DreamKind, string][] = [['repent', 'กลับใจ'], ['love', 'ฝันถึงรัก'], ['nightmare', 'ฝันร้าย'], ...(npc.rank !== undefined ? [['vision', 'นิมิตแห่งดาบ'] as [DreamKind, string]] : npc.job === 'scholar' ? [['vision', 'นิมิตแห่งปัญญา'] as [DreamKind, string]] : npc.job === 'king' ? [['vision', 'นิมิตแห่งการปฏิรูป'] as [DreamKind, string]] : [])];
     const hearts = kinds.map(([kind, label]) => {
       const b = el('button', { type: 'button', className: 'chip chip--button', textContent: label });
       b.onclick = () => {

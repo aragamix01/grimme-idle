@@ -118,6 +118,27 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "pontiff": {
+    "file": "assets/sprites/characters/pontiff.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "oligarch": {
+    "file": "assets/sprites/characters/oligarch.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "general": {
+    "file": "assets/sprites/characters/general.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "priest": {
     "file": "assets/sprites/characters/priest.png",
     "group": "characters",

@@ -78,7 +78,7 @@ export const knowledgeOf = (world: WorldState) => world.knowledge ?? 0;
 // A day of study, at the school if the town has one, else in the castle's library.
 export function study(world: WorldState, npc: Npc, rng: Rng): void {
   const rate =
-    KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1);
+    KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (world.regime === 'theocracy' ? 0.8 : 1); // the church frowns on some questions
   world.knowledge = knowledgeOf(world) + rate;
   if (chance(rng, 0.004)) npc.level++; // years of reading tell, slowly
 }

@@ -1,4 +1,4 @@
-import { REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('kingdom')!;
@@ -55,6 +55,7 @@ export function renderKingdom(world: WorldState): void {
     world.labour,
     world.regime,
     world.republic,
+    reformers(world).length,
     world.council,
     world.techs,
     world.research,
@@ -427,7 +428,12 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
       { className: 'realm-king__body' },
       name,
       el('p', { className: 'realm-king__meta', textContent: `ระบอบ${REGIMES[regimeOf(world)].name} · ${REGIMES[regimeOf(world)].text}` }),
-      el('p', { className: 'realm-king__meta', textContent: r ? `อายุ ${k.age} ปี · ดำรงตำแหน่งตั้งแต่ D${world.crown?.since ?? 0} · เลือกตั้งครั้งหน้าอีก ${Math.max(0, r.nextVote - world.day)} วัน` : `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}` }),
+      ...(regimeOf(world) === 'monarchy' && literacy(world) >= 0.35
+        ? [el('p', { className: 'realm-king__meta', textContent: `รู้หนังสือ ${Math.round(literacy(world) * 100)}% · ผู้เรียกร้องการปฏิรูป ${reformers(world).length} คน (อวยพรคนที่อ่านออกและจิตใจดีเพื่อเพิ่ม หรือส่งนิมิตให้ผู้ปกครอง)` })]
+        : []),
+      el('p', { className: 'realm-king__meta', textContent: r ? `อายุ ${k.age} ปี · ดำรงตำแหน่งตั้งแต่ D${world.crown?.since ?? 0} · เลือกตั้งครั้งหน้าอีก ${Math.max(0, r.nextVote - world.day)} วัน` : regimeOf(world) === 'monarchy'
+          ? `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}`
+          : `อายุ ${k.age} ปี · ปกครองตั้งแต่ D${world.crown?.since ?? 0}` }),
       ...(r?.last ? [ballot(r.last.results, r.elections, r.last.day)] : []),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),

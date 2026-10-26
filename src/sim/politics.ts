@@ -81,7 +81,24 @@ function drift(world: WorldState, k: Npc): void {
     if (n.job === 'noble' && ambitious(n)) by -= 1;
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
+    by += regimeFeeling(world, n);
     nudge(n, by);
+  }
+}
+
+// Each regime favours its own and grates on everyone else.
+function regimeFeeling(world: WorldState, n: Npc): number {
+  switch (world.regime) {
+    case 'republic':
+      return 0.3; // they chose this government
+    case 'junta':
+      return n.job === 'soldier' || n.knight ? 1 : -0.6;
+    case 'theocracy':
+      return n.job === 'priest' ? 1 : n.morality > 0 ? 0.3 : -0.8;
+    case 'oligarchy':
+      return n.gold >= 60 ? 1 : n.gold < 15 ? -0.8 : 0;
+    default:
+      return 0;
   }
 }
 
@@ -101,6 +118,8 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
   let i = levels.indexOf(want[crown.tax]);
   if (k.traits.includes('greedy')) i = Math.min(2, i + 1);
   if (k.traits.includes('kind') && world.treasury > reserve * 3) i = Math.max(0, i - 1);
+  if (world.regime === 'oligarchy') i = Math.max(0, i - 1); // the rich govern, and tax themselves lightly
+  if (world.regime === 'junta') i = Math.min(2, i + 1); // the army must be fed
   const next = levels[i];
   if (next === crown.tax) return;
   const up = levels.indexOf(next) > levels.indexOf(crown.tax);

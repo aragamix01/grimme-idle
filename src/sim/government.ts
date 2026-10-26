@@ -24,7 +24,8 @@ export const REGIMES: Record<Regime, RegimeDef> = {
 export const regimeOf = (world: WorldState): Regime => world.regime ?? 'monarchy';
 // The ruler's title, and the sprite they wear, under the town's regime.
 export const rulerTitle = (world: WorldState) => REGIMES[regimeOf(world)].ruler;
-export const rulerLook = (world: WorldState) => (regimeOf(world) === 'republic' ? 'consul' : 'king');
+const LOOK: Record<Regime, string> = { monarchy: 'king', republic: 'consul', theocracy: 'pontiff', oligarchy: 'oligarch', junta: 'general' };
+export const rulerLook = (world: WorldState) => LOOK[regimeOf(world)];
 
 const OVERRIDE_POWER = 70; // a crown this strong can ignore its council
 const SNUB = -8; // loyalty a councillor loses when the king overrides their no

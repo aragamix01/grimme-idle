@@ -6,6 +6,7 @@ import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { TOWN_SIZE } from './town';
+import { successor } from './regimes';
 import { JOB_TH } from './names';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
@@ -99,6 +100,16 @@ export function holdCourt(world: WorldState, rng: Rng): void {
     if (world.day % COURT_EVERY === 0) fillTrades(world, rng);
     return;
   }
+  const r = world.regime ?? 'monarchy';
+  if (!crowned && r !== 'monarchy') {
+    // Theocracy, oligarchy, junta: the seat passes within the ruling order, if anyone is left in it.
+    const next = successor(world, r);
+    if (next) {
+      next.formerJob = next.job;
+      enthrone(world, next, 'สืบทอดอำนาจ', true);
+      crowned = next;
+    }
+  }
   if (!crowned) {
     const old = world.npcs.find((n) => n.id === world.kingId);
     const adults = world.npcs.filter((n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined);
@@ -113,7 +124,7 @@ export function holdCourt(world: WorldState, rng: Rng): void {
   }
   if (world.day % COURT_EVERY !== 0) return;
   fillTrades(world, rng);
-  if (living(world, 'noble').length >= MIN_NOBLES) return;
+  if (r !== 'monarchy' || living(world, 'noble').length >= MIN_NOBLES) return; // only a crown grants titles
   const candidate = world.npcs
     .filter((n) => n.alive && n.age >= 16 && n.gold >= TITLE_GOLD && ['merchant', 'farmer', 'herder', 'blacksmith', 'innkeeper'].includes(n.job))
     .sort((a, b) => b.gold - a.gold)[0];
@@ -128,8 +139,9 @@ export function holdCourt(world: WorldState, rng: Rng): void {
 
 // Put someone on the throne. A new reign gives everyone a fresh start: loyalty drifts
 // back toward the middle, whatever they thought of the last king.
-export function enthrone(world: WorldState, n: Npc, how: string): void {
-  if (world.regime && world.regime !== 'monarchy') {
+// With `keep`, the regime stays as it is (a successor under the same rule, or a new regime's first ruler).
+export function enthrone(world: WorldState, n: Npc, how: string, keep = false): void {
+  if (!keep && world.regime && world.regime !== 'monarchy') {
     world.regime = undefined; // whoever seizes power crowns themselves
     world.republic = undefined;
     log(world, 'politics', `${n.name}ล้มการปกครองเดิม แล้วสถาปนาราชบัลลังก์ขึ้นใหม่`, n.id);
@@ -241,8 +253,8 @@ export function payroll(world: WorldState): void {
 // With gold to spare the crown takes on a poor, able commoner, the loyal and brave first.
 function recruit(world: WorldState): void {
   const army = living(world, 'soldier').length;
-  // In wartime the crown raises more men while it can pay them.
-  if (occupied(world) || army >= ARMY_TARGET + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
+  // In wartime the crown raises more men while it can pay them; a junta always wants more.
+  if (occupied(world) || army >= ARMY_TARGET * (world.regime === 'junta' ? 1.5 : 1) + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
   // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
   const spare = (job: Job) => ['farmer', 'herder', 'hunter', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;

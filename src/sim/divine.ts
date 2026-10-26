@@ -12,6 +12,7 @@ import { traveller } from './world';
 import { JOB_TH } from './names';
 import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
 import { insight } from './learning';
+import { reformVision } from './regimes';
 
 export const BLESS_DAYS = 365;
 export const CURSE_DAYS = 180;
@@ -116,6 +117,12 @@ function nightmare(world: WorldState, n: Npc): boolean {
 // An adventurer dreams an ancient sword form and wakes the better for it; a scholar dreams
 // the answer to a question that has stumped them for years.
 function vision(world: WorldState, n: Npc): boolean {
+  if (n.job === 'king') {
+    const name = n.name;
+    const what = reformVision(world, n, { state: world.rng });
+    log(world, 'dream', `${name} ฝันเห็นชาวเมืองเลือกผู้นำของตนเอง ${what}`, n.id);
+    return true;
+  }
   if (n.job === 'scholar') {
     const got = insight(world, n);
     log(world, 'dream', `${n.name} ฝันเห็นตำราที่ไม่มีใครเคยเขียน ตื่นมาจดได้ทั้งเล่ม ความรู้ของเมือง +${got}`, n.id);

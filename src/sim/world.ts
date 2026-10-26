@@ -26,6 +26,7 @@ import { BUILDINGS, doorOf } from './town';
 import { brew, draughts, engineer, pressDay, study } from './learning';
 import { researchDay } from './research';
 import { republicDay } from './republic';
+import { regimeDay } from './regimes';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -103,6 +104,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   world.day++;
   holdCourt(world, rng);
   republicDay(world, rng);
+  regimeDay(world, rng);
   rule(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
@@ -161,7 +163,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + 0.1;
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.regime === 'theocracy' ? 0.3 : 0.1); // a priest-ruled town prays all day
   world.rng = rng.state;
   return world;
 }

@@ -431,6 +431,13 @@ const LAUREL = ['................', '................', '...GgG....GgG...', '..G
 const SASH = ['....bb..........', '......bb........', '........bb......'];
 const CHARTER = ['..........cccc..', '..........yccy..', '..........cccc..'];
 
+// Rulers of the other regimes: the high priest's red-and-gold robes, the merchant prince's
+// top hat, gold chain and purse, and the general's epaulettes under a plumed helm.
+const TOP_HAT = ['................', '.....llllll.....', '.....llllll.....', '.....llllll.....', '.....rrrrrr.....', '...llllllllll...'];
+const GOLD_CHAIN = ['....y......y....', '.....yyyyyy.....'];
+const PURSE = ['...........yy...', '..........yyyy..', '..........yYyy..'];
+const EPAULETTES = ['..yyy......yyy..'];
+
 const MUG = ['...........ccc..', '...........yyyc.', '...........yyyc.', '...........yyy..'];
 
 const DRESS = ['....pppppppp....', '...pppppppppp...', '...pppppppppp...', '..pppppppppppp..', '..PPPPPPPPPPPP..'];
@@ -564,6 +571,18 @@ const JOBS = {
   consul: {
     slots: { 1: 'c', 2: 'b', 3: 'c', 4: 'N', 5: 'h' },
     layers: [[HAIR_SHORT], [LAUREL], [SASH, 0, 13], [CHARTER, 0, 13]],
+  },
+  pontiff: {
+    slots: { 1: 'r', 2: 'y', 3: 'r', 4: 'y', 5: 'z' },
+    layers: [[HAIR_SHORT], [MITRE], [BEARD, 0, 10], [STAFF_CROSS, 0, 6]],
+  },
+  oligarch: {
+    slots: { 1: 'v', 2: 'y', 3: 'V', 4: 'M', 5: 'H' },
+    layers: [[HAIR_SHORT], [TOP_HAT], [GOLD_CHAIN, 0, 13], [PURSE, 0, 13]],
+  },
+  general: {
+    slots: { 1: 'r', 2: 'y', 3: 'X', 4: 'M', 5: 'h' },
+    layers: [[HAIR_SHORT], [HELMET], [EPAULETTES, 0, 13], [SWORD]],
   },
   priest: {
     slots: { 1: 'c', 2: 'y', 3: 'c', 4: 'N', 5: 'h' },
