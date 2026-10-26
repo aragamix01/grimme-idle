@@ -137,7 +137,8 @@ function vision(world: WorldState, n: Npc): boolean {
 
 // ---------- the whole world ----------
 
-export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: number; icon: string; dark: boolean }> = {
+// `big` marks the great miracles: dear, and meant to turn the town's fate.
+export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: number; icon: string; dark: boolean; big?: boolean }> = {
   rain: { name: 'ฝนฉ่ำ', text: 'ฝนตกต้องตามฤดู ผลผลิตข้าว ×1.6 นาน 60 วัน', cost: 12, icon: 'rain', dark: false },
   goldrain: { name: 'ฝนทองคำ', text: 'ทองโปรยลงมาจากฟ้า ท้องพระคลัง +200 และทุกคนได้ 8 ทอง', cost: 15, icon: 'gold', dark: false },
   festival: { name: 'งานฉลองศักดิ์สิทธิ์', text: 'ทั้งเมืองเฉลิมฉลอง ภักดี +15 ศีล +5 ทุกคน', cost: 12, icon: 'banner', dark: false },
@@ -147,7 +148,30 @@ export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: n
   cult: { name: 'ปลุกลัทธิมาร', text: 'คนใจดำที่สุดในเมืองตั้งลัทธิมารขึ้นพร้อมสาวก 2 คน', cost: 15, icon: 'cult', dark: true },
   surge: { name: 'ปลุกฝูงมอนสเตอร์', text: 'พลังดันเจี้ยน +60 มอนสเตอร์อาจล้นออกมาเร็วๆ นี้', cost: 10, icon: 'surge', dark: true },
   eclipse: { name: 'สุริยุปราคา', text: 'โลกมืดลงอย่างมาก ลางร้ายของจอมมาร +25', cost: 20, icon: 'eclipse', dark: true },
+  aegis: { name: 'โล่ศักดิ์สิทธิ์', text: 'คุ้มครองเมืองจากภัยพิบัติครั้งถัดไป', cost: 200, icon: 'bless', dark: false, big: true },
+  revive: { name: 'ชุบชีวิต', text: 'ปลุกคนสำคัญที่ตายภายในหนึ่งปีให้ฟื้นคืนชีพ', cost: 300, icon: 'heart', dark: false, big: true },
+  wonder: { name: 'สิ่งมหัศจรรย์', text: 'อนุสรณ์สถานแห่งอาณาจักรสูงขึ้นหนึ่งชั้นในชั่วข้ามคืน', cost: 250, icon: 'star', dark: false, big: true },
+  bounty: { name: 'ยุ้งฉางล้นเหลือ', text: 'ข้าว +400 กระสอบ สัตว์ในคอก +15 ทุกคนอิ่มท้อง', cost: 150, icon: 'grain', dark: false, big: true },
+  uprising: { name: 'ปลุกใจผู้คน', text: 'ใต้การยึดครองของจอมมาร: ขบวนการต่อต้าน +50%', cost: 150, icon: 'sword', dark: false, big: true },
 };
+const REVIVE_DAYS = 365;
+
+// Who the god may raise: the greatest soul to die in the past year, by deeds and standing.
+export function reviveTarget(world: WorldState): Npc | undefined {
+  const ids = new Set(world.chronicle.filter((e) => e.kind === 'death' && e.day > world.day - REVIVE_DAYS && e.npcId !== undefined).map((e) => e.npcId!));
+  return world.npcs
+    .filter((n) => !n.alive && !n.left && ids.has(n.id))
+    .sort((a, b) => b.level + (b.renown ?? 0) / 5 + (b.hero ? 50 : 0) + (b.job === 'king' ? 10 : 0) - (a.level + (a.renown ?? 0) / 5 + (a.hero ? 50 : 0) + (a.job === 'king' ? 10 : 0)))[0];
+}
+
+// Why a great miracle can't be worked now, if it can't.
+export function miracleBlocked(world: WorldState, k: MiracleKind): string | undefined {
+  if (k === 'cult' && world.cult) return 'มีลัทธิมารอยู่ในเมืองแล้ว';
+  if (k === 'aegis' && world.aegis) return 'โล่ศักดิ์สิทธิ์ยังคุ้มครองเมืองอยู่';
+  if (k === 'revive' && !reviveTarget(world)) return 'ไม่มีคนสำคัญที่เพิ่งตายในปีนี้';
+  if (k === 'uprising' && world.demon?.stage !== 'occupied') return 'ใช้ได้เมื่อจอมมารยึดเมืองเท่านั้น';
+  return undefined;
+}
 export const MIRACLE_ORDER = Object.keys(MIRACLES) as MiracleKind[];
 
 export const miracleReady = (world: WorldState, k: MiracleKind) => world.day - (world.miracleAt?.[k] ?? -MIRACLE_GAP) >= MIRACLE_GAP;
@@ -173,7 +197,46 @@ export function miracle(world: WorldState, k: MiracleKind, rng: Rng): boolean {
 
 function work(world: WorldState, k: MiracleKind, rng: Rng): boolean {
   const grown = adults(world);
+  if (miracleBlocked(world, k)) return false;
   switch (k) {
+    case 'aegis':
+      world.aegis = true;
+      sway(world, 2);
+      log(world, 'bless', 'แสงสีทองแผ่คลุมทั่วเมืองเป็นโล่ศักดิ์สิทธิ์ ภัยพิบัติครั้งหน้าจะผ่านเลยไป');
+      return true;
+    case 'revive': {
+      const n = reviveTarget(world)!;
+      n.alive = true;
+      n.hunger = 0;
+      n.plan = undefined;
+      n.inside = undefined;
+      n.questId = undefined;
+      n.cursedUntil = undefined;
+      sway(world, 3);
+      log(world, 'bless', `ปาฏิหาริย์! ${n.name}ลืมตาตื่นขึ้นจากความตาย ชาวเมืองต่างคุกเข่าสรรเสริญเทพเจ้า`, n.id);
+      return true;
+    }
+    case 'wonder':
+      world.monument = (world.monument ?? 0) + 1;
+      (world.works ??= {}).monument = world.day;
+      for (const n of grown) n.loyalty = clamp(loyaltyOf(n) + 5, 0, 100);
+      sway(world, 2);
+      log(world, 'bless', `ชั่วข้ามคืน อนุสรณ์สถานแห่งอาณาจักรสูงขึ้นเป็นระดับ ${world.monument} ราวกับเทพเจ้าลงมือสร้างเอง`);
+      return true;
+    case 'bounty': {
+      const m = ensureMarket(world);
+      m.stock.grain += 400;
+      world.herd = (world.herd ?? 0) + 15;
+      for (const n of world.npcs) if (n.alive) n.hunger = 0;
+      sway(world, 2);
+      log(world, 'bless', 'ยุ้งฉางทุกแห่งเต็มล้นด้วยข้าวที่ไม่มีใครปลูก คอกสัตว์มีลูกสัตว์เกิดใหม่เต็มไปหมด');
+      return true;
+    }
+    case 'uprising':
+      world.demon!.resistance = Math.min(100, (world.demon!.resistance ?? 0) + 50);
+      sway(world, 2);
+      log(world, 'bless', `ชาวเมืองทุกคนฝันเห็นแสงสว่างเดียวกัน ขบวนการต่อต้านลุกโชน (${Math.round(world.demon!.resistance)}%)`);
+      return true;
     case 'rain':
       world.weather = { kind: 'rain', until: world.day + WEATHER_DAYS };
       sway(world, 2);

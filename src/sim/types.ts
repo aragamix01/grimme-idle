@@ -259,7 +259,7 @@ export interface War {
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision';
-export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse';
+export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising';
 
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';
 
@@ -359,6 +359,7 @@ export interface WorldState {
   flood?: number; // day the floodwaters go down
   ruins?: { x: number; y: number; until: number }[]; // homes brought down, by tile, and the day each is rebuilt
   disasterAt?: number; // day of nature's last blow
+  aegis?: boolean; // the god's shield: the next disaster passes the town by
   miracleAt?: Partial<Record<MiracleKind, number>>; // day each miracle was last worked
   miracleRush?: Partial<Record<MiracleKind, number>>; // times each was worked again before its wait was up
   legacy?: Legacy;

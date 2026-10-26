@@ -32,5 +32,5 @@ export { HOME, TERRAIN_TH, relationWord, realmAge, realmRegime } from './realms'
 export { TRADE, tripDays } from './diplomacy';
 export { WAR_COST, enemyOf, ourForces, theirStrength } from './war';
 export { plagued, realmMiracleCost, realmMiracleReady } from './worldevents';
-export { BLESS_DAYS, MIRACLES, MIRACLE_ORDER, miracleCost, miracleReady, miracleWait, weatherOf } from './divine';
+export { BLESS_DAYS, MIRACLES, MIRACLE_ORDER, miracleBlocked, miracleCost, miracleReady, miracleWait, weatherOf } from './divine';
 export { DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, canAwaken, fighter, heroOf, worthy } from './demonlord';

@@ -294,6 +294,11 @@ export function disastersDay(world: WorldState, rng: Rng): void {
   for (const [p, strike] of kinds) {
     if (roll < p) {
       world.disasterAt = world.day;
+      if (world.aegis) {
+        world.aegis = false;
+        log(world, 'bless', 'ฟ้าครืนคราม แผ่นดินสะท้าน แต่โล่ศักดิ์สิทธิ์ของเทพเจ้าปัดเป่าภัยพิบัติให้ผ่านเลยเมืองไป');
+        return;
+      }
       strike(world, rng);
       return;
     }
