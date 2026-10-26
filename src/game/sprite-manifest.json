@@ -622,6 +622,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "wool": {
+    "file": "assets/sprites/icons/wool.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "meat": {
     "file": "assets/sprites/icons/meat.png",
     "group": "icons",

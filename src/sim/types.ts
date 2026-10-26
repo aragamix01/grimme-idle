@@ -139,7 +139,7 @@ export interface Guild {
   treasury: number;
 }
 
-export type Good = 'grain' | 'meat' | 'loot' | 'gear';
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear';
 
 export interface Market {
   stock: Record<Good, number>;

@@ -6,15 +6,15 @@ import { chance, int, type Rng } from './rng';
 import { cursed, log, perkLevel } from './core';
 import { weatherYield } from './divine';
 import { RELIC_POWER } from './dungeons';
-import { TRADE, tradePartner, tripDays } from './diplomacy';
+import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
 import { caravanHome } from './worldevents';
 import { JOB_TH } from './names';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 
-export const GOODS: readonly Good[] = ['grain', 'meat', 'loot', 'gear'];
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
-const BASE: Record<Good, number> = { grain: 2, meat: 3, loot: 8, gear: 25 };
-const TARGET: Record<Good, number> = { grain: 300, meat: 60, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'loot', 'gear'];
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25 };
+const TARGET: Record<Good, number> = { grain: 300, meat: 60, wool: 15, loot: 4, gear: 5 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
@@ -39,18 +39,19 @@ export const seasonOf = (day: number): Season => SEASONS[Math.floor((day % 365) 
 
 export function ensureMarket(world: WorldState): Market {
   const m = (world.market ??= {
-    stock: { grain: 250, meat: 40, loot: 4, gear: 4 },
+    stock: { grain: 250, meat: 40, wool: 0, loot: 4, gear: 4 },
     price: { ...BASE },
     till: 60,
-    history: { grain: [], meat: [], loot: [], gear: [] },
-    alert: { grain: 0, meat: 0, loot: 0, gear: 0 },
+    history: { grain: [], meat: [], wool: [], loot: [], gear: [] },
+    alert: { grain: 0, meat: 0, wool: 0, loot: 0, gear: 0 },
   });
-  if (m.stock.meat === undefined) {
-    // Saves from before the herders: the shelves start with a little meat.
-    m.stock.meat = 20;
-    m.price.meat = BASE.meat;
-    m.history.meat = [];
-    m.alert.meat = 0;
+  // Saves from before a good existed: its shelf starts (nearly) empty at the base price.
+  for (const g of GOODS) {
+    if (m.stock[g] !== undefined) continue;
+    m.stock[g] = g === 'meat' ? 20 : 0;
+    m.price[g] = BASE[g];
+    m.history[g] = [];
+    m.alert[g] = 0;
   }
   return m;
 }
@@ -67,8 +68,8 @@ function reprice(m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, loot: 1.5, gear: 1.5 };
-const GLUT: Record<Good, number> = { grain: 4, meat: 3, loot: 2.5, gear: 2.5 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
@@ -225,7 +226,8 @@ function caravans(world: WorldState, m: Market): void {
   for (const g of spare) {
     const n = Math.ceil((m.stock[g] - TARGET[g] * EXPORT_AT[g]) * 0.3);
     m.stock[g] -= n;
-    gold += n * BASE[g] * (trade.wants === g ? 0.9 : 0.6); // they pay well for what they lack
+    const wanted = trade.wants === g || (g === 'wool' && WOOL_BUYERS.includes(realm.terrain));
+    gold += n * BASE[g] * (wanted ? 0.9 : 0.6); // they pay well for what they lack
   }
   const n = TARGET.grain * 0.25;
   const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5);
@@ -316,7 +318,7 @@ function dole(world: WorldState, m: Market): boolean {
 
 // The chronicle only hears about prices when they swing hard, once per swing.
 function watchPrice(world: WorldState, m: Market, g: Good): void {
-  if (g === 'loot' || g === 'meat') return; // swing every few weeks; grain is what the town watches
+  if (g === 'loot' || g === 'meat' || g === 'wool') return; // swing every few weeks; grain is what the town watches
   const r = m.price[g] / BASE[g];
   const was = m.alert[g];
   if (was !== 1 && r >= 2) {

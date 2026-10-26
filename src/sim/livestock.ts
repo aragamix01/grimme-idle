@@ -17,6 +17,7 @@ export const GAME_CAP = 20; // deer the forest holds
 const GAME_START = 14;
 const HUNT = 0.25; // chance of a kill on a hunter's day, with the forest full of deer
 const MAULED = 0.001; // a bear, a boar, a fall
+const SHEAR = 0.2; // chance a spring day's tending ends with a bale of wool
 const MURRAIN = 0.025; // monthly chance of sickness in a full pasture; less in a sparse one
 
 export function ensureWilds(world: WorldState): void {
@@ -32,7 +33,10 @@ export function tendHerd(world: WorldState, npc: Npc, rng: Rng): number {
   const herd = world.herd!;
   if (herd >= 2 && herd < HERD_CAP && seasonOf(world.day) !== 'winter' && chance(rng, BREED)) world.herd!++;
   const y = herd * YIELD_PER_BEAST * (npc.blessed ? 1.3 : 1);
-  return sell(world, npc, 'meat', Math.floor(y) + (chance(rng, y % 1) ? 1 : 0), rng);
+  let made = sell(world, npc, 'meat', Math.floor(y) + (chance(rng, y % 1) ? 1 : 0), rng);
+  // Spring shearing: about three beasts in eight are sheep.
+  if (seasonOf(world.day) === 'spring' && herd >= 4 && chance(rng, SHEAR)) made += sell(world, npc, 'wool', Math.max(1, Math.round((herd * 3) / 8 / 3)), rng);
+  return made;
 }
 
 // A day in the forest. Fewer deer, colder weather and the god's curse all thin the odds.

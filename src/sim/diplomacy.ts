@@ -11,6 +11,9 @@ import { HOME } from './realms';
 import type { Good, Npc, Realm, Terrain, WorldState } from './types';
 
 // What each kind of country has to sell, and what it is short of.
+// Wool has no use in town; it is shorn to be sold abroad, where the cold mountains and desert nights want it.
+export const WOOL_BUYERS: readonly Terrain[] = ['mountain', 'desert'];
+
 export const TRADE: Record<Terrain, { sells: Good; wants: Good }> = {
   mountain: { sells: 'gear', wants: 'grain' },
   coast: { sells: 'grain', wants: 'loot' },
@@ -28,7 +31,7 @@ export const visitable = (r: Realm) => r.relation > -50 && !r.war && !r.fallen; 
 // The best partner for a caravan carrying `spare` goods, or coming for grain if `buying`.
 export function tradePartner(world: WorldState, spare: Good[], buying: boolean): Realm | undefined {
   const score = (r: Realm) =>
-    r.relation / 10 + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) ? 4 : 0) + (r.pact ? 2 : 0) - ((r.plagueUntil ?? 0) > world.day ? 4 : 0) - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
+    r.relation / 10 + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) || (spare.includes('wool') && WOOL_BUYERS.includes(r.terrain)) ? 4 : 0) + (r.pact ? 2 : 0) - ((r.plagueUntil ?? 0) > world.day ? 4 : 0) - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
   return (world.realms ?? []).filter(visitable).sort((a, b) => score(b) - score(a))[0];
 }
 
