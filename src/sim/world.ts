@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, kill, log, makePlan as plan, perkLevel, stepToward } from './core';
+import { clamp, cursed, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -36,6 +36,7 @@ const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
 const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
 const MIN_ADVENTURERS = 20; // below this, newcomers come as adventurers
 const ADVENTURE_CHANCE = 0.04; // solo dungeon trips are rare and risky; most adventuring goes through quests
+const DANGER_POWER = 60; // past this, adventurers head for the dungeon on their own more often
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
 const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
@@ -122,6 +123,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   healBosses(world);
   for (const d of world.dungeons) {
     if (!calm(world, d)) d.power += 0.2;
+    // Under the demon lord the monsters are his garrison: they hold their dens instead of
+    // breaking out, and the keep's raids and tribute are the town's burden.
+    if (occupied(world)) d.power = Math.min(d.power, STAMPEDE_POWER - 1);
     if (d.power >= STAMPEDE_POWER) {
       log(world, 'disaster', `มอนสเตอร์ล้นออกจาก ${d.name}!`);
       d.power = 30;
@@ -258,8 +262,11 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'mage': {
       const courage = npc.traits.includes('brave') ? 1.6 : npc.traits.includes('coward') ? 0.4 : 1;
       if (wantsGear(world, npc) && chance(rng, 0.2)) return plan('buy', PLACES.shop, 0);
-      if (chance(rng, ADVENTURE_CHANCE * courage)) {
-        const d = pick(rng, world.dungeons);
+      // A dungeon close to spilling over draws glory seekers to thin it out, paid or not.
+      const worst = world.dungeons.reduce((a, b) => (b.power > a.power ? b : a));
+      const danger = Math.max(0, (worst.power - DANGER_POWER) / 20);
+      if (chance(rng, ADVENTURE_CHANCE * courage * (1 + danger))) {
+        const d = danger && chance(rng, 0.7) ? worst : pick(rng, world.dungeons);
         return plan('adventure', dungeonDoor(d), 0, d.id);
       }
       return chance(rng, 0.6) ? plan('idle', near(pick(rng, [PLACES.guild, PLACES.inn])), int(rng, 3, 8)) : idle();
