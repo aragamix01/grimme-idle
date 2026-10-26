@@ -14,6 +14,8 @@ const CUSHION = 1000; // gold kept beyond three paydays and the next work
 const SHARE = 0.4; // of the surplus, each month
 const LOUD = 150; // spending this large makes the chronicle
 const ALMS_EACH = 10; // the most a poor townsperson is handed in a month
+const WEALTHY = 500; // a purse past this is spent from each month
+const LAVISH = 0.06; // of what's past it
 
 type Outlet = 'alms' | 'arms' | 'jewels' | 'court' | 'church' | 'trade' | 'feast';
 
@@ -48,8 +50,23 @@ function share(to: Npc[], gold: number): number {
   return each * to.length;
 }
 
+// The town's rich spend too, each in their way: the kind on the church's larder, the greedy
+// hardly at all, the rest on fine things from the market and nights at the inn.
+function richSpend(world: WorldState): void {
+  const m = ensureMarket(world);
+  const keepers = adults(world).filter((n) => n.job === 'innkeeper');
+  for (const n of adults(world)) {
+    if (n.gold <= WEALTHY) continue;
+    const gold = Math.floor((n.gold - WEALTHY) * LAVISH * (n.traits.includes('greedy') ? 0.3 : 1));
+    n.gold -= gold;
+    if (n.traits.includes('kind')) world.alms = (world.alms ?? 0) + gold;
+    else m.till += gold - share(keepers.filter((k) => k !== n), Math.floor(gold / 3));
+  }
+}
+
 export function spendSurplus(world: WorldState): void {
   if (world.day % 30 !== SPEND_DAY) return;
+  richSpend(world);
   const ruler = king(world);
   if (!ruler) return;
   const gold = Math.floor((world.treasury - reserve(world)) * SHARE);

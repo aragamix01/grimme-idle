@@ -16,11 +16,19 @@ export function log(world: WorldState, kind: EventKind, text: string, npcId?: nu
   if (world.chronicle.length > CHRONICLE_LIMIT) world.chronicle.shift();
 }
 
+const ESTATE_FREE = 200; // an estate this small passes whole
+const ESTATE_DUTY = 0.3; // of the rest
+
 export function kill(world: WorldState, npc: Npc, reason: string): void {
   npc.alive = false;
   npc.plan = undefined;
   log(world, 'death', `${npc.name} ${reason}`, npc.id);
-  // Their gold goes to the spouse and children.
+  // The crown takes its due of a large estate; the rest goes to the spouse and children.
+  if (npc.gold > ESTATE_FREE) {
+    const duty = Math.floor((npc.gold - ESTATE_FREE) * ESTATE_DUTY);
+    npc.gold -= duty;
+    world.treasury += duty;
+  }
   const heirs = world.npcs.filter((o) => o.alive && (o.id === npc.spouseId || o.parentIds?.includes(npc.id)));
   if (!heirs.length || npc.gold <= 0) return;
   const share = Math.floor(npc.gold / heirs.length);
