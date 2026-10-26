@@ -10,7 +10,7 @@ import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
 import { caravanHome } from './worldevents';
 import { built } from './works';
-import { JOB_TH } from './names';
+import { jobName } from './ages';
 import { AWAY, type Good, type Market, type Npc, type WorldState } from './types';
 import { TOWN_SIZE } from './town';
 
@@ -382,19 +382,19 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   const keepTwo = npc.job === 'thief' || count(npc.job) > 2; // a trade keeps its last couple of hands
   const commoner = ['farmer', 'herder', 'hunter', 'merchant', 'innkeeper', 'courtesan', 'blacksmith'].includes(npc.job);
   if (commoner && npc.gold < 5 && npc.morality < 0 && keepTwo && chance(rng, (npc.hunger ?? 0) >= 1 ? 0.08 : 0.03)) {
-    log(world, 'trade', `${npc.name} หมดตัวจนต้องเลิกเป็น${JOB_TH[npc.job]} หันไปเป็นโจร`, npc.id);
+    log(world, 'trade', `${npc.name} หมดตัวจนต้องเลิกเป็น${jobName(world, npc.job)} หันไปเป็นโจร`, npc.id);
     npc.job = 'thief';
     npc.guildId = undefined;
     return true;
   }
   if (['merchant', 'thief', 'innkeeper', 'courtesan', 'priest', 'scholar'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
-    log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพง`, npc.id);
+    log(world, 'trade', `${npc.name} เลิกเป็น${jobName(world, npc.job)} หันมาทำนาเพราะข้าวแพง`, npc.id);
     npc.job = 'farmer';
     return true;
   }
   // A long famine sends green adventurers (rank F or E, nothing much in their purse) back to the fields.
   if ((npc.job === 'swordsman' || npc.job === 'mage') && (npc.rank ?? 0) <= 1 && npc.questId === undefined && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.03)) {
-    log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพงจนประทังชีวิตด้วยการผจญภัยไม่ไหว`, npc.id);
+    log(world, 'trade', `${npc.name} เลิกเป็น${jobName(world, npc.job)} หันมาทำนาเพราะข้าวแพงจนประทังชีวิตด้วยการผจญภัยไม่ไหว`, npc.id);
     npc.job = 'farmer';
     npc.rank = npc.renown = npc.guildId = undefined;
     return true;
@@ -407,7 +407,7 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
     return true;
   }
   if ((npc.job === 'herder' || npc.job === 'hunter') && keepTwo && r >= 1.8 && meat <= 1 && chance(rng, 0.04)) {
-    log(world, 'trade', `${npc.name} เลิกเป็น${JOB_TH[npc.job]} หันมาทำนาเพราะข้าวแพง`, npc.id);
+    log(world, 'trade', `${npc.name} เลิกเป็น${jobName(world, npc.job)} หันมาทำนาเพราะข้าวแพง`, npc.id);
     npc.job = 'farmer';
     return true;
   }

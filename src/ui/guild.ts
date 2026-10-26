@@ -1,4 +1,4 @@
-import { say, DUNGEON_KINDS, costOf, JOB_TH, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -133,7 +133,7 @@ function patronText(world: WorldState, q: Quest, byId: Map<number, Npc>): string
   const g = world.guilds.find((x) => x.id === q.patronGuildId);
   if (g) return g.name;
   const p = q.patronId !== undefined ? byId.get(q.patronId) : undefined;
-  return p ? `${p.name} (${JOB_TH[p.job]})` : 'ไม่ทราบ';
+  return p ? `${p.name} (${jobName(world, p.job)})` : 'ไม่ทราบ';
 }
 
 function questCard(world: WorldState, q: Quest, byId: Map<number, Npc>): HTMLElement {
@@ -203,7 +203,7 @@ function adventurerRow(world: WorldState, n: Npc): HTMLElement {
     { className: 'adv' },
     rankBadge(n.rank),
     el('button', { type: 'button', className: 'adv__name', textContent: n.name }),
-    el('span', { className: 'adv__job', textContent: `${JOB_TH[n.job]} · LV ${n.level}${guild ? ` · ${guild.name}` : ''}` }),
+    el('span', { className: 'adv__job', textContent: `${jobName(world, n.job)} · LV ${n.level}${guild ? ` · ${guild.name}` : ''}` }),
     el('span', { className: 'adv__renown', textContent: `${n.renown ?? 0}` }),
   );
   (row.querySelector('.adv__name') as HTMLButtonElement).onclick = () => handlers.onSelectNpc(n.id);

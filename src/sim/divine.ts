@@ -11,7 +11,7 @@ import { isAdventurer } from './quests';
 import { ensureMarket } from './market';
 import { loyaltyOf } from './politics';
 import { traveller } from './world';
-import { JOB_TH } from './names';
+import { jobName } from './ages';
 import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
 import { insight } from './learning';
 import { ambition, reformVision } from './regimes';
@@ -69,7 +69,7 @@ export function dream(world: WorldState, n: Npc, job?: Job, kind?: DreamKind, rn
     n.renown ??= 0;
   }
   if (n.inside === undefined) n.plan = undefined; // the dream changes their next move
-  log(world, 'dream', `${n.name} ฝันถึงชีวิตใหม่ในฐานะ${JOB_TH[job]}`, n.id);
+  log(world, 'dream', `${n.name} ฝันถึงชีวิตใหม่ในฐานะ${jobName(world, job)}`, n.id);
   return true;
 }
 

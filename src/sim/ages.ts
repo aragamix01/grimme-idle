@@ -4,7 +4,8 @@
 // ruffed collars and livelier music, then brick, chimneys and neckties.
 import { log } from './core';
 import { legend } from './quests';
-import type { WorldState } from './types';
+import { JOB_TH } from './names';
+import type { Job, WorldState } from './types';
 
 export interface AgeDef {
   name: string;
@@ -24,6 +25,26 @@ export function ageOf(world: WorldState): number {
   if (found >= 9 && world.techs?.steam !== undefined) return 3;
   if (found >= 6 && world.techs?.printing !== undefined) return 2;
   return found >= 3 ? 1 : 0;
+}
+
+// What each trade is called in each age, where it isn't the plain name: the same work done with
+// the tools and words of the time. Elsewhere the plain name.
+const AGE_JOBS: Partial<Record<Job, (string | undefined)[]>> = {
+  farmer: ['ชาวไร่', undefined, undefined, 'เกษตรกร'],
+  herder: [undefined, undefined, undefined, 'เจ้าของฟาร์มปศุสัตว์'],
+  hunter: [undefined, undefined, undefined, 'นักล่าสัตว์'],
+  blacksmith: [undefined, undefined, undefined, 'ช่างเครื่องกล'],
+  merchant: [undefined, undefined, 'วาณิช', 'นักธุรกิจ'],
+  innkeeper: [undefined, undefined, undefined, 'เจ้าของโรงแรม'],
+  courtesan: [undefined, undefined, 'นางระบำ', 'นักร้องคาบาเรต์'],
+  scholar: ['ผู้รู้', undefined, 'นักวิชาการ', 'นักวิทยาศาสตร์'],
+  builder: ['ช่างไม้', undefined, undefined, 'กรรมกรก่อสร้าง'],
+  soldier: ['ทหารเกณฑ์', undefined, undefined, undefined],
+};
+
+export function jobName(world: WorldState, job: Job): string {
+  if (job === 'alchemist' && world.techs?.chemistry !== undefined) return 'นักเคมี'; // the old art made a science
+  return AGE_JOBS[job]?.[ageOf(world)] ?? JOB_TH[job];
 }
 
 // The sprite suffix each age wears; the middle age is the plain art.

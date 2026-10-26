@@ -1,4 +1,4 @@
-import { AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, JOB_TH, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -178,7 +178,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
   const chips = el(
     'div',
     { className: 'npc__chips' },
-    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : JOB_TH[npc.job] }),
+    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : jobName(world, npc.job) }),
     ...(npc.age >= ADULT_AGE ? [el('span', { className: 'chip', textContent: `LV ${npc.level}` })] : []),
     ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
     ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),
@@ -300,7 +300,7 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     });
     wrap.append(el('div', { className: 'dream-kinds' }, el('span', { textContent: 'ให้ฝัน' }), ...hearts));
     const jobs = JOBS.filter((j) => j !== npc.job).map((job) => {
-      const b = el('button', { type: 'button', className: 'chip chip--button', textContent: JOB_TH[job] });
+      const b = el('button', { type: 'button', className: 'chip chip--button', textContent: jobName(world, job) });
       b.onclick = () => {
         choosingDream = false;
         handlers.onCommand({ type: 'dream', npcId: npc.id, job });

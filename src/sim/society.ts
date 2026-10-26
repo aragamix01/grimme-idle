@@ -9,7 +9,7 @@ import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { TOWN_SIZE } from './town';
 import { successor } from './regimes';
-import { JOB_TH } from './names';
+import { jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
 
@@ -178,7 +178,7 @@ function fillTrades(world: WorldState, rng: Rng): void {
     leaveTrade(n);
     n.job = job;
     n.plan = undefined;
-    log(world, 'world', `${n.name} เลิกเป็น${JOB_TH[was]} หันมาเป็น${JOB_TH[job]}เพราะในเมืองยังไม่มีใครทำ`, n.id);
+    log(world, 'world', `${n.name} เลิกเป็น${jobName(world, was)} หันมาเป็น${jobName(world, job)}เพราะในเมืองยังไม่มีใครทำ`, n.id);
   }
 }
 
@@ -269,7 +269,7 @@ function recruit(world: WorldState): void {
   leaveTrade(r);
   r.job = 'soldier';
   r.plan = undefined;
-  log(world, 'world', `${r.name} เลิกเป็น${JOB_TH[was]} สมัครเข้ากองทัพ`, r.id);
+  log(world, 'world', `${r.name} เลิกเป็น${jobName(world, was)} สมัครเข้ากองทัพ`, r.id);
 }
 
 // Evenings out: a mug at the inn for anyone with coin to spare, and for some, company

@@ -1,4 +1,4 @@
-import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, JOB_TH, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -105,7 +105,7 @@ export function renderKingdom(world: WorldState): void {
     warSection(world),
     neighbours(world),
     cultSection(world),
-    section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, JOB_TH[n.job])) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')], `${knights.length} คน`),
+    section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')], `${knights.length} คน`),
     section(
       'ข่าวการเมือง',
       news.length
@@ -365,7 +365,7 @@ function heroBlock(world: WorldState): HTMLElement {
       'div',
       { className: 'realm-cult' },
       btn,
-      el('p', { className: 'realm-king__meta', textContent: pick ? `เทพเจ้าจะเลือก ${pick.name} (${JOB_TH[pick.job]} LV ${pick.level}) หรือเลือกเองจากการ์ดชาวเมือง` : 'ไม่มีใครพร้อมรับพลังผู้กล้า' }),
+      el('p', { className: 'realm-king__meta', textContent: pick ? `เทพเจ้าจะเลือก ${pick.name} (${jobName(world, pick.job)} LV ${pick.level}) หรือเลือกเองจากการ์ดชาวเมือง` : 'ไม่มีใครพร้อมรับพลังผู้กล้า' }),
     );
   }
   const q = lord.hero!;

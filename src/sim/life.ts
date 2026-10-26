@@ -1,7 +1,7 @@
 // Growing up, growing old, falling in love and raising a family.
 import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
-import { JOB_TH } from './names';
+import { jobName } from './ages';
 import { PLACES } from './places';
 import { TOWN_SIZE } from './town';
 import { inheritedJob } from './society';
@@ -64,7 +64,7 @@ function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
     n.renown = 0;
   }
   n.plan = undefined;
-  log(world, 'world', `${n.name} เติบโตเป็นผู้ใหญ่ และเลือกเป็น${JOB_TH[n.job]}`, n.id);
+  log(world, 'world', `${n.name} เติบโตเป็นผู้ใหญ่ และเลือกเป็น${jobName(world, n.job)}`, n.id);
 }
 
 // Who this NPC is sweet on: their closest single adult friend, if close enough.

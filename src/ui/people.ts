@@ -1,4 +1,4 @@
-import { rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, JOB_TH, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
+import { rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, jobName, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 import { localize } from './lexicon';
 
@@ -114,7 +114,7 @@ function jobSection(world: WorldState, job: Job, members: Npc[]): HTMLElement {
     'summary',
     {},
     portrait,
-    el('span', { className: 'people-job__name' }, el('b', { textContent: job === 'king' ? rulerTitle(world) : JOB_TH[job] }), el('small', { textContent: members.length ? `${wealth(gold)} · ${mood(loyal)}` : 'ยังไม่มีใครทำ' })),
+    el('span', { className: 'people-job__name' }, el('b', { textContent: job === 'king' ? rulerTitle(world) : jobName(world, job) }), el('small', { textContent: members.length ? `${wealth(gold)} · ${mood(loyal)}` : 'ยังไม่มีใครทำ' })),
     el('span', { className: 'people-job__count', textContent: String(members.length) }),
   );
   if (!members.length) {

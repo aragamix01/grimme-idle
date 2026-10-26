@@ -4,7 +4,8 @@ import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
-import { DUNGEON_NAMES, FIRST_NAMES, JOB_TH } from './names';
+import { DUNGEON_NAMES, FIRST_NAMES } from './names';
+import { jobName } from './ages';
 import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
 import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
@@ -197,7 +198,7 @@ export function traveller(world: WorldState, rng: Rng, hired?: Npc['job']): void
   npc.y = PLACES.gate.y;
   npc.plan = plan('arrive', PLACES.inn, 5);
   world.npcs.push(npc);
-  log(world, 'world', hired ? `${npc.name} (${JOB_TH[npc.job]}) แรงงานที่ราชสำนักจ้างมา เดินทางมาถึงเมือง` : `นักเดินทาง ${npc.name} (${JOB_TH[npc.job]}) มาถึงเมือง`, npc.id);
+  log(world, 'world', hired ? `${npc.name} (${jobName(world, npc.job)}) แรงงานที่ราชสำนักจ้างมา เดินทางมาถึงเมือง` : `นักเดินทาง ${npc.name} (${jobName(world, npc.job)}) มาถึงเมือง`, npc.id);
 }
 
 // Prefer a name nobody living has; once the pool runs out, number the repeat.
