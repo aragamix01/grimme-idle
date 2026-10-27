@@ -1,4 +1,4 @@
-import { charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -325,6 +325,8 @@ function demonSection(world: WorldState): HTMLElement {
     const slain = world.demonsSlain ?? 0;
     return section('จอมมาร', [
       el('li', { className: 'realm-meters' }, meter('ลางร้าย', dread, dread >= 50 ? 'weak' : 'strong')),
+      // The portents seen so far, and the next.
+      el('li', { className: 'council' }, ...PORTENTS.map((p, i) => el('span', { className: `chip${i < portentOf(world) ? ' chip--gold' : ''}`, textContent: `${p.at}% ${p.name}` }))),
       empty(`${dread ? 'ความมืดและพิธีของลัทธิปลุกจอมมารใต้ดันเจี้ยน ถ้าลางร้ายเต็มจอมมารจะตื่นขึ้น' : 'จอมมารยังหลับใหลอยู่ใต้ดันเจี้ยน'}${slain ? ` · ปราบจอมมารมาแล้ว ${slain} ตน` : ''}`),
     ]);
   }

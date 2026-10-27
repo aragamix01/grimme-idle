@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
+import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
 import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
@@ -532,7 +532,7 @@ export class WorldScene extends Phaser.Scene {
     const sky = Phaser.Display.Color.Interpolate.ColorWithColor(DUSK, NIGHT, 100, Math.round(night * 100));
     // A dark world stains the sky blood red, even at noon.
     // The demon lord's shadow darkens it further, most of all over an occupied town.
-    const dread = w.demon ? (w.demon.stage === 'occupied' ? 1 : 0.6) : 0;
+    const dread = w.demon ? (w.demon.stage === 'occupied' ? 1 : 0.6) : portentOf(w) * 0.12; // the portents redden it first
     const evil = Math.max(dread, Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1));
     const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
     // Rain greys the day a little.

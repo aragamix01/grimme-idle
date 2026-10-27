@@ -14,6 +14,7 @@ import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
 import { writeCharter } from './charter';
 import { industrial } from './ages';
+import { portents } from './portents';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -68,6 +69,7 @@ function gatherDread(world: WorldState, rng: Rng): void {
   const b = balanceOf(world);
   const ward = 1 - 0.2 * perkLevel(world, 'ward');
   world.dread = clamp((world.dread ?? 0) + Math.max(0, -b - 15) * 0.01 * ward - (b > 10 ? 0.1 : 0), 0, DREAD_TO_RISE);
+  portents(world, rng);
   if (world.dread >= DREAD_TO_RISE) rise(world, rng);
 }
 
@@ -75,6 +77,7 @@ function rise(world: WorldState, rng: Rng): void {
   const d = world.dungeons[0];
   const name = pick(rng, LORD_NAMES);
   world.dread = 0;
+  world.portent = 0;
   world.demon = {
     name,
     risen: world.day,

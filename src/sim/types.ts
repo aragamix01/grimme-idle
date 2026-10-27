@@ -355,6 +355,7 @@ export interface WorldState {
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
   dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
+  portent?: number; // the last portent of the gathering dread the chronicle announced (see portents.ts)
   demon?: DemonLord;
   demonsSlain?: number;
   slayers?: string[]; // heroes who slew a demon lord this era

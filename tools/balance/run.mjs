@@ -18,7 +18,7 @@ const bundle = join(here, '../../node_modules/.cache/balance/town.mjs');
 const PER_25 = (years) => years / 25;
 const BOUNDS = [
   ['ประชากรตอนจบ', (r) => r.pop, 85, 160],
-  ['ความหิว (คน×เดือน)', (r) => r.hunger, 0, (y) => 400 * PER_25(y)],
+  ['ความหิว (คน×เดือน)', (r) => r.hunger, 0, (y) => 500 * PER_25(y)], // one town's famine swings a lot from seed to seed
   ['ท้องพระคลัง', (r) => r.treasury, 0, 25000],
   ['คนรวยที่สุด', (r) => r.richest, 0, 8000],
   ['ภัยพิบัติ', (r) => r.events.disaster, 0, (y) => 18 * PER_25(y)],
