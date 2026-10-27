@@ -20,6 +20,7 @@ import { initMiracles, renderMiracles } from './ui/miracles';
 import { containScroll } from './ui/contain';
 import { initLife, renderLife } from './ui/life';
 import type { FromWorker, ToWorker } from './worker/protocol';
+import { bindMapInput } from './game/mapInput';
 
 const TICK_MS = 600; // one in-game day at 1x
 
@@ -27,7 +28,7 @@ const scene = new WorldScene();
 const mapScene = new WorldMapScene();
 const regionScene = new RegionScene();
 scene.tickMs = TICK_MS;
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: 40 * TILE,
@@ -35,14 +36,17 @@ new Phaser.Game({
   pixelArt: true,
   backgroundColor: '#8fd64e',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  input: { mouse: false, touch: false, keyboard: false, gamepad: false }, // the map's taps come from mapInput
   scene: [scene, mapScene, regionScene],
 });
-// Phaser keeps the canvas's place on the page and only rechecks it every half second. The map
-// stays pinned while the page scrolls under it, so a tap just after a scroll landed hundreds of
-// pixels off (or on nothing): refresh the place on every scroll, and again as a finger lands.
-const freshBounds = () => scene.game?.scale.updateBounds();
-addEventListener('scroll', freshBounds, { passive: true });
-for (const type of ['pointerdown', 'touchstart', 'mousedown']) addEventListener(type, freshBounds, { capture: true, passive: true });
+// Taps and drags go to whichever map is up: the town, the world map, or a land up close.
+game.events.once(Phaser.Core.Events.READY, () =>
+  bindMapInput(game.canvas, game, () => {
+    if (section !== 'world') return scene.sys.isActive() ? { scene, tap: (x, y, k, t) => scene.tap(x, y, k, t), grab: () => scene.grab(), dragBy: (dx, dy) => scene.dragBy(dx, dy) } : null;
+    const up = viewing !== null ? regionScene : mapScene;
+    return up.sys.isActive() ? { scene: up, tap: (x, y, k, t) => up.tap(x, y, k, t) } : null;
+  }),
+);
 
 const worker = new Worker(new URL('./worker/sim.worker.ts', import.meta.url), { type: 'module' });
 const send = (msg: ToWorker) => worker.postMessage(msg);
@@ -196,6 +200,14 @@ initLife({
 });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
+// A tap on the dim backdrop around a dialog closes it (the life choice must be made, so not that one).
+for (const id of ['miracles', 'eras', 'offline']) {
+  const d = document.getElementById(id) as HTMLDialogElement;
+  d.addEventListener('click', (e) => {
+    const r = d.getBoundingClientRect(); // a click on the dialog's own padding also targets it
+    if (e.target === d && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) d.close();
+  });
+}
 // Sheets, panels and dialogs keep a finger's scroll to themselves.
 for (const id of ['npc-card', 'miracles', 'eras', 'offline', ...new Set(Object.values(PANEL))]) containScroll(document.getElementById(id)!);
 const onMap = () => section === 'world'; // the world map is up in the town's place
@@ -266,6 +278,26 @@ mapScene.onRealm = (realm) => {
   pick(realm.id);
 };
 initRealms({ onMiracle: (realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }), onPick: pick });
+
+// On phones the sheet can be pulled up over the map to read more, by its grab bar or a swipe
+// on its head, and pushed back down the same way.
+const grab = document.getElementById('sheet-grab')!;
+function pullSheet(full: boolean): void {
+  if (full) app.dataset.sheet = 'full';
+  else delete app.dataset.sheet;
+  grab.setAttribute('aria-expanded', String(full));
+  grab.setAttribute('aria-label', full ? 'ย่อแผ่นข้อมูลลงให้เห็นแผนที่' : 'ขยายแผ่นข้อมูลขึ้นทับแผนที่');
+}
+grab.onclick = () => pullSheet(app.dataset.sheet !== 'full');
+const sheetHead = document.getElementById('sheet-head')!;
+let swipeY: number | null = null;
+sheetHead.addEventListener('touchstart', (e) => (swipeY = e.touches[0].clientY), { passive: true });
+sheetHead.addEventListener('touchend', (e) => {
+  if (swipeY === null) return;
+  const dy = e.changedTouches[0].clientY - swipeY;
+  swipeY = null;
+  if (Math.abs(dy) > 30) pullSheet(dy < 0);
+});
 
 // The map's settings sit behind one menu button, as a list that closes after a pick or a tap
 // anywhere else.

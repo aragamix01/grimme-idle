@@ -48,6 +48,7 @@ html, body { overflow: hidden; }
 .speed button { min-width: 44px; font-weight: 600; }
 
 #game { grid-area: game; position: relative; min-width: 0; min-height: 0; touch-action: none; }
+#game canvas { touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .map-menu {
   position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px;
   border: 2px solid var(--outline); background: var(--paper); box-shadow: 2px 2px 0 rgb(59 36 22 / 0.35); cursor: pointer;
@@ -77,6 +78,7 @@ html, body { overflow: hidden; }
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
 }
 .sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 2px solid var(--paper-edge); }
+.sheet-grab { display: none; }
 .sheet-title { margin: 0; font-size: 18px; font-weight: 600; }
 .tabs { flex: 1 1 100%; }
 .tabs button { padding: 3px 4px; font-size: 13px; font-weight: 600; white-space: nowrap; }
@@ -101,7 +103,12 @@ html, body { overflow: hidden; }
 .nav .fab:active { transform: translate(2px, 2px); box-shadow: inset 0 -4px 0 var(--gold-deep); }
 
 /* The god's powers: miracles, the era and a life below, in one sheet. */
-.powers-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* The head stays pinned while the miracles scroll under it, so the sheet can always be closed. */
+#miracles { padding-top: 0; }
+.powers-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 -20px; padding: 10px 20px 8px; background: var(--paper); border-bottom: 2px solid var(--paper-edge);
+}
 #miracles .powers-head form { margin: 0; }
 .dialog-x { width: 40px; height: 40px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 22px; line-height: 1; }
 .powers-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px; }
@@ -428,7 +435,7 @@ button.chip--cult:hover { background: #7a3a8a; }
 html:has(dialog[open]) { overflow: hidden; }
 #offline::backdrop, #eras::backdrop, #miracles::backdrop { background: rgb(20 40 16 / 0.6); }
 #miracles {
-  width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 18px 20px; color: var(--ink);
+  width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px 20px; color: var(--ink);
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
 }
 #miracles h2 { margin: 0 0 4px; font-size: 20px; }
@@ -449,7 +456,7 @@ html:has(dialog[open]) { overflow: hidden; }
 .dream-kinds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 6px; }
 .chip--curse { background: #3a5a2a; color: var(--paper); border-color: var(--outline); }
 #eras {
-  width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 18px 20px; color: var(--ink);
+  width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px 20px; color: var(--ink);
   background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
 }
 #eras h2 { margin: 0 0 8px; font-size: 20px; }
@@ -521,7 +528,22 @@ html:has(dialog[open]) { overflow: hidden; }
   }
   .npc__head .npc__close { display: none; }
   #sub-tabs [data-sub="npc"] { display: none; } /* the card covers the tabs; it carries the story instead */
-  dialog.sheet-dialog { margin: auto 0 0; width: 100%; max-width: none; max-height: 88dvh; border-bottom: 0; }
+  /* The god-powers sheet rises from the bottom edge, full width. */
+  #miracles.sheet-dialog { margin: auto 0 0; width: 100%; max-width: none; max-height: 85dvh; padding: 0 14px 14px; border-width: 3px 0 0; }
+  #miracles .powers-head { margin: 0 -14px; padding: 8px 14px 6px; }
+  /* One compact row for the title and tabs; a grab bar pulls the sheet up over the map. */
+  .sheet-head { flex-wrap: nowrap; gap: 8px; padding: 0 8px 6px; position: relative; }
+  .sheet-grab {
+    display: grid; place-items: center; position: absolute; left: 0; right: 0; top: 0; height: 18px; padding: 0;
+    border: 0; background: none; cursor: pointer;
+  }
+  .sheet-grab::before { content: ''; width: 44px; height: 5px; background: var(--paper-edge); border: 1px solid var(--outline); }
+  .sheet-head .sheet-title { padding-top: 18px; font-size: 16px; white-space: nowrap; }
+  .sheet-head .tabs { flex: 1 1 auto; margin-top: 18px; min-width: 0; }
+  .tabs button { padding: 2px 4px; }
+  #npc-hint { display: none; }
+  #app[data-sheet="full"] #side { grid-row: 2 / 4; z-index: 4; }
+  #app[data-sheet="full"] .sheet-grab::before { background: var(--gold); }
 }
 
 /* Fingers need bigger targets than a mouse. */

@@ -55,7 +55,9 @@
 - **เพิ่ม panel ใหม่:** ใส่ element `class="panel"` ใน `#side`, เพิ่ม key ใน `PANEL` และ `SECTIONS` ใน `main.ts` แล้วเรียก render ใน `render()`
 - การ์ดตัวละครมี 2 ความสูงบนมือถือ (ครึ่งจอ และ `npc--full`) ปุ่มส่งความฝันจะขยายการ์ดเต็มให้เอง
 - เมนูแผนที่ (☰ `#map-menu` → `#map-tools`) มี ซูม / กลางวันกลางคืน / เสียง
+- **การแตะและลากบนแผนที่ไม่ผ่าน input ของ Phaser** (ปิดไว้ใน config) ทุกอย่างมาจาก pointer events ของเบราว์เซอร์ใน `src/game/mapInput.ts` แล้วส่งให้ `tap()` / `grab()` / `dragBy()` ของ scene ที่เปิดอยู่ เพราะเส้นทาง touch ของ Phaser พังบน Safari ใน iPhone ถ้าต้องให้ scene ใหม่รับการแตะ ให้เพิ่ม method เหล่านี้ อย่าใช้ `this.input` หรือ `setInteractive`
 - การแตะคนบนแผนที่วัดระยะถึงตัว sprite ทั้งตัว และขยายขอบเป็นระยะบนจอ ทำให้แตะโดนได้เท่ากันทุกระดับซูม
+- บนมือถือ แผ่นข้อมูลดึงขึ้นทับแผนที่ได้ (แถบจับด้านบน หรือปัดที่หัวแผ่น) ส่วน dialog ใช้ `dvh` ไม่ใช้ `vh` เพราะ `100vh` บน iPhone สูงกว่าจอที่มองเห็น
 - ออกแบบไว้ใน Claude Design: canvas https://claude.ai/artifact/YRHJZqXWyp9LFLHKFLb1UW และ design system https://claude.ai/artifact/PvrkG6Nu1qYJgMPQx8wpDe
 
 ## ภาพและไอคอน

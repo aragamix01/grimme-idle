@@ -55,28 +55,26 @@ export class WorldMapScene extends Phaser.Scene {
     this.world = world;
   }
 
-  create(): void {
-    // A tap picks the nearest keep within reach; reach is measured on screen, wider for a fingertip.
-    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      const k = this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width;
-      const reach = Math.max(22, (p.wasTouch ? 36 : 24) / k);
-      let best: Realm | null = null;
-      let bestD = reach;
-      for (const r of this.world?.realms ?? []) {
-        const d = Math.hypot(p.worldX - (r.x * TILE + TILE / 2), p.worldY - (r.y * TILE + 4));
-        if (d < bestD) {
-          bestD = d;
-          best = r;
-        }
+  // A tap (from the page's pointer events, see mapInput.ts) picks the nearest keep within reach;
+  // reach is measured on screen, wider for a fingertip. k is screen pixels per world pixel.
+  tap(wx: number, wy: number, k: number, touch: boolean): void {
+    const reach = Math.max(22, (touch ? 36 : 24) / k);
+    let best: Realm | null = null;
+    let bestD = reach;
+    for (const r of this.world?.realms ?? []) {
+      const d = Math.hypot(wx - (r.x * TILE + TILE / 2), wy - (r.y * TILE + 4));
+      if (d < bestD) {
+        bestD = d;
+        best = r;
       }
-      if (best || !this.world?.regions) return this.onRealm(best);
-      // Open ground: the region under the finger.
-      const x = Math.floor(p.worldX / TILE);
-      const y = Math.floor(p.worldY / TILE);
-      if (this.ground[y * MAP_W + x] === 'water') return;
-      const region = regionAt(this.world, x, y);
-      if (region) this.onRegion(region);
-    });
+    }
+    if (best || !this.world?.regions) return this.onRealm(best);
+    // Open ground: the region under the finger.
+    const x = Math.floor(wx / TILE);
+    const y = Math.floor(wy / TILE);
+    if (x < 0 || y < 0 || x >= MAP_W || this.ground[y * MAP_W + x] === 'water') return;
+    const region = regionAt(this.world, x, y);
+    if (region) this.onRegion(region);
   }
 
   update(): void {

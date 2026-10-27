@@ -62,10 +62,23 @@ export class RegionScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setZoom(2).setBounds(0, 0, RW * TILE, RH * TILE).centerOn((RW * TILE) / 2, (RH * TILE) / 2);
-    this.input.on('gameobjectup', (_p: Phaser.Input.Pointer, o: Phaser.GameObjects.GameObject) => {
-      const id = o.getData('npc');
-      if (typeof id === 'number') this.onVillager(id);
-    });
+  }
+
+  // A tap (from the page's pointer events, see mapInput.ts) on a villager, or within a
+  // fingertip of one, picks them. k is screen pixels per world pixel.
+  tap(x: number, y: number, k: number, touch: boolean): void {
+    let best: number | null = null;
+    let bestD = (touch ? 20 : 10) / k;
+    for (const { id, sprite: s } of this.walkers) {
+      const dx = Math.max(0, Math.abs(x - s.x) - s.displayWidth / 4);
+      const dy = Math.max(0, s.y - s.displayHeight * 0.8 - y, y - s.y);
+      const d = Math.hypot(dx, dy);
+      if (d < bestD) {
+        bestD = d;
+        best = id;
+      }
+    }
+    if (best !== null) this.onVillager(best);
   }
 
   update(_t: number, dt: number): void {
@@ -304,7 +317,6 @@ export class RegionScene extends Phaser.Scene {
     };
     const s0 = spot();
     const sprite = this.put(this.add.sprite(s0.x, s0.y, key).setOrigin(0.5, 1).play(`${key}-down`).setDepth(s0.y + 2));
-    sprite.setInteractive({ useHandCursor: true }).setData('npc', n.id);
     const t = spot();
     this.walkers.push({ id: n.id, sprite, key, zone, tx: t.x, ty: t.y, wait: this.rand() * 2000, pick: spot });
     return sprite;

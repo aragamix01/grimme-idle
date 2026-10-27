@@ -38,8 +38,14 @@ async function npcPos(page: Page, skip?: number) {
 // aside between finding them and the tap landing, so then any townsperson's card will do.
 async function tapNpc(page: Page, skip?: number, exact = true) {
   await page.waitForFunction(() => !(window as any).__grimm.scene.sys.isSleeping());
-  await page.waitForTimeout(300); // let the townsfolk settle where they are drawn
-  const pos = await npcPos(page, skip);
+  // Let the townsfolk finish the step they were drawn taking (a busy machine stretches it).
+  let pos = await npcPos(page, skip);
+  for (let i = 0; i < 20 && pos; i++) {
+    await page.waitForTimeout(150);
+    const again = await page.evaluate((id) => (window as any).__grimm.scene.npcScreenPos(id), pos.id);
+    if (again && Math.abs(again.x - pos.x) < 0.5 && Math.abs(again.y + 8 - pos.y) < 0.5) break;
+    pos = await npcPos(page, skip);
+  }
   expect(pos).not.toBeNull();
   await page.touchscreen.tap(pos!.x, pos!.y);
   await expect(card(page)).toBeVisible();
@@ -258,6 +264,59 @@ test('the god-powers sheet and the era dialog open and close, and the map still 
   await expect(page.locator('#eras')).toBeHidden();
   await powers.locator('form .btn').tap();
   await expect(powers).toBeHidden();
+  await tapNpc(page);
+  await closeCard(page);
+});
+
+test('the god-powers sheet fits the screen, keeps its close button in view, and closes from outside', async ({ page, browserName }) => {
+  chromeOnly(browserName);
+  await page.locator('#miracle-open').tap();
+  const powers = page.locator('#miracles');
+  await expect(powers).toBeVisible();
+  const box = (await powers.boundingBox())!;
+  const vh = await page.evaluate(() => innerHeight);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(vh + 1);
+  expect(box.width).toBeGreaterThan((await page.evaluate(() => innerWidth)) - 2); // full width on a phone
+  // Scroll the miracles all the way down: the close button stays in view.
+  const cdp = await page.context().newCDPSession(page);
+  for (let i = 0; i < 4; i++) await swipe(cdp, box.x + box.width / 2, box.y + box.height * 0.8, 0, -500);
+  expect(await powers.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await expect(powers.locator('.dialog-x')).toBeInViewport();
+  await powers.locator('.dialog-x').tap();
+  await expect(powers).toBeHidden();
+  // A tap on the dim backdrop above the sheet closes it too.
+  await page.locator('#miracle-open').tap();
+  await expect(powers).toBeVisible();
+  const top = (await powers.boundingBox())!.y;
+  await page.touchscreen.tap(20, top / 2);
+  await expect(powers).toBeHidden();
+  await tapNpc(page);
+  await closeCard(page);
+});
+
+test('the sheet pulls up over the map and back, by its grab bar and by a swipe', async ({ page, browserName }) => {
+  chromeOnly(browserName);
+  const side = page.locator('#side');
+  const mapTop = (await page.locator('#game').boundingBox())!.y;
+  const before = (await side.boundingBox())!;
+  await page.locator('#sheet-grab').tap();
+  await expect(page.locator('#app')).toHaveAttribute('data-sheet', 'full');
+  const full = (await side.boundingBox())!;
+  expect(full.y).toBeLessThanOrEqual(mapTop + 1);
+  expect(full.height).toBeGreaterThan(before.height + 150);
+  await page.locator('#sheet-grab').tap();
+  await expect(page.locator('#app')).not.toHaveAttribute('data-sheet', 'full');
+  await tapNpc(page);
+  await closeCard(page);
+  // A swipe up on the sheet's head pulls it up; a swipe down puts it back.
+  const cdp = await page.context().newCDPSession(page);
+  const head = (await page.locator('#sheet-head').boundingBox())!;
+  await swipe(cdp, head.x + 30, head.y + head.height / 2, 0, -120);
+  await expect(page.locator('#app')).toHaveAttribute('data-sheet', 'full');
+  const head2 = (await page.locator('#sheet-head').boundingBox())!;
+  await swipe(cdp, head2.x + 30, head2.y + head2.height / 2, 0, 120);
+  await expect(page.locator('#app')).not.toHaveAttribute('data-sheet', 'full');
   await tapNpc(page);
   await closeCard(page);
 });
