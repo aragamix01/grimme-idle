@@ -12,6 +12,7 @@ import { isAdventurer, legend } from './quests';
 import { enthrone, king, leaveTrade } from './society';
 import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
+import { writeCharter } from './charter';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -135,6 +136,7 @@ function fall(world: WorldState, lord: DemonLord, rng: Rng): void {
     n.loyalty = Math.min(loyaltyOf(n), 30);
   }
   log(world, 'politics', 'กองทัพหลวงแตกพ่าย ทหารที่รอดถอดเกราะไปใช้ชีวิตเป็นชาวบ้าน');
+  if (world.works?.factory !== undefined) log(world, 'cult', 'ปีศาจยึดโรงงาน บังคับคนงานหลอมอาวุธให้ทัพจอมมาร');
   const leader = world.cult && world.npcs.find((n) => n.alive && n.id === world.cult!.leaderId);
   if (leader) {
     lord.governorId = leader.id;
@@ -326,6 +328,7 @@ function slay(world: WorldState, lord: DemonLord, hero: Npc): void {
     for (const n of adults(world)) n.loyalty = Math.min(100, loyaltyOf(n) + 25);
     if (world.crown) world.crown.tax = 'low';
     log(world, 'politics', 'อาณาจักรได้รับอิสรภาพคืน ชาวเมืองออกมาเฉลิมฉลองทั่วทุกถนน');
+    writeCharter(world, 'ปลดปล่อยเมืองจากจอมมาร');
     return;
   }
   const k = king(world);

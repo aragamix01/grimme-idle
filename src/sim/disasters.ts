@@ -162,7 +162,14 @@ function losses(world: WorldState, share: number): void {
 // nothing and is hated for it.
 function relief(world: WorldState, rng: Rng): void {
   const ruler = king(world);
-  if (!ruler) return;
+  if (!ruler) {
+    if (occupied(world)) {
+      for (const n of living(world)) loyaltyNudge(n, -2);
+      if (world.demon) world.demon.resistance = Math.min(100, (world.demon.resistance ?? 0) + 5); // misery feeds the rising
+      log(world, 'politics', 'ผู้สำเร็จราชการของจอมมารไม่ส่งความช่วยเหลือใดๆ ชาวเมืองยิ่งเกลียดชังผู้ยึดครอง');
+    }
+    return;
+  }
   const people = living(world).filter((n) => n.age >= 16);
   const cost = people.length * RELIEF_EACH;
   const caring = ruler.traits.includes('kind') || world.regime === 'republic' || world.regime === 'theocracy' || (!ruler.traits.includes('greedy') && chance(rng, 0.4));
@@ -277,8 +284,7 @@ export function disastersDay(world: WorldState, rng: Rng): void {
   if (world.ruins?.length && world.ruins.some((r) => r.until <= world.day)) world.ruins = world.ruins.filter((r) => r.until > world.day);
   if (world.day % 30 !== DAY) return;
   realmDisasters(world, rng);
-  if (occupied(world)) return;
-  wearOn(world, rng);
+  wearOn(world, rng); // nature doesn't stop for the demon lord
   homeless(world, rng);
   hireBuilders(world, rng);
   if (world.day - (world.disasterAt ?? 0) < GAP) return;

@@ -9,6 +9,7 @@ import { PLOTS } from './town';
 import { ensureMarket } from './market';
 import { mastery } from './research';
 import { traveller } from './world';
+import { feed } from './demonlord';
 import type { Npc, Work, WorldState } from './types';
 
 export interface WorkDef {
@@ -36,8 +37,8 @@ export const WORKS: Record<Work, WorkDef> = {
   clocktower: { name: 'หอนาฬิกา', cost: 700, days: 90, text: 'ระฆังบอกเวลาทำให้ทุกคนทำงานตรงเวลา ผลผลิตข้าวและความรู้เพิ่ม 10%', art: 'clocktower', plot: PLOTS.clocktower },
   press: { name: 'โรงพิมพ์', cost: 800, days: 90, text: 'หนังสือราคาถูก ผู้ใหญ่หัดอ่านเองได้ นักปราชญ์ค้นคว้าได้ไวขึ้น 25%', art: 'press', plot: PLOTS.press },
   monument: { name: 'อนุสรณ์สถานแห่งอาณาจักร', cost: MONUMENT_COST, days: 120, text: 'สร้างต่อเติมได้ไม่รู้จบ ทุกระดับทำให้ชาวเมืองภาคภูมิใจและศรัทธามากขึ้น', art: 'monument-1', plot: PLOTS.monument },
-  factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น', art: 'factory', plot: PLOTS.factory },
-  station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20%', art: 'station', plot: PLOTS.station },
+  factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น หากจอมมารยึดเมืองจะผลิตอาวุธให้ทัพปีศาจแทน', art: 'factory', plot: PLOTS.factory },
+  station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: PLOTS.station },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
 export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'palace', 'monument'];
@@ -99,11 +100,15 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
 // Monthly: the factory's output, and who the trains bring.
 function industry(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== ASK_DAY) return;
+  const lord = world.demon?.stage === 'occupied' ? world.demon : undefined;
   if (built(world, 'factory')) {
-    ensureMarket(world).stock.gear += FACTORY_GEAR;
-    world.treasury += FACTORY_GOLD;
+    if (lord) feed(lord, 1); // its arms go to the demon's host
+    else {
+      ensureMarket(world).stock.gear += FACTORY_GEAR;
+      world.treasury += FACTORY_GOLD;
+    }
   }
-  if (built(world, 'station') && chance(rng, STATION_VISITORS)) traveller(world, rng);
+  if (built(world, 'station') && !lord && chance(rng, STATION_VISITORS)) traveller(world, rng);
 }
 
 export function crownWorks(world: WorldState, rng: Rng): void {

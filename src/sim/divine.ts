@@ -1,7 +1,7 @@
 // The god's hand: blessings that fade, curses that bite, dreams that change a heart, and
 // miracles worked on the whole world, from kind rain to plague and eclipse.
 import { pick, type Rng } from './rng';
-import { clamp, known, log, occupied, perkLevel } from './core';
+import { clamp, known, log, perkLevel } from './core';
 import { bringDisaster, flooded } from './disasters';
 import { king } from './society';
 import { plagueStrike } from './worldevents';
@@ -178,7 +178,6 @@ export function miracleBlocked(world: WorldState, k: MiracleKind): string | unde
   if (k === 'aegis' && world.aegis) return 'โล่ศักดิ์สิทธิ์ยังคุ้มครองเมืองอยู่';
   if (k === 'revive' && !reviveTarget(world)) return 'ไม่มีคนสำคัญที่เพิ่งตายในปีนี้';
   if (k === 'uprising' && world.demon?.stage !== 'occupied') return 'ใช้ได้เมื่อจอมมารยึดเมืองเท่านั้น';
-  if ((k === 'quake' || k === 'flood' || k === 'drought') && occupied(world)) return 'เมืองอยู่ใต้การยึดครองของจอมมาร';
   if (k === 'tyranny' && !king(world)) return 'เมืองไม่มีผู้ปกครอง';
   if (k === 'doom' && world.demon) return 'จอมมารตื่นอยู่แล้ว';
   return undefined;
