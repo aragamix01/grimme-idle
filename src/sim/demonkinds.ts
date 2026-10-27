@@ -15,6 +15,7 @@ import { approval } from './politics';
 import { ageOf } from './ages';
 import { WORK_ORDER } from './works';
 import { TOWN_SIZE } from './town';
+import { isAvatar } from './avatar';
 import type { DemonKind, DemonLord, WorldState } from './types';
 
 export const DEMON_KINDS: Record<DemonKind, { title: string; text: string; tint: number; hue: number }> = {
@@ -69,7 +70,7 @@ export function demonNature(world: WorldState, lord: DemonLord, rng: Rng): void 
     case 'shadow': {
       for (const n of grown) loyaltyNudge(n, -2);
       if (lord.stage !== 'risen') return; // once the town is taken its whispers are done
-      const marks = grown.filter((n) => !n.cultist && !n.hero && n.job !== 'king' && n.job !== 'priest' && n.morality < 30);
+      const marks = grown.filter((n) => !n.cultist && !isAvatar(world, n) && !n.hero && n.job !== 'king' && n.job !== 'priest' && n.morality < 30);
       for (let i = 0; i < 2 && marks.length && grown.filter((n) => n.cultist).length < MAX_CULTISTS; i++) {
         const n = marks.splice(int(rng, 0, marks.length - 1), 1)[0];
         n.cultist = true;

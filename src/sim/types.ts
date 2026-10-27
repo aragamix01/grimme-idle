@@ -238,7 +238,8 @@ export interface DemonLord {
   heroLost?: number; // day the last hero fell
   resistance?: number; // 0..100: the townsfolk's secret resistance, growing through the occupation
   hero?: HeroQuest;
-  generals?: { name: string; power: number; slain?: number }[]; // the lieutenants who hold the dungeons; all must fall before the keep
+  generals?: { name: string; power: number; slain?: number }[];
+  passedOver?: number; // the one who refused the prophecy's call // the lieutenants who hold the dungeons; all must fall before the keep
 }
 
 export type Terrain = 'mountain' | 'coast' | 'desert' | 'forest';
@@ -379,7 +380,7 @@ export interface WorldState {
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
   dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
-  avatar?: { id: number; since: number; lives: number }; // the townsperson the player is living as; missing while they play the god
+  avatar?: { id: number; since: number; lives: number; refused?: Record<number, number> }; // refused: suitors turned down, and the day each may ask again // the townsperson the player is living as; missing while they play the god
   choice?: Choice; // a turn of that life waiting on the player
   justice?: { cases: number; convicted: number; acquitted: number; bribes: number; executions: number; corruption: number }; // the courts' tally
   portent?: number; // the last portent of the gathering dread the chronicle announced (see portents.ts)

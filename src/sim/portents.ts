@@ -6,6 +6,7 @@
 import { pick, type Rng } from './rng';
 import { clamp, log, loyaltyNudge } from './core';
 import { DREAD_TO_RISE } from './demonlord';
+import { isAvatar } from './avatar';
 import type { WorldState } from './types';
 
 export const PORTENTS = [
@@ -39,7 +40,7 @@ export function portents(world: WorldState, rng: Rng): void {
   for (const d of world.dungeons) d.power += 2;
   if (stage >= 2 && world.cult) {
     // The cult walks openly: one more joins each month.
-    const mark = grown.filter((n) => !n.cultist && n.morality < 20 && n.job !== 'king' && n.job !== 'priest' && !n.hero);
+    const mark = grown.filter((n) => !n.cultist && !isAvatar(world, n) && n.morality < 20 && n.job !== 'king' && n.job !== 'priest' && !n.hero);
     if (mark.length) {
       const n = pick(rng, mark);
       n.cultist = true;

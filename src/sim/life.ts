@@ -2,7 +2,7 @@
 import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { jobName } from './ages';
-import { isAvatar, offerCalling } from './avatar';
+import { isAvatar, offer, offerCalling } from './avatar';
 import { PLACES } from './places';
 import { TOWN_SIZE } from './town';
 import { inheritedJob } from './society';
@@ -123,12 +123,24 @@ export function romance(world: WorldState, rng: Rng): void {
     const b = crushOf(world, a);
     if (!b || a.id > b.id || b.age > 60 || crushOf(world, b) !== a) continue; // it has to be mutual
     if (getTie(world, a.id, b.id) < MARRY_TIE || Math.abs(a.morality - b.morality) > 80 || !chance(rng, MARRY_CHANCE)) continue;
-    a.spouseId = b.id;
-    b.spouseId = a.id;
-    lookup(world).single.delete(a.id);
-    lookup(world).single.delete(b.id);
-    log(world, 'bond', `${a.name} และ${b.name} แต่งงานกัน`, a.id);
+    const me = isAvatar(world, a) ? a : isAvatar(world, b) ? b : undefined;
+    if (me) {
+      // The player's own heart decides; a suitor turned down waits a while before asking again.
+      const other = me === a ? b : a;
+      if ((world.avatar!.refused?.[other.id] ?? 0) > world.day) continue;
+      offer(world, { kind: 'marry', text: `${other.name}สารภาพรักและขอแต่งงานกับ${me.name} จะตอบว่าอย่างไร?`, options: [{ key: 'yes', label: 'ตกลงแต่งงาน' }, { key: 'no', label: 'ปฏิเสธ' }], fallback: 'yes', other: other.id });
+      continue;
+    }
+    wed(world, a, b);
   }
+}
+
+export function wed(world: WorldState, a: Npc, b: Npc): void {
+  a.spouseId = b.id;
+  b.spouseId = a.id;
+  lookup(world).single.delete(a.id);
+  lookup(world).single.delete(b.id);
+  log(world, 'bond', `${a.name} และ${b.name} แต่งงานกัน`, a.id);
 }
 
 // Couples in their child-raising years sometimes welcome a child.

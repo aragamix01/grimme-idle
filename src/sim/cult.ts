@@ -9,6 +9,7 @@ import { dungeonDoor } from './places';
 import { loyaltyOf } from './politics';
 import { guardNear } from './society';
 import { feed } from './demonlord';
+import { isAvatar, offer } from './avatar';
 import type { Npc, WorldState } from './types';
 
 export const CULT_NAMES = ['เงาจันทร์', 'ดวงตาสีเลือด', 'งูดำ', 'เปลวไฟนรก', 'รุ่งอรุณมืด', 'มงกุฎหนาม'];
@@ -103,6 +104,16 @@ function recruit(world: WorldState, rng: Rng): void {
         (n.blessed ? 3 : 0) -
         (n.traits.includes('kind') ? 1 : 0);
       if (pull > 1 && chance(rng, 0.1 * pull)) {
+        if (isAvatar(world, n)) {
+          offer(world, {
+            kind: 'cult',
+            text: `${c.name}กระซิบชวน${n.name}เข้า${world.cult!.name} สัญญาว่าจะได้อำนาจและทองคำ`,
+            options: [{ key: 'join', label: 'เข้าร่วมลัทธิ' }, { key: 'refuse', label: 'ปฏิเสธ' }, { key: 'report', label: 'แจ้งความกับทางการ' }],
+            fallback: 'refuse',
+            other: c.id,
+          });
+          continue;
+        }
         n.cultist = true;
         n.morality = clamp(n.morality - 10, -100, 100);
       }

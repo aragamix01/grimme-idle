@@ -6,7 +6,10 @@
 // to the heavens. While the player lives below, no miracle, blessing or curse can be worked.
 import { pick, type Rng } from './rng';
 import { log } from './core';
-import { bornTo } from './life';
+import { bornTo, wed } from './life';
+import { getTie, setTie } from './ties';
+import { expose } from './cult';
+import { answerProphecy } from './demonlord';
 import { jobName } from './ages';
 import { literate } from './learning';
 import type { Choice, Job, Npc, WorldState } from './types';
@@ -81,6 +84,40 @@ export function choose(world: WorldState, key: string, rng: Rng): void {
     case 'job':
       if (n?.alive) setCalling(world, n, k as Job);
       return;
+    case 'marry': {
+      const other = byId(world, c.other);
+      if (!n?.alive || !other?.alive || byId(world, other.spouseId)?.alive || byId(world, n.spouseId)?.alive) return; // one of them has wed since
+      if (k === 'yes') return wed(world, n, other);
+      setTie(world, n.id, other.id, Math.min(getTie(world, n.id, other.id), 20));
+      if (world.avatar) (world.avatar.refused ??= {})[other.id] = world.day + 2 * 365;
+      log(world, 'bond', `${n.name}ปฏิเสธคำขอแต่งงานของ${other.name}`, n.id);
+      return;
+    }
+    case 'cult': {
+      const whisperer = byId(world, c.other);
+      if (!n?.alive) return;
+      if (k === 'join') {
+        n.cultist = true;
+        n.morality = Math.max(-100, n.morality - 10);
+        log(world, 'cult', `${n.name}แอบเข้าร่วม${world.cult?.name ?? 'ลัทธิมาร'}`, n.id);
+      } else if (k === 'report' && whisperer?.alive && whisperer.cultist) {
+        expose(world, whisperer, `ถูก${n.name}แจ้งความกับทางการ`);
+        n.morality = Math.min(100, n.morality + 5);
+      }
+      return;
+    }
+    case 'exodus':
+      if (k !== 'leave' || !n?.alive) return;
+      for (const m of [n, byId(world, n.spouseId)]) {
+        if (!m?.alive) continue;
+        m.alive = false;
+        m.left = true;
+        m.plan = undefined;
+      }
+      log(world, 'world', `${n.name}เก็บข้าวของแล้วย้ายออกจากเมืองไปตั้งตัวใหม่`, n.id);
+      return;
+    case 'hero':
+      return answerProphecy(world, k === 'accept');
     case 'rebirth':
       if (k === 'ascend') return ascend(world);
       if (k === 'newborn') {

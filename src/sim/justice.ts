@@ -9,6 +9,7 @@ import { clamp, kill, log, loyaltyNudge, occupied } from './core';
 import { getTie } from './ties';
 import { king } from './society';
 import { jobName } from './ages';
+import { isAvatar } from './avatar';
 import type { CrimeKind, Npc, WorldState } from './types';
 
 export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต' };
@@ -35,7 +36,7 @@ export function commit(world: WorldState, n: Npc, kind: CrimeKind, rng: Rng, gol
 // Someone with murder in their heart and a bitter enemy acts on it.
 function murders(world: WorldState, rng: Rng): void {
   for (const n of adults(world)) {
-    if (n.morality > -10 || jailed(world, n) || n.inside !== undefined || !n.traits.some((t) => t === 'vengeful' || t === 'greedy')) continue;
+    if (n.morality > -10 || isAvatar(world, n) || jailed(world, n) || n.inside !== undefined || !n.traits.some((t) => t === 'vengeful' || t === 'greedy')) continue;
     const foe = adults(world).find((o) => o !== n && o.inside === undefined && !o.hero && getTie(world, n.id, o.id) <= -45);
     if (!foe || !chance(rng, MURDER_CHANCE)) continue;
     kill(world, foe, 'ถูกฆาตกรรมอย่างเลือดเย็น ไม่มีใครรู้ว่าใครเป็นคนลงมือ');

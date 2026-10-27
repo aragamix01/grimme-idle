@@ -16,6 +16,7 @@ import { writeCharter } from './charter';
 import { ageOf, industrial } from './ages';
 import { DEMON_KINDS, GENERALS, demonNature, kindFor } from './demonkinds';
 import { portents } from './portents';
+import { avatarOf, isAvatar, offer } from './avatar';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -62,10 +63,7 @@ export function demonDay(world: WorldState, rng: Rng): void {
   if (lord.stage === 'risen') {
     if (world.day - lord.lastRaid >= RAID_EVERY) raid(world, lord, rng);
     // A town that holds out long with no hero: the old prophecy wakes one.
-    if (!lord.hero && world.day - Math.max(lord.risen, lord.heroLost ?? 0) >= RISEN_HERO_DAYS) {
-      const n = bestHero(world);
-      if (n) awaken(world, lord, n, 'คำทำนายโบราณปลุก');
-    }
+    if (!lord.hero && world.day - Math.max(lord.risen, lord.heroLost ?? 0) >= RISEN_HERO_DAYS) prophecy(world, lord);
   } else occupation(world, lord);
 }
 
@@ -173,10 +171,7 @@ function occupation(world: WorldState, lord: DemonLord): void {
     if (tribute) log(world, 'cult', `จอมมาร${lord.name}รีดส่วย ${tribute} ทองจากท้องพระคลัง`);
   }
   if (world.day % 30 === 20) resist(world, lord);
-  if (!lord.hero && world.day - Math.max(lord.fell ?? 0, lord.heroLost ?? 0) >= SELF_HERO_DAYS) {
-    const n = bestHero(world);
-    if (n) awaken(world, lord, n, 'คำทำนายโบราณปลุก');
-  }
+  if (!lord.hero && world.day - Math.max(lord.fell ?? 0, lord.heroLost ?? 0) >= SELF_HERO_DAYS) prophecy(world, lord);
 }
 
 // The town doesn't kneel for long: in cellars and haylofts a resistance grows each month, faster
@@ -200,13 +195,36 @@ function allies(world: WorldState, lord: DemonLord): { might: number; realms: st
   return { might, realms: friends.map((r) => r.name) };
 }
 
+// The old prophecy wakes the worthiest; if that is the player's own life, it asks them first.
+function prophecy(world: WorldState, lord: DemonLord): void {
+  const n = bestHero(world, lord.passedOver);
+  if (!n) return;
+  if (!isAvatar(world, n)) return awaken(world, lord, n, 'คำทำนายโบราณปลุก');
+  offer(world, {
+    kind: 'hero',
+    text: `คำทำนายโบราณเลือก${n.name}ให้เป็นผู้กล้าผู้จะโค่นจอมมาร จะรับภาระนี้หรือไม่?`,
+    options: [{ key: 'accept', label: 'รับเป็นผู้กล้า' }, { key: 'decline', label: 'ปฏิเสธ ให้คนอื่นแทน' }],
+    fallback: 'accept',
+  });
+}
+
+export function answerProphecy(world: WorldState, accept: boolean): void {
+  const lord = world.demon;
+  const n = avatarOf(world);
+  if (!lord || !n?.alive || lord.hero) return;
+  if (accept) return awaken(world, lord, n, 'คำทำนายโบราณปลุก');
+  lord.passedOver = n.id;
+  log(world, 'politics', `${n.name}ปฏิเสธคำทำนาย ชาวเมืองกระซิบกันว่าคนขี้ขลาด`, n.id);
+  prophecy(world, lord);
+}
+
 // ---------- the hero ----------
 
 // The god's eye falls on the strongest good soul: a blessed, seasoned adventurer if there is one.
-export function bestHero(world: WorldState): Npc | undefined {
+export function bestHero(world: WorldState, skip?: number): Npc | undefined {
   const score = (n: Npc) => (isAdventurer(n) ? 20 : 0) + n.level * 3 + (n.blessed ? 15 : 0) + n.morality * 0.1 + (n.traits.includes('brave') ? 5 : 0);
   return adults(world)
-    .filter((n) => worthy(n) && !n.retired && n.age <= 45)
+    .filter((n) => worthy(n) && !n.retired && n.age <= 45 && n.id !== skip)
     .sort((a, b) => score(b) - score(a))[0];
 }
 

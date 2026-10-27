@@ -15,6 +15,7 @@ import { clamp } from './core';
 import { king, payrollReserve } from './society';
 import { BUILDINGS } from './town';
 import { WORKS, WORK_ORDER } from './works';
+import { isAvatar, offer } from './avatar';
 import type { Realm, Terrain, Work, WorldState } from './types';
 
 const DAY = 27; // day of the month nature may strike
@@ -88,6 +89,11 @@ function exodus(world: WorldState, rng: Rng, homes: number, how: string): number
   for (let i = 0; i < homes && pool.length; i++) {
     const n = pool.splice(int(rng, 0, pool.length - 1), 1)[0];
     if (!chance(rng, 0.5)) continue;
+    const me = isAvatar(world, n) ? n : isAvatar(world, world.npcs.find((o) => o.id === n.spouseId)) ? world.npcs.find((o) => o.id === n.spouseId)! : undefined;
+    if (me) {
+      offer(world, { kind: 'exodus', text: `บ้านของ${me.name}พังใน${how} ครอบครัวอยากย้ายออกจากเมือง จะไปหรืออยู่?`, options: [{ key: 'stay', label: 'อยู่สร้างบ้านใหม่' }, { key: 'leave', label: 'ย้ายออกจากเมือง' }], fallback: 'stay' });
+      continue;
+    }
     for (const m of [n, world.npcs.find((o) => o.id === n.spouseId && o.alive && o.job !== 'king')]) {
       if (!m) continue;
       m.alive = false;
