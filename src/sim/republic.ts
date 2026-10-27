@@ -37,7 +37,7 @@ function candidates(world: WorldState): { field: Npc[]; barred?: Npc } {
   const r = world.republic;
   const limit = charterOf(world).termLimit;
   const sitting = world.npcs.find((n) => n.id === world.kingId && n.alive && n.job === 'king');
-  const barred = sitting && limit !== null && (r?.streak ?? 0) >= limit ? sitting : undefined;
+  const barred = sitting && ((limit !== null && (r?.streak ?? 0) >= limit) || r?.impeached === sitting.id) ? sitting : undefined;
   const eligible = world.npcs.filter((n) => n.alive && n.age >= 25 && n.age <= 68 && n.job !== 'thief' && !n.cultist && n.questId === undefined && n.inside === undefined && n !== sitting);
   const field: Npc[] = sitting && !barred ? [sitting] : [];
   const add = (n?: Npc) => n && !field.includes(n) && field.push(n);
@@ -116,7 +116,7 @@ function install(world: WorldState, winner: Npc): void {
 export function election(world: WorldState, rng: Rng, why: string): Npc | undefined {
   const { field, barred } = candidates(world);
   if (!field.length) return undefined;
-  if (barred) log(world, 'politics', `${barred.name}ดำรงตำแหน่งครบ ${charterOf(world).termLimit} สมัยตามรัฐธรรมนูญแล้ว ลงสมัครอีกไม่ได้`, barred.id);
+  if (barred) log(world, 'politics', world.republic?.impeached === barred.id ? `${barred.name}ถูกถอดถอน หมดสิทธิ์ลงสมัคร` : `${barred.name}ดำรงตำแหน่งครบ ${charterOf(world).termLimit} สมัยตามรัฐธรรมนูญแล้ว ลงสมัครอีกไม่ได้`, barred.id);
   const years = (world.day - (world.republic?.inOffice ?? world.crown?.since ?? world.day)) / 365;
   const wear = years * FATIGUE + blameOf(world) * BLAME;
   const shamed = scandals(world, field, rng);
@@ -140,6 +140,7 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
   // Those who backed the winner warm to the new government; the rest sulk a little.
   for (const v of world.npcs) if (v.alive && v.age >= 16) loyaltyNudge(v, backers.get(winner.id)!.includes(v) ? 5 : -3);
   const r = (world.republic ??= { since: world.day, elections: 0, nextVote: 0 });
+  r.impeached = undefined;
   r.elections++;
   r.nextVote = world.day + term(world);
   r.last = { day: world.day, results: ranked.map((c) => ({ id: c.id, name: c.name, votes: votes.get(c.id)! })) };

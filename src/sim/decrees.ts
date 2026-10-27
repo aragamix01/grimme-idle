@@ -9,6 +9,10 @@ import { king, payrollReserve } from './society';
 import { traveller } from './world';
 import { putToCouncil } from './government';
 import { TOWN_SIZE } from './town';
+import { charterOf, landPolicyOf } from './charter';
+import { frontier } from './lands';
+import { canSend, folkOf, labour } from './villages';
+import { conquestWar, weakest } from './war';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -24,8 +28,13 @@ export const DECREES: Record<Decree, DecreeDef> = {
   curfew: { name: 'ประกาศเคอร์ฟิว', text: 'ห้ามออกจากบ้านยามค่ำ โจรลงมือยากขึ้น แต่ชาวเมืองอึดอัด', days: 60 },
   taxfree: { name: 'งดเก็บภาษี', text: 'พักการเก็บภาษีเพื่อเอาใจชาวเมืองที่กำลังไม่พอใจ', days: 60 },
   levy: { name: 'เกณฑ์ทหาร', text: 'บังคับชาวบ้านเข้ากองทัพในยามศึกสงครามหรือจอมมารคุกคาม', days: 30 },
+  colonize: { name: 'ล่าอาณานิคม', text: 'บังคับย้ายครอบครัวไปบุกเบิกทุกเดือน รีดส่วยหัวเมืองเต็มที่ และยกทัพยึดดินแดนเพื่อนบ้านที่อ่อนแอ หมู่บ้านไม่พอใจ', days: 180 },
+  expand: { name: 'ขยายแผ่นดิน', text: 'ให้เงินตั้งตัวครอบครัวที่อาสาไปบุกเบิกดินแดนใหม่ หมู่บ้านใหม่ภักดีต่อเมืองหลวง', days: 120 },
+  tribute: { name: 'เกณฑ์ส่วยหัวเมือง', text: 'เรียกเก็บผลผลิตทั้งหมดจากหมู่บ้านเพื่ออุดท้องพระคลัง หมู่บ้านไม่พอใจ', days: 60 },
+  relief: { name: 'ลดส่วยหัวเมือง', text: 'ลดส่วยให้หมู่บ้านที่ลำบากหรือไม่พอใจ เก็บผลผลิตไว้เองได้มากขึ้น', days: 90 },
+  garrison: { name: 'ส่งทหารรักษาหัวเมือง', text: 'ส่งทหารไปประจำหมู่บ้านที่คิดแยกตัว กันไม่ให้แยกตัวได้ แต่ชาวบ้านรู้สึกถูกยึดครอง', days: 120 },
 };
-export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy'];
+export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy', 'colonize', 'expand', 'tribute', 'relief', 'garrison'];
 
 const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
@@ -99,7 +108,50 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
       return `เกณฑ์ ${taken.map((n) => n.name).join(', ')} เข้ากองทัพ`;
     },
   },
+  // A grasping ruler with gold to spend reaches for an empire: settlers driven out, the villages bled,
+  // and, where the charter allows conquest, the army sent against a weak neighbour.
+  colonize: {
+    wants: (world, k) =>
+      has(k, 'greedy') && !has(k, 'kind') && landPolicyOf(charterOf(world)) !== 'peace' && budget(world) >= 800 && !world.war && (openCountry(world) || (landPolicyOf(charterOf(world)) === 'conquest' && !!weakest(world))),
+    issue: (world) => {
+      const prey = landPolicyOf(charterOf(world)) === 'conquest' ? weakest(world) : undefined;
+      if (prey) conquestWar(world, prey);
+      return `บังคับย้ายครอบครัวไปบุกเบิกและรีดส่วยหัวเมืองเต็มที่ 180 วัน${prey ? ` และยกทัพไปยึดดินแดนของ${prey.name}` : ''}`;
+    },
+  },
+  // A gentle or bold ruler pays families to go out and break new ground.
+  expand: {
+    wants: (world, k) => has(k, 'kind') || has(k, 'brave') ? !has(k, 'greedy') && budget(world) >= 500 && (openCountry(world) || ourVillages(world).some((r) => labour(world, r) < 0.7)) && canSend(world) : false,
+    issue: () => `ให้เงินตั้งตัวครอบครัวละ ${GRANT} ทองแก่ผู้อาสาไปบุกเบิก 120 วัน`,
+  },
+  // An empty treasury and a greedy ruler: every grain the villages grow goes to the capital.
+  tribute: {
+    wants: (world, k) => has(k, 'greedy') && !charterOf(world).provinces && world.treasury < 400 && ourVillages(world).length >= 2,
+    issue: (world) => `เรียกเก็บผลผลิตทั้งหมดจาก ${ourVillages(world).length} หมู่บ้าน 60 วัน`,
+  },
+  // The villages are restless: a kind or loyal ruler eases their burden.
+  relief: {
+    wants: (world, k) => (has(k, 'kind') || has(k, 'loyal')) && !has(k, 'greedy') && (restless(world, 45).length >= 2 || restless(world, 30).length >= 1),
+    issue: (world) => `ลดส่วยให้หมู่บ้าน 90 วัน (${restless(world, 45).length} หมู่บ้านกำลังไม่พอใจ)`,
+  },
+  // A village on the edge of breaking away: a bold or vengeful ruler sends soldiers to hold it.
+  garrison: {
+    wants: (world, k) => (has(k, 'brave') || has(k, 'vengeful')) && restless(world, 25).length >= 1 && world.npcs.filter((n) => n.alive && n.job === 'soldier').length >= 6 && budget(world) >= GARRISON_COST,
+    issue: (world) => {
+      const held = restless(world, 25).slice(0, 2);
+      world.treasury -= GARRISON_COST * held.length;
+      for (const r of held) r.village!.garrison = world.day + DECREES.garrison.days;
+      return `ส่งทหารไปประจำ${held.map((r) => r.name).join(' และ')}`;
+    },
+  },
 };
+export const GRANT = 40; // gold for each family who goes out under the expansion decree
+const GARRISON_COST = 60; // the soldiers' upkeep, per village held
+
+// Our villages, and the ones that are restless.
+const ourVillages = (world: WorldState) => (world.regions ?? []).filter((r) => r.owner === 'us' && !r.seat && r.village && folkOf(world, r).length);
+const restless = (world: WorldState, below: number) => ourVillages(world).filter((r) => r.village!.loyalty < below);
+const openCountry = (world: WorldState) => frontier(world, 'us').some((r) => r.owner === undefined && !r.village?.free);
 
 // Young, able commoners in trades the town can spare a hand from.
 function pressable(world: WorldState): Npc[] {

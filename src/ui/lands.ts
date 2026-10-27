@@ -1,4 +1,4 @@
-import { EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
+import { DECREES, decreeActive, garrisoned, EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
 import { el } from './icons';
 
 // The lands tab on the world map: what we hold and what it yields, the region picked on the
@@ -83,6 +83,10 @@ function village(world: WorldState, r: Region): HTMLElement[] {
     out.push(el('div', { className: 'land-bar' }, el('span', { textContent: label }), el('meter', { min: 0, max: 100, low: 30, high: 60, optimum: 100, value: v.loyalty }), el('b', { textContent: String(v.loyalty) })));
     if (v.thought) out.push(el('p', { className: 'land-thought', textContent: `“${v.thought}”` }));
     if (v.plea) out.push(el('p', { className: 'realm-king__meta land-plea', textContent: `คำร้อง: ${v.plea.text}` }));
+    // What the law is doing to them right now.
+    const laws = r.owner === 'us' ? (['colonize', 'tribute', 'relief', 'expand'] as const).filter((d) => decreeActive(world, d)).map((d) => DECREES[d].name) : [];
+    if (r.owner === 'us' && garrisoned(world, r)) laws.push(`มีทหารประจำการอีก ${v.garrison! - world.day} วัน`);
+    if (laws.length) out.push(el('p', { className: 'realm-king__meta land-law', textContent: `ใต้คำสั่ง: ${laws.join(' · ')}` }));
     out.push(el('p', { className: 'realm-king__meta', textContent: `สิ่งก่อสร้าง: ${(v.works ?? []).map((w) => WORK_TH[w]).join(' · ') || 'ยังไม่มี'} · กองกลาง ${v.purse} ทอง` }));
   }
   const list = el('div', { className: 'land-folk' });

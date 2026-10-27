@@ -19,6 +19,7 @@ import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
 import { createRegions, ensureRegions, landsDay } from './lands';
 import { villagesDay } from './villages';
+import { auditDay } from './auditor';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
@@ -167,6 +168,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   troubles(world, rng);
   disastersDay(world, rng);
   justiceDay(world, rng);
+  auditDay(world, rng);
   avatarDay(world);
   dragonDay(world, rng);
   crownWorks(world, rng);

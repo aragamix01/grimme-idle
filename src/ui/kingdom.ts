@@ -1,4 +1,4 @@
-import { CRIME_TH, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -59,6 +59,7 @@ export function renderKingdom(world: WorldState): void {
     reformers(world).length,
     world.council,
     world.justice,
+    world.auditor,
     world.npcs.filter((n) => n.alive && (n.jailedUntil ?? 0) > world.day).length,
     world.charter,
     world.techs,
@@ -102,6 +103,7 @@ export function renderKingdom(world: WorldState): void {
     charterSection(world),
     councilSection(world),
     justiceSection(world),
+    auditorSection(world),
     decreesSection(world),
     worksSection(world),
     researchSection(world),
@@ -188,6 +190,22 @@ function justiceSection(world: WorldState): HTMLElement {
     ...prisoners.map((n) => personRow(n, `ติดคุกอีก ${n.jailedUntil! - world.day} วัน · ${CRIME_TH[(n.record ?? []).filter((r) => r.verdict === 'guilty').at(-1)?.kind ?? 'theft']}`)),
   ];
   return section('ศาลและคุก', rows, prisoners.length ? `ในคุก ${prisoners.length} คน` : 'คุกว่าง', 'justice');
+}
+
+// The independent auditor: who holds the office, how free of the ruler they are, and what they have found.
+function auditorSection(world: WorldState): HTMLElement {
+  const c = charterOf(world);
+  const a = auditorOf(world);
+  const office = world.auditor;
+  if (!c.auditor) return section('องค์กรอิสระ', [empty('รัฐธรรมนูญไม่มีองค์กรอิสระ ผู้ปกครองไม่มีใครตรวจสอบ')], 'ไม่มี', 'auditor');
+  if (!a || !office) return section('องค์กรอิสระ', [empty('ตำแหน่งผู้ตรวจการแผ่นดินว่างอยู่ รอการแต่งตั้ง')], 'ว่าง', 'auditor');
+  const rows = [
+    personRow(a, 'ผู้ตรวจการแผ่นดิน'),
+    el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: 'ตรวจสอบผู้ปกครอง ขุนนาง ผู้พิพากษา ยาม และผู้ใหญ่บ้านทุกเดือน ยิ่งเป็นอิสระยิ่งกล้าเปิดโปง' })),
+    el('li', { className: 'council' }, meter('ความเป็นอิสระ', office.independence, office.independence < 40 ? 'weak' : 'strong')),
+    el('li', { className: 'council' }, el('span', { className: 'chip' }, `เปิดโปงแล้ว ${office.caught} คดี`), el('span', { className: 'chip' }, c.freePress ? 'สื่อเสรี' : 'สื่อถูกควบคุม')),
+  ];
+  return section('องค์กรอิสระ', rows, `อิสระ ${office.independence}`, 'auditor');
 }
 
 function councilSection(world: WorldState): HTMLElement {
