@@ -10,7 +10,7 @@ import { amend, charterOf, landPolicyOf } from './charter';
 import { approval, crownPower, loyaltyOf } from './politics';
 import { king } from './society';
 import { literacy, literate } from './learning';
-import { guildLaw } from './adventurers';
+import { guildLaw, influenceOf } from './adventurers';
 import type { Npc, WorldState } from './types';
 
 const PUSH_DAY = 23; // day of the month a change may be pushed
@@ -121,6 +121,16 @@ export function amendmentsDay(world: WorldState, rng: Rng): void {
       for (const n of adults(world)) if (literate(n)) loyaltyNudge(n, -6);
       return amend(world, { freePress: false }, `${title}${ruler.name}สั่งควบคุมโรงพิมพ์ ห้ามตีพิมพ์เรื่องของผู้ปกครอง`);
     }
+  }
+
+  // The market: a hoarding scandal teaches a gentle ruler to guide it; a ruler beholden to the
+  // merchants writes in free trade.
+  if (c.economy !== 'guided' && recent(world, 730, /มีความผิดฐานกักตุนสินค้า/) && has(ruler, 'kind', 'loyal') && chance(rng, 0.35)) {
+    return amend(world, { economy: 'guided' }, 'หลังคดีกักตุนข้าว ประกาศให้รัฐกำกับตลาด คุมราคาและเก็บภาษีศุลกากรได้');
+  }
+  if (c.economy !== 'free' && r !== 'junta' && (r === 'oligarchy' || world.guilds.some((g) => g.kind === 'merchants' && influenceOf(world, g) >= 50)) && !has(ruler, 'kind') && chance(rng, 0.2)) {
+    for (const n of adults(world)) if (n.job === 'merchant') loyaltyNudge(n, 5);
+    return amend(world, { economy: 'free' }, 'ประกาศการค้าเสรี ยกเลิกภาษีศุลกากรและการคุมราคา พ่อค้าพอใจ');
   }
 
   // The guilds: banned by a fearful ruler, taxed by a grasping one, freed by a kind one.

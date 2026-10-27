@@ -4,7 +4,7 @@
 // soldiers, a greedy one buys jewels, a vengeful one lets the court feast on it. The other
 // regimes spend on their own: the church, the merchants' caravans, the army, the poor.
 import { log } from './core';
-import { ensureMarket } from './market';
+import { ensureMarket, levelOf } from './market';
 import { king, payrollReserve } from './society';
 import { WORK_ORDER, built, workCost } from './works';
 import type { Npc, WorldState } from './types';
@@ -55,9 +55,10 @@ function share(to: Npc[], gold: number): number {
 function richSpend(world: WorldState): void {
   const m = ensureMarket(world);
   const keepers = adults(world).filter((n) => n.job === 'innkeeper');
+  const wealthy = WEALTHY * levelOf(world); // rich, in what the coin buys today
   for (const n of adults(world)) {
-    if (n.gold <= WEALTHY) continue;
-    const gold = Math.floor((n.gold - WEALTHY) * LAVISH * (n.traits.includes('greedy') ? 0.3 : 1));
+    if (n.gold <= wealthy) continue;
+    const gold = Math.floor((n.gold - wealthy) * LAVISH * (n.traits.includes('greedy') ? 0.3 : 1));
     n.gold -= gold;
     if (n.traits.includes('kind')) world.alms = (world.alms ?? 0) + gold;
     else m.till += gold - share(keepers.filter((k) => k !== n), Math.floor(gold / 3));

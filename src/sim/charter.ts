@@ -23,11 +23,11 @@ function draft(r: Regime): Omit<Charter, 'written' | 'amendments'> {
     case 'republic':
       return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle', provinces: true };
     case 'theocracy':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed', economy: 'guided' };
     case 'oligarchy':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: 'normal', stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: 'normal', stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle', economy: 'free' };
     case 'junta':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed', economy: 'guided' };
     default:
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, landPolicy: 'settle' };
   }
@@ -65,6 +65,7 @@ export function clauses(c: Charter): string[] {
   out.push(c.freePress ? 'สื่อมีเสรีภาพ ตีพิมพ์เรื่องของผู้มีอำนาจได้' : 'สื่อถูกควบคุม');
   out.push(POLICY_TH[landPolicyOf(c)]);
   out.push(GUILD_LAW_TH[c.guilds ?? 'free']);
+  out.push(c.economy === 'free' ? 'การค้าเสรี ห้ามเก็บภาษีศุลกากรและห้ามคุมราคา' : c.economy === 'guided' ? 'รัฐกำกับตลาด เก็บภาษีศุลกากรและคุมราคาได้' : 'ผู้ปกครองกำหนดนโยบายการค้าได้ตามสถานการณ์');
   out.push(c.provinces ? 'กฎบัตรหัวเมือง: หมู่บ้านเก็บส่วนแบ่งได้อย่างน้อยหนึ่งในสี่ และเลือกผู้ใหญ่บ้านเอง' : 'หัวเมืองขึ้นตรงต่อเมืองหลวง ส่วยเรียกเก็บได้ตามใจผู้ปกครอง');
   return out;
 }

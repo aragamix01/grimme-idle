@@ -8,6 +8,7 @@ import { clamp, log, occupied } from './core';
 import { legend } from './quests';
 import { king } from './society';
 import { HOME, realmPurse } from './realms';
+import { tradesWith } from './commerce';
 import type { Good, Npc, Realm, Terrain, WorldState } from './types';
 
 // What each kind of country has to sell, and what it is short of.
@@ -31,8 +32,8 @@ export const visitable = (r: Realm) => r.relation > -50 && !r.war && !r.fallen; 
 // The best partner for a caravan carrying `spare` goods, or coming for grain if `buying`.
 export function tradePartner(world: WorldState, spare: Good[], buying: boolean): Realm | undefined {
   const score = (r: Realm) =>
-    r.relation / 10 + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) || (spare.includes('wool') && WOOL_BUYERS.includes(r.terrain)) ? 4 : 0) + (r.pact ? 2 : 0) - ((r.plagueUntil ?? 0) > world.day ? 4 : 0) - ((r.disaster?.until ?? 0) > world.day ? 3 : 0) + (realmPurse(r) - 1) * 10 - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
-  return (world.realms ?? []).filter(visitable).sort((a, b) => score(b) - score(a))[0];
+    r.relation / 10 + (r.treaty ? 3 : 0) + (buying && TRADE[r.terrain].sells === 'grain' ? 6 : 0) + (spare.includes(TRADE[r.terrain].wants) || (spare.includes('wool') && WOOL_BUYERS.includes(r.terrain)) ? 4 : 0) + (r.pact ? 2 : 0) - ((r.plagueUntil ?? 0) > world.day ? 4 : 0) - ((r.disaster?.until ?? 0) > world.day ? 3 : 0) + (realmPurse(r) - 1) * 10 - distanceOf(r) / 5 + ((r.id * 31 + world.day) % 9) / 1.5; // merchants try other roads now and then
+  return (world.realms ?? []).filter((r) => tradesWith(world, r)).sort((a, b) => score(b) - score(a))[0];
 }
 
 // Our strength as a neighbour would judge it.

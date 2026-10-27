@@ -51,6 +51,10 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
     tribute: has('greedy') - has('kind'),
     relief: has('kind') - has('greedy'),
     garrison: has('brave') + has('vengeful') - has('kind'),
+    debase: has('greedy') * 0.5 - has('loyal') - 0.5, // their rents are paid in the same thin coin
+    tariff: has('greedy') * 0.5 - 0.25, // the crown's gain, their merchants' loss
+    embargo: has('vengeful') + has('brave') * 0.5 - has('greedy') * 0.5,
+    ceiling: has('kind') - has('greedy') * 1.5, // their own granaries sell at the cap too
   };
   return stake[d] + (loyaltyOf(n) - 50) / 25 + getTie(world, n.id, ruler.id) / 50;
 }

@@ -35,7 +35,7 @@ export interface Choice {
   other?: number; // the other person in it: a suitor, a cultist
 }
 
-export type CrimeKind = 'theft' | 'murder' | 'corruption' | 'heresy';
+export type CrimeKind = 'theft' | 'murder' | 'corruption' | 'heresy' | 'hoarding';
 
 export interface Npc {
   id: number;
@@ -76,6 +76,7 @@ export interface Npc {
   hero?: boolean; // awakened by the god to face the demon lord; keeps the title for life
   formerJob?: Job; // whoever holds elected office: the trade they go back to when voted out
   schooling?: number; // children: days of lessons, at school or from a parent who can read
+  coat?: number; // day they last bought cloth for a winter coat; a coat lasts two winters
   lettered?: boolean; // can read and write; missing means whatever their trade implies (see literate)
   regionId?: number; // lives in a village out on the lands (kept in world.villagers, not world.npcs)
 }
@@ -93,7 +94,7 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
-export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy' | 'colonize' | 'expand' | 'tribute' | 'relief' | 'garrison';
+export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy' | 'colonize' | 'expand' | 'tribute' | 'relief' | 'garrison' | 'debase' | 'tariff' | 'embargo' | 'ceiling';
 export type LandPolicy = 'peace' | 'settle' | 'conquest';
 
 // The town's constitution (see charter.ts).
@@ -110,6 +111,7 @@ export interface Charter {
   landPolicy?: LandPolicy; // how the crown may win land: settling only, buying too, or war; missing means settle
   provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
   guilds?: 'free' | 'taxed' | 'banned'; // whether people may band together in guilds; missing means free
+  economy?: 'free' | 'guided'; // free trade (no tariffs or price caps) or a guided market; missing means the ruler decides
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
@@ -191,9 +193,11 @@ export interface Guild {
   founded: number; // day
   renown: number;
   treasury: number;
+  stock?: Partial<Record<Good, number>>; // a trade house's own warehouse (see tradehouses.ts)
+  hoarding?: number; // day a greedy house began sitting on grain in a dearth
 }
 
-export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear';
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice';
 
 export interface Market {
   stock: Record<Good, number>;
@@ -202,7 +206,11 @@ export interface Market {
   history: Record<Good, number[]>; // price every few days, oldest first
   alert: Record<Good, -1 | 0 | 1>; // last swing the chronicle reported: glut, normal, dear
   lastImport?: number; // day grain was last shipped in
-  caravan?: { merchantId: number; grain: number; gold: number; gear?: number; realmId?: number; days?: number }; // the trip on the road: what it brings back, where to, how long
+  caravan?: { merchantId: number; grain: number; gold: number; gear?: number; goods?: Partial<Record<Good, number>>; realmId?: number; days?: number }; // the trip on the road: what it brings back, where to, how long
+  level?: number; // the price level: 1 at the town's founding, rising as coin outruns goods (missing means 1)
+  debase?: number; // how far the crown has thinned the coin: each debasement makes every coin worth less (missing means 1)
+  applied?: number; // the debasement already worked into the price level
+  norm?: number; // the town's sense of a normal purse per head, slowly following the real one
 }
 
 export type Tax = 'low' | 'normal' | 'high';
@@ -305,6 +313,7 @@ export interface Realm {
   pact?: 'alliance';
   wed?: string; // our royal child married into their court
   trades?: number; // caravans that came back from them
+  treaty?: boolean; // a trade treaty: better prices both ways while relations hold
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
   plagueUntil?: number;
@@ -467,6 +476,8 @@ export interface WorldState {
   realms?: Realm[];
   regions?: Region[]; // the world map's lands; missing in saves from before them
   villagers?: Npc[]; // the folk living out on the lands, apart from the town's own
+  debt?: { guildId: number; owed: number; since: number }; // what the crown owes a trade house
+  embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];

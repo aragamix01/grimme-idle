@@ -10,9 +10,10 @@ import { getTie } from './ties';
 import { king } from './society';
 import { jobName } from './ages';
 import { isAvatar } from './avatar';
+import { seizeHoard } from './tradehouses';
 import type { CrimeKind, Npc, WorldState } from './types';
 
-export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต', heresy: 'นอกรีต' };
+export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต', heresy: 'นอกรีต', hoarding: 'กักตุนสินค้า' };
 const DAY = 6; // day of the month the watch follows up old crimes
 const COLD = 365; // days after which a crime is no longer chased
 const WATCH_PAY = 1; // gold a day for a watchman
@@ -137,6 +138,15 @@ function sentence(world: WorldState, n: Npc, crime: NonNullable<Npc['record']>[n
         n.job = 'farmer';
       }
       return jail(harsh ? 240 : 120, back ? `คืนเงิน ${back} ทองให้คลังและ` : '');
+    }
+    case 'hoarding': {
+      // The hoard is thrown open to the market and the hoarder pays for the hunger they made.
+      const grain = seizeHoard(world, n.id);
+      const fine = Math.floor(n.gold / 2);
+      n.gold -= fine;
+      world.treasury += fine;
+      for (const o of adults(world)) loyaltyNudge(o, 2); // the town cheers
+      return jail(harsh ? 90 : 30, `เปิดโกดังปล่อยข้าว ${grain} กระสอบเข้าตลาด ปรับ ${fine} ทองและ`);
     }
     case 'heresy':
       // The church's court: under the priests a mage may be driven out for good; elsewhere a spell

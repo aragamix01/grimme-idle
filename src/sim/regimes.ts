@@ -12,6 +12,7 @@ import { literacy, literate } from './learning';
 import { proclaimRepublic } from './republic';
 import { writeCharter } from './charter';
 import { guildInCoup } from './adventurers';
+import { deepInDebt } from './tradehouses';
 import type { Npc, Regime, WorldState } from './types';
 
 const TURN_DAY = 27; // day of the month the town may change how it is ruled
@@ -75,9 +76,13 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   if (r !== 'monarchy') return; // the other turns happen to crowns
   // A crown that can't pay its way, or that a merchant prince outweighs in gold, is bought out
   // by the merchants who lend to it.
-  const magnate = adults(world).filter((n) => n.job === 'merchant').sort((a, b) => b.gold - a.gold)[0];
+  // A crown sunk in debt to a trade house: its head calls the debt in, and takes the town for it.
+  const creditor = world.debt && world.npcs.find((n) => n.alive && n.id === world.guilds.find((g) => g.id === world.debt!.guildId)?.leaderId && n.age >= 16);
+  const magnate = (deepInDebt(world) ? creditor : undefined) ?? adults(world).filter((n) => n.job === 'merchant').sort((a, b) => b.gold - a.gold)[0];
   const outweighed = !!magnate && magnate.gold >= 300 && magnate.gold > world.treasury * 1.5 && chance(rng, 0.1);
-  if (magnate && ((world.treasury < payrollReserve(world) && magnate.gold >= 200 && chance(rng, 0.25)) || outweighed)) {
+  const calledIn = deepInDebt(world) && !!creditor && chance(rng, 0.15);
+  if (magnate && ((world.treasury < payrollReserve(world) && magnate.gold >= 200 && chance(rng, 0.25)) || outweighed || calledIn)) {
+    if (calledIn) world.debt = undefined; // the debt is paid with the crown itself
     log(world, 'politics', `ท้องพระคลังว่างเปล่า กษัตริย์${ruler.name}ติดหนี้พ่อค้าจนต้องยอมสละอำนาจ ${magnate.name}และเหล่าพ่อค้ารวมกันขึ้นปกครองเมือง`, magnate.id);
     retire(ruler, rng);
     return seize(world, 'oligarchy', magnate, 'พ่อค้าซื้ออำนาจจากราชบัลลังก์', `${magnate.name} นำพ่อค้าขึ้นปกครองเมือง`);
