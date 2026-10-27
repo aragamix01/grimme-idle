@@ -352,6 +352,10 @@ function demonSection(world: WorldState): HTMLElement {
         ),
       ),
       meter('พลังจอมมาร', Math.round((power / MAX_POWER) * 100), 'weak'),
+      // The lieutenants, struck through as they fall.
+      ...(lord.generals?.length
+        ? [el('div', { className: 'quest__party' }, el('span', { className: 'realm-king__meta', textContent: 'ขุนพล' }), ...lord.generals.map((g) => el('span', { className: `chip${g.slain ? ' chip--dead' : ' chip--danger'}`, textContent: g.slain ? `${g.name} (ถูกปราบ)` : `${g.name} พลัง ${g.power}` })))]
+        : []),
       heroBlock(world),
     ),
   ]);
@@ -377,7 +381,10 @@ function heroBlock(world: WorldState): HTMLElement {
   portrait.style.backgroundImage = 'url(/assets/sprites/characters/hero.png)';
   const name = el('button', { type: 'button', className: 'realm-king__name', textContent: `ผู้กล้า${hero.name}` });
   name.onclick = () => handlers.onSelectNpc(hero.id);
-  const doing = q.stage === 'training' ? `ฝึกฝนวิชา ${Math.min(trainDays(world), world.day - q.since)}/${trainDays(world)} วัน` : hero.inside !== undefined ? 'บุกเข้าปราสาทจอมมาร!' : 'เดินทัพไปปราสาทจอมมาร';
+  // Who the hero faces next: the lieutenant marched against, or while training the next one standing.
+  const foe = q.target !== undefined ? lord.generals?.[q.target] : q.stage === 'training' ? lord.generals?.find((g) => !g.slain) : undefined;
+  const where = foe ? `ที่มั่นของ${foe.name}` : 'ปราสาทจอมมาร';
+  const doing = q.stage === 'training' ? `ฝึกฝนวิชา ${Math.min(trainDays(world), world.day - q.since)}/${trainDays(world)} วัน` : hero.inside !== undefined ? `บุกเข้า${where}!` : `เดินทัพไป${where}`;
   const party = q.companions.map((id) => world.npcs.find((n) => n.id === id && n.alive)).filter((n): n is Npc => !!n);
   const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0);
   return el(
@@ -388,7 +395,7 @@ function heroBlock(world: WorldState): HTMLElement {
       'div',
       { className: 'realm-king__body' },
       name,
-      el('p', { className: 'realm-king__meta', textContent: `LV ${hero.level} · ${doing} · พลัง ${Math.round(might)} ต่อ ${Math.round(lord.power * 2.5)}` }),
+      el('p', { className: 'realm-king__meta', textContent: `LV ${hero.level} · ${doing} · พลัง ${Math.round(might)} ต่อ ${Math.round((foe ? foe.power : lord.power) * 2.5)}` }),
       ...(party.length ? [el('div', { className: 'quest__party' }, el('span', { className: 'realm-king__meta', textContent: 'สหาย' }), ...party.map(personChipPlain))] : []),
     ),
   );
