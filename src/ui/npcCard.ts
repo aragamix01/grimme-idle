@@ -1,4 +1,4 @@
-import { AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -44,7 +44,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   // On phones the card is a scrolling sheet: keep the reader's place across rebuilds, start at the top for someone new.
   const scroll = shownId === npc.id ? card.scrollTop : 0;
   shownId = npc.id;
-  card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), powers(npc, world, canAwaken(world)));
+  card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), recordBlock(npc, world), powers(npc, world, canAwaken(world)));
   localize(card, world);
   card.scrollTop = scroll;
 }
@@ -159,6 +159,22 @@ function familyBlock(kin: Kin[]): HTMLElement {
   return el('div', { className: 'npc__rels' }, el('h4', { textContent: 'ครอบครัว' }), el('ul', {}, ...rows));
 }
 
+// The god sees every offence, known to the town or not.
+function recordBlock(npc: Npc, world: WorldState): HTMLElement {
+  const rec = npc.record ?? [];
+  if (!rec.length) return el('div');
+  const rows = rec
+    .slice(-6)
+    .reverse()
+    .map((r) => {
+      const victim = r.victimId !== undefined ? world.npcs.find((n) => n.id === r.victimId)?.name : undefined;
+      const what = `${CRIME_TH[r.kind]}${victim ? ` ${victim}` : ''}${r.gold ? ` ${r.gold} ทอง` : ''}`;
+      const verdict = r.verdict === 'guilty' ? 'ศาลตัดสินว่าผิด' : r.verdict === 'acquitted' ? 'ศาลยกฟ้อง' : 'ยังไม่มีใครรู้';
+      return el('li', { className: r.verdict === 'guilty' || !r.verdict ? 'rel rel--bad' : 'rel' }, el('span', { textContent: what }), el('span', { className: 'rel__label', textContent: verdict }), el('b', { textContent: `D${r.day}` }));
+    });
+  return el('div', { className: 'npc__rels' }, el('h4', { textContent: `ประวัติคดี (${rec.length})` }), el('ul', {}, ...rows));
+}
+
 function relations(world: WorldState, ties: { id: number; value: number }[]): HTMLElement {
   const rows: HTMLElement[] = [];
   for (const { id, value } of ties) {
@@ -194,6 +210,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
+    ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),
     ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
     ...(npc.alive && (npc.hunger ?? 0) >= 2 ? [el('span', { className: 'chip chip--danger', textContent: 'หิวโหย' })] : []),
     ...(!npc.alive ? [el('span', { className: 'chip chip--danger', textContent: npc.left ? 'ย้ายออกไปแล้ว' : 'จากไปแล้ว' })] : []),

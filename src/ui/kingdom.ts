@@ -1,4 +1,4 @@
-import { DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { CRIME_TH, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -58,6 +58,8 @@ export function renderKingdom(world: WorldState): void {
     world.republic,
     reformers(world).length,
     world.council,
+    world.justice,
+    world.npcs.filter((n) => n.alive && (n.jailedUntil ?? 0) > world.day).length,
     world.charter,
     world.techs,
     world.research,
@@ -99,6 +101,7 @@ export function renderKingdom(world: WorldState): void {
     ),
     charterSection(world),
     councilSection(world),
+    justiceSection(world),
     decreesSection(world),
     worksSection(world),
     researchSection(world),
@@ -174,6 +177,19 @@ function charterSection(world: WorldState): HTMLElement {
 }
 
 // The nobles as the king's council: who sits, how often they have said no, and the last vote.
+// The courts and the cells: the tally of cases, who sits in jail and for how long, and what has been skimmed.
+function justiceSection(world: WorldState): HTMLElement {
+  const j = world.justice;
+  const prisoners = world.npcs.filter((n) => n.alive && jailed(world, n));
+  const bench = world.npcs.filter((n) => n.alive && (n.job === 'judge' || n.job === 'watchman' || n.job === 'lawyer'));
+  const rows: HTMLElement[] = [
+    el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: j ? `พิจารณาคดี ${j.cases} · ผิด ${j.convicted} · ยกฟ้อง ${j.acquitted} · ประหาร ${j.executions} · ข่าวลือรับสินบน ${j.bribes}` : 'ยังไม่เคยมีคดีขึ้นศาล' })),
+    el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `${jobName(world, 'judge')} ${bench.filter((n) => n.job === 'judge').length} · ${jobName(world, 'watchman')} ${bench.filter((n) => n.job === 'watchman').length} · ${jobName(world, 'lawyer')} ${bench.filter((n) => n.job === 'lawyer').length} คน${j?.corruption ? ` · เงินที่ถูกโกงจากคลังรวม ${j.corruption} ทอง` : ''}` })),
+    ...prisoners.map((n) => personRow(n, `ติดคุกอีก ${n.jailedUntil! - world.day} วัน · ${CRIME_TH[(n.record ?? []).filter((r) => r.verdict === 'guilty').at(-1)?.kind ?? 'theft']}`)),
+  ];
+  return section('ศาลและคุก', rows, prisoners.length ? `ในคุก ${prisoners.length} คน` : 'คุกว่าง', 'justice');
+}
+
 function councilSection(world: WorldState): HTMLElement {
   const c = world.council;
   const seats = council(world);
