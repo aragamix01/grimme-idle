@@ -19,6 +19,7 @@ export const PERKS: Record<Perk, { name: string; text: string; max: number; base
   valor: { name: 'สายเลือดวีรชน', text: 'ผู้กล้าฝึกเร็วขึ้น 10 วันและตื่นมาเก่งขึ้น 1 เลเวลต่อขั้น', max: 3, base: 3, step: 3 },
   harvest: { name: 'แผ่นดินอุดม', text: 'ทุ่งนาให้ผลผลิตเพิ่ม 10% ต่อขั้น', max: 3, base: 3, step: 2 },
   ward: { name: 'ผนึกศักดิ์สิทธิ์', text: 'ลางร้ายก่อตัวช้าลง 20% ต่อขั้น', max: 3, base: 3, step: 3 },
+  lore: { name: 'ปัญญาสืบทอด', text: 'เมืองใหม่เริ่มยุคพร้อมวิทยาการที่รู้แล้ว 2 อย่างต่อขั้น', max: 3, base: 4, step: 4 },
 };
 export const PERK_ORDER = Object.keys(PERKS) as Perk[];
 

@@ -26,7 +26,7 @@ import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
 import { brew, draughts, engineer, pressDay, study } from './learning';
-import { researchDay } from './research';
+import { TECHS, TECH_ORDER, researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
 import { spendSurplus } from './treasury';
@@ -42,6 +42,7 @@ import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, typ
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 const STAMPEDE_POWER = 100;
 export const AMBITION_COST = 60; // a dream of power
+const LORE_PER_LEVEL = 2; // discoveries a new era inherits per level of the lore gift
 export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_QUEST_COST, reveal: REVEAL_COST, hero: HERO_COST, perk: 0, war: 0, realm: 0 } as const;
 // The faith a power takes, less for a god with the gentle-grace gift.
 export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
@@ -79,6 +80,12 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
     legacy: legacy ?? { era: 1, stars: 0, perks: {}, past: [] },
   };
   world.faith += perkLevel(world, 'faith') * 25;
+  // Inherited learning: the first discoveries, in the order the scholars would make them.
+  for (let left = perkLevel(world, 'lore') * LORE_PER_LEVEL; left > 0; left--) {
+    const t = TECH_ORDER.find((k) => world.techs?.[k] === undefined && (TECHS[k].needs ?? []).every((n) => world.techs?.[n] !== undefined));
+    if (!t) break;
+    (world.techs ??= {})[t] = 0;
+  }
   for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
   // The first dungeon is always a gentle one: a cave or a wolf den.
   const kind = pick(rng, ['cave', 'den'] as const);

@@ -264,7 +264,7 @@ export interface War {
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision' | 'ambition';
 export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom';
 
-export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward';
+export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward' | 'lore';
 
 // One closed era, as the next ones remember it.
 export interface EraRecord {

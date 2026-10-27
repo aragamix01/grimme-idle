@@ -27,7 +27,7 @@ const BOUNDS = [
 // And over all the towns together: things that should happen somewhere, but not everywhere.
 const SPEED_MS = 4000; // one town, five years, on a quiet core: the offline catch-up must stay quick
 const ACROSS = [
-  ['เปลี่ยนการปกครองรวม', (rs) => rs.reduce((s, r) => s + r.events.regime, 0), 1, Infinity],
+  ['เปลี่ยนการปกครองรวม', (rs) => rs.reduce((s, r) => s + r.events.regime, 0), (y) => (y >= 10 ? 1 : 0), Infinity],
   ['ยุคสมัยเฉลี่ย', (rs) => rs.reduce((s, r) => s + r.age, 0) / rs.length, (y) => (y >= 25 ? 0.8 : 0), (y) => (y <= 25 ? 2.2 : 3)],
   ['ถึงยุคอุตสาหกรรมก่อนปีที่ 30', (rs) => rs.filter((r) => (r.ageYears[3] ?? Infinity) < 30).length, 0, 0],
 ];
