@@ -23,32 +23,41 @@
 html, body { margin: 0; height: 100%; background: var(--meadow-deep); color: var(--ink); font-family: var(--font-body); }
 img, canvas { image-rendering: pixelated; }
 /* ---- layout: the header, the map, the sheet and the nav ----
-   Wide screens: header across the top, the nav down the left, the map in the middle and the
-   sheet on the right. Phones (below): the map stays pinned under the header, the sheet fills the
-   rest and the nav sits along the bottom. The page itself never scrolls, only the panels in
-   the sheet, so the map's place on screen never moves under a finger. */
-html, body { overflow: hidden; }
+   Wide screens: the header across the top, the nav down the left, the map in the middle and the
+   sheet on the right, flush against each other. Phones (below): the map stays under the header,
+   cropped to a strip that suits the section, the sheet fills the rest and the nav sits along
+   the bottom. The page itself never scrolls, only the panels in the sheet, so the map's place on
+   screen never moves under a finger. */
+html, body { overflow: hidden; overflow: clip; } /* clip: not even a script's scrollIntoView may move them */
 #app {
-  display: grid; height: 100%; height: 100dvh; gap: 14px; padding: 14px;
-  grid-template-columns: 200px minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr);
+  display: grid; height: 100%; height: 100dvh; overflow: clip;
+  grid-template-columns: 220px minmax(0, 1fr) 400px; grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas: "hud hud hud" "nav game side";
 }
 .hud {
-  grid-area: hud; display: flex; align-items: center; gap: 10px; padding: 8px 12px;
-  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+  grid-area: hud; display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--paper); border-bottom: 3px solid var(--outline);
 }
-#logo { height: 36px; width: auto; }
-.stats { display: flex; gap: 6px; margin: 0; min-width: 0; }
-.stat { display: flex; align-items: baseline; gap: 6px; padding: 2px 8px; background: var(--paper); border: 2px solid var(--outline); }
-.stat dt { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
-.stat dd { margin: 0; font: 700 18px/24px var(--font-num); font-variant-numeric: tabular-nums; }
-.stat--faith { background: var(--gold); }
-.stat--faith dt { color: var(--ink); }
+.hud__brand { font: 700 17px/22px var(--font-pixel); letter-spacing: 0.04em; white-space: nowrap; }
+.hud__chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 2px solid var(--outline);
+  font-size: 14px; line-height: 22px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.hud__chip b { font: 600 14px var(--font-num); }
+.hud__chip--faith { background: var(--gold); }
 .speed { margin-left: auto; flex: none; }
 .speed button { min-width: 44px; font-weight: 600; }
 
-#game { grid-area: game; position: relative; min-width: 0; min-height: 0; touch-action: none; }
-#game canvas { touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.map { grid-area: game; position: relative; min-width: 0; min-height: 0; overflow: hidden; overflow: clip; background: var(--meadow-deep); border-right: 3px solid var(--outline); }
+#game { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+/* Block, not inline: an inline canvas sits on a text line whose descender space made #game
+   taller than the canvas, and Phaser's centring then nudged the canvas on every refresh. */
+#game canvas { display: block; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.map-note, .map-chips { position: absolute; left: 8px; bottom: 10px; z-index: 3; pointer-events: none; }
+.map-note { padding: 2px 8px; background: var(--paper); border: 2px solid var(--outline); font-size: 12px; line-height: 18px; }
+.map-chips { display: flex; gap: 4px; }
+.map-chip { padding: 0 6px; background: var(--paper); border: 2px solid var(--outline); font-size: 12px; line-height: 20px; }
+.map-chip--danger { background: var(--danger); color: var(--paper); }
 .map-menu {
   position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px;
   border: 2px solid var(--outline); background: var(--paper); box-shadow: 2px 2px 0 rgb(59 36 22 / 0.35); cursor: pointer;
@@ -73,47 +82,137 @@ html, body { overflow: hidden; }
 .map-tools__state { margin-left: auto; padding: 0 6px; border: 2px solid var(--outline); background: var(--paper-raised); font: 500 12px/18px var(--font-body); }
 .map-tools [aria-pressed="true"] .map-tools__state { background: var(--gold); }
 
-.sheet {
-  grid-area: side; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
-  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
-}
-.sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 2px solid var(--paper-edge); }
+.sheet { grid-area: side; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; overflow: clip; background: var(--paper); }
+.sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 12px 8px; }
 .sheet-grab { display: none; }
 .sheet-title { margin: 0; font-size: 18px; font-weight: 600; }
+.sheet-chip { font-size: 13px; line-height: 20px; }
+#app[data-section="town"] .sheet-chip, #app[data-section="economy"] .sheet-chip { background: var(--gold); }
 .tabs { flex: 1 1 100%; }
-.tabs button { padding: 3px 4px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.tabs button { min-height: 36px; padding: 2px 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--paper-edge) transparent; }
-#app:not([data-section="town"]):not([data-section="people"]) #npc-hint { display: none; }
-#npc-card { flex: 0 1 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; }
-
+#npc-hint { display: none; }
 .nav {
-  grid-area: nav; display: flex; flex-direction: column; gap: 6px; padding: 10px;
-  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+  grid-area: nav; display: flex; flex-direction: column; gap: 4px; padding: 10px; min-height: 0; overflow-y: auto;
+  background: var(--paper); border-right: 3px solid var(--outline);
 }
 .nav button {
-  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 2px solid transparent;
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 2px solid transparent;
   background: none; cursor: pointer; font: 500 15px var(--font-body); text-align: left;
 }
 .nav button:hover:not([aria-current]) { border-color: var(--paper-edge); }
 .nav button[aria-current="page"] { background: var(--gold); border-color: var(--outline); font-weight: 600; }
+.nav__badge { margin-left: auto; min-width: 22px; padding: 0 4px; background: var(--danger); color: var(--paper); border: 1px solid var(--outline); font: 600 12px/18px var(--font-num); text-align: center; }
 .nav .fab {
   margin-top: auto; min-height: 56px; background: var(--gold); border: 3px solid var(--outline);
   box-shadow: 4px 4px 0 rgb(20 40 16 / 0.45), inset 0 -4px 0 var(--gold-deep); font-size: 16px; font-weight: 600;
 }
 .nav .fab:active { transform: translate(2px, 2px); box-shadow: inset 0 -4px 0 var(--gold-deep); }
+.rail-urgent { display: grid; gap: 6px; margin-top: 12px; }
+.rail-urgent h3 { margin: 0; font-size: 13px; color: var(--ink-muted); }
+#rail-urgent { display: grid; gap: 6px; }
+.rail-card { display: grid; gap: 0; padding: 6px 8px; border: 2px solid var(--outline); background: var(--paper-raised); text-align: left; cursor: pointer; font: 400 12px/18px var(--font-body); }
+.rail-card b { font-size: 13px; line-height: 18px; }
+.rail-card span { color: var(--ink-muted); }
+.rail-card--danger { border-color: var(--danger); background: #ffe9e4; }
+.rail-card--danger b { color: var(--danger); }
+.rail-empty { margin: 0; font-size: 12px; color: var(--ink-muted); }
+
+/* ---- เรื่องด่วน: cards with a way straight in, then the latest of the chronicle ---- */
+.urgent { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.urgent-card {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px;
+  background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+}
+.urgent-card > img { align-self: start; }
+.urgent-card__body b { font-size: 15px; line-height: 22px; }
+.urgent-card__body p { margin: 0; font-size: 13px; line-height: 20px; }
+.urgent-card > .btn { min-height: 44px; padding: 4px 12px; font-size: 14px; }
+.urgent-card--danger { background: #ffe9e4; border-color: var(--danger); box-shadow: none; }
+.urgent-card--danger .urgent-card__body b { color: var(--danger); }
+.urgent-card--choice { grid-template-columns: 32px minmax(0, 1fr); }
+.urgent-card__acts { grid-column: 2; display: flex; gap: 8px; margin-top: 4px; }
+.urgent-card__acts .btn { flex: 1; min-height: 44px; padding: 4px 8px; font-size: 14px; }
+.urgent-empty { margin: 4px 0; font-size: 14px; color: var(--ink-muted); }
+.urgent-recent { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.urgent-log { list-style: none; margin: 0; padding: 0; }
+.urgent-log__row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 0; border-bottom: 2px solid var(--paper-edge); font-size: 14px; line-height: 21px; }
+.urgent-log__row time { font: 500 12px/21px var(--font-num); color: var(--ink-muted); }
+.urgent-log__row--danger time { color: var(--danger); }
+
+/* ---- stat tiles: a label over a big number, an optional bar or note ---- */
+.k-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 0; }
+.k-tile { display: grid; align-content: start; padding: 6px 8px; border: 2px solid var(--outline); background: var(--paper-raised); min-width: 0; }
+.k-tile span { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.k-tile b { font: 600 22px/28px var(--font-num); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+.k-tile small { font-size: 11px; line-height: 15px; color: var(--ink-muted); }
+.k-tile__bar { display: block; height: 8px; margin-top: 2px; border: 2px solid var(--outline); }
+.k-tile--bad { border-color: var(--danger); background: #ffe9e4; }
+.k-tile--bad span, .k-tile--bad b, .k-tile--bad small { color: var(--danger); }
+.k-block { padding: 6px 0; }
+.kingdom > .realm-king[data-group], .kingdom > .realm-occupied[data-group] { margin-top: 4px; border: 2px solid var(--outline); }
+.k-block h3 { margin: 6px 0; font-size: 15px; font-weight: 600; }
+.k-block__head { display: flex; align-items: baseline; justify-content: space-between; }
+.k-link { border: 0; background: none; padding: 4px 0; font: 400 13px var(--font-body); text-decoration: underline; cursor: pointer; color: var(--ink); }
+.k-decrees { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.k-decrees li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 2px solid var(--outline); background: var(--gold); }
+.k-decrees b { font-size: 14px; font-weight: 600; }
+.k-decrees small { font-size: 12px; }
+.k-clauses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; font-size: 12px; line-height: 18px; }
+.k-clauses span { padding: 4px 6px; border: 2px solid var(--outline); }
+.k-clauses__good { background: #e8f5dc; }
+
+/* ---- people: filter chips and one row per person ---- */
+.people-filters { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: none; }
+.filter-chip { flex: none; min-height: 36px; padding: 0 10px; border: 2px solid var(--outline); background: var(--paper); cursor: pointer; font: 600 13px var(--font-body); }
+.filter-chip--on { background: var(--gold); }
+.people-roster { display: grid; margin-bottom: 10px; }
+.people-row {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 52px; padding: 0 2px;
+  border: 0; border-bottom: 2px solid var(--paper-edge); background: none; cursor: pointer; text-align: left; font: inherit;
+}
+.people-row__face { width: 32px; height: 48px; background-size: 192px 48px; background-position: 0 0; background-repeat: no-repeat; image-rendering: pixelated; }
+.people-row__who b { font-size: 14px; }
+.people-row__who small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.people-row__tag { padding: 0 6px; border: 2px solid var(--outline); font-size: 12px; line-height: 20px; white-space: nowrap; }
+.people-row__tag--land { background: #e8f5dc; }
+.people-row__tag--bad { border-color: var(--danger); color: var(--danger); }
+.people-more { margin: 8px 0; }
+
+.land-chief { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 13px; }
+.land-chief .chip { margin-left: auto; }
+
+/* ---- goods: icon, name over stock, the six-month sparkline, price over trend ---- */
+.goods { list-style: none; margin: 0 0 8px; padding: 0; border: 2px solid var(--outline); }
+.goods-note { margin: 0 0 8px; font-size: 12px; color: var(--ink-muted); }
 
 /* The god's powers: miracles, the era and a life below, in one sheet. */
 /* The head stays pinned while the miracles scroll under it, so the sheet can always be closed. */
 #miracles { padding-top: 0; }
 .powers-head {
-  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
   margin: 0 -20px; padding: 10px 20px 8px; background: var(--paper); border-bottom: 2px solid var(--paper-edge);
 }
-#miracles .powers-head form { margin: 0; }
+.powers-head h2 { margin: 0; font-size: 18px; }
+#miracles .powers-head form { margin: 0 0 0 auto; }
 .dialog-x { width: 40px; height: 40px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 22px; line-height: 1; }
-.powers-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px; }
-.powers-top .era-open { min-height: 44px; }
-#life-open { background: var(--gold); box-shadow: inset 0 -3px 0 var(--gold-deep); font-weight: 600; }
+.powers-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0 4px; }
+.power-big {
+  display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 6px 8px; text-align: left;
+  border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font: 400 12px/16px var(--font-body); color: var(--ink);
+}
+.power-big b { display: block; font-size: 14px; line-height: 20px; }
+.power-big small { color: var(--ink-muted); }
+.power-big--gold { background: var(--gold); box-shadow: inset 0 -3px 0 var(--gold-deep); }
+.power-big--gold small { color: var(--ink); }
+.power-big:disabled { opacity: 0.5; cursor: not-allowed; }
+.era-line {
+  display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 10px; padding: 6px 8px; min-height: 40px;
+  border: 2px dashed var(--outline); background: none; cursor: pointer; font: 400 13px var(--font-body); color: var(--ink); text-align: left;
+}
+.era-line b { margin-left: auto; font: 600 13px var(--font-num); }
+.era-line.era-open--ready { border-style: solid; background: var(--gold); }
+.map-note--ask { background: var(--gold); font-weight: 600; }
 
 .realms { display: grid; gap: 8px; }
 .realm-card {
@@ -181,7 +280,46 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .hint { margin: 0; padding: 10px 18px; font-size: 13px; color: var(--ink-muted); border-bottom: 2px solid var(--paper-edge); }
 
 /* ---- NPC card ---- */
-.npc { padding: 12px 18px 14px; border-bottom: 3px solid var(--outline); background: var(--paper); display: grid; gap: 10px; }
+.npc {
+  display: grid; gap: 8px; margin: 0 12px 10px; padding: 10px;
+  background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+}
+#npc-card { flex: 0 0 auto; max-height: calc(100% - 64px); overflow-y: auto; overscroll-behavior: contain; }
+#npc-card.npc--full { flex: 1 1 auto; max-height: none; }
+.npc__title { display: flex; align-items: center; gap: 6px; }
+.npc__title .rank { width: 24px; height: 24px; font-size: 14px; }
+.npc__meta { margin: 0; font-size: 13px; line-height: 20px; color: var(--ink-muted); }
+.npc__stats .npc__stat:first-child { order: 3; } /* gold under morality and loyalty */
+.npc:not(.npc--full) .npc__powers h4, .npc:not(.npc--full) .npc__traits { display: none; }
+.npc:not(.npc--full) .power { padding: 3px 2px; }
+.npc:not(.npc--full) .power img { width: 20px; height: 20px; }
+.npc:not(.npc--full) .power__name { line-height: 18px; }
+.npc__open { justify-self: start; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+.npc__open .npc__name::after { content: ' ›'; color: var(--ink-muted); }
+.npc--full .npc__open .npc__name::after { content: ' ‹'; }
+/* The whole card keeps the powers pinned along its foot, the dreams to pick from just above them. */
+.npc--full .npc__powers {
+  order: 10; position: sticky; bottom: -16px; z-index: 2; display: flex; flex-direction: column; gap: 6px;
+  margin: 0 -12px -16px; padding: 8px 12px 12px; background: var(--paper-raised); border-top: 3px solid var(--outline);
+}
+.npc--full .npc__powers h4 { display: none; }
+.npc__powers .powers { order: 3; }
+.npc__powers .dream-kinds, .npc__powers .dream-pick { order: 1; flex-wrap: nowrap; overflow-x: auto; margin: 0; padding-bottom: 2px; scrollbar-width: none; }
+.npc__powers .dream-kinds > *, .npc__powers .dream-pick > * { flex: none; }
+.npc__powers .npc__live, .npc__powers .divine { order: 4; }
+/* The whole card shows morality, loyalty and gold as three tiles. */
+.npc--full .npc__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.npc--full .npc__stat {
+  grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "bar bar"; gap: 2px 4px;
+  padding: 4px 6px; border: 2px solid var(--outline); background: var(--paper);
+}
+.npc--full .npc__stat > span:first-of-type { grid-area: label; font-size: 12px; color: var(--ink-muted); }
+.npc--full .npc__stat > b { grid-area: value; }
+.npc--full .npc__stat > .moral, .npc--full .npc__stat > .realm-meter__track { grid-area: bar; height: 8px; }
+.npc--full .npc__stat > img { display: none; }
+.npc--full .npc__live { min-height: 36px; padding: 2px 8px; font-size: 13px; }
+/* Half height shows who they are, how they stand and the powers; the rest waits for the whole card. */
+.npc:not(.npc--full) .npc__rels, .npc:not(.npc--full) .npc__live { display: none; }
 .npc__head { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: start; }
 .npc__portrait {
   width: 48px; height: 72px; border: 2px solid var(--outline); background-color: #8fd64e;
@@ -212,7 +350,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__bar-grow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .npc__bar-grow span { flex: none; font-size: 12px; color: var(--ink-muted); }
 .npc__bar-close { width: 40px; height: 36px; border: 2px solid var(--outline); background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; }
-.npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
+.npc__close { width: 40px; height: 40px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }
 .npc__stat { display: grid; grid-template-columns: 16px auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
 .npc__stat b { justify-self: end; font: 700 15px var(--font-num); font-variant-numeric: tabular-nums; }
@@ -292,17 +430,19 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 /* ---- market: one row per good, price with a pixel sparkline ---- */
 .market-head { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 6px 12px; border-bottom: 2px solid var(--paper-edge); }
 .market-head .chip { display: inline-flex; align-items: center; gap: 4px; }
-.good { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 10px 6px; border-bottom: 2px solid var(--paper-edge); }
-.good__body { min-width: 0; display: grid; gap: 4px; }
-.good__name { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; }
-.good__stock { margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
-.good__price { display: grid; justify-items: end; gap: 2px; }
-.good__price b { display: inline-flex; align-items: center; gap: 2px; font: 700 18px/1 var(--font-num); font-variant-numeric: tabular-nums; }
-.good__trend { font: 500 12px/1 var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.good { display: grid; grid-template-columns: 28px 112px minmax(0, 1fr) 48px; gap: 8px; align-items: center; padding: 4px 8px; }
+.good + .good { border-top: 2px solid var(--paper-edge); }
+.good__body { min-width: 0; display: grid; }
+.good__name { font-size: 14px; line-height: 20px; font-weight: 600; }
+.good__stock { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.good__price { display: flex; justify-content: flex-end; align-items: baseline; gap: 4px; }
+.good__price b { font: 600 16px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.good__trend { font: 500 12px/1 var(--font-num); color: var(--ink-muted); }
 .good__trend--up { color: var(--danger); }
 .good__trend--down { color: var(--success); }
 .good--dear { background: #ffe9e4; }
 .good--cheap { background: #eef8e0; }
+.good--short .good__stock { color: var(--danger); }
 .spark { display: flex; align-items: flex-end; gap: 1px; height: 22px; }
 .spark i { flex: 1; min-height: 2px; background: var(--paper-edge); }
 .spark i:last-child { background: var(--gold-deep); }
@@ -440,19 +580,25 @@ html:has(dialog[open]) { overflow: hidden; }
 }
 #miracles h2 { margin: 0 0 4px; font-size: 20px; }
 #miracles form { display: flex; justify-content: flex-end; margin-top: 12px; }
-.miracle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.miracle-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .miracle {
-  display: grid; grid-template-columns: 24px 1fr; gap: 2px 8px; align-items: center; text-align: left; padding: 8px;
-  border: 2px solid var(--outline); background: var(--paper-raised); color: var(--ink); font: 400 12px/18px var(--font-body); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; min-height: 84px;
+  border: 2px solid var(--outline); background: var(--paper-raised); color: var(--ink); cursor: pointer; font: 400 12px/16px var(--font-body); text-align: center;
 }
-.miracle img { grid-row: span 2; image-rendering: pixelated; }
-.miracle b { font-size: 14px; font-weight: 600; }
-.miracle__text { grid-column: 1 / -1; color: var(--ink-muted); }
-.miracle__cost { grid-column: 1 / -1; justify-self: end; display: inline-flex; align-items: center; gap: 2px; font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
-.miracle--dark { background: #f3ecf8; }
-.miracle:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--gold); }
-.miracle--dark:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--demon); }
-.miracle:disabled { opacity: 0.45; cursor: not-allowed; }
+.miracle img { image-rendering: pixelated; }
+.miracle__name { overflow-wrap: anywhere; }
+.miracle__cost { display: inline-flex; align-items: center; gap: 2px; font: 600 12px var(--font-num); font-variant-numeric: tabular-nums; }
+.miracle--dark { background: #4a2a3e; color: var(--paper); }
+.miracle--off { opacity: 0.5; }
+.miracle--on { outline: 3px solid var(--gold); outline-offset: 1px; opacity: 1; }
+.miracle-detail { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 2px solid var(--outline); background: var(--paper-raised); font-size: 13px; line-height: 20px; }
+.miracle-detail p { margin: 0; }
+.miracle-detail--dark { background: #f3ecf8; }
+.miracle-detail__wait { color: var(--danger); }
+.miracle-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn--dark { background: #4a2a3e; color: var(--paper); box-shadow: inset 0 -3px 0 #2a1424; }
+.powers-group h3 { margin: 10px 0 6px; font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.powers-note { margin: 4px 0 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .dream-kinds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 6px; }
 .chip--curse { background: #3a5a2a; color: var(--paper); border-color: var(--outline); }
 #eras {
@@ -482,68 +628,78 @@ html:has(dialog[open]) { overflow: hidden; }
 .offline-list { list-style: none; padding: 0; margin: 0 0 14px; border-top: 2px solid var(--paper-edge); }
 #offline form { display: flex; justify-content: flex-end; }
 
-/* Phones: header, then the map pinned at its own aspect ratio, the sheet, and the nav along
-   the bottom with the god-powers button floating over the sheet. */
+/* Phones: header, then the map cropped to a strip that suits the section, the sheet, and the nav
+   along the bottom with the god-powers button floating over the sheet. */
 @media (max-width: 800px) {
   #app {
-    gap: 0; padding: 0;
     grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas: "hud" "game" "side" "nav";
   }
-  .hud { gap: 6px; padding: 6px 8px; padding-top: max(6px, env(safe-area-inset-top)); border: 0; border-bottom: 3px solid var(--outline); box-shadow: none; }
-  #logo { display: none; }
-  .stat { padding: 1px 6px; gap: 4px; }
-  .stat dt { font-size: 11px; }
-  .stat dd { font-size: 15px; line-height: 22px; }
-  .stat__label { display: none; }
-  .speed button { min-width: 36px; padding: 0 6px; }
-  #game { width: 100%; aspect-ratio: 8 / 5; max-height: 45dvh; background: var(--meadow-deep); }
+  .hud { gap: 6px; padding: 6px 8px; padding-top: max(6px, env(safe-area-inset-top)); }
+  .hud__brand { font-size: 15px; }
+  .hud__chip { padding: 1px 6px; font-size: 13px; line-height: 20px; }
+  .hud__chip b { font-size: 13px; }
+  .hud__wide { display: none; }
+  .speed button { min-width: 34px; min-height: 30px; padding: 0 6px; font-size: 13px; }
+  /* The town fills the width at its own 8:5; a section that needs the room shows a strip of it. */
+  .map { height: min(62.5vw, 45dvh); border-right: 0; } /* no animation: a tap must land where the map is drawn */
+  #app[data-section="people"] .map { height: 170px; }
+  #app[data-section="power"] .map, #app[data-section="economy"] .map { height: 120px; }
+  #app[data-section="world"] .map { height: min(210px, 62.5vw); }
+  /* A short phone with someone's card open gives the map less, so the card's powers stay in view. */
+  @media (max-height: 760px) {
+    #app[data-card="open"]:not([data-section="world"]) .map { height: min(62.5vw, 30dvh); }
+  }
+  #game { inset: auto 0; top: 50%; aspect-ratio: 8 / 5; transform: translateY(-50%); }
   .map-menu { top: 6px; right: 6px; width: 40px; height: 40px; }
   .map-tools { top: 52px; right: 6px; }
-  .sheet { border: 0; border-top: 3px solid var(--outline); box-shadow: none; }
-  .sheet-head { padding: 8px 10px 6px; }
+  #app:not([data-section="town"]):not([data-section="world"]) .map-note { display: none; }
+  .sheet { margin-top: -12px; position: relative; z-index: 4; border-top: 3px solid var(--outline); box-shadow: 0 -3px 0 rgb(20 40 16 / 0.3); }
   #side .panel { padding-bottom: 88px; } /* room to scroll the last row out from under the floating button */
   .nav {
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 0 0 env(safe-area-inset-bottom);
-    border: 0; border-top: 3px solid var(--outline); box-shadow: none;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 0 0 env(safe-area-inset-bottom); overflow: visible;
+    border: 0; border-top: 3px solid var(--outline);
   }
-  .nav button { flex-direction: column; justify-content: center; gap: 2px; min-height: 60px; padding: 4px 0; border: 0; font-size: 12px; text-align: center; }
+  .nav button { flex-direction: column; justify-content: center; gap: 2px; min-height: 62px; padding: 4px 0; border: 0; font-size: 12px; text-align: center; }
   .nav button + button { border-left: 2px solid var(--paper-edge); }
-  .nav button[aria-current="page"] { border: 0; box-shadow: inset 0 0 0 2px var(--outline); }
+  .nav button[aria-current="page"] { border: 0; box-shadow: inset 2px 0 0 var(--outline), inset -2px 0 0 var(--outline); }
+  .nav__badge { position: absolute; top: 4px; right: calc(50% - 26px); min-width: 18px; font-size: 11px; line-height: 16px; }
   .nav .fab {
-    position: fixed; right: 12px; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 6;
+    position: fixed; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 6;
     width: 68px; height: 68px; min-height: 0; padding: 0; gap: 0; font-size: 12px;
     border: 3px solid var(--outline);
   }
-  /* A picked townsperson opens as a sheet over the bottom half, and up to nearly full screen. */
-  #npc-card:not([hidden]) {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; max-height: 55dvh; padding: 0 12px 16px;
-    border-top: 3px solid var(--outline); border-bottom: 0; box-shadow: 0 -4px 0 rgb(20 40 16 / 0.35);
+  .rail-urgent { display: none; }
+  #app[data-card="open"] .nav .fab { display: none; } /* with a card open its own power buttons take that corner */
+  /* The whole card rises over the screen; its bar stays at the top to fold it back or close it. */
+  #npc-card.npc--full {
+    position: fixed; left: 0; right: 0; top: 7dvh; bottom: 0; z-index: 10; margin: 0; padding: 0 12px 16px;
+    border-width: 3px 0 0; box-shadow: 0 -4px 0 rgb(20 40 16 / 0.35);
   }
-  #npc-card.npc--full { top: 7dvh; max-height: none; }
-  .npc__bar {
+  .npc--full .npc__bar {
     display: flex; position: sticky; top: 0; z-index: 2; margin: 0 -12px; padding: 4px 8px 4px 12px;
     justify-content: space-between; align-items: center; gap: 6px;
     background: var(--paper-raised); border-bottom: 2px solid var(--paper-edge); font-size: 15px;
   }
-  .npc__head .npc__close { display: none; }
-  #sub-tabs [data-sub="npc"] { display: none; } /* the card covers the tabs; it carries the story instead */
-  /* The god-powers sheet rises from the bottom edge, full width. */
-  #miracles.sheet-dialog { margin: auto 0 0; width: 100%; max-width: none; max-height: 85dvh; padding: 0 14px 14px; border-width: 3px 0 0; }
-  #miracles .powers-head { margin: 0 -14px; padding: 8px 14px 6px; }
-  /* One compact row for the title and tabs; a grab bar pulls the sheet up over the map. */
-  .sheet-head { flex-wrap: nowrap; gap: 8px; padding: 0 8px 6px; position: relative; }
+  .npc--full .npc__head .npc__close { display: none; }
+  /* The sheet's head: a grab bar that pulls the sheet up over the map, the title with its chip,
+     and the tabs, beside the title when they're short, on their own row when they're many. */
+  .sheet-head { padding: 22px 12px 8px; position: relative; }
   .sheet-grab {
-    display: grid; place-items: center; position: absolute; left: 0; right: 0; top: 0; height: 18px; padding: 0;
+    display: grid; place-items: center; position: absolute; left: 0; right: 0; top: 0; height: 20px; padding: 0;
     border: 0; background: none; cursor: pointer;
   }
   .sheet-grab::before { content: ''; width: 44px; height: 5px; background: var(--paper-edge); border: 1px solid var(--outline); }
-  .sheet-head .sheet-title { padding-top: 18px; font-size: 16px; white-space: nowrap; }
-  .sheet-head .tabs { flex: 1 1 auto; margin-top: 18px; min-width: 0; }
-  .tabs button { padding: 2px 4px; }
-  #npc-hint { display: none; }
-  #app[data-sheet="full"] #side { grid-row: 2 / 4; z-index: 4; }
+  #app[data-section="people"] .tabs, #app[data-section="town"] .tabs { flex: 0 1 auto; margin-left: auto; }
+  #app[data-section="town"] .sheet-chip { display: none; } /* the season sits on the map instead */
+  #app[data-section="world"] .sheet-title { display: none; }
+  .tabs button { min-height: 32px; padding: 0 8px; }
+  #app[data-sheet="full"] #side { grid-row: 2 / 4; margin-top: 0; }
   #app[data-sheet="full"] .sheet-grab::before { background: var(--gold); }
+  #sub-tabs [data-sub="npc"] { display: none; } /* the card covers the tabs; it carries the story instead */
+  /* The god-powers sheet rises from the bottom edge, full width. */
+  #miracles.sheet-dialog { margin: auto 0 0; width: 100%; max-width: none; max-height: 80dvh; padding: 0 14px 14px; border-width: 3px 0 0; }
+  #miracles .powers-head { margin: 0 -14px; padding: 8px 14px 6px; }
 }
 
 /* Fingers need bigger targets than a mouse. */

@@ -25,7 +25,7 @@ async function clickNpc(page: Page) {
 }
 
 test('sections, the map menu, the card and the world map by mouse', async ({ page }) => {
-  for (const [name, panel] of [['people', '#people'], ['power', '#kingdom'], ['economy', '#market'], ['town', '#feed']]) {
+  for (const [name, panel] of [['people', '#people'], ['power', '#kingdom'], ['economy', '#market'], ['town', '#urgent']]) {
     await page.locator(`#nav [data-section="${name}"]`).click();
     await expect(page.locator(panel)).toBeVisible();
     await clickNpc(page);
@@ -34,8 +34,8 @@ test('sections, the map menu, the card and the world map by mouse', async ({ pag
   }
   // The card sits above the panel, and "this one" filters the chronicle to them.
   await clickNpc(page);
-  await expect(page.locator('#feed')).toBeVisible();
   await page.locator('#sub-tabs [data-sub="npc"]').click();
+  await expect(page.locator('#feed')).toBeVisible();
   await expect(page.locator('#sub-tabs [data-sub="npc"]')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#npc-card .npc__close').click();
   for (const id of ['#zoom', '#daynight', '#sound', '#zoom']) {

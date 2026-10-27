@@ -39,24 +39,29 @@ export function renderGuild(world: WorldState): void {
   const finished = world.quests.filter((q) => !active.includes(q)).slice().reverse();
   const byId = new Map(world.npcs.map((n) => [n.id, n]));
 
+  // Two tabs share the panel (data-group, shown by data-show from main.ts): the guilds, and the quests.
+  const g = (group: string, node: HTMLElement) => ((node.dataset.group = group), node);
   view.replaceChildren(
-    divineBar(world),
-    section('ดันเจี้ยน', world.dungeons.map((d) => dungeonCard(world, d))),
-    section('เควสบนกระดาน', active.length ? active.map((q) => questCard(world, q, byId)) : [empty('ยังไม่มีใครประกาศจ้าง')]),
-    section(
-      'กิลด์ในเมือง',
-      world.guilds.length
-        ? world.guilds.map((g) => guildCard(g, members(g), byId, influenceOf(world, g)))
-        : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยที่มีประสบการณ์ พ่อค้าที่ร่ำรวย หรือโจรใจดำ อาจตั้งขึ้นเองเมื่อมีทองพอ')],
+    g(
+      'guilds',
+      section(
+        'กิลด์ในเมือง',
+        world.guilds.length
+          ? world.guilds.map((x) => guildCard(x, members(x), byId, influenceOf(world, x)))
+          : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยที่มีประสบการณ์ พ่อค้าที่ร่ำรวย หรือโจรใจดำ อาจตั้งขึ้นเองเมื่อมีทองพอ')],
+      ),
     ),
-    section('ผลล่าสุด', finished.length ? finished.map((q) => resultRow(q, byId)) : [empty('ยังไม่มีเควสที่จบ')]),
-    section('นักผจญภัย', adventurers.length ? adventurers.map((n) => adventurerRow(world, n)) : [empty('ยังไม่มีนักผจญภัยในเมือง')]),
-    section(
+    g('guilds', section('นักผจญภัย', adventurers.length ? adventurers.map((n) => adventurerRow(world, n)) : [empty('ยังไม่มีนักผจญภัยในเมือง')])),
+    g('quests', divineBar(world)),
+    g('quests', section('เควสบนกระดาน', active.length ? active.map((q) => questCard(world, q, byId)) : [empty('ยังไม่มีใครประกาศจ้าง')])),
+    g('quests', section('ดันเจี้ยน', world.dungeons.map((d) => dungeonCard(world, d)))),
+    g('quests', section('ผลล่าสุด', finished.length ? finished.map((q) => resultRow(q, byId)) : [empty('ยังไม่มีเควสที่จบ')])),
+    g('guilds', section(
       'หอเกียรติยศ',
       world.legends.length
         ? world.legends.slice().reverse().map((l) => el('li', { className: 'legend' }, icon('crown', 16), el('span', { textContent: l.text }), el('time', { textContent: `D${l.day}` })))
         : [empty('ยังไม่มีตำนาน')],
-    ),
+    )),
   );
 }
 

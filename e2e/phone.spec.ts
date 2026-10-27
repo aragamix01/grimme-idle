@@ -24,7 +24,9 @@ async function mapTool(page: Page, id: string) {
 async function npcPos(page: Page, skip?: number) {
   return page.evaluate((skip) => {
     const sc = (window as any).__grimm.scene;
-    const rect = sc.game.canvas.getBoundingClientRect();
+    const c = sc.game.canvas.getBoundingClientRect();
+    const m = document.getElementById('map')!.getBoundingClientRect(); // on phones the map shows a strip of the canvas
+    const rect = { left: Math.max(c.left, m.left), right: Math.min(c.right, m.right), top: Math.max(c.top, m.top), bottom: Math.min(c.bottom, m.bottom) };
     for (const n of sc.world.npcs) {
       if (n.id === skip) continue;
       const p = n.alive && n.age >= 16 ? sc.npcScreenPos(n.id) : null;
@@ -53,8 +55,10 @@ async function tapNpc(page: Page, skip?: number, exact = true) {
   return pos!.id;
 }
 
+// Half height closes from the card's own cross; the whole card from the cross on its bar.
 async function closeCard(page: Page) {
-  await card(page).locator('.npc__bar-close').tap();
+  const full = await card(page).evaluate((el) => el.classList.contains('npc--full'));
+  await card(page).locator(full ? '.npc__bar-close' : '.npc__head .npc__close').tap();
   await expect(card(page)).toBeHidden();
 }
 
@@ -68,6 +72,20 @@ async function keepPos(page: Page, index: number) {
     const k = rect.width / g.scale.gameSize.width;
     return { id: r.id as number, x: rect.left + (r.x * 16 + 8) * k, y: rect.top + (r.y * 16 + 4) * k };
   }, index);
+}
+
+// The keeps the (cropped) world map shows, by index.
+async function shownKeeps(page: Page): Promise<number[]> {
+  await page.waitForFunction(() => (window as any).__grimm.scene.game.scene.getScene('worldmap').built === true);
+  const box = (await page.locator('#map').boundingBox())!;
+  const out: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const p = await keepPos(page, i);
+    const underButtons = p.y < box.y + 52 && p.x > box.x + box.width - 56; // the menu button
+    if (p.y > box.y + 14 && p.y < box.y + box.height - 34 && p.x > box.x + 10 && p.x < box.x + box.width - 10 && !underButtons) out.push(i);
+  }
+  expect(out.length).toBeGreaterThan(1);
+  return out;
 }
 
 async function tapKeep(page: Page, index: number) {
@@ -85,8 +103,11 @@ async function landPos(page: Page) {
     const w = wm.world;
     const rect = g.canvas.getBoundingClientRect();
     const k = rect.width / g.scale.gameSize.width;
+    const box = document.getElementById('map')!.getBoundingClientRect();
     for (const r of w.regions) {
       if (r.seat || w.realms.some((m: any) => Math.hypot(m.x - r.x, m.y - r.y) < 4)) continue;
+      const sy = rect.top + (r.y * 16 + 8) * k;
+      if (sy < box.top + 20 || sy > box.bottom - 30) continue; // out of the cropped strip, or under the chips
       if (wm.ground[r.y * 40 + r.x] === 'water') continue;
       return { id: r.id as number, name: r.name as string, x: rect.left + (r.x * 16 + 8) * k, y: rect.top + (r.y * 16 + 8) * k };
     }
@@ -115,7 +136,7 @@ const camera = (page: Page) => page.evaluate(() => {
 const pageStill = async (page: Page) => expect(await page.evaluate(() => [scrollX, scrollY, document.scrollingElement!.scrollTop])).toEqual([0, 0, 0]);
 
 test('every section opens its panel, and the town map still answers a tap after each', async ({ page }) => {
-  const panels: [string, string][] = [['people', '#people'], ['power', '#kingdom'], ['economy', '#market'], ['town', '#feed']];
+  const panels: [string, string][] = [['people', '#people'], ['power', '#kingdom'], ['economy', '#market'], ['town', '#urgent']];
   for (const [name, panel] of panels) {
     await section(page, name);
     await expect(page.locator(`#nav [data-section="${name}"]`)).toHaveAttribute('aria-current', 'page');
@@ -130,13 +151,30 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
   const tabs: [string, string, string][] = [
     ['town', 'years', '#annals'],
     ['town', 'all', '#feed'],
+    ['town', 'urgent', '#urgent'],
     ['people', 'guild', '#guild'],
+    ['people', 'quests', '#guild'],
     ['people', 'people', '#people'],
+    ['power', 'council', '#kingdom'],
+    ['power', 'law', '#kingdom'],
+    ['power', 'court', '#kingdom'],
+    ['power', 'threat', '#kingdom'],
+    ['power', 'overview', '#kingdom'],
+    ['economy', 'houses', '#market'],
+    ['economy', 'works', '#kingdom'],
+    ['economy', 'research', '#kingdom'],
+    ['economy', 'market', '#market'],
   ];
   for (const [name, key, panel] of tabs) {
     await section(page, name);
     await sub(page, key);
     await expect(page.locator(panel)).toBeVisible();
+    await expect(page.locator(`#sub-tabs [data-sub="${key}"]`)).toHaveAttribute('aria-pressed', 'true');
+    // A shared panel shows only this tab's parts.
+    if (['#kingdom', '#market', '#guild'].includes(panel)) {
+      const shown = () => page.locator(`${panel} > [data-group]:not([hidden])`).evaluateAll((els) => [...new Set(els.map((e) => (e as HTMLElement).dataset.group))].length);
+      await expect.poll(shown).toBe(1);
+    }
     await tapNpc(page);
     await closeCard(page);
   }
@@ -227,7 +265,7 @@ test('the townsperson card: half height, full height, dreams, and back to the ma
   await expect(card(page)).not.toHaveClass(/npc--full/);
   // The powers are in view at half height.
   await expect(card(page).locator('.power').first()).toBeInViewport();
-  await card(page).locator('.npc__bar-grow').tap();
+  await card(page).locator('.npc__open').tap();
   await expect(card(page)).toHaveClass(/npc--full/);
   await card(page).locator('.npc__bar-grow').tap();
   await expect(card(page)).not.toHaveClass(/npc--full/);
@@ -262,7 +300,7 @@ test('the god-powers sheet and the era dialog open and close, and the map still 
   await expect(page.locator('#eras')).toBeVisible();
   await page.locator('#eras form button').tap();
   await expect(page.locator('#eras')).toBeHidden();
-  await powers.locator('form .btn').tap();
+  await powers.locator('.dialog-x').tap();
   await expect(powers).toBeHidden();
   await tapNpc(page);
   await closeCard(page);
@@ -298,7 +336,7 @@ test('the god-powers sheet fits the screen, keeps its close button in view, and 
 test('the sheet pulls up over the map and back, by its grab bar and by a swipe', async ({ page, browserName }) => {
   chromeOnly(browserName);
   const side = page.locator('#side');
-  const mapTop = (await page.locator('#game').boundingBox())!.y;
+  const mapTop = (await page.locator('#map').boundingBox())!.y;
   const before = (await side.boundingBox())!;
   await page.locator('#sheet-grab').tap();
   await expect(page.locator('#app')).toHaveAttribute('data-sheet', 'full');
@@ -323,6 +361,7 @@ test('the sheet pulls up over the map and back, by its grab bar and by a swipe',
 
 test('scrolling the sheet and the card never moves the page, and the map still answers', async ({ page, browserName }) => {
   chromeOnly(browserName);
+  await sub(page, 'all');
   await page.locator('#speed button[data-speed="3"]').tap();
   await page.waitForFunction(() => document.querySelectorAll('#feed .entry').length > 12, null, { timeout: 40_000 });
   await page.locator('#speed button[data-speed="0"]').tap();
@@ -347,7 +386,8 @@ test('the world map: keeps, lands, a land up close, and back to a tappable town'
   await section(page, 'world');
   await expect(page.locator('#realms .realm-card')).toHaveCount(4);
   await expect(page.locator('#zoom')).toBeHidden();
-  for (const i of [0, 1, 2, 3, 0]) await tapKeep(page, i);
+  const keeps = await shownKeeps(page);
+  for (const i of [...keeps, keeps[0]]) await tapKeep(page, i);
   // A tapped card picks its realm too.
   const second = page.locator('#realms .realm-card').nth(1);
   await second.locator('.realm-card__head').tap();
@@ -366,11 +406,19 @@ test('the world map: keeps, lands, a land up close, and back to a tappable town'
   await page.locator('#lands .realm-card--picked').getByRole('button', { name: 'กลับแผนที่โลก' }).tap();
   await page.waitForFunction(() => (window as any).__grimm.scene.game.scene.isActive('worldmap'));
   await sub(page, 'realms');
-  await tapKeep(page, 2);
+  await tapKeep(page, keeps[1]);
+  // The war tab, and the world's own way home.
+  await sub(page, 'war');
+  await expect(page.locator('#kingdom')).toBeVisible();
+  await mapTool(page, '#worldmap-tool'); // the menu's way home
+  await expect(page.locator('#nav [data-section="town"]')).toHaveAttribute('aria-current', 'page');
+  await tapNpc(page);
+  await closeCard(page);
   // Every other section takes us home to the town, which answers taps again.
   for (const name of ['town', 'people', 'power', 'economy']) {
     await section(page, 'world');
-    await tapKeep(page, 1);
+    await sub(page, 'realms');
+    await tapKeep(page, keeps[0]);
     await section(page, name);
     await page.waitForFunction(() => (window as any).__grimm.scene.game.scene.isActive('world'));
     await tapNpc(page);
@@ -394,7 +442,8 @@ test('leaving the world map from a land up close goes straight home', async ({ p
   await closeCard(page);
   // And the world map comes back as the map, not the land.
   await section(page, 'world');
-  await tapKeep(page, 0);
+  await sub(page, 'realms');
+  await tapKeep(page, (await shownKeeps(page))[0]);
 });
 
 test('a villager can be tapped on a land up close, and the town answers after', async ({ page }) => {
@@ -424,7 +473,8 @@ test('a villager can be tapped on a land up close, and the town answers after', 
       const s = w.sprite;
       const x = rect.left + (s.x - cam.worldView.x) * k;
       const y = rect.top + (s.y - s.displayHeight / 2 - cam.worldView.y) * k;
-      if (x > rect.left + 10 && x < rect.right - 10 && y > rect.top + 10 && y < rect.bottom - 10) return { id: w.id as number, x, y };
+      const m = document.getElementById('map')!.getBoundingClientRect(); // the strip of the canvas on show
+      if (x > rect.left + 10 && x < rect.right - 10 && y > Math.max(rect.top, m.top) + 10 && y < Math.min(rect.bottom, m.bottom) - 10) return { id: w.id as number, x, y };
     }
     return null;
   });
@@ -451,7 +501,9 @@ test('keeps and townsfolk can be picked again and again while time is running', 
   await page.locator('#speed button[data-speed="1"]').tap();
   for (let round = 0; round < 2; round++) {
     await section(page, 'world');
-    for (const i of [0, 3]) {
+    await sub(page, 'realms');
+    const keeps = await shownKeeps(page);
+    for (const i of [keeps[0], keeps.at(-1)!]) {
       await tapKeep(page, i);
       await page.waitForTimeout(1200); // let a couple of days pass, the list rebuilding under it
     }
@@ -462,6 +514,50 @@ test('keeps and townsfolk can be picked again and again while time is running', 
       await closeCard(page);
     }
   }
+});
+
+test('a miracle tile shows what it does before it is worked, and a dream goes to the next person tapped', async ({ page }) => {
+  await page.locator('#speed button[data-speed="3"]').tap(); // gather some faith
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.faith >= 10, null, { timeout: 40_000 });
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await page.locator('#miracle-open').tap();
+  const powers = page.locator('#miracles');
+  const tile = powers.locator('.miracle').first();
+  await tile.tap();
+  await expect(tile).toHaveAttribute('aria-pressed', 'true');
+  await expect(powers.locator('.miracle-detail')).toBeVisible();
+  await expect(powers.locator('.miracle-go')).toBeVisible();
+  await tile.tap(); // a second tap folds it away
+  await expect(powers.locator('.miracle-detail')).toHaveCount(0);
+  // The dream: the sheet closes, the map asks for someone, and their card opens on the dreams.
+  await powers.locator('#dream-open').tap();
+  await expect(powers).toBeHidden();
+  await expect(page.locator('#map-note')).toHaveClass(/map-note--ask/);
+  await tapNpc(page);
+  await expect(card(page)).toHaveClass(/npc--full/);
+  await expect(card(page).locator('.dream-kinds')).toBeInViewport();
+  await expect(page.locator('#map-note')).not.toHaveClass(/map-note--ask/);
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+});
+
+test('the people list filters, and a row opens that person', async ({ page }) => {
+  await section(page, 'people');
+  const rows = page.locator('#people .people-row');
+  await expect(rows.first()).toBeVisible();
+  const all = await rows.count();
+  await page.locator('#people .filter-chip', { hasText: 'นักผจญภัย' }).tap();
+  await expect(page.locator('#people .filter-chip', { hasText: 'นักผจญภัย' })).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => rows.count()).toBeLessThan(all + 1);
+  const name = (await rows.first().locator('b').textContent())!;
+  await rows.first().tap();
+  await expect(card(page)).toBeVisible();
+  await expect(card(page).locator('.npc__name')).toHaveText(name);
+  await closeCard(page);
+  await page.locator('#people .filter-chip', { hasText: 'ทั้งหมด' }).tap();
+  await tapNpc(page);
+  await closeCard(page);
 });
 
 test('day and night can be held at noon, and the choice is remembered', async ({ page }) => {

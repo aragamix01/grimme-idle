@@ -9,6 +9,7 @@ interface Handlers {
   onReveal: () => void;
   onHero: () => void;
   onWar: (act: 'bless' | 'storm' | 'peace') => void;
+  onLaw: () => void; // to the full list of decrees
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -72,54 +73,116 @@ export function renderKingdom(world: WorldState): void {
   lastKey = key;
 
   const avg = (list: Npc[]) => (list.length ? Math.round(list.reduce((s, n) => s + loyaltyOf(n), 0) / list.length) : 0);
+  // Every part names the tab it belongs to (data-group); the panel shows one tab's parts at a
+  // time (data-show, set by main.ts). Works, research and war sit under other sections.
+  const g = (group: string, node: HTMLElement) => ((node.dataset.group = group), node);
   view.replaceChildren(
-    balanceMeter(world),
-    world.demon?.stage === 'occupied'
-      ? occupiedCard(world)
-      : king
-        ? kingCard(world, king)
-        : el('p', { className: 'guild-empty', textContent: 'บัลลังก์ว่างอยู่' }),
-    demonSection(world),
-    ...(world.dragon ? [dragonSection(world)] : []),
-    el(
-      'div',
-      { className: 'realm-meters' },
-      meter('อำนาจราชบัลลังก์', power.total, power.total < 45 ? 'weak' : 'strong'),
-      meter('ความพอใจของประชาชน', people, people < 30 ? 'weak' : 'strong'),
+    g(
+      'overview',
+      world.demon?.stage === 'occupied'
+        ? occupiedCard(world)
+        : king
+          ? kingCard(world, king)
+          : el('p', { className: 'guild-empty', textContent: 'บัลลังก์ว่างอยู่' }),
     ),
-    el(
-      'div',
-      { className: 'market-head' },
-      el('span', { className: 'chip' }, icon('sword', 16), `ทหาร ${soldiers.length} นาย · ภักดี ${avg(soldiers)}`),
-      el('span', { className: 'chip' }, icon('crown', 16), `อัศวิน ${knights.length}`),
-      el('span', { className: 'chip' }, icon('gold', 16), `ท้องพระคลัง ${Math.floor(world.treasury)}`),
-      ...(world.golden ? [el('span', { className: 'chip chip--gold', title: 'ยุครุ่งเรืองที่ยาวนานมักจบด้วยปัญหา: ราชสำนักโลภ โรคระบาด หรือมังกร' }, icon('star', 16), `ยุครุ่งเรือง ${world.golden} เดือน · เสี่ยงเกิดเรื่อง ${Math.round(troubleChance(world.golden) * 100)}%`)] : []),
+    g('overview', overviewTiles(power.total, people, Math.round(balanceOf(world)))),
+    g(
+      'overview',
+      el(
+        'div',
+        { className: 'market-head' },
+        el('span', { className: 'chip' }, icon('sword', 16), `ทหาร ${soldiers.length} นาย · ภักดี ${avg(soldiers)}`),
+        el('span', { className: 'chip' }, icon('crown', 16), `อัศวิน ${knights.length}`),
+        el('span', { className: 'chip' }, icon('gold', 16), `ท้องพระคลัง ${Math.floor(world.treasury)}`),
+        ...(world.golden ? [el('span', { className: 'chip chip--gold', title: 'ยุครุ่งเรืองที่ยาวนานมักจบด้วยปัญหา: ราชสำนักโลภ โรคระบาด หรือมังกร' }, icon('star', 16), `ยุครุ่งเรือง ${world.golden} เดือน · เสี่ยงเกิดเรื่อง ${Math.round(troubleChance(world.golden) * 100)}%`)] : []),
+      ),
     ),
-    section(
-      'ขุนนางในราชสำนัก',
-      nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
-      `${nobles.length} คน`,
+    g('overview', activeDecrees(world)),
+    g('overview', charterGrid(world)),
+    g('council', councilSection(world)),
+    g(
+      'council',
+      section(
+        'ขุนนางในราชสำนัก',
+        nobles.length ? nobles.map((n) => personRow(n, n.traits.includes('greedy') || n.traits.includes('vengeful') ? 'ทะเยอทะยาน' : '')) : [empty('ยังไม่มีขุนนาง')],
+        `${nobles.length} คน`,
+      ),
     ),
-    charterSection(world),
-    councilSection(world),
-    justiceSection(world),
-    auditorSection(world),
-    decreesSection(world),
-    worksSection(world),
-    researchSection(world),
-    warSection(world),
-    neighbours(world),
-    cultSection(world),
-    section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')], `${knights.length} คน`),
-    section(
-      'ข่าวการเมือง',
-      news.length
-        ? news.map((e) => el('li', { className: 'legend' }, icon('crown', 16), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` })))
-        : [empty('ราชสำนักยังสงบ')],
-      news[0] ? `ล่าสุด D${news[0].day}` : '',
+    g('council', section('อัศวินแห่งราชบัลลังก์', knights.length ? knights.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครได้รับแต่งตั้ง นักผจญภัยแรงก์ C ขึ้นไปที่ภักดีจะได้เป็นอัศวิน')], `${knights.length} คน`)),
+    g(
+      'council',
+      section(
+        'ข่าวการเมือง',
+        news.length
+          ? news.map((e) => el('li', { className: 'legend' }, icon('crown', 16), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` })))
+          : [empty('ราชสำนักยังสงบ')],
+        news[0] ? `ล่าสุด D${news[0].day}` : '',
+      ),
     ),
+    g('law', decreesSection(world)),
+    g('law', charterSection(world)),
+    g('court', justiceSection(world)),
+    g('court', auditorSection(world)),
+    g('threat', balanceMeter(world)),
+    g('threat', demonSection(world)),
+    ...(world.dragon ? [g('threat', dragonSection(world))] : []),
+    g('threat', cultSection(world)),
+    g('works', worksSection(world)),
+    g('research', researchSection(world)),
+    g('war', warSection(world)),
+    g('war', neighbours(world)),
   );
   localize(view, world);
+}
+
+// The throne at a glance: its power, the people's mood and the world's balance, as three tiles.
+function overviewTiles(power: number, people: number, balance: number): HTMLElement {
+  const tile = (label: string, value: number, fill: string, bad: boolean) => {
+    const bar = el('span', { className: 'k-tile__bar' });
+    bar.style.background = fill;
+    return el('div', { className: `k-tile${bad ? ' k-tile--bad' : ''}` }, el('span', { textContent: label }), el('b', { textContent: String(value) }), bar);
+  };
+  const pct = (v: number) => Math.max(0, Math.min(100, v));
+  const lean = (balance + 100) / 2;
+  return el(
+    'div',
+    { className: 'k-tiles' },
+    tile('อำนาจบัลลังก์', power, `linear-gradient(90deg, var(--gold) 0 ${pct(power)}%, var(--paper-edge) ${pct(power)}% 100%)`, power < 30),
+    tile('ความพอใจ', people, `linear-gradient(90deg, ${people < 30 ? 'var(--danger)' : 'var(--gold)'} 0 ${pct(people)}%, var(--paper-edge) ${pct(people)}% 100%)`, people < 30),
+    tile('สมดุลโลก', balance, `linear-gradient(90deg, var(--demon) 0 ${lean}%, var(--gold) ${lean}% 100%)`, balance <= -50),
+  );
+}
+
+// The decrees in force, as gold rows, with a way to all of them.
+function activeDecrees(world: WorldState): HTMLElement {
+  const on = (world.decrees ?? []).filter((d) => d.until > world.day);
+  const all = el('button', { type: 'button', className: 'k-link', textContent: `ทั้งหมด ${DECREE_ORDER.length}` });
+  all.onclick = () => handlers.onLaw();
+  return el(
+    'section',
+    { className: 'k-block' },
+    el('div', { className: 'k-block__head' }, el('h3', { textContent: 'ราชโองการที่มีผล' }), all),
+    on.length
+      ? el('ul', { className: 'k-decrees' }, ...on.map((d) => el('li', {}, el('span', { textContent: '✦' }), el('b', { textContent: DECREES[d.kind].name }), el('small', { textContent: `อีก ${d.until - world.day} วัน` }))))
+      : el('p', { className: 'realm-king__meta', textContent: 'ยังไม่มีราชโองการที่มีผล' }),
+  );
+}
+
+// The constitution's clauses as a grid of short tiles.
+function charterGrid(world: WorldState): HTMLElement {
+  const c = charterOf(world);
+  const office = world.auditor;
+  return el(
+    'section',
+    { className: 'k-block' },
+    el('h3', { textContent: 'รัฐธรรมนูญ' }),
+    el(
+      'div',
+      { className: 'k-clauses' },
+      ...clauses(c).map((t) => el('span', { textContent: t })),
+      ...(c.auditor && office ? [el('span', { className: 'k-clauses__good', textContent: `องค์กรอิสระ · อิสระ ${office.independence}` })] : []),
+    ),
+  );
 }
 
 // Light against dark: a marker on a demon-to-gold bar, with a word for where the world stands.
@@ -586,35 +649,9 @@ function personRow(n: Npc, note: string): HTMLElement {
   );
 }
 
-// Sections fold away so the tab stays short on a phone; which ones are open is remembered. Danger
-// (the demon lord, a war, a dragon) always stays open. A hint beside a folded title says what's inside.
-const OPEN_KEY = 'grimm-kingdom-open';
-const ALWAYS_OPEN = /^(จอมมาร|สงคราม|มังกร)/;
-const opened = new Set<string>(readOpen());
-function readOpen(): string[] {
-  try {
-    const saved = localStorage.getItem(OPEN_KEY);
-    if (saved) return JSON.parse(saved) as string[];
-  } catch {
-    // storage blocked: start from the defaults
-  }
-  return ['council', 'งานค้นคว้าของนักปราชญ์', 'ข่าวการเมือง'];
-}
-
-function section(title: string, rows: HTMLElement[], hint = '', key = title): HTMLElement {
-  if (ALWAYS_OPEN.test(title)) return el('section', { className: 'guild-sec' }, el('h3', { textContent: title }), el('ul', {}, ...rows));
-  const fold = el('details', { className: 'guild-sec fold', open: opened.has(key) });
-  fold.addEventListener('toggle', () => {
-    if (fold.open) opened.add(key);
-    else opened.delete(key);
-    try {
-      localStorage.setItem(OPEN_KEY, JSON.stringify([...opened]));
-    } catch {
-      // storage blocked: remembered for this visit only
-    }
-  });
-  fold.append(el('summary', {}, el('h3', { textContent: title }), el('small', { className: 'fold__hint', textContent: hint })), el('ul', {}, ...rows));
-  return fold;
+// A titled list; a hint beside the title says what's inside.
+function section(title: string, rows: HTMLElement[], hint = '', _key = title): HTMLElement {
+  return el('section', { className: 'guild-sec' }, el('h3', {}, title, ...(hint ? [el('small', { className: 'fold__hint', textContent: hint })] : [])), el('ul', {}, ...rows));
 }
 
 const empty = (text: string) => el('li', { className: 'guild-empty', textContent: text });

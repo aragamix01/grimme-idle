@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import type { WorldState } from './sim';
+import { REGIMES, SEASON_TH, regimeOf, seasonOf, weatherOf, type WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
 import { RegionScene } from './game/scenes/RegionScene';
@@ -12,13 +12,14 @@ import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
 import { initPeople, renderPeople } from './ui/people';
-import { initNpcCard, renderNpcCard } from './ui/npcCard';
+import { initNpcCard, renderNpcCard, startDream } from './ui/npcCard';
 import { renderAnnals } from './ui/annals';
 import { hideCatchup, showCatchup, showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
 import { containScroll } from './ui/contain';
 import { initLife, renderLife } from './ui/life';
+import { initUrgent, renderUrgent, urgentCount } from './ui/urgent';
 import type { FromWorker, ToWorker } from './worker/protocol';
 import { bindMapInput } from './game/mapInput';
 
@@ -57,17 +58,25 @@ let selected: number | null = null;
 // Five sections along the bottom, each with its own tabs over the sheet under the map. The world
 // section swaps the town on the canvas for the world map.
 type Section = 'town' | 'people' | 'power' | 'economy' | 'world';
-type Sub = 'all' | 'years' | 'npc' | 'people' | 'guild' | 'kingdom' | 'market' | 'realms' | 'lands';
+type Sub = 'urgent' | 'all' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
 const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
-  town: { title: 'เมือง', subs: [['all', 'พงศาวดาร'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
-  people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์และเควส']] },
-  power: { title: 'อำนาจ', subs: [['kingdom', 'อาณาจักร']] },
-  economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาดและการค้า']] },
-  world: { title: 'โลก', subs: [['realms', 'อาณาจักร'], ['lands', 'ดินแดน']] },
+  town: { title: 'เมือง', subs: [['urgent', 'ด่วน'], ['all', 'พงศาวดาร'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
+  people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์'], ['quests', 'เควส']] },
+  power: { title: 'อำนาจ', subs: [['overview', 'ภาพรวม'], ['council', 'สภา'], ['law', 'กฎหมาย'], ['court', 'ศาล'], ['threat', 'ภัย']] },
+  economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาด'], ['houses', 'บ้านการค้า'], ['works', 'ก่อสร้าง'], ['research', 'วิจัย']] },
+  world: { title: 'โลก', subs: [['realms', 'อาณาจักร'], ['lands', 'ดินแดน'], ['war', 'สงคราม']] },
 };
-const PANEL: Record<Sub, string> = { all: 'feed', years: 'annals', npc: 'feed', people: 'people', guild: 'guild', kingdom: 'kingdom', market: 'market', realms: 'realms', lands: 'lands' };
+// Each tab's panel, and for panels shared by several tabs, which of its parts to show.
+const PANEL: Record<Sub, [string, string?]> = {
+  urgent: ['urgent'], all: ['feed'], years: ['annals'], npc: ['feed'],
+  people: ['people'], guild: ['guild', 'guilds'], quests: ['guild', 'quests'],
+  overview: ['kingdom', 'overview'], council: ['kingdom', 'council'], law: ['kingdom', 'law'], court: ['kingdom', 'court'], threat: ['kingdom', 'threat'],
+  market: ['market', 'prices'], houses: ['market', 'houses'], works: ['kingdom', 'works'], research: ['kingdom', 'research'],
+  realms: ['realms'], lands: ['lands'], war: ['kingdom', 'war'],
+};
+const PANELS = [...new Set(Object.values(PANEL).map(([id]) => id))];
 let section: Section = 'town';
-const subOf: Record<Section, Sub> = { town: 'all', people: 'people', power: 'kingdom', economy: 'market', world: 'realms' };
+const subOf: Record<Section, Sub> = { town: 'urgent', people: 'people', power: 'overview', economy: 'market', world: 'realms' };
 const sub = () => subOf[section];
 const app = document.getElementById('app')!;
 const subTabs = document.getElementById('sub-tabs')!;
@@ -104,14 +113,60 @@ function render(): void {
   followLife(world);
   renderNpcCard(world, selected);
   const s = sub();
-  if (s === 'lands') renderLands(world);
-  else if (s === 'realms') renderRealms(world);
-  else if (s === 'years') renderAnnals(world, (id) => select(id));
-  else if (s === 'all' || s === 'npc') renderFeed(world, s === 'npc' ? selected : null);
-  else if (s === 'guild') renderGuild(world);
-  else if (s === 'market') renderMarket(world);
-  else if (s === 'kingdom') renderKingdom(world);
-  else renderPeople(world);
+  const [panel] = PANEL[s];
+  renderUrgent(world, panel === 'urgent');
+  renderMapNotes(world);
+  refreshTabs(world);
+  if (panel === 'lands') renderLands(world);
+  else if (panel === 'realms') renderRealms(world);
+  else if (panel === 'annals') renderAnnals(world, (id) => select(id));
+  else if (panel === 'feed') renderFeed(world, s === 'npc' ? selected : null);
+  else if (panel === 'guild') renderGuild(world);
+  else if (panel === 'market') renderMarket(world);
+  else if (panel === 'kingdom') renderKingdom(world);
+  else if (panel === 'people') renderPeople(world);
+  showPart(panel, PANEL[s][1]);
+}
+
+// Panels shared by several tabs (the kingdom, the market, the guilds) show one tab's parts.
+function showPart(panel: string, part: string | undefined): void {
+  if (!part) return;
+  for (const c of document.getElementById(panel)!.children) {
+    const g = (c as HTMLElement).dataset.group;
+    if (g) (c as HTMLElement).hidden = g !== part;
+  }
+}
+
+// What a section's head says beside its title: the season and weather, or the regime.
+function sheetChip(w: WorldState): string {
+  if (section === 'town' || section === 'economy') return SEASON_TH[seasonOf(w.day)];
+  if (section === 'power') return REGIMES[regimeOf(w)].name;
+  return '';
+}
+
+// Tab labels that carry a count: people, guilds, quests, a war.
+function tabLabel(key: Sub, label: string, w: WorldState | null): string {
+  if (!w) return label;
+  const n =
+    key === 'people' ? w.npcs.filter((x) => x.alive).length
+    : key === 'guild' ? w.guilds.length
+    : key === 'quests' ? w.quests.filter((q) => ['recruiting', 'travelling', 'inside'].includes(q.stage)).length
+    : key === 'war' ? (w.war ? 1 : 0)
+    : key === 'urgent' ? urgentCount(w)
+    : 0;
+  return n ? `${label} ${n}` : label;
+}
+let tabsKey = '';
+function refreshTabs(w: WorldState): void {
+  const chip = document.getElementById('sheet-chip')!;
+  const text = sheetChip(w);
+  chip.hidden = !text;
+  chip.textContent = text;
+  const labels = SECTIONS[section].subs.map(([key, label]) => tabLabel(key, label, w));
+  const key = `${section}:${labels.join('|')}`;
+  if (key === tabsKey) return;
+  tabsKey = key;
+  subTabs.querySelectorAll<HTMLButtonElement>('button').forEach((b, i) => (b.textContent = labels[i]));
 }
 
 // The section's tabs, its one visible panel, and the nav button that shows where we are.
@@ -124,13 +179,14 @@ function showSection(): void {
     else b.removeAttribute('aria-current');
   }
   subTabs.hidden = subs.length < 2;
+  tabsKey = '';
   subTabs.replaceChildren(
     ...subs.map(([key, label]) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.dataset.sub = key;
-      b.textContent = label;
+      b.textContent = tabLabel(key, label, world);
       const on = key === sub();
       b.setAttribute('aria-selected', String(on));
       b.setAttribute('aria-pressed', String(on));
@@ -139,9 +195,10 @@ function showSection(): void {
       return b;
     }),
   );
-  const shown = PANEL[sub()];
-  for (const id of new Set(Object.values(PANEL))) document.getElementById(id)!.hidden = id !== shown;
+  const [shown, part] = PANEL[sub()];
+  for (const id of PANELS) document.getElementById(id)!.hidden = id !== shown;
   render();
+  showPart(shown, part);
 }
 
 function setSub(next: Sub): void {
@@ -156,11 +213,17 @@ function setSection(next: Section): void {
   section = next;
   if (wasMap !== (next === 'world')) swapMap(next === 'world');
   showSection();
-  document.getElementById(PANEL[sub()])!.scrollTop = 0;
+  document.getElementById(PANEL[sub()][0])!.scrollTop = 0;
 }
 
 function select(id: number | null): void {
+  if (id !== null && dreamFor) {
+    dreamFor = false;
+    startDream();
+  }
   selected = id;
+  if (id === null) delete app.dataset.card;
+  else app.dataset.card = 'open';
   scene.select(id);
   if (id === null && subOf.town === 'npc') subOf.town = 'all';
   showSection();
@@ -173,12 +236,37 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#nav [data-section
   b.onclick = () => setSection(b.dataset.section as Section);
 }
 initMarket({ onSelectNpc: select });
-initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
+initKingdom({ onSelectNpc: select, onLaw: () => setSub('law'), onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
   onWar: (act) => send({ type: 'command', command: { type: 'war', act } }),
 });
-initPeople({ onSelectNpc: select });
-initMiracles((kind) => send({ type: 'command', command: { type: 'miracle', kind } }));
+initPeople({
+  onSelectNpc: select,
+  onVillager: (regionId, id) => {
+    setSub('lands');
+    pickRegion(regionId);
+    if (world) pickVillager(world, id);
+  },
+});
+initUrgent({
+  onChoose: (key) => send({ type: 'command', command: { type: 'choose', key } }),
+  onGo: (where, regionId) => {
+    if (where === 'lands') {
+      setSub('lands');
+      if (regionId !== undefined) pickRegion(regionId);
+    } else setSub(where === 'war' ? 'war' : where === 'threat' ? 'threat' : where === 'market' ? 'market' : 'overview');
+  },
+});
+// A dream from the powers sheet waits for a tap on someone in town.
+let dreamFor = false;
+initMiracles({
+  onMiracle: (kind) => send({ type: 'command', command: { type: 'miracle', kind } }),
+  onDream: () => {
+    if (section === 'world') setSection('town');
+    dreamFor = true;
+    if (world) renderMapNotes(world);
+  },
+});
 initEra({
   onEndEra: () => send({ type: 'newEra' }),
   onPerk: (perk) => send({ type: 'command', command: { type: 'perk', perk } }),
@@ -209,9 +297,15 @@ for (const id of ['miracles', 'eras', 'offline']) {
   });
 }
 // Sheets, panels and dialogs keep a finger's scroll to themselves.
-for (const id of ['npc-card', 'miracles', 'eras', 'offline', ...new Set(Object.values(PANEL))]) containScroll(document.getElementById(id)!);
+for (const id of ['npc-card', 'miracles', 'eras', 'offline', ...PANELS]) containScroll(document.getElementById(id)!);
 const onMap = () => section === 'world'; // the world map is up in the town's place
-initBubbles((id) => (onMap() ? null : scene.npcScreenPos(id)));
+// Speech bubbles only over the part of the town the map shows (on phones it is cropped to a strip).
+const mapBox = document.getElementById('map')!;
+initBubbles((id) => {
+  const p = onMap() ? null : scene.npcScreenPos(id);
+  const r = mapBox.getBoundingClientRect();
+  return p && p.x >= r.left && p.x <= r.right && p.y >= r.top + 8 && p.y <= r.bottom ? p : null;
+});
 // The menu's toggles say whether they're on.
 const showState = (b: HTMLElement, on: boolean) => {
   b.setAttribute('aria-pressed', String(on));
@@ -221,9 +315,28 @@ const zoom = document.getElementById('zoom')!;
 showState(zoom, false);
 zoom.onclick = () => showState(zoom, scene.toggleZoom());
 
+// Notes over the map: the season and weather over the town; our lands and any war over the world.
+function renderMapNotes(w: WorldState): void {
+  const note = document.getElementById('map-note')!;
+  const chips = document.getElementById('map-chips')!;
+  const weather = weatherOf(w);
+  note.hidden = onMap();
+  note.classList.toggle('map-note--ask', dreamFor);
+  note.textContent = dreamFor ? 'แตะชาวเมืองที่จะส่งความฝันให้' : `${SEASON_TH[seasonOf(w.day)]} · ${weather ? WEATHER_TH[weather] : 'ฟ้าใส'}`;
+  chips.hidden = !onMap();
+  const ours = (w.regions ?? []).filter((r) => r.owner === 'us').length;
+  const text = `ดินแดนของเรา ${ours}/${w.regions?.length ?? 0}${w.war ? '|สงคราม 1' : ''}`;
+  if (chips.dataset.text !== text) {
+    chips.dataset.text = text;
+    chips.replaceChildren(...text.split('|').map((t, i) => Object.assign(document.createElement('span'), { textContent: t, className: i ? 'map-chip map-chip--danger' : 'map-chip' })));
+  }
+}
+const WEATHER_TH = { rain: 'ฝนฉ่ำ', blight: 'โรคพืช', drought: 'ภัยแล้ง', deluge: 'ฝนไม่หยุด' } as const;
+
 // The world map takes the town's place on the canvas; the town sleeps meanwhile.
 function swapMap(on: boolean): void {
   zoom.hidden = on;
+  document.getElementById('worldmap-tool')!.querySelector('span')!.textContent = on ? 'กลับเมือง' : 'แผนที่โลก';
   if (on && world) {
     pickRealm(world, null);
     mapScene.pick(null);
@@ -308,6 +421,7 @@ function unfold(open: boolean): void {
   menu.setAttribute('aria-expanded', String(open));
 }
 menu.onclick = () => unfold(menu.getAttribute('aria-expanded') !== 'true');
+document.getElementById('worldmap-tool')!.onclick = () => setSection(section === 'world' ? 'town' : 'world');
 tools.addEventListener('click', (e) => (e.target as Element).closest('button') && unfold(false));
 addEventListener('pointerdown', (e) => !tools.hidden && !(e.target as Element).closest?.('#map-tools, #map-menu') && unfold(false), true);
 

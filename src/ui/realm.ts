@@ -72,6 +72,12 @@ export function pickRealm(world: WorldState, id: number | null): void {
   picked = id;
   lastKey = '';
   renderRealms(world);
-  // At once, not smoothly: a page still gliding swallows the next tap on the map.
-  if (id !== null) view.querySelector(`[data-realm="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+  // Scroll only the list, at once: scrollIntoView would also shift the boxes around it (the sheet,
+  // the page), moving the map out from under the next tap.
+  const card = id === null ? null : view.querySelector<HTMLElement>(`[data-realm="${id}"]`);
+  if (card) {
+    const top = card.offsetTop - view.offsetTop;
+    if (top < view.scrollTop) view.scrollTop = top;
+    else if (top + card.offsetHeight > view.scrollTop + view.clientHeight) view.scrollTop = top + card.offsetHeight - view.clientHeight;
+  }
 }

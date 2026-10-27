@@ -1,5 +1,5 @@
 import { LAIR_TH, DECREES, decreeActive, garrisoned, EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
-import { el } from './icons';
+import { el, icon } from './icons';
 
 // The lands tab on the world map: what we hold and what it yields, the region picked on the
 // map in full (its kind, its owner, the edge it gives, each use and its level, its village and
@@ -73,15 +73,29 @@ function village(world: WorldState, r: Region): HTMLElement[] {
   const v = r.village;
   if (!folk.length) return [el('p', { className: 'realm-king__meta', textContent: isOursOrFree(r) ? 'ยังไม่มีคนอยู่ ทางการจะส่งครอบครัวจากเมืองไปบุกเบิก' : 'ไม่มีหมู่บ้าน' })];
   const chief = chiefOf(world, r);
-  const out: HTMLElement[] = [el('h4', { textContent: `หมู่บ้าน · ${folk.length} คน` })];
-  if (r.owner === 'us') {
-    const pct = Math.round(labour(world, r) * 100);
-    out.push(el('p', { className: 'realm-king__meta', textContent: `คนงาน ${workersOf(world, r).length}/${needOf(r)} (ทำงานได้ ${pct}%) · ส่งส่วยให้เมืองหลวง ${Math.round((1 - keepOf(world, r)) * 100)}%` }));
-  }
-  if (chief) out.push(el('p', { className: 'realm-king__meta', textContent: `ผู้ใหญ่บ้าน: ${chief.name} (${chief.age} ปี) · ${chief.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }));
+  // The village at a glance: its people, its hands against the work, and its loyalty, as tiles.
+  const tile = (label: string, value: string, bad = false, fill?: number) => {
+    const t = el('div', { className: `k-tile${bad ? ' k-tile--bad' : ''}` }, el('span', { textContent: label }), el('b', { textContent: value }));
+    if (fill !== undefined) {
+      const bar = el('span', { className: 'k-tile__bar' });
+      bar.style.background = `linear-gradient(90deg, ${bad ? 'var(--danger)' : 'var(--meadow-deep)'} 0 ${fill}%, var(--paper-edge) ${fill}% 100%)`;
+      t.append(bar);
+    }
+    return t;
+  };
+  const label = r.owner === 'us' ? 'ภักดี' : v?.free ? 'อยากกลับมา' : 'พอใจเจ้าของ';
+  const out: HTMLElement[] = [
+    el(
+      'div',
+      { className: 'k-tiles' },
+      tile('ชาวบ้าน', String(folk.length)),
+      r.owner === 'us' ? tile('คนงาน', `${workersOf(world, r).length}/${needOf(r)}`, labour(world, r) < 0.5) : tile('สิ่งก่อสร้าง', String(v?.works?.length ?? 0)),
+      ...(v ? [tile(label, String(Math.round(v.loyalty)), v.loyalty < 30, Math.round(v.loyalty))] : []),
+    ),
+  ];
+  if (r.owner === 'us') out.push(el('p', { className: 'realm-king__meta', textContent: `ทำงานได้ ${Math.round(labour(world, r) * 100)}% · ส่งส่วยให้เมืองหลวง ${Math.round((1 - keepOf(world, r)) * 100)}%` }));
+  if (chief) out.push(el('p', { className: 'land-chief' }, icon('crown', 16), el('span', {}, 'ผู้ใหญ่บ้าน ', el('b', { textContent: chief.name }), ` (${chief.age} ปี)`), el('span', { className: 'chip', textContent: chief.traits.map((t) => TRAIT_TH[t]).join(' · ') })));
   if (v) {
-    const label = r.owner === 'us' ? 'ความภักดีต่อเมืองหลวง' : v.free ? 'ใจที่จะกลับมาหาเมืองหลวง' : 'ความพอใจต่อเจ้าของ';
-    out.push(el('div', { className: 'land-bar' }, el('span', { textContent: label }), el('meter', { min: 0, max: 100, low: 30, high: 60, optimum: 100, value: v.loyalty }), el('b', { textContent: String(v.loyalty) })));
     if (v.thought) out.push(el('p', { className: 'land-thought', textContent: `“${v.thought}”` }));
     if (v.plea) out.push(el('p', { className: 'realm-king__meta land-plea', textContent: `คำร้อง: ${v.plea.text}` }));
     // What the law is doing to them right now.

@@ -1,4 +1,4 @@
-import { rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, jobName, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
+import { jailed, rankName, rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, jobName, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 import { localize } from './lexicon';
 
@@ -6,10 +6,14 @@ const view = document.getElementById('people')!;
 
 interface Handlers {
   onSelectNpc: (id: number) => void;
+  onVillager: (regionId: number, id: number) => void; // villagers live on the lands, seen on the world map
 }
 let handlers: Handlers;
 let lastKey = '';
 const open = new Set<string>(); // which job sections the player has expanded
+type Filter = 'all' | 'adventurers' | 'farmers' | 'hungry' | 'villagers';
+let filter: Filter = 'all';
+let shown = 30; // rows in the list before "more"
 
 export function initPeople(h: Handlers): void {
   handlers = h;
@@ -40,12 +44,83 @@ export function renderPeople(world: WorldState): void {
     living.length,
     adults.map((n) => n.job).join(),
     [...open],
+    filter,
+    shown,
+    adults.map((n) => [n.id, n.rank, n.level, (n.hunger ?? 0) >= 2, n.inside !== undefined]),
+    (world.villagers ?? []).filter((n) => n.alive).length,
   ]);
   if (key === lastKey) return;
   lastKey = key;
 
-  view.replaceChildren(overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living));
+  view.replaceChildren(filters(world, adults), roster(world, adults), overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living));
   localize(view, world);
+}
+
+// Who counts under each filter chip.
+const FILTERS: [Filter, string][] = [['all', 'ทั้งหมด'], ['adventurers', 'นักผจญภัย'], ['farmers', 'ชาวนา'], ['hungry', 'หิว'], ['villagers', 'ชาวบ้าน']];
+function picked(world: WorldState, adults: Npc[], f: Filter): Npc[] {
+  if (f === 'villagers') return (world.villagers ?? []).filter((n) => n.alive);
+  if (f === 'adventurers') return adults.filter((n) => n.rank !== undefined);
+  if (f === 'farmers') return adults.filter((n) => n.job === 'farmer' || n.job === 'herder' || n.job === 'hunter');
+  if (f === 'hungry') return adults.filter((n) => (n.hunger ?? 0) >= 2);
+  return adults;
+}
+
+function filters(world: WorldState, adults: Npc[]): HTMLElement {
+  return el(
+    'div',
+    { className: 'people-filters' },
+    ...FILTERS.map(([f, label]) => {
+      const n = f === 'all' ? 0 : picked(world, adults, f).length;
+      const b = el('button', { type: 'button', className: `filter-chip${f === filter ? ' filter-chip--on' : ''}`, textContent: n ? `${label} ${n}` : label });
+      b.setAttribute('aria-pressed', String(f === filter));
+      b.onclick = () => {
+        filter = f;
+        shown = 30;
+        lastKey = '';
+        renderPeople(world);
+      };
+      return b;
+    }),
+  );
+}
+
+// The townsfolk as rows: a face, name and trade, and what they're up to. Adventurers lead, by rank.
+function roster(world: WorldState, adults: Npc[]): HTMLElement {
+  const list = picked(world, adults, filter).slice().sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || b.level - a.level || a.name.localeCompare(b.name, 'th'));
+  const rows = list.slice(0, shown).map((n) => {
+    const face = el('span', { className: 'people-row__face' });
+    face.style.backgroundImage = `url(/assets/sprites/characters/${n.job === 'king' ? rulerLook(world) : n.hero ? 'hero' : n.job}.png)`;
+    const villager = filter === 'villagers';
+    const place = villager ? world.regions?.find((r) => r.id === n.regionId)?.name : undefined;
+    const tag = villager
+      ? 'ชาวบ้าน'
+      : jailed(world, n)
+        ? 'ติดคุก'
+        : n.inside !== undefined
+          ? 'ในดันเจี้ยน'
+          : (n.hunger ?? 0) >= 2
+            ? 'หิว'
+            : n.rank !== undefined
+              ? `แรงก์ ${rankName(n.rank)}`
+              : '';
+    const b = el(
+      'button',
+      { type: 'button', className: 'people-row' },
+      face,
+      el('span', { className: 'people-row__who' }, el('b', { textContent: n.name }), el('small', { textContent: `${n.job === 'king' ? rulerTitle(world) : jobName(world, n.job)}${place ? ` · ${place}` : ` · LV ${n.level}`}` })),
+      ...(tag ? [el('span', { className: `people-row__tag${villager ? ' people-row__tag--land' : tag === 'หิว' || tag === 'ติดคุก' ? ' people-row__tag--bad' : ''}`, textContent: tag })] : []),
+    );
+    b.onclick = () => (villager && n.regionId !== undefined ? handlers.onVillager(n.regionId, n.id) : handlers.onSelectNpc(n.id));
+    return b;
+  });
+  const more = el('button', { type: 'button', className: 'btn people-more', textContent: `แสดงเพิ่ม (${list.length - shown})` });
+  more.onclick = () => {
+    shown += 30;
+    lastKey = '';
+    renderPeople(world);
+  };
+  return el('div', { className: 'people-roster' }, ...(rows.length ? rows : [el('p', { className: 'guild-empty', textContent: 'ไม่มีใครในกลุ่มนี้' })]), ...(list.length > shown ? [more] : []));
 }
 
 // A child in class right now: on their way to, or sitting in, the school.

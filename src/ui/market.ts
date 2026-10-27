@@ -1,4 +1,4 @@
-import { GOODS, GOOD_TH, SEASON_TH, houses, seasonOf, type Good, type Guild, type Npc, type WorldState } from '../sim';
+import { GOODS, GOOD_TH, houses, seasonOf, type Good, type Guild, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -27,34 +27,51 @@ export function renderMarket(world: WorldState): void {
   }
 
   const armed = world.npcs.filter((n) => n.alive && n.rank !== undefined);
+  // Two tabs share the panel (data-group, shown by data-show from main.ts): the market, and the trade houses.
+  const g = (group: string, node: HTMLElement) => ((node.dataset.group = group), node);
+  const level = m.level ?? 1;
+  const debased = (m.debase ?? 1) > 1 ? Math.round(((m.debase ?? 1) - 1) * 100) : 0;
+  const tile = (label: string, value: string, note: string, bad: boolean, title = '') =>
+    el('div', { className: `k-tile${bad ? ' k-tile--bad' : ''}`, title }, el('span', { textContent: label }), el('b', { textContent: value }), ...(note ? [el('small', { textContent: note })] : []));
   view.replaceChildren(
-    el(
-      'div',
-      { className: 'market-head' },
-      el('span', { className: 'chip chip--gold', textContent: SEASON_TH[seasonOf(world.day)] }),
-      el('span', { className: 'chip' }, icon('gold', 16), `ท้องพระคลัง ${Math.floor(world.treasury)}`),
-      el('span', { className: 'chip' }, icon('gold', 16), `เงินในร้าน ${Math.floor(m.till)}`),
-      el('span', { className: `chip${(m.level ?? 1) >= 1.3 ? ' chip--danger' : ''}`, title: 'ราคาสินค้าทั้งตลาดเทียบกับสมัยตั้งเมือง ขึ้นเมื่อเงินในมือชาวเมืองมีมากกว่าที่เคยชิน และขึ้นถาวรเมื่อทางการลดค่าเหรียญ' }, `ระดับราคา ×${(m.level ?? 1).toFixed(2)}${(m.debase ?? 1) > 1 ? ` · เหรียญถูกลดค่า ${Math.round(((m.debase ?? 1) - 1) * 100)}%` : ''}`),
-      ...(world.debt ? [el('span', { className: 'chip chip--danger' }, icon('gold', 16), `หนี้หลวง ${world.debt.owed} ทอง`)] : []),
+    g(
+      'prices',
+      el(
+        'div',
+        { className: 'k-tiles' },
+        tile('ท้องพระคลัง', Math.floor(world.treasury).toLocaleString('en-US'), `เงินในร้าน ${Math.floor(m.till).toLocaleString('en-US')}`, false),
+        tile('ระดับราคา', `×${level.toFixed(2)}`, debased ? `เหรียญลดค่า ${debased}%` : 'เทียบสมัยตั้งเมือง', level >= 1.3, 'ราคาสินค้าทั้งตลาดเทียบกับสมัยตั้งเมือง ขึ้นเมื่อเงินในมือชาวเมืองมีมากกว่าที่เคยชิน และขึ้นถาวรเมื่อทางการลดค่าเหรียญ'),
+        tile('หนี้หลวง', world.debt ? String(world.debt.owed) : '0', world.debt ? 'ติดบ้านการค้าอยู่' : 'ไม่มีหนี้', !!world.debt),
+      ),
     ),
-    section('ราคาวันนี้', GOODS.map((g) => goodRow(g, m.price[g], m.stock[g], m.history[g], m.alert[g]))),
-    section(
-      'บ้านการค้า',
-      houses(world).length ? houses(world).map((g) => houseRow(world, g)) : [empty('ยังไม่มีสมาคมพ่อค้า บ้านการค้าตั้งขึ้นเมื่อพ่อค้าที่มั่งคั่งรวมกลุ่มกัน')],
+    g('prices', el('ul', { className: 'goods' }, ...GOODS.map((k) => goodRow(k, m.price[k], m.stock[k], m.history[k], m.alert[k])))),
+    g('prices', el('p', { className: 'goods-note', textContent: 'กราฟคือราคาย้อนหลัง 6 เดือน · ลูกศรเทียบกับเดือนก่อน' })),
+    g(
+      'houses',
+      section(
+        'บ้านการค้า',
+        houses(world).length ? houses(world).map((h) => houseRow(world, h)) : [empty('ยังไม่มีสมาคมพ่อค้า บ้านการค้าตั้งขึ้นเมื่อพ่อค้าที่มั่งคั่งรวมกลุ่มกัน')],
+      ),
     ),
-    section(
-      'ชาวเมืองที่หิวโหย',
-      hungry.length ? [el('li', { className: 'quest__party' }, ...hungry.map(npcChip))] : [empty('ทุกคนยังมีข้าวกิน')],
+    g(
+      'prices',
+      section(
+        'ชาวเมืองที่หิวโหย',
+        hungry.length ? [el('li', { className: 'quest__party' }, ...hungry.map(npcChip))] : [empty('ทุกคนยังมีข้าวกิน')],
+      ),
     ),
-    section('นักผจญภัย', [
-      empty(`มีอุปกรณ์แล้ว ${armed.filter((n) => n.gear).length} จาก ${armed.length} คน · อุปกรณ์ช่วยให้รอดจากดันเจี้ยนและเควส`),
-    ]),
-    section(
+    g(
+      'houses',
+      section('นักผจญภัย', [
+        empty(`มีอุปกรณ์แล้ว ${armed.filter((n) => n.gear).length} จาก ${armed.length} คน · อุปกรณ์ช่วยให้รอดจากดันเจี้ยนและเควส`),
+      ]),
+    ),
+    g('houses', section(
       'ข่าวการค้า',
       news.length
         ? news.map((e) => el('li', { className: 'legend' }, icon('grain', 16), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` })))
         : [empty('ตลาดยังสงบ')],
-    ),
+    )),
   );
   localize(view, world);
 }
@@ -81,23 +98,14 @@ function goodRow(g: Good, price: number, stock: number, history: number[], alert
     bar.style.height = `${Math.max(8, (p / top) * 100)}%`;
     return bar;
   }));
+  const low = stock < 5;
   return el(
     'li',
-    { className: `good${alert === 1 ? ' good--dear' : alert === -1 ? ' good--cheap' : ''}` },
-    icon(g, 32),
-    el(
-      'div',
-      { className: 'good__body' },
-      el('p', { className: 'good__name', textContent: GOOD_TH[g] }),
-      spark,
-      el('p', { className: 'good__stock', textContent: `ในคลัง ${Math.floor(stock)}` }),
-    ),
-    el(
-      'div',
-      { className: 'good__price' },
-      el('b', {}, icon('gold', 16), String(price)),
-      el('span', { className: `good__trend good__trend--${trend}`, textContent: arrow }),
-    ),
+    { className: `good${alert === 1 ? ' good--dear' : alert === -1 ? ' good--cheap' : ''}${low ? ' good--short' : ''}` },
+    icon(g, 28),
+    el('div', { className: 'good__body' }, el('b', { className: 'good__name', textContent: GOOD_TH[g] }), el('small', { className: 'good__stock', textContent: `คลัง ${Math.floor(stock)}${low ? ' · ขาด' : ''}` })),
+    spark,
+    el('div', { className: 'good__price' }, el('b', { textContent: String(price) }), el('span', { className: `good__trend good__trend--${trend}`, textContent: arrow })),
   );
 }
 

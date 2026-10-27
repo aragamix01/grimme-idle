@@ -29,6 +29,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   if (!npc) {
     choosingDream = false;
     full = false;
+    card.classList.remove('npc--full');
     lastKey = '';
     return;
   }
@@ -45,7 +46,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
   // On phones the card is a scrolling sheet: keep the reader's place across rebuilds, start at the top for someone new.
-  if (shownId !== npc.id) full = false; // someone new opens at half height
+  if (shownId !== npc.id && !choosingDream) full = false; // someone new opens at half height
   const scroll = shownId === npc.id ? card.scrollTop : 0;
   shownId = npc.id;
   card.classList.toggle('npc--full', full);
@@ -64,6 +65,13 @@ function bar(npc: Npc): HTMLElement {
   close.setAttribute('aria-label', 'ปิดข้อมูลชาวเมือง');
   close.onclick = () => handlers.onClose();
   return el('div', { className: 'npc__bar' }, grow, close);
+}
+
+// From the god-powers sheet: the next person picked opens straight onto the dreams to send.
+export function startDream(): void {
+  choosingDream = true;
+  full = true;
+  lastKey = '';
 }
 
 function setFull(on: boolean): void {
@@ -224,11 +232,6 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
   const chips = el(
     'div',
     { className: 'npc__chips' },
-    el('span', { className: 'chip', textContent: npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : jobName(world, npc.job) }),
-    ...(npc.age >= ADULT_AGE ? [el('span', { className: 'chip', textContent: `LV ${npc.level}` })] : []),
-    ...(npc.rank !== undefined ? [el('span', { className: 'chip chip--rank', textContent: `แรงก์ ${rankName(npc.rank)}` })] : []),
-    ...(guild ? [el('span', { className: 'chip chip--guild', textContent: guild.leads ? `หัวหน้า${guild.name}` : guild.name })] : []),
-    el('span', { className: 'chip', textContent: npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี` }),
     ...(npc.retired ? [el('span', { className: 'chip', textContent: 'เกษียณแล้ว' })] : []),
     ...(npc.blessed ? [el('span', { className: 'chip chip--gold', textContent: npc.blessUntil ? `ได้รับพร (${Math.max(0, npc.blessUntil - day)} วัน)` : 'ได้รับพร' })] : []),
     ...(npc.alive && (npc.cursedUntil ?? 0) > day ? [el('span', { className: 'chip chip--curse', textContent: `ต้องสาป (${npc.cursedUntil! - day} วัน)` })] : []),
@@ -252,13 +255,32 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     el(
       'div',
       { className: 'npc__id' },
-      el('h3', { className: 'npc__name', textContent: npc.name }),
-      chips,
+      el('div', { className: 'npc__title' }, nameButton(npc), ...(npc.rank !== undefined ? [el('span', { className: `rank rank--${rankName(npc.rank)}`, title: `แรงก์ ${rankName(npc.rank)}`, textContent: rankName(npc.rank) })] : [])),
+      // Who they are in one line: trade, age, level, guild; then only the chips that mark a state.
+      el('p', {
+        className: 'npc__meta',
+        textContent: [
+          npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : jobName(world, npc.job),
+          npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี`,
+          ...(npc.age >= ADULT_AGE ? [`LV ${npc.level}`] : []),
+          ...(guild ? [guild.leads ? `หัวหน้า${guild.name}` : guild.name] : []),
+        ].join(' · '),
+      }),
+      ...(chips.childElementCount ? [chips] : []),
       el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}${schooled(npc)}` }),
       el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,
   );
+}
+
+// The name opens the whole card (and folds it back), so the half-height card stays short.
+function nameButton(npc: Npc): HTMLElement {
+  const b = el('button', { type: 'button', className: 'npc__open' }, el('h3', { className: 'npc__name', textContent: npc.name }));
+  b.setAttribute('aria-expanded', String(full));
+  b.title = full ? 'ย่อ' : 'ดูทั้งหมด';
+  b.onclick = () => setFull(!full);
+  return b;
 }
 
 // Loyalty to the throne as a plain gold bar: 0 ready to revolt, 100 would die for the king.
@@ -332,7 +354,7 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
   );
   const wrap = el('div', { className: 'npc__powers' }, el('h4', { textContent: 'พลังเทพ' }), row);
   if (npc.alive && npc.inside === undefined) {
-    const live = el('button', { type: 'button', className: 'btn divine', textContent: `ลงไปใช้ชีวิตเป็น${npc.name}` });
+    const live = el('button', { type: 'button', className: 'btn divine npc__live', textContent: `ลงไปใช้ชีวิตเป็น${npc.name}` });
     live.onclick = () => handlers.onCommand({ type: 'incarnate', npcId: npc.id });
     wrap.append(live);
   }
