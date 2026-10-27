@@ -25,6 +25,14 @@ export const DEMON_KINDS: Record<DemonKind, { title: string; text: string; tint:
 };
 const DAY = 11; // day of the month the lord's nature shows
 
+// The lord's three lieutenants, by its kind.
+export const GENERALS: Record<DemonKind, string[]> = {
+  plague: ['ราชันย์หนอนเน่า', 'แม่มดไอพิษ', 'อัศวินโรคห่า'],
+  flame: ['ยักษ์ลาวา', 'จอมเวทเถ้าถ่าน', 'มังกรเพลิงน้อย'],
+  shadow: ['ภูตกระซิบ', 'ราชินีฝันร้าย', 'นักฆ่าไร้เงา'],
+  iron: ['ปีศาจเตาหลอม', 'แม่ทัพเหล็กกล้า', 'ยักษ์จักรกล'],
+};
+
 // What wakes, from what the town has become.
 export function kindFor(world: WorldState, rng: Rng): DemonKind {
   const recent = world.chronicle.filter((e) => e.day > world.day - 730);

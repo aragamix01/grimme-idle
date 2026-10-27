@@ -201,6 +201,7 @@ export interface HeroQuest {
   stage: 'training' | 'march';
   companions: number[];
   entered?: number; // day the hero passed into the demon's keep
+  target?: number; // the lieutenant marched against (index into the lord's generals); none for the keep
 }
 
 // What kind of evil wakes: each strikes the town where it is weakest (see demonkinds.ts).
@@ -219,6 +220,7 @@ export interface DemonLord {
   heroLost?: number; // day the last hero fell
   resistance?: number; // 0..100: the townsfolk's secret resistance, growing through the occupation
   hero?: HeroQuest;
+  generals?: { name: string; power: number; slain?: number }[]; // the lieutenants who hold the dungeons; all must fall before the keep
 }
 
 export type Terrain = 'mountain' | 'coast' | 'desert' | 'forest';

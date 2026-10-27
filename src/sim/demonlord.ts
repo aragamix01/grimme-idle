@@ -14,7 +14,7 @@ import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
 import { writeCharter } from './charter';
 import { ageOf, industrial } from './ages';
-import { DEMON_KINDS, demonNature, kindFor } from './demonkinds';
+import { DEMON_KINDS, GENERALS, demonNature, kindFor } from './demonkinds';
 import { portents } from './portents';
 import type { DemonLord, Npc, WorldState } from './types';
 
@@ -22,7 +22,7 @@ const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซ
 export const DREAD_TO_RISE = 100;
 const RAID_EVERY = 25; // days between the keep's raids on the town
 const FIRST_RAID = 15; // days after the awakening before the first one
-export const SIEGES_TO_FALL = 3; // raids the town may fail to hold before it is taken
+export const SIEGES_TO_FALL = 5; // raids the town may fail to hold before it is taken
 const TRAIN_DAYS = 40; // the hero trains this long before marching, less with the valor gift
 export const trainDays = (world: WorldState) => TRAIN_DAYS - 10 * perkLevel(world, 'valor');
 const BATTLE_AFTER = 3; // days inside the keep before the fight
@@ -33,6 +33,10 @@ const RESIST_GROWTH = 6; // the resistance's monthly growth before the brave and
 const RESIST_MIGHT = 1.5; // the resistance's might in the hero's battle, per point
 const ALLY_MIGHT = 60; // most an allied realm's army adds to the hero's battle
 const PARTY = 3; // companions who march with the hero
+const GENERAL_SHARE = 0.45; // a lieutenant's might, as a share of its lord's
+const GENERAL_BLOW = 10; // the lord's power lost with each lieutenant slain
+const GENERAL_RAID = 0.1; // each living lieutenant swells the raids by this much
+const REST_DAYS = 12; // the hero's rest between one lieutenant and the next
 export const HERO_COST = 20;
 export const MAX_POWER = 180; // however long it feeds, a hero with a strong party still has a chance
 
@@ -91,6 +95,8 @@ function rise(world: WorldState, rng: Rng): void {
     sieges: 0,
     lastRaid: world.day - RAID_EVERY + FIRST_RAID,
   };
+  const lord = world.demon;
+  lord.generals = GENERALS[kind].map((g) => ({ name: g, power: Math.round(lord.power * GENERAL_SHARE) }));
   sway(world, -10);
   log(world, 'cult', `จอมมาร${name}${DEMON_KINDS[kind].title}ตื่นจากนิทราใต้${d.name}! ปราสาทมืดผุดขึ้นกลางป่า จอมมารตนนี้${DEMON_KINDS[kind].text}`);
   legend(world, `จอมมาร${name}ตื่นขึ้น`);
@@ -105,7 +111,7 @@ function raid(world: WorldState, lord: DemonLord, rng: Rng): void {
   const fighters = here.filter((n) => isAdventurer(n) && !n.retired);
   const firearms = industrial(world) ? 1.4 : 1; // soldiers with guns on the walls
   const defence = soldiers.reduce((s, n) => s + fighter(n, world) * (0.5 + loyaltyOf(n) / 100) * firearms, 0) + fighters.reduce((s, n) => s + fighter(n, world) * 0.5, 0);
-  const host = lord.power * int(rng, 3, 5) * (lord.kind === 'iron' ? 1.2 : 1); // iron-shod demons hit harder
+  const host = lord.power * int(rng, 3, 5) * (lord.kind === 'iron' ? 1.2 : 1) * (1 + GENERAL_RAID * standing(lord).length); // iron-shod demons hit harder; each lieutenant leads a wing
   log(world, 'disaster', `กองทัพปีศาจของจอมมาร${lord.name}บุกออกจาก${d.name}!`);
   const held = chance(rng, defence / (defence + host));
   for (const n of [...soldiers, ...fighters]) if (chance(rng, held ? 0.03 : 0.08)) kill(world, n, held ? 'สละชีพต้านทัพปีศาจ' : 'ล้มลงต่อหน้าทัพปีศาจ');
@@ -257,17 +263,29 @@ function heroDay(world: WorldState, lord: DemonLord, rng: Rng): void {
     const c = byId(world, id);
     return c?.alive && c.plan?.kind === 'crusade';
   });
-  const d = world.dungeons[0];
+  const d = lairOf(world, q);
   if (hero.inside === undefined) {
     if (hero.plan?.kind !== 'crusade') hero.plan = makePlan('crusade', dungeonDoor(d), 0, d.id);
     return;
   }
   q.entered ??= world.day;
-  if (world.day - q.entered >= BATTLE_AFTER) battle(world, lord, hero, rng);
+  if (world.day - q.entered >= BATTLE_AFTER) {
+    if (q.target !== undefined) fightGeneral(world, lord, hero, rng);
+    else battle(world, lord, hero, rng);
+  }
 }
 
+// The lieutenants still standing, and where each holds out: the dungeons in turn, the keep's own last.
+export const standing = (lord: DemonLord) => (lord.generals ?? []).filter((g) => !g.slain);
+const lairOf = (world: WorldState, q: NonNullable<DemonLord['hero']>) =>
+  q.target === undefined ? world.dungeons[0] : world.dungeons[(q.target + 1) % world.dungeons.length];
+
 function march(world: WorldState, hero: Npc, q: NonNullable<DemonLord['hero']>): void {
-  const d = world.dungeons[0];
+  const lord = world.demon!;
+  const next = (lord.generals ?? []).findIndex((g) => !g.slain);
+  q.target = next >= 0 ? next : undefined;
+  q.entered = undefined;
+  const d = lairOf(world, q);
   const allies = adults(world)
     .filter((n) => n !== hero && isAdventurer(n) && !n.retired && !n.cultist && n.questId === undefined && n.inside === undefined)
     .sort((a, b) => fighter(b, world) - fighter(a, world))
@@ -276,7 +294,8 @@ function march(world: WorldState, hero: Npc, q: NonNullable<DemonLord['hero']>):
   q.companions = allies.map((n) => n.id);
   for (const n of [hero, ...allies]) n.plan = makePlan('crusade', dungeonDoor(d), 0, d.id);
   const company = allies.length ? `พร้อมสหาย ${allies.map((n) => n.name).join(', ')}` : 'เพียงลำพัง';
-  log(world, 'quest', `ผู้กล้า${hero.name}${company} ออกเดินทางสู่ปราสาทจอมมาร`, hero.id);
+  const goal = q.target === undefined ? 'ปราสาทจอมมาร' : `${d.name} ที่มั่นของ${lord.generals![q.target].name} ขุนพลของจอมมาร`;
+  log(world, 'quest', `ผู้กล้า${hero.name}${company} ออกเดินทางสู่${goal}`, hero.id);
 }
 
 function battle(world: WorldState, lord: DemonLord, hero: Npc, rng: Rng): void {
@@ -298,6 +317,31 @@ function battle(world: WorldState, lord: DemonLord, hero: Npc, rng: Rng): void {
   // Beaten but alive: back to town to train again.
   lord.hero = { id: hero.id, since: world.day, stage: 'training', companions: [] };
   log(world, 'battle', `ผู้กล้า${hero.name}พ่ายแพ้ แต่หนีรอดกลับมาได้อย่างสะบักสะบอม จอมมารก็บาดเจ็บไม่น้อย`, hero.id);
+}
+
+// A lieutenant's lair: the hero and party against it, the resistance and allies half as much help.
+function fightGeneral(world: WorldState, lord: DemonLord, hero: Npc, rng: Rng): void {
+  const q = lord.hero!;
+  const g = lord.generals![q.target!];
+  const party = q.companions.map((id) => byId(world, id)!).filter((n) => n.inside !== undefined);
+  const might = fighter(hero, world) * 2 + party.reduce((s, n) => s + fighter(n, world), 0) + allies(world, lord).might / 2;
+  const won = chance(rng, might / (might + g.power * 2.5));
+  for (const n of party) if (chance(rng, won ? 0.08 : 0.3)) kill(world, n, `สละชีพในศึกกับ${g.name}`);
+  release(world, [hero.id, ...q.companions]);
+  if (won) {
+    g.slain = world.day;
+    lord.power = Math.max(50, lord.power - GENERAL_BLOW);
+    if (lord.stage === 'risen') lord.sieges = Math.max(0, lord.sieges - 1); // the news puts heart back into the walls
+    hero.level++;
+    hero.renown = (hero.renown ?? 0) + 8;
+    sway(world, 3);
+    const left = standing(lord).length;
+    log(world, 'battle', `ผู้กล้า${hero.name}ปราบ${g.name} ขุนพลของจอมมาร${lord.name}ได้แล้ว!${left ? ` เหลือขุนพลอีก ${left} ตน` : ' ทางสู่ปราสาทจอมมารเปิดแล้ว'}`, hero.id);
+    legend(world, `ผู้กล้า${hero.name}ปราบ${g.name}`, hero.id);
+  } else if (chance(rng, 0.35)) return kill(world, hero, `ล้มลงต่อหน้า${g.name} ขุนพลของจอมมาร`);
+  else log(world, 'battle', `ผู้กล้า${hero.name}สู้${g.name}ไม่ได้ ต้องถอยกลับมาตั้งหลัก`, hero.id);
+  // Back to town to rest (and train) before the next march.
+  lord.hero = { id: hero.id, since: world.day - trainDays(world) + REST_DAYS, stage: 'training', companions: [] };
 }
 
 // Out of the keep (or off the march) and back to the guild.
