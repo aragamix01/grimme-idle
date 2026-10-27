@@ -9,7 +9,7 @@ import { buy, ensureMarket, priceRatio, sell } from './market';
 import { PLACES, type Spot } from './places';
 import { TOWN_SIZE } from './town';
 import { successor } from './regimes';
-import { ageOf, jobName } from './ages';
+import { ageOf, industrial, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
 
@@ -312,6 +312,7 @@ export function leisure(world: WorldState, rng: Rng): void {
 
 // A blacksmith at the anvil turns two lots of dungeon loot into a set of gear (one, once the
 // scholars have worked out how metals mix).
+const MAX_SHOP_GEAR = 30; // the shop stops buying factory arms past this
 const SMITH_FEE_CAP = 8; // a day's mending, however full the till
 
 export function smith(world: WorldState, npc: Npc, rng: Rng): void {
@@ -319,6 +320,11 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
   const need = known(world, 'metallurgy') ? 1 : 2;
   if (m.stock.loot >= need && chance(rng, 0.35)) {
     m.stock.loot -= need;
+    sell(world, npc, 'gear', 1, rng);
+    return;
+  }
+  // In the industrial age the smith works the factory's iron, no dungeon loot needed.
+  if (industrial(world) && world.works?.factory !== undefined && m.stock.gear < MAX_SHOP_GEAR && chance(rng, 0.2)) {
     sell(world, npc, 'gear', 1, rng);
     return;
   }

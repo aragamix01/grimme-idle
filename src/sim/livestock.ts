@@ -5,6 +5,7 @@
 import { chance, int, type Rng } from './rng';
 import { cursed, kill, log } from './core';
 import { seasonOf, sell } from './market';
+import { industrial } from './ages';
 import type { Npc, WorldState } from './types';
 
 export const HERD_CAP = 24; // beasts the pasture can feed
@@ -43,7 +44,7 @@ export function tendHerd(world: WorldState, npc: Npc, rng: Rng): number {
 export function hunt(world: WorldState, npc: Npc, rng: Rng): void {
   ensureWilds(world);
   if (chance(rng, MAULED)) return kill(world, npc, 'ถูกหมีป่าขย้ำระหว่างออกล่า');
-  const odds = HUNT * (world.game! / GAME_CAP) * (seasonOf(world.day) === 'winter' ? 0.6 : 1) * (cursed(world, npc) ? 0.5 : 1) * (npc.blessed ? 1.3 : 1);
+  const odds = HUNT * (world.game! / GAME_CAP) * (seasonOf(world.day) === 'winter' ? 0.6 : 1) * (cursed(world, npc) ? 0.5 : 1) * (npc.blessed ? 1.3 : 1) * (industrial(world) ? 1.3 : 1); // a rifle carries further than a bow
   if (!chance(rng, odds)) return;
   world.game!--;
   sell(world, npc, 'meat', int(rng, 3, 5) + (npc.level >= 3 ? 1 : 0), rng);

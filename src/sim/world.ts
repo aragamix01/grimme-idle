@@ -5,7 +5,7 @@ import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQue
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES } from './names';
-import { jobName } from './ages';
+import { industrial, jobName } from './ages';
 import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
 import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
@@ -423,7 +423,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       else if (npc.job === 'engineer') engineer(world, rng);
       else if (npc.job === 'builder') rebuild(world, npc, rng);
       else if (npc.job === 'doctor') treat(world, npc, rng);
-      else if (npc.job === 'priest') world.faith += built(world, 'cathedral') ? 0.04 : 0.02; // prayers said for the god who watches
+      else if (npc.job === 'priest') world.faith += (built(world, 'cathedral') ? 0.04 : 0.02) * (industrial(world) ? 0.7 : 1); // prayers said for the god who watches; fewer in an age of science
       const trade = world.guilds.find((g) => g.id === npc.guildId && g.kind === 'merchants');
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
       if (--p.days <= 0) npc.plan = undefined;

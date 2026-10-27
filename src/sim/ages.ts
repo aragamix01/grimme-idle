@@ -39,7 +39,8 @@ const AGE_JOBS: Partial<Record<Job, (string | undefined)[]>> = {
   courtesan: [undefined, undefined, 'นางระบำ', 'นักร้องคาบาเรต์'],
   scholar: ['ผู้รู้', undefined, 'นักวิชาการ', 'นักวิทยาศาสตร์'],
   builder: ['ช่างไม้', undefined, undefined, 'กรรมกรก่อสร้าง'],
-  soldier: ['ทหารเกณฑ์', undefined, undefined, undefined],
+  soldier: ['ทหารเกณฑ์', undefined, undefined, 'ทหารปืนไฟ'],
+  mage: [undefined, undefined, undefined, 'นักเวทศาสตร์'],
   doctor: [undefined, undefined, undefined, 'แพทย์'],
 };
 
@@ -47,6 +48,11 @@ export function jobName(world: WorldState, job: Job): string {
   if (job === 'alchemist' && world.techs?.chemistry !== undefined) return 'นักเคมี'; // the old art made a science
   return AGE_JOBS[job]?.[ageOf(world)] ?? JOB_TH[job];
 }
+
+// How much the trades of the industrial age change the work itself (see where each is used):
+// the smith at the factory forges without dungeon loot, soldiers carry firearms, hunters rifles,
+// and in a town of science fewer prayers rise from the church.
+export const industrial = (world: WorldState) => ageOf(world) >= 3;
 
 // The sprite suffix each age wears; the middle age is the plain art.
 export const AGE_SUFFIX = ['-age0', '', '-age2', '-age3'] as const;

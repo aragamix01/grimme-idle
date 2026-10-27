@@ -13,6 +13,7 @@ import { enthrone, king, leaveTrade } from './society';
 import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
 import { writeCharter } from './charter';
+import { industrial } from './ages';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -94,7 +95,8 @@ function raid(world: WorldState, lord: DemonLord, rng: Rng): void {
   const here = adults(world).filter((n) => n.inside === undefined && n.plan?.kind !== 'crusade');
   const soldiers = here.filter((n) => n.job === 'soldier');
   const fighters = here.filter((n) => isAdventurer(n) && !n.retired);
-  const defence = soldiers.reduce((s, n) => s + fighter(n, world) * (0.5 + loyaltyOf(n) / 100), 0) + fighters.reduce((s, n) => s + fighter(n, world) * 0.5, 0);
+  const firearms = industrial(world) ? 1.4 : 1; // soldiers with guns on the walls
+  const defence = soldiers.reduce((s, n) => s + fighter(n, world) * (0.5 + loyaltyOf(n) / 100) * firearms, 0) + fighters.reduce((s, n) => s + fighter(n, world) * 0.5, 0);
   const host = lord.power * int(rng, 3, 5);
   log(world, 'disaster', `กองทัพปีศาจของจอมมาร${lord.name}บุกออกจาก${d.name}!`);
   const held = chance(rng, defence / (defence + host));
