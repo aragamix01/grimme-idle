@@ -13,7 +13,7 @@ import type { Npc, WorldState } from './types';
 
 export const CULT_NAMES = ['เงาจันทร์', 'ดวงตาสีเลือด', 'งูดำ', 'เปลวไฟนรก', 'รุ่งอรุณมืด', 'มงกุฎหนาม'];
 const FOUND_MORALITY = -25;
-const MAX_CULTISTS = 14;
+export const MAX_CULTISTS = 14;
 const RITUAL_POWER = 0.6; // dungeon power each cultist feeds per ritual (more and a big cult floods the town with stampedes)
 export const REVEAL_COST = 8;
 const DREAD_PER_RITUAL = 1.5;

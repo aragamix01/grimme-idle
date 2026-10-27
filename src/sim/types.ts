@@ -203,8 +203,12 @@ export interface HeroQuest {
   entered?: number; // day the hero passed into the demon's keep
 }
 
+// What kind of evil wakes: each strikes the town where it is weakest (see demonkinds.ts).
+export type DemonKind = 'plague' | 'flame' | 'shadow' | 'iron';
+
 export interface DemonLord {
   name: string;
+  kind?: DemonKind; // missing in saves from before the kinds
   risen: number; // day
   power: number; // grows by the day and on tribute; the hero must outmatch it
   stage: 'risen' | 'occupied';

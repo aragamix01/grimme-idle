@@ -1,4 +1,4 @@
-import { PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -145,6 +145,7 @@ function occupiedCard(world: WorldState): HTMLElement {
   const gov = world.npcs.find((n) => n.id === lord.governorId && n.alive);
   const portrait = el('div', { className: 'demon-portrait' });
   portrait.style.backgroundImage = 'url(/assets/sprites/monsters/demon-lord.png)';
+  if (lord.kind) portrait.style.filter = `hue-rotate(${DEMON_KINDS[lord.kind].hue}deg)`;
   return el(
     'div',
     { className: 'realm-occupied' },
@@ -345,8 +346,9 @@ function demonSection(world: WorldState): HTMLElement {
         el(
           'div',
           {},
-          el('p', { className: 'realm-demon__name', textContent: `จอมมาร${lord.name}` }),
+          el('p', { className: 'realm-demon__name', textContent: demonTitle(lord) }),
           el('p', { className: 'realm-king__meta', textContent: `ตื่นเมื่อ D${lord.risen} · ${hold}` }),
+          ...(lord.kind ? [el('p', { className: 'realm-king__meta', textContent: DEMON_KINDS[lord.kind].text })] : []),
         ),
       ),
       meter('พลังจอมมาร', Math.round((power / MAX_POWER) * 100), 'weak'),

@@ -58,7 +58,7 @@ function toll(world: WorldState, rng: Rng, odds: number, how: string): number {
 }
 
 // Homes come down; rubble stands where they were until the town rebuilds.
-function ruinHomes(world: WorldState, rng: Rng, count: number): number {
+export function ruinHomes(world: WorldState, rng: Rng, count: number): number {
   const ruins = (world.ruins ??= []);
   const standing = HOMES.filter((h) => !ruins.some((r) => r.x === h.x && r.y === h.y));
   let fell = 0;
@@ -71,7 +71,7 @@ function ruinHomes(world: WorldState, rng: Rng, count: number): number {
 }
 
 // One of the crown's buildings falls; the crown may rebuild it later. The monument only loses a tier.
-function collapse(world: WorldState, k: Work): string {
+export function collapse(world: WorldState, k: Work): string {
   if (k === 'monument') {
     world.monument = Math.max(0, (world.monument ?? 1) - 1);
     if (!world.monument) delete world.works!.monument;

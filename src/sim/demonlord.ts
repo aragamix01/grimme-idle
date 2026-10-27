@@ -13,7 +13,8 @@ import { enthrone, king, leaveTrade } from './society';
 import { acclaim, isRepublic } from './republic';
 import { liberateRealms } from './worldevents';
 import { writeCharter } from './charter';
-import { industrial } from './ages';
+import { ageOf, industrial } from './ages';
+import { DEMON_KINDS, demonNature, kindFor } from './demonkinds';
 import { portents } from './portents';
 import type { DemonLord, Npc, WorldState } from './types';
 
@@ -51,6 +52,7 @@ export function demonDay(world: WorldState, rng: Rng): void {
   const lord = world.demon;
   if (!lord) return gatherDread(world, rng);
   feed(lord, 0.05);
+  demonNature(world, lord, rng);
   heroDay(world, lord, rng);
   if (!world.demon) return; // slain today
   if (lord.stage === 'risen') {
@@ -76,18 +78,21 @@ function gatherDread(world: WorldState, rng: Rng): void {
 function rise(world: WorldState, rng: Rng): void {
   const d = world.dungeons[0];
   const name = pick(rng, LORD_NAMES);
+  const kind = kindFor(world, rng);
   world.dread = 0;
   world.portent = 0;
   world.demon = {
     name,
+    kind,
     risen: world.day,
-    power: 70 + Math.min(30, (world.cult?.rituals ?? 0) * 2),
+    // Stronger with every age the town has come into, and with every lord already slain.
+    power: Math.min(MAX_POWER, 70 + Math.min(30, (world.cult?.rituals ?? 0) * 2) + 12 * ageOf(world) + 8 * (world.demonsSlain ?? 0)),
     stage: 'risen',
     sieges: 0,
     lastRaid: world.day - RAID_EVERY + FIRST_RAID,
   };
   sway(world, -10);
-  log(world, 'cult', `จอมมาร${name}ตื่นจากนิทราใต้${d.name}! ปราสาทมืดผุดขึ้นกลางป่า`);
+  log(world, 'cult', `จอมมาร${name}${DEMON_KINDS[kind].title}ตื่นจากนิทราใต้${d.name}! ปราสาทมืดผุดขึ้นกลางป่า จอมมารตนนี้${DEMON_KINDS[kind].text}`);
   legend(world, `จอมมาร${name}ตื่นขึ้น`);
 }
 
@@ -100,7 +105,7 @@ function raid(world: WorldState, lord: DemonLord, rng: Rng): void {
   const fighters = here.filter((n) => isAdventurer(n) && !n.retired);
   const firearms = industrial(world) ? 1.4 : 1; // soldiers with guns on the walls
   const defence = soldiers.reduce((s, n) => s + fighter(n, world) * (0.5 + loyaltyOf(n) / 100) * firearms, 0) + fighters.reduce((s, n) => s + fighter(n, world) * 0.5, 0);
-  const host = lord.power * int(rng, 3, 5);
+  const host = lord.power * int(rng, 3, 5) * (lord.kind === 'iron' ? 1.2 : 1); // iron-shod demons hit harder
   log(world, 'disaster', `กองทัพปีศาจของจอมมาร${lord.name}บุกออกจาก${d.name}!`);
   const held = chance(rng, defence / (defence + host));
   for (const n of [...soldiers, ...fighters]) if (chance(rng, held ? 0.03 : 0.08)) kill(world, n, held ? 'สละชีพต้านทัพปีศาจ' : 'ล้มลงต่อหน้าทัพปีศาจ');

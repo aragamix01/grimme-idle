@@ -11,6 +11,7 @@ export { GAME_CAP, HERD_CAP } from './livestock';
 export { troubleChance } from './troubles';
 export { flooded, ruined, stricken } from './disasters';
 export { PORTENTS, portentOf } from './portents';
+export { DEMON_KINDS, demonTitle } from './demonkinds';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER, workCost } from './works';
 export { FIELDS, FIELD_ORDER, TECHS, TECH_ORDER, mastery, masteryCost, masteryLevel } from './research';
