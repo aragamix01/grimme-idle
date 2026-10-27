@@ -143,15 +143,20 @@ export class WorldMapScene extends Phaser.Scene {
           else if (r.terrain === 'mountain' && roll < 0.35) props[i] = 'wm-mountain';
           else if (r.terrain === 'forest' && roll < 0.5) props[i] = 'tree';
         }
-    // Scattered woods and hills elsewhere.
+    // The open country looks like the land it is: woods, hills, peaks, dunes.
+    const kinds = new Map((w.regions ?? []).map((r) => [r.id, r]));
+    const grid = w.regions?.length ? partition(w).grid : [];
     for (let i = 0; i < ground.length; i++) {
       if (ground[i] !== 'grass' || props[i]) continue;
       const x = i % MAP_W;
       const y = Math.floor(i / MAP_W);
       if (near(x, y, HOME) < 4 || realms.some((r) => near(x, y, r) < 2)) continue;
+      const region = kinds.get(grid[i]);
+      const kind = region && !region.seat ? region.kind : 'plain';
       const roll = rand();
-      if (roll < 0.08) props[i] = 'tree';
-      else if (roll < 0.1) props[i] = 'wm-mountain';
+      if (kind === 'dunes') ground[i] = roll < 0.85 ? 'sand' : 'grass';
+      else if (roll < { plain: 0.06, shore: 0.05, woods: 0.45, hills: 0.08, peaks: 0.05, dunes: 0 }[kind]) props[i] = 'tree';
+      else if (roll < { plain: 0.08, shore: 0.06, woods: 0.47, hills: 0.22, peaks: 0.4, dunes: 0 }[kind]) props[i] = 'wm-mountain';
     }
     // Roads home from every keep: across, then up or down.
     for (const r of realms) {

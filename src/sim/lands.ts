@@ -205,6 +205,17 @@ export function landsDay(world: WorldState, rng: Rng): void {
 // Our treasury: work the land it holds, then reach for more.
 function ourCrown(world: WorldState, rng: Rng): void {
   const lands = ourLands(world).filter((r) => !r.seat);
+  const open = frontier(world, 'us').filter((r) => !r.seat);
+  // Open country first, while there is any: the neighbours are settling it too.
+  const wild = open.filter((r) => r.owner === undefined);
+  const settle = SETTLE_COST + 120 * lands.length;
+  if (wild.length && world.treasury - settle >= RESERVE && chance(rng, 0.35)) {
+    const r = pick(rng, wild);
+    world.treasury -= settle;
+    take(world, r, 'us');
+    log(world, 'politics', `ทางการส่งชาวบ้านไปบุกเบิก${r.name} (${LAND_TH[r.kind]}) จ่าย ${settle} ทอง ดินแดนของเรากว้างขึ้น`);
+    return;
+  }
   // Build up the cheapest use first; the best use of each land wins a tie.
   const jobs = lands.flatMap((r) => USES[r.kind].filter((u) => levelOf(r, u) < MAX_LEVEL).map((u) => ({ r, u, cost: devCost(r, u) - (u === best(r) ? 1 : 0) })));
   jobs.sort((a, b) => a.cost - b.cost);
@@ -213,17 +224,6 @@ function ourCrown(world: WorldState, rng: Rng): void {
     world.treasury -= devCost(job.r, job.u);
     (job.r.dev ??= {})[job.u] = levelOf(job.r, job.u) + 1;
     log(world, 'world', `ทางการลงทุนสร้าง${USE_TH[job.u]}ที่${job.r.name} (ระดับ ${levelOf(job.r, job.u)})`);
-    return;
-  }
-  const open = frontier(world, 'us').filter((r) => !r.seat);
-  // Open country: send settlers.
-  const wild = open.filter((r) => r.owner === undefined);
-  const settle = SETTLE_COST + 120 * lands.length;
-  if (wild.length && world.treasury - settle >= RESERVE && chance(rng, 0.35)) {
-    const r = pick(rng, wild);
-    world.treasury -= settle;
-    take(world, r, 'us');
-    log(world, 'politics', `ทางการส่งชาวบ้านไปบุกเบิก${r.name} (${LAND_TH[r.kind]}) จ่าย ${settle} ทอง ดินแดนของเรากว้างขึ้น`);
     return;
   }
   // A neighbour's land: bought from one short of gold, or ceded by a close friend.

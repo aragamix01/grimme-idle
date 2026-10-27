@@ -15,7 +15,7 @@ export class RegionScene extends Phaser.Scene {
   private world: WorldState | null = null;
   private regionId: number | null = null;
   private key = '';
-  private layer: Phaser.GameObjects.Container | null = null;
+  private drawn: Phaser.GameObjects.GameObject[] = []; // loose, not in a container, so the props sort by depth
 
   constructor() {
     super({ key: 'region', active: false });
@@ -36,13 +36,13 @@ export class RegionScene extends Phaser.Scene {
     const key = JSON.stringify([r.id, r.owner, r.dev]);
     if (key === this.key) return;
     this.key = key;
-    this.layer?.destroy();
-    this.layer = this.add.container(0, 0);
+    for (const o of this.drawn) o.destroy();
+    this.drawn = [];
     this.build(this.world!, r);
   }
 
   private put(o: Phaser.GameObjects.GameObject): void {
-    this.layer!.add(o);
+    this.drawn.push(o);
   }
 
   private build(w: WorldState, r: Region): void {
