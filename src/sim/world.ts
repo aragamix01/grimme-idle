@@ -18,6 +18,7 @@ import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
 import { createRegions, ensureRegions, landsDay } from './lands';
+import { villagesDay } from './villages';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
@@ -159,6 +160,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   dungeonsDay(world);
   realmsDay(world, rng);
   landsDay(world, rng);
+  villagesDay(world, rng);
   diplomacy(world, rng);
   warDay(world, rng);
   worldEvents(world, rng);

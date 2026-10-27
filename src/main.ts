@@ -3,7 +3,7 @@ import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
 import { RegionScene } from './game/scenes/RegionScene';
-import { initLands, pickLand, renderLands, viewLand } from './ui/lands';
+import { initLands, pickLand, pickVillager, renderLands, viewLand } from './ui/lands';
 import { initRealms, pickRealm, renderRealms } from './ui/realm';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
@@ -239,6 +239,10 @@ const pickRegion = (id: number) => {
   if (world) pickLand(world, id);
 };
 mapScene.onRegion = (region) => pickRegion(region.id);
+regionScene.onVillager = (id) => {
+  if (mapTab !== 'lands') setMapTab('lands');
+  if (world) pickVillager(world, id);
+};
 initLands({ onPick: pickRegion, onView: look });
 const pick = (id: number) => {
   mapScene.pick(id);

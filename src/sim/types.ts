@@ -77,6 +77,7 @@ export interface Npc {
   formerJob?: Job; // whoever holds elected office: the trade they go back to when voted out
   schooling?: number; // children: days of lessons, at school or from a parent who can read
   lettered?: boolean; // can read and write; missing means whatever their trade implies (see literate)
+  regionId?: number; // lives in a village out on the lands (kept in world.villagers, not world.npcs)
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
@@ -258,6 +259,21 @@ export interface Region {
   seat?: boolean; // a town's or a keep's own country: never sold or taken
   dev?: Partial<Record<LandUse, number>>; // level of each use, 0..3
   since?: number; // day it last changed hands
+  village?: Village; // the people who live and work there, once anyone does
+}
+
+// The works a village raises with its own purse.
+export type VillageWork = 'well' | 'granary' | 'shrine' | 'palisade' | 'market';
+// A village on one of the lands (see villages.ts): its folk are NPCs in world.villagers.
+export interface Village {
+  chiefId?: number; // the headman, chosen by the villagers
+  loyalty: number; // 0..100 to whoever holds the land; ours or, while free, toward rejoining us
+  purse: number; // the village's own gold: its cut of the harvest, spent on its own works
+  works?: VillageWork[];
+  free?: boolean; // broke away and rules itself
+  thought?: string; // what the headman is thinking, in his own words
+  plea?: { gold: number; until: number; text: string }; // help asked of the crown after a bad month
+  grudge?: number; // pleas the crown let go unanswered, slowly forgiven
 }
 
 // A neighbouring kingdom on the world map, simulated in broad strokes.
@@ -437,6 +453,7 @@ export interface WorldState {
   game?: number; // deer left in the forest
   realms?: Realm[];
   regions?: Region[]; // the world map's lands; missing in saves from before them
+  villagers?: Npc[]; // the folk living out on the lands, apart from the town's own
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;

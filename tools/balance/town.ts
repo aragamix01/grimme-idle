@@ -34,6 +34,12 @@ const EVENTS: Record<string, RegExp> = {
   ceded: /ทูตของเราเจรจากับ/,
   conquered: /ให้เราตามสัญญาสงบศึก/,
   landLost: /ยึด.+ไปจากเรา|จำต้องขาย/,
+  moved: /ย้ายออกจากเมืองไปบุกเบิก/,
+  plea: /ร้องขอความช่วยเหลือ/,
+  seceded: /ประกาศแยกตัวเป็นอิสระ/,
+  defected: /แล้วพาหมู่บ้านไปขึ้นกับ/,
+  rejoined: /กลับมาขึ้นกับเมืองหลวง/,
+  cameHome: /กลับมาขึ้นกับเมืองหลวงของเรา/,
 };
 
 export interface TownReport {
@@ -49,6 +55,7 @@ export interface TownReport {
   ageYears: number[]; // the year each age was reached
   techs: number;
   lands: number; // regions we hold, our own country included
+  villagers: number; // folk living out on our lands
   faith: number;
   knowledge: number;
   regime: string;
@@ -91,6 +98,7 @@ export function runTown(seed: number, years: number): TownReport {
     ageYears,
     techs: Object.keys(w.techs ?? {}).length,
     lands: (w.regions ?? []).filter((r) => r.owner === 'us').length,
+    villagers: (w.villagers ?? []).filter((n) => n.alive && w.regions?.find((r) => r.id === n.regionId)?.owner === 'us').length,
     faith: Math.round(w.faith),
     knowledge: Math.round(w.knowledge ?? 0),
     regime: w.regime ?? 'monarchy',

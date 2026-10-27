@@ -10,6 +10,7 @@ import { clamp, log, occupied } from './core';
 import { ensureMarket } from './market';
 import { HOME } from './realms';
 import { MAP_H, MAP_W } from './town';
+import { canSend, changeHands, keepOf, labour, sendFamily } from './villages';
 import type { LandKind, LandUse, Realm, Region, WorldState } from './types';
 
 export const LAND_TH: Record<LandKind, string> = { plain: 'ทุ่งราบ', hills: 'เนินเขา', woods: 'ป่าไม้', shore: 'ชายฝั่ง', dunes: 'ทะเลทราย', peaks: 'เทือกเขา' };
@@ -134,7 +135,7 @@ export function frontier(world: WorldState, owner: Region['owner']): Region[] {
   for (const r of world.regions ?? []) if (r.owner === owner) for (const n of neighbours(world, r)) if (n.owner !== owner) out.add(n);
   return [...out];
 }
-const touches = (world: WorldState, r: Region, owner: Region['owner']) => neighbours(world, r).some((n) => n.owner === owner);
+export const touches = (world: WorldState, r: Region, owner: Region['owner']) => neighbours(world, r).some((n) => n.owner === owner);
 
 // ---------- laying the lands out ----------
 
@@ -189,10 +190,16 @@ export function landsDay(world: WorldState, rng: Rng): void {
     const y = yieldOf(r);
     if (isOurs(r)) {
       if (!held) continue;
-      m.stock.grain += y.grain;
-      m.stock.meat += y.meat;
-      m.stock.wool += y.wool;
-      world.treasury += y.gold;
+      // What its hands bring in, less what the headman keeps for the village.
+      const k = labour(world, r);
+      const send = k * (1 - keepOf(world, r));
+      m.stock.grain += Math.round(y.grain * send);
+      m.stock.meat += Math.round(y.meat * send);
+      m.stock.wool += Math.round(y.wool * send);
+      world.treasury += Math.round(y.gold * send);
+      if (r.village) r.village.purse += Math.round((y.gold + (y.grain + y.meat * 3) / 4) * (k - send));
+    } else if (r.village?.free) {
+      continue; // a free village keeps what it grows
     } else {
       const realm = realmOf(world, r.owner);
       if (realm && !realm.fallen) realm.gold += y.gold + Math.round((y.grain + y.meat * 3) / 4); // a neighbour's harvest sells at home
@@ -206,14 +213,17 @@ export function landsDay(world: WorldState, rng: Rng): void {
 function ourCrown(world: WorldState, rng: Rng): void {
   const lands = ourLands(world).filter((r) => !r.seat);
   const open = frontier(world, 'us').filter((r) => !r.seat);
-  // Open country first, while there is any: the neighbours are settling it too.
-  const wild = open.filter((r) => r.owner === undefined);
+  // Open country first, while there is any: the neighbours are settling it too. Settlers go
+  // with the first family the town can spare.
+  const wild = open.filter(isWild);
   const settle = SETTLE_COST + 120 * lands.length;
-  if (wild.length && world.treasury - settle >= RESERVE && chance(rng, 0.35)) {
+  if (wild.length && world.treasury - settle >= RESERVE && canSend(world) && chance(rng, 0.35)) {
     const r = pick(rng, wild);
     world.treasury -= settle;
-    take(world, r, 'us');
+    take(world, r, 'us', 'settle');
+    if (!r.dev || !Object.keys(r.dev).length) r.dev = { [best(r)]: 1 }; // the settlers break the first ground themselves
     log(world, 'politics', `ทางการส่งชาวบ้านไปบุกเบิก${r.name} (${LAND_TH[r.kind]}) จ่าย ${settle} ทอง ดินแดนของเรากว้างขึ้น`);
+    sendFamily(world, r, rng);
     return;
   }
   // Build up the cheapest use first; the best use of each land wins a tie.
@@ -237,7 +247,7 @@ function ourCrown(world: WorldState, rng: Rng): void {
     if (needy && chance(rng, 0.3)) {
       world.treasury -= price;
       realm.gold += price;
-      take(world, r, 'us');
+      take(world, r, 'us', 'buy', rng);
       log(world, 'trade', `${realm.name}ซึ่งท้องพระคลังร่อยหรอ ยอมขาย${r.name}ให้เรา ${price} ทอง`);
       return;
     }
@@ -245,7 +255,7 @@ function ourCrown(world: WorldState, rng: Rng): void {
       world.treasury -= price;
       realm.gold += price;
       realm.relation = clamp(realm.relation - 8, -100, 100);
-      take(world, r, 'us');
+      take(world, r, 'us', 'cede', rng);
       log(world, 'politics', `ทูตของเราเจรจากับ${realm.ruler.name}แห่ง${realm.name}สำเร็จ ได้${r.name}มาด้วยค่าตอบแทนมิตรภาพ ${price} ทอง`);
       return;
     }
@@ -255,12 +265,12 @@ function ourCrown(world: WorldState, rng: Rng): void {
 // A neighbour's treasury: settle open country near home, work its lands, and buy ours when we are broke.
 function theirCrown(world: WorldState, realm: Realm, rng: Rng): void {
   const mine = (world.regions ?? []).filter((r) => r.owner === realm.id && !r.seat);
-  const wild = frontier(world, realm.id).filter((r) => r.owner === undefined);
+  const wild = frontier(world, realm.id).filter(isWild);
   const settle = SETTLE_COST + 120 * mine.length;
   if (wild.length && realm.gold >= settle + 200 && chance(rng, 0.12)) {
     const r = pick(rng, wild);
     realm.gold -= settle;
-    take(world, r, realm.id);
+    take(world, r, realm.id, 'settle');
     log(world, 'world', `${realm.name}ส่งผู้คนไปตั้งถิ่นฐานที่${r.name}`);
     return;
   }
@@ -277,29 +287,36 @@ function theirCrown(world: WorldState, realm: Realm, rng: Rng): void {
     const price = priceOf(ours);
     realm.gold -= price;
     world.treasury += price;
-    take(world, ours, realm.id);
+    take(world, ours, realm.id, 'buy');
     log(world, 'trade', `ท้องพระคลังของเราว่างเปล่า จำต้องขาย${ours.name}ให้${realm.name} ได้ ${price} ทอง`);
   }
 }
 
-function take(world: WorldState, r: Region, owner: Region['owner']): void {
+// Open country nobody has settled: a free village is not for the taking.
+const isWild = (r: Region) => r.owner === undefined && !r.village?.free;
+
+function take(world: WorldState, r: Region, owner: Region['owner'], how: 'settle' | 'buy' | 'cede' | 'war', rng?: Rng): void {
   r.owner = owner;
   r.since = world.day;
+  changeHands(world, r, how, rng);
 }
 
 // The spoils of war: the winner takes one border land from the loser (the best-worked one);
 // its works are half ruined in the fighting.
-export function conquer(world: WorldState, from: Realm | 'us', to: Realm | 'us'): Region | undefined {
+// A village behind its palisade is taken last.
+export function conquer(world: WorldState, from: Realm | 'us', to: Realm | 'us', rng?: Rng): Region | undefined {
   const fromId = from === 'us' ? 'us' : from.id;
   const toId = to === 'us' ? 'us' : to.id;
   const r = (world.regions ?? [])
     .filter((x) => x.owner === fromId && !x.seat && touches(world, x, toId))
-    .sort((a, b) => priceOf(b) - priceOf(a))[0];
+    .sort((a, b) => walled(a) - walled(b) || priceOf(b) - priceOf(a))[0];
   if (!r) return undefined;
-  take(world, r, toId);
+  take(world, r, toId, 'war', rng ?? createRng(world.seed + world.day)); // the locals of a land taken in war
   for (const u of Object.keys(r.dev ?? {}) as LandUse[]) r.dev![u] = Math.floor(levelOf(r, u) / 2);
   return r;
 }
+
+const walled = (r: Region) => (r.village?.works?.includes('palisade') ? 1 : 0);
 
 // Each land's edge for whoever holds it.
 export const peaksHeld = (world: WorldState) => ourLands(world).filter((r) => r.kind === 'peaks').length;
