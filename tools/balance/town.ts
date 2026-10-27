@@ -43,6 +43,7 @@ export interface TownReport {
   knowledge: number;
   regime: string;
   leaders: number; // different people who held power
+  jobs: Record<string, number>; // grown townsfolk by trade at the end
   events: Record<string, number>;
 }
 
@@ -83,6 +84,7 @@ export function runTown(seed: number, years: number): TownReport {
     knowledge: Math.round(w.knowledge ?? 0),
     regime: w.regime ?? 'monarchy',
     leaders: leaders.size,
+    jobs: alive.filter((n) => n.age >= 16).reduce((m, n) => ((m[n.job] = (m[n.job] ?? 0) + 1), m), {} as Record<string, number>),
     events,
   };
 }

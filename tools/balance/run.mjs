@@ -78,6 +78,11 @@ if (isMainThread) {
   console.log(`\nรวมทุกเมือง: ${Object.keys(reports[0].events).map((k) => `${k} ${sum(k)}`).join(' · ')}`);
   const avg = (f) => Math.round(reports.reduce((t, r) => t + f(r), 0) / reports.length);
   console.log(`หิวรวม ${reports.reduce((t, r) => t + r.hunger, 0)} · คลังเฉลี่ย ${avg((r) => r.treasury)} · ศรัทธาเฉลี่ย ${avg((r) => r.faith)} · ความรู้เฉลี่ย ${avg((r) => r.knowledge)}`);
+  const jobs = {};
+  for (const r of reports) for (const [j, n] of Object.entries(r.jobs)) jobs[j] = (jobs[j] ?? 0) + n / reports.length;
+  console.log(`อาชีพเฉลี่ยต่อเมือง: ${Object.entries(jobs).sort((a, b) => b[1] - a[1]).map(([j, n]) => `${j} ${Math.round(n * 10) / 10}`).join(' · ')}`);
+  const most = (j) => Math.max(...reports.map((r) => r.jobs[j] ?? 0));
+  console.log(`มากสุดในเมืองเดียว: priest ${most('priest')} · soldier ${most('soldier')} · thief ${most('thief')} · noble ${most('noble')}`);
   for (const [name, get, lo, hi] of ACROSS) {
     const v = get(reports);
     console.log(`${name}: ${Math.round(v * 100) / 100}`);
