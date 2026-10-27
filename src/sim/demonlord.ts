@@ -22,7 +22,10 @@ export const SIEGES_TO_FALL = 3; // raids the town may fail to hold before it is
 const TRAIN_DAYS = 40; // the hero trains this long before marching, less with the valor gift
 export const trainDays = (world: WorldState) => TRAIN_DAYS - 10 * perkLevel(world, 'valor');
 const BATTLE_AFTER = 3; // days inside the keep before the fight
-const SELF_HERO_DAYS = 200; // occupied this long with no hero, the old prophecy wakes one
+const SELF_HERO_DAYS = 60; // occupied this long with no hero, the old prophecy wakes one
+const RISEN_HERO_DAYS = 30; // and before the fall too, if the god stays silent this long
+const RESIST_START = 20; // the survivors who slip away to the hills the night the town falls
+const RESIST_GROWTH = 6; // the resistance's monthly growth before the brave and the purge
 const RESIST_MIGHT = 1.5; // the resistance's might in the hero's battle, per point
 const ALLY_MIGHT = 60; // most an allied realm's army adds to the hero's battle
 const PARTY = 3; // companions who march with the hero
@@ -49,6 +52,11 @@ export function demonDay(world: WorldState, rng: Rng): void {
   if (!world.demon) return; // slain today
   if (lord.stage === 'risen') {
     if (world.day - lord.lastRaid >= RAID_EVERY) raid(world, lord, rng);
+    // A town that holds out long with no hero: the old prophecy wakes one.
+    if (!lord.hero && world.day - Math.max(lord.risen, lord.heroLost ?? 0) >= RISEN_HERO_DAYS) {
+      const n = bestHero(world);
+      if (n) awaken(world, lord, n, 'คำทำนายโบราณปลุก');
+    }
   } else occupation(world, lord);
 }
 
@@ -108,6 +116,7 @@ function raid(world: WorldState, lord: DemonLord, rng: Rng): void {
 function fall(world: WorldState, lord: DemonLord, rng: Rng): void {
   lord.stage = 'occupied';
   lord.fell = world.day;
+  lord.resistance = Math.max(lord.resistance ?? 0, RESIST_START);
   log(world, 'cult', `เมืองแตก! จอมมาร${lord.name}ยึดครองอาณาจักร`);
   const k = king(world);
   if (k && chance(rng, 0.5)) kill(world, k, 'ถูกจอมมารประหารกลางลานเมือง');
@@ -159,7 +168,7 @@ function resist(world: WorldState, lord: DemonLord): void {
   const brave = people.filter((n) => n.traits.includes('brave') || n.morality >= 40).length;
   const before = lord.resistance ?? 0;
   const purge = world.cult ? Math.min(3, cultists(world).length * 0.3) : 0;
-  lord.resistance = clamp(before + 3 + brave * 0.3 - purge, 0, 100);
+  lord.resistance = clamp(before + RESIST_GROWTH + brave * 0.3 - purge, 0, 100);
   const step = (v: number) => Math.floor(v / 25);
   if (step(lord.resistance) > step(before))
     log(world, 'politics', lord.resistance >= 100 ? 'ขบวนการต่อต้านพร้อมลุกฮือทั้งเมือง รอเพียงผู้กล้าเป็นผู้นำ' : `ขบวนการต่อต้านลับเติบโตขึ้น ชาวเมืองแอบซ่อนอาวุธไว้ใต้พื้นบ้าน (${Math.round(lord.resistance)}%)`);
