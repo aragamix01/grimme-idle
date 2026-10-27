@@ -92,7 +92,7 @@ function skirmish(world: WorldState, a: Realm, b: Realm, rng: Rng): void {
   const fled = int(rng, 2, 4);
   for (let i = 0; i < fled; i++) traveller(world, rng);
   log(world, 'world', `${win.name}รบชนะ${lose.name} ผู้ลี้ภัย ${fled} คนหนีภัยสงครามมาถึงเมืองของเรา`);
-  const land = conquer(world, lose, win);
+  const land = conquer(world, lose, win, rng);
   if (land) log(world, 'world', `${win.name}ยึด${land.name}ไปจาก${lose.name}`);
 }
 

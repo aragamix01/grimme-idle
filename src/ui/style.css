@@ -579,3 +579,30 @@ html:has(dialog[open]) { overflow: hidden; }
 .realm-card .btn {
   margin-top: 6px;
 }
+
+/* A land's village: loyalty as a bar, the headman's words, its plea, and its people as chips. */
+.land-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.land-bar meter { width: 100%; }
+.land-thought {
+  margin: 6px 0;
+  padding: 6px 8px;
+  background: var(--paper-raised);
+  border: 2px solid var(--outline);
+  font-size: 13px;
+  font-style: italic;
+}
+.land-plea { color: var(--danger); }
+.land-folk { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.land-folk .chip { cursor: pointer; }
+.land-folk .chip--on { background: var(--gold); }
+.land-person {
+  padding: 6px 8px;
+  border: 2px dashed var(--paper-edge);
+}

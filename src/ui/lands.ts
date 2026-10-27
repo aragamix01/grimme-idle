@@ -1,9 +1,9 @@
-import { EDGE_TH, LAND_TH, MAX_LEVEL, USES, USE_TH, bestUse, devCost, levelOf, ourLands, priceOf, yieldOf, type Region, type WorldState } from '../sim';
+import { EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
 import { el } from './icons';
 
 // The lands tab on the world map: what we hold and what it yields, the region picked on the
-// map in full (its kind, its owner, the edge it gives, each use and its level), and a way in
-// to see the region up close.
+// map in full (its kind, its owner, the edge it gives, each use and its level, its village and
+// headman), a way in to see the region up close, and whichever villager was tapped there.
 const view = document.getElementById('lands')!;
 
 interface Handlers {
@@ -14,6 +14,7 @@ let handlers: Handlers;
 let lastKey = '';
 let picked: number | null = null;
 let viewing: number | null = null;
+let villager: number | null = null;
 
 export function initLands(h: Handlers): void {
   handlers = h;
@@ -49,6 +50,7 @@ function card(world: WorldState, r: Region, full: boolean): HTMLElement {
           ...(r.seat ? [] : [el('ul', { className: 'land-uses' }, ...uses)]),
           ...(r.seat ? [] : [el('p', { className: 'realm-king__meta', textContent: `ผลผลิตต่อเดือน: ${yieldText(yieldOf(r))}` })]),
           ...(r.seat ? [] : [el('p', { className: 'realm-king__meta', textContent: `มูลค่าที่ดิน ${priceOf(r)} ทอง` })]),
+          ...(r.seat ? [] : village(world, r)),
         ]
       : [el('p', { className: 'realm-king__meta', textContent: USES[r.kind].map((u) => `${USE_TH[u]} ${pips(levelOf(r, u))}`).join(' · ') })]),
   );
@@ -64,9 +66,61 @@ function card(world: WorldState, r: Region, full: boolean): HTMLElement {
   return box;
 }
 
+// The village on a land: its hands against the work, its headman and his mind, what it asks and has built.
+function village(world: WorldState, r: Region): HTMLElement[] {
+  const folk = folkOf(world, r);
+  const v = r.village;
+  if (!folk.length) return [el('p', { className: 'realm-king__meta', textContent: isOursOrFree(r) ? 'ยังไม่มีคนอยู่ ทางการจะส่งครอบครัวจากเมืองไปบุกเบิก' : 'ไม่มีหมู่บ้าน' })];
+  const chief = chiefOf(world, r);
+  const out: HTMLElement[] = [el('h4', { textContent: `หมู่บ้าน · ${folk.length} คน` })];
+  if (r.owner === 'us') {
+    const pct = Math.round(labour(world, r) * 100);
+    out.push(el('p', { className: 'realm-king__meta', textContent: `คนงาน ${workersOf(world, r).length}/${needOf(r)} (ทำงานได้ ${pct}%) · ส่งส่วยให้เมืองหลวง ${Math.round((1 - keepOf(world, r)) * 100)}%` }));
+  }
+  if (chief) out.push(el('p', { className: 'realm-king__meta', textContent: `ผู้ใหญ่บ้าน: ${chief.name} (${chief.age} ปี) · ${chief.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }));
+  if (v) {
+    const label = r.owner === 'us' ? 'ความภักดีต่อเมืองหลวง' : v.free ? 'ใจที่จะกลับมาหาเมืองหลวง' : 'ความพอใจต่อเจ้าของ';
+    out.push(el('div', { className: 'land-bar' }, el('span', { textContent: label }), el('meter', { min: 0, max: 100, low: 30, high: 60, optimum: 100, value: v.loyalty }), el('b', { textContent: String(v.loyalty) })));
+    if (v.thought) out.push(el('p', { className: 'land-thought', textContent: `“${v.thought}”` }));
+    if (v.plea) out.push(el('p', { className: 'realm-king__meta land-plea', textContent: `คำร้อง: ${v.plea.text}` }));
+    out.push(el('p', { className: 'realm-king__meta', textContent: `สิ่งก่อสร้าง: ${(v.works ?? []).map((w) => WORK_TH[w]).join(' · ') || 'ยังไม่มี'} · กองกลาง ${v.purse} ทอง` }));
+  }
+  const list = el('div', { className: 'land-folk' });
+  for (const n of [...folk].sort((a, b) => (b.id === chief?.id ? 1 : 0) - (a.id === chief?.id ? 1 : 0) || b.age - a.age)) {
+    const b = el('button', { type: 'button', className: `chip${n.id === villager ? ' chip--on' : ''}`, textContent: n.name });
+    b.onclick = (e) => {
+      e.stopPropagation();
+      pickVillager(world, n.id);
+    };
+    list.append(b);
+  }
+  out.push(list);
+  const who = folk.find((n) => n.id === villager);
+  if (who) out.push(person(world, r, who));
+  return out;
+}
+const isOursOrFree = (r: Region) => r.owner === 'us' || !!r.village?.free;
+
+// A villager in brief: who they are, what they do, and their family on the land.
+function person(world: WorldState, r: Region, n: Npc): HTMLElement {
+  const all = villagers(world);
+  const spouse = all.find((o) => o.id === n.spouseId && o.alive);
+  const kids = all.filter((o) => o.alive && o.parentIds?.includes(n.id));
+  const role = n.id === r.village?.chiefId ? 'ผู้ใหญ่บ้าน' : n.age < 16 ? 'เด็ก' : (VILLAGER_TH[n.job] ?? jobName(world, n.job));
+  return el(
+    'div',
+    { className: 'land-person' },
+    el('b', { textContent: `${n.name} · ${role}` }),
+    el('p', { className: 'realm-king__meta', textContent: `อายุ ${n.age} ปี · นิสัย ${n.traits.map((t) => TRAIT_TH[t]).join(' · ')} · ทอง ${n.gold}` }),
+    el('p', { className: 'realm-king__meta', textContent: [spouse && `คู่ครอง: ${spouse.name}`, kids.length && `ลูก: ${kids.map((k) => k.name).join(', ')}`].filter(Boolean).join(' · ') || 'ยังไม่มีครอบครัว' }),
+  );
+}
+
 export function renderLands(world: WorldState): void {
   const regions = world.regions ?? [];
-  const key = JSON.stringify([regions, world.realms?.map((r) => r.name), picked, viewing]);
+  const pickedRegion = regions.find((r) => r.id === picked);
+  const folk = pickedRegion ? folkOf(world, pickedRegion).map((n) => [n.id, n.age, n.gold, n.spouseId, n.job]) : [];
+  const key = JSON.stringify([regions, world.realms?.map((r) => r.name), picked, viewing, villager, folk]);
   if (key === lastKey) return;
   lastKey = key;
   const ours = ourLands(world).filter((r) => !r.seat);
@@ -83,6 +137,12 @@ export function renderLands(world: WorldState): void {
 
 export function pickLand(world: WorldState, id: number | null): void {
   picked = id;
+  lastKey = '';
+  renderLands(world);
+}
+
+export function pickVillager(world: WorldState, id: number | null): void {
+  villager = id;
   lastKey = '';
   renderLands(world);
 }
