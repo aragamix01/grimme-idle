@@ -45,6 +45,11 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
     curfew: 0.5 + has('vengeful') - has('kind'), // order suits the gentry
     taxfree: 1 + has('greedy'), // their tribute is spared too
     levy: has('brave') + has('loyal') - has('coward') - 0.5, // their tenants marched off
+    colonize: has('greedy') + has('brave') * 0.5 - has('kind') * 1.5, // new estates, bought with the villages' grief
+    expand: 0.5 + has('kind') - has('greedy') * 0.5,
+    tribute: has('greedy') - has('kind'),
+    relief: has('kind') - has('greedy'),
+    garrison: has('brave') + has('vengeful') - has('kind'),
   };
   return stake[d] + (loyaltyOf(n) - 50) / 25 + getTie(world, n.id, ruler.id) / 50;
 }

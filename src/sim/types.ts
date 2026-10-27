@@ -93,7 +93,8 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
-export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy';
+export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy' | 'colonize' | 'expand' | 'tribute' | 'relief' | 'garrison';
+export type LandPolicy = 'peace' | 'settle' | 'conquest';
 
 // The town's constitution (see charter.ts).
 export interface Charter {
@@ -104,6 +105,10 @@ export interface Charter {
   taxCap: Tax | null; // the highest tax the ruler may set
   stateFaith: boolean; // the god's faith is the state's: more prayer, less free inquiry
   emergency?: boolean; // the ruler holds emergency powers; no elections
+  auditor?: boolean; // an independent auditor may investigate any official, the ruler included
+  freePress?: boolean; // the presses may print what they find, the ruler's doings included
+  landPolicy?: LandPolicy; // how the crown may win land: settling only, buying too, or war; missing means settle
+  provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
@@ -274,6 +279,7 @@ export interface Village {
   thought?: string; // what the headman is thinking, in his own words
   plea?: { gold: number; until: number; text: string }; // help asked of the crown after a bad month
   grudge?: number; // pleas the crown let go unanswered, slowly forgiven
+  garrison?: number; // day the crown's soldiers posted here by decree march home
 }
 
 // A neighbouring kingdom on the world map, simulated in broad strokes.
@@ -441,7 +447,8 @@ export interface WorldState {
   regime?: Regime; // how the town is governed; missing means a king
   charter?: Charter; // missing in saves from before constitutions: written from the regime
   strike?: number; // day a workers' strike ends
-  republic?: { since: number; elections: number; nextVote: number; streak?: number; inOffice?: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
+  republic?: { since: number; elections: number; nextVote: number; streak?: number; inOffice?: number; impeached?: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
+  auditor?: { id?: number; independence: number; cases: number; caught: number; since: number }; // the independent auditor's office (see auditor.ts)
   council?: { vetoes: number; overrides: number; deadlock?: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
   techs?: Partial<Record<Tech, number>>; // what the scholars have found, by the day each was found
   research?: Tech; // the question the crown has set them

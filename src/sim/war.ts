@@ -12,7 +12,8 @@ import { loyaltyOf } from './politics';
 import { might } from './market';
 import { sway } from './cult';
 import { realmArms } from './realms';
-import { conquer, peaksHeld } from './lands';
+import { conquer, frontier, peaksHeld } from './lands';
+import { charterOf, landPolicyOf } from './charter';
 import { ageOf, industrial } from './ages';
 import type { Npc, Realm, War, WarAct, WorldState } from './types';
 
@@ -61,6 +62,7 @@ export function warDay(world: WorldState, rng: Rng): void {
 // A hostile neighbour attacks, or our hawkish king marches, when either side smells weakness.
 function maybeWar(world: WorldState, rng: Rng): void {
   const k = king(world);
+  const policy = landPolicyOf(charterOf(world));
   const strength = ourForces(world).strength;
   for (const r of world.realms ?? []) {
     if (r.fallen || r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
@@ -68,9 +70,24 @@ function maybeWar(world: WorldState, rng: Rng): void {
     // A hostile hawk attacks when it feels the stronger; a greedy one also preys on any cold neighbour it far outmatches.
     if ((hawk(r.ruler.traits) || r.regime === 'junta') && hostile && theirStrength(r) > strength * 1.1 && chance(rng, 0.25)) return declare(world, r, 'them');
     if (r.ruler.traits.includes('greedy') && theirStrength(r) > strength * 1.6 && chance(rng, 0.06)) return declare(world, r, 'them');
+    if (policy === 'peace') continue; // the charter forbids wars for land
     if (k && hostile && hawk(k.traits) && !dove(k.traits) && strength > theirStrength(r) * 1.2 && world.treasury >= 300 && chance(rng, 0.15)) return declare(world, r, 'us');
   }
+  // Under a charter of conquest a grasping ruler also marches on any cool neighbour far weaker than us.
+  if (policy !== 'conquest' || !k || !k.traits.includes('greedy') || world.treasury < 300) return;
+  const prey = weakest(world, strength);
+  if (prey && chance(rng, 0.04)) declare(world, prey, 'us');
 }
+
+// A neighbour on our borders far weaker than us, and not our friend: a war of conquest's target.
+export function weakest(world: WorldState, strength = ourForces(world).strength): Realm | undefined {
+  return (world.realms ?? [])
+    .filter((r) => !r.fallen && !r.pact && !r.war && r.relation < 20 && (r.truceUntil ?? 0) <= world.day && theirStrength(r) * 2 < strength && frontier(world, 'us').some((x) => x.owner === r.id))
+    .sort((a, b) => theirStrength(a) - theirStrength(b))[0];
+}
+
+// A war of conquest, declared by decree.
+export const conquestWar = (world: WorldState, r: Realm) => declare(world, r, 'us');
 
 function declare(world: WorldState, r: Realm, attacker: War['attacker']): void {
   const k = king(world);

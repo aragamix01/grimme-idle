@@ -6,7 +6,7 @@
 // and each kind of land gives its owner its own edge. Land changes hands three ways: bought
 // from a neighbour short of gold, ceded by a friend at the table, or taken in war.
 import { chance, createRng, int, next, pick, type Rng } from './rng';
-import { clamp, log, occupied } from './core';
+import { clamp, decreeActive, log, occupied } from './core';
 import { ensureMarket } from './market';
 import { HOME } from './realms';
 import { MAP_H, MAP_W } from './town';
@@ -217,7 +217,8 @@ function ourCrown(world: WorldState, rng: Rng): void {
   // with the first family the town can spare.
   const wild = open.filter(isWild);
   const settle = SETTLE_COST + 120 * lands.length;
-  if (wild.length && world.treasury - settle >= RESERVE && canSend(world) && chance(rng, 0.35)) {
+  const keen = decreeActive(world, 'colonize') ? 1 : decreeActive(world, 'expand') ? 0.8 : 0.35; // the crown's decrees drive it on
+  if (wild.length && world.treasury - settle >= RESERVE && canSend(world) && chance(rng, keen)) {
     const r = pick(rng, wild);
     world.treasury -= settle;
     take(world, r, 'us', 'settle');

@@ -6,9 +6,10 @@
 // month and remembers whether it came, builds up the village with what it keeps, and when
 // the crown has lost him altogether he breaks away, or goes over to a neighbour who woos him.
 import { chance, int, pick, type Rng } from './rng';
-import { clamp, kill, log } from './core';
+import { clamp, decreeActive, kill, log, loyaltyNudge } from './core';
+import { charterOf } from './charter';
 import { isAvatar } from './avatar';
-import { jailed } from './justice';
+import { commit, jailed } from './justice';
 import { ADULT_AGE, ELDER_AGE, isBirthday, isChild } from './life';
 import { FIRST_NAMES } from './names';
 import { TOWN_SIZE } from './town';
@@ -21,6 +22,7 @@ const VILLAGE_DAY = 23; // day of the month the villages hold council (after the
 const KEEP = 0.15; // what a contented village keeps of its harvest for itself
 const GIFT = 150; // what the crown sends a village whose headman is losing faith in it
 const REJOIN_COST = 300; // what the crown pays a free village to come back
+const GRANT = 40; // what the expansion decree pays each family that goes
 
 export const WORK_TH: Record<VillageWork, string> = { well: 'บ่อน้ำ', granary: 'ยุ้งฉาง', shrine: 'ศาลเจ้า', palisade: 'รั้วค่าย', market: 'ลานตลาด' };
 const WORK_COST: Record<VillageWork, number> = { well: 120, granary: 150, shrine: 150, palisade: 200, market: 250 };
@@ -59,13 +61,17 @@ export function labour(world: WorldState, r: Region): number {
 export function keepOf(world: WorldState, r: Region): number {
   const v = r.village;
   if (!v) return 0;
-  if (v.loyalty < 20) return 1; // nothing goes to a crown he no longer answers to
+  if (v.loyalty < 20 && !garrisoned(world, r)) return 1; // nothing goes to a crown he no longer answers to
   let keep = KEEP + (v.loyalty < 35 ? 0.35 : 0);
   if (chiefOf(world, r)?.traits.includes('greedy')) keep += 0.2;
+  if (decreeActive(world, 'relief')) keep += 0.35;
+  if (decreeActive(world, 'tribute') || decreeActive(world, 'colonize')) keep = 0; // the capital takes it all
+  if (charterOf(world).provinces) keep = Math.max(keep, 0.25); // the provincial charter guarantees their share
   return Math.min(1, keep);
 }
 
 const villageOf = (r: Region, loyalty: number): Village => (r.village ??= { loyalty, purse: 0 });
+export const garrisoned = (world: WorldState, r: Region) => (r.village?.garrison ?? 0) > world.day;
 
 // Land changes hands: the village's loyalty now runs to its new owner. A land that has nobody
 // on it yet, taken from a neighbour, comes with the folk who already live there.
@@ -155,13 +161,15 @@ function spare(world: WorldState, n: Npc): boolean {
 }
 
 // Whether the town has anyone to send.
-export const canSend = (world: WorldState) => world.npcs.filter((n) => n.alive).length >= TOWN_FLOOR && world.npcs.some((n) => spare(world, n));
+// Under a colonial decree the crown drives people out even from a thinning town.
+const floorOf = (world: WorldState) => (decreeActive(world, 'colonize') ? Math.round(TOWN_SIZE * 0.75) : TOWN_FLOOR);
+export const canSend = (world: WorldState) => world.npcs.filter((n) => n.alive).length >= floorOf(world) && world.npcs.some((n) => spare(world, n));
 
 // A family from town moves out to a land: the one picked, their spouse and their children.
 // Returns how many went, or 0 when the town has nobody to spare.
 export function sendFamily(world: WorldState, r: Region, rng: Rng): number {
   const town = world.npcs.filter((n) => n.alive);
-  if (town.length < TOWN_FLOOR) return 0;
+  if (town.length < floorOf(world)) return 0;
   const want = WORKER_JOB[best(r)];
   const pool = town.filter((n) => spare(world, n));
   if (!pool.length) return 0;
@@ -179,8 +187,18 @@ export function sendFamily(world: WorldState, r: Region, rng: Rng): number {
     if (!isChild(n)) n.job = want;
     (world.villagers ??= []).push(n);
   }
-  villageOf(r, 70);
-  log(world, 'politics', `ครอบครัวของ${head.name} ${going.length} คน ย้ายออกจากเมืองไปบุกเบิกทำ${LAND_TH[r.kind]}ที่${r.name}`, head.id);
+  // Paid to go under the expansion decree, driven out under the colonial one.
+  const forced = decreeActive(world, 'colonize');
+  const granted = !forced && decreeActive(world, 'expand') && world.treasury >= GRANT;
+  if (granted) {
+    world.treasury -= GRANT;
+    head.gold += GRANT;
+  }
+  if (forced) for (const n of going) loyaltyNudge(n, -10);
+  const fresh = !r.village;
+  const v = villageOf(r, forced ? 50 : granted ? 80 : 70);
+  if (!fresh && forced) v.loyalty = clamp(v.loyalty - 3, 0, 100);
+  log(world, 'politics', forced ? `ทางการบังคับครอบครัวของ${head.name} ${going.length} คน ให้ย้ายออกจากเมืองไปบุกเบิกทำ${LAND_TH[r.kind]}ที่${r.name}` : `ครอบครัวของ${head.name} ${going.length} คน ย้ายออกจากเมืองไปบุกเบิกทำ${LAND_TH[r.kind]}ที่${r.name}${granted ? ` (รับเงินตั้งตัว ${GRANT} ทอง)` : ''}`, head.id);
   if (!chiefOf(world, r)) choose(world, r, rng);
   return going.length;
 }
@@ -246,7 +264,7 @@ function council(world: WorldState, r: Region, rng: Rng): void {
   if (isOurs(r)) ours(world, r, v, chief, rng);
   else if (v.free) free(world, r, v, chief, rng);
   else theirs(world, r, v, chief, rng);
-  build(world, r, v, chief);
+  build(world, r, v, chief, rng);
 }
 
 const kin = (a: Npc, b: Npc) =>
@@ -281,7 +299,7 @@ function ours(world: WorldState, r: Region, v: Village, chief: Npc, rng: Rng): v
     log(world, 'politics', `${chief.name} ผู้ใหญ่บ้านแห่ง${r.name} ขุ่นเคืองที่เมืองหลวงไม่ส่งความช่วยเหลือมา`, chief.id);
   }
   // Loyalty drifts toward what the headman makes of the crown: his nature, the shrine, a fair share kept.
-  const target = 55 + leanOf(chief) - (v.grudge ?? 0) + (hasWork(r, 'shrine') ? 8 : 0) - (lab < 0.5 ? 8 : 0) + wooed(world, r);
+  const target = 55 + leanOf(chief) - (v.grudge ?? 0) + (hasWork(r, 'shrine') ? 8 : 0) - (lab < 0.5 ? 8 : 0) + wooed(world, r) + decreed(world, r);
   v.loyalty = clamp(Math.round(v.loyalty + (target - v.loyalty) * 0.15 + int(rng, -3, 3)), 0, 100);
   // A bad month: blight, bandits or a murrain; the granary softens it. He asks the crown for help.
   if (!v.plea && chance(rng, hasWork(r, 'granary') ? 0.012 : 0.025)) {
@@ -305,8 +323,17 @@ function ours(world: WorldState, r: Region, v: Village, chief: Npc, rng: Rng): v
     v.loyalty = clamp(v.loyalty + (chief.traits.includes('greedy') ? 6 : 12), 0, 100);
     log(world, 'politics', `ทางการส่งของขวัญ ${GIFT} ทองไปผูกใจ${chief.name}ผู้ใหญ่บ้านแห่ง${r.name}`, chief.id);
   }
-  if (v.loyalty < 15 && chance(rng, 0.3)) return breakAway(world, r, v, chief, rng);
+  if (v.loyalty < 15 && !garrisoned(world, r) && chance(rng, 0.3)) return breakAway(world, r, v, chief, rng);
   if (!v.plea) v.thought = mood(world, r, v, chief, lab);
+}
+
+// What the law weighs on a village: the provincial charter and the crown's decrees.
+function decreed(world: WorldState, r: Region): number {
+  let by = charterOf(world).provinces ? 8 : 0;
+  if (decreeActive(world, 'relief')) by += 12;
+  if (decreeActive(world, 'tribute') || decreeActive(world, 'colonize')) by -= 12;
+  if (garrisoned(world, r)) by -= 6; // soldiers in the square
+  return by;
 }
 
 // A neighbour next door courts a wavering village.
@@ -319,6 +346,9 @@ const suitor = (world: WorldState, r: Region): Realm | undefined =>
 
 // The headman's own words on how things stand.
 function mood(world: WorldState, r: Region, v: Village, chief: Npc, lab: number): string {
+  if (garrisoned(world, r)) return 'ทหารของเมืองหลวงเดินเต็มลานหมู่บ้าน พวกเราไม่ใช่นักโทษนะ';
+  if (decreeActive(world, 'colonize') || decreeActive(world, 'tribute')) return 'เมืองหลวงเอาผลผลิตไปหมด เหลือแต่ความหิวให้ลูกหลาน';
+  if (decreeActive(world, 'relief') && v.loyalty >= 35) return 'ปีนี้เมืองหลวงลดส่วยให้ ชาวบ้านได้หายใจหายคอบ้าง';
   if (lab < 0.6) return 'คนไม่พอทำงาน ขอเมืองหลวงส่งคนมาเพิ่มด้วยเถิด';
   if (v.loyalty < 20) return 'ข้าจะไม่ส่งส่วยให้เมืองหลวงอีกแล้ว ผลผลิตเป็นของคนที่ลงแรง';
   if (v.loyalty < 35) return suitor(world, r) ? 'แคว้นข้างเคียงสัญญาว่าจะดูแลเราดีกว่าเมืองหลวง… ข้ากำลังชั่งใจ' : 'ส่วยหนักเกินไป ชาวบ้านเริ่มบ่นกันแล้ว';
@@ -388,12 +418,13 @@ const labourFree = (world: WorldState, r: Region) => {
 };
 
 // The headman spends the village's purse on the next work he wants; a greedy one pockets a share.
-function build(world: WorldState, r: Region, v: Village, chief: Npc): void {
+function build(world: WorldState, r: Region, v: Village, chief: Npc, rng: Rng): void {
   if (hasWork(r, 'market')) v.purse += 10; // pedlars come to the village's own market
   if (chief.traits.includes('greedy') && v.purse > 60) {
     const cut = Math.round(v.purse * 0.1);
     v.purse -= cut;
     chief.gold += cut;
+    commit(world, chief, 'corruption', rng, cut); // on his record, should anyone come looking
   }
   const want = WANTS[chief.traits[0]].find((w) => !hasWork(r, w));
   if (!want) {

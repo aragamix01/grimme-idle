@@ -70,6 +70,9 @@ function investigate(world: WorldState, rng: Rng): void {
   }
 }
 
+// Bring an offence on someone's record to trial now (the auditor's cases go straight to court).
+export const prosecute = (world: WorldState, n: Npc, i: number, rng: Rng) => trial(world, n, i, rng);
+
 // The trial: a judge (or the ruler) hears it; a lawyer may sway it; a bribe may buy it.
 function trial(world: WorldState, n: Npc, i: number, rng: Rng): void {
   const crime = n.record![i];

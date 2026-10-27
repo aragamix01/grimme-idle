@@ -599,6 +599,7 @@ html:has(dialog[open]) { overflow: hidden; }
   font-style: italic;
 }
 .land-plea { color: var(--danger); }
+.land-law { color: var(--focus); font-weight: 600; }
 .land-folk { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .land-folk .chip { cursor: pointer; }
 .land-folk .chip--on { background: var(--gold); }
