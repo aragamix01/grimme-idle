@@ -13,6 +13,7 @@ import { leaveTrade } from './society';
 import { getTie } from './ties';
 import { literate } from './learning';
 import { charterOf, writeCharter } from './charter';
+import { champion, endorsements } from './adventurers';
 import type { Npc, WorldState } from './types';
 
 // Days between elections, as the charter sets them.
@@ -44,6 +45,7 @@ function candidates(world: WorldState): { field: Npc[]; barred?: Npc } {
   add(eligible.slice().sort((a, b) => standing(world, b) - standing(world, a))[0]);
   add(eligible.filter((n) => n.gold < RICH && (n.traits.includes('kind') || n.traits.includes('brave'))).sort((a, b) => friendsOf(world, b) - friendsOf(world, a))[0]);
   add(eligible.filter((n) => literate(n) && n.morality > 20).sort((a, b) => b.level + b.morality / 20 - (a.level + a.morality / 20))[0]);
+  add(champion(eligible)); // an adventurer whose name is known in every tavern
   if (field.length < 2) add(eligible.sort((a, b) => standing(world, b) - standing(world, a)).find((n) => !field.includes(n)));
   return { field, barred };
 }
@@ -122,12 +124,13 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
   const shamed = scandals(world, field, rng);
   const votes = new Map(field.map((c) => [c.id, 0]));
   const backers = new Map<number, Npc[]>(field.map((c) => [c.id, []]));
+  const backed = endorsements(world, field); // guild members follow their guild's choice
   for (const v of world.npcs) {
     if (!mayVote(world, v)) continue;
     let best = field[0];
     let top = -Infinity;
     for (const c of field) {
-      const a = appeal(world, v, c, rng, wear, shamed);
+      const a = appeal(world, v, c, rng, wear, shamed) + (v.guildId !== undefined && backed.get(v.guildId) === c.id ? 1.5 : 0);
       if (a > top) [best, top] = [c, a];
     }
     votes.set(best.id, votes.get(best.id)! + 1);

@@ -1,9 +1,9 @@
-import { say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { influenceOf, say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
 
-const KIND_TH: Record<Quest['kind'], string> = { hunt: 'ปราบมอนสเตอร์', explore: 'สำรวจ', escort: 'คุ้มกัน', pest: 'ไล่สัตว์ร้าย', bounty: 'ล่าค่าหัว' };
+const KIND_TH: Record<Quest['kind'], string> = { hunt: 'ปราบมอนสเตอร์', explore: 'สำรวจ', escort: 'คุ้มกัน', pest: 'ไล่สัตว์ร้าย', bounty: 'ล่าค่าหัว', land: 'งานหัวเมือง' };
 const RESULT_TH: Partial<Record<Quest['stage'], string>> = { done: 'สำเร็จ', failed: 'ล้มเหลว', expired: 'ไม่มีคนรับ' };
 
 interface Handlers {
@@ -46,7 +46,7 @@ export function renderGuild(world: WorldState): void {
     section(
       'กิลด์ในเมือง',
       world.guilds.length
-        ? world.guilds.map((g) => guildCard(g, members(g), byId))
+        ? world.guilds.map((g) => guildCard(g, members(g), byId, influenceOf(world, g)))
         : [empty('ยังไม่มีใครก่อตั้งกิลด์ นักผจญภัยที่มีประสบการณ์ พ่อค้าที่ร่ำรวย หรือโจรใจดำ อาจตั้งขึ้นเองเมื่อมีทองพอ')],
     ),
     section('ผลล่าสุด', finished.length ? finished.map((q) => resultRow(q, byId)) : [empty('ยังไม่มีเควสที่จบ')]),
@@ -177,7 +177,7 @@ function resultRow(q: Quest, byId: Map<number, Npc>): HTMLElement {
   );
 }
 
-function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>): HTMLElement {
+function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>, influence: number): HTMLElement {
   const leader = byId.get(g.leaderId);
   const others = members.filter((m) => m.id !== g.leaderId);
   const kind = { adventurers: 'กิลด์นักผจญภัย', merchants: 'สมาคมการค้า (พ่อค้า ชาวนา และช่างฝีมือ)', thieves: 'สมาคมโจร' }[g.kind];
@@ -190,7 +190,7 @@ function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>): HTMLElemen
       'div',
       { className: 'guild-card__body' },
       el('p', { className: 'guild-card__name', textContent: g.name }),
-      el('p', { className: 'guild-card__meta', textContent: `${kind} · ก่อตั้ง D${g.founded} · สมาชิก ${members.length} คน${fame}` }),
+      el('p', { className: 'guild-card__meta', textContent: `${kind} · ก่อตั้ง D${g.founded} · สมาชิก ${members.length} คน${fame} · อิทธิพล ${influence}${influence >= 25 ? ' (มีเสียงในสภา)' : ''}` }),
       el('div', { className: 'quest__party' }, el('span', { className: 'quest__client', textContent: 'หัวหน้า' }), npcChip(leader), ...others.map((m) => npcChip(m))),
     ),
   );

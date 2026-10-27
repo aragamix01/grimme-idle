@@ -13,7 +13,8 @@ import { commit, jailed } from './justice';
 import { ADULT_AGE, ELDER_AGE, isBirthday, isChild } from './life';
 import { FIRST_NAMES } from './names';
 import { TOWN_SIZE } from './town';
-import { LAND_TH, USES, best, isOurs, levelOf, touches } from './lands';
+import { LAND_TH, USES, best, isOurs, levelOf, neighbourLairs, touches } from './lands';
+import { isAdventurer, postLandQuest } from './quests';
 import type { Job, LandUse, Npc, Realm, Region, Trait, Village, VillageWork, WorldState } from './types';
 
 export const WORKERS_PER_LEVEL = 2; // hands each level of a use needs to bring in all it can
@@ -195,12 +196,32 @@ export function sendFamily(world: WorldState, r: Region, rng: Rng): number {
     head.gold += GRANT;
   }
   if (forced) for (const n of going) loyaltyNudge(n, -10);
+  escort(world, r, head, going, rng);
   const fresh = !r.village;
   const v = villageOf(r, forced ? 50 : granted ? 80 : 70);
   if (!fresh && forced) v.loyalty = clamp(v.loyalty - 3, 0, 100);
   log(world, 'politics', forced ? `ทางการบังคับครอบครัวของ${head.name} ${going.length} คน ให้ย้ายออกจากเมืองไปบุกเบิกทำ${LAND_TH[r.kind]}ที่${r.name}` : `ครอบครัวของ${head.name} ${going.length} คน ย้ายออกจากเมืองไปบุกเบิกทำ${LAND_TH[r.kind]}ที่${r.name}${granted ? ` (รับเงินตั้งตัว ${GRANT} ทอง)` : ''}`, head.id);
   if (!chiefOf(world, r)) choose(world, r, rng);
   return going.length;
+}
+
+// Families on the road: an adventurer the crown pays rides with them; without one, bandits or the
+// beasts of a nearby lair may fall on them.
+const ESCORT_PAY = 10;
+function escort(world: WorldState, r: Region, head: Npc, going: Npc[], rng: Rng): void {
+  const guard = world.npcs.find((n) => n.alive && isAdventurer(n) && !n.retired && n.questId === undefined && n.inside === undefined && !jailed(world, n));
+  if (guard && world.treasury >= ESCORT_PAY && chance(rng, 0.75)) {
+    world.treasury -= ESCORT_PAY;
+    guard.gold += ESCORT_PAY;
+    guard.renown = (guard.renown ?? 0) + 1;
+    return;
+  }
+  if (!chance(rng, 0.12 + neighbourLairs(world, r) * 0.1)) return;
+  const lost = going.reduce((s, n) => s + n.gold, 0);
+  for (const n of going) n.gold = 0;
+  const victim = going.find((n) => !isChild(n) && n !== head);
+  if (victim && chance(rng, 0.25)) kill(world, victim, `ถูกโจรป่าดักปล้นระหว่างเดินทางไป${r.name}`);
+  log(world, 'politics', `ครอบครัวของ${head.name}ไม่มีใครคุ้มกัน ถูกโจรดักปล้นกลางทางไป${r.name} เสียทอง ${lost} เหรียญ`, head.id);
 }
 
 // ---------- village life ----------
@@ -302,12 +323,20 @@ function ours(world: WorldState, r: Region, v: Village, chief: Npc, rng: Rng): v
   const target = 55 + leanOf(chief) - (v.grudge ?? 0) + (hasWork(r, 'shrine') ? 8 : 0) - (lab < 0.5 ? 8 : 0) + wooed(world, r) + decreed(world, r);
   v.loyalty = clamp(Math.round(v.loyalty + (target - v.loyalty) * 0.15 + int(rng, -3, 3)), 0, 100);
   // A bad month: blight, bandits or a murrain; the granary softens it. He asks the crown for help.
-  if (!v.plea && chance(rng, hasWork(r, 'granary') ? 0.012 : 0.025)) {
+  if (!v.plea && chance(rng, (hasWork(r, 'granary') ? 0.012 : 0.025) + neighbourLairs(world, r) * 0.01)) { // monsters next door raid more often
     const what = pick(rng, ['พืชผลเสียหายจากแมลง', 'โจรป่าบุกปล้นหมู่บ้าน', 'โรคระบาดในฝูงสัตว์', 'น้ำป่าพัดยุ้งข้าวพัง']);
     const gold = int(rng, 80, 160);
     v.plea = { gold, until: world.day + 45, text: `${what} ขอเมืองหลวงช่วย ${gold} ทอง` };
     v.thought = `${what} ข้าส่งคนไปขอความช่วยเหลือจากเมืองหลวงแล้ว`;
     log(world, 'politics', `${r.name}เดือดร้อน: ${what} ${chief.name}ผู้ใหญ่บ้านร้องขอความช่วยเหลือ ${gold} ทอง`, chief.id);
+    // The village also hires adventurers out of its own purse, the crown topping up a poor one.
+    const own = Math.min(v.purse, 50);
+    const top = own < 30 && world.treasury >= 600 ? 30 : 0;
+    if (own + top >= 25) {
+      v.purse -= own;
+      world.treasury -= top;
+      postLandQuest(world, r.id, false, `ช่วย${r.name}: ${what}`, own + top, 25 + gold / 4, top > 0);
+    }
   }
   // The crown answers a plea if it can, and woos back a village losing faith.
   if (v.plea && world.treasury - v.plea.gold >= 500 && chance(rng, 0.45)) {

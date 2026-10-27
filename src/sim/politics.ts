@@ -164,7 +164,7 @@ function knight(world: WorldState, k: Npc): void {
   if (adults(world).filter((n) => n.knight).length >= MAX_KNIGHTS) return;
   const pick = adults(world)
     .filter((n) => !n.knight && (n.rank ?? -1) >= KNIGHT_RANK && n.job !== 'noble' && loyaltyOf(n) >= 45)
-    .sort((a, b) => (b.renown ?? 0) - (a.renown ?? 0))[0];
+    .sort((a, b) => (b.renown ?? 0) + (b.job === 'swordsman' ? 10 : 0) - (a.renown ?? 0) - (a.job === 'swordsman' ? 10 : 0))[0]; // the sword is the knight's calling
   if (!pick) return;
   pick.knight = true;
   nudge(pick, 20);

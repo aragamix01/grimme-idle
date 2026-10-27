@@ -38,6 +38,8 @@ export { TRADE, tripDays } from './diplomacy';
 export { EDGE_TH, LAND_TH, MAX_LEVEL, USES, USE_TH, best as bestUse, devCost, isOurs, levelOf, ourLands, partition, priceOf, regionAt, yieldOf } from './lands';
 export { VILLAGER_TH, WORKERS_PER_LEVEL, WORK_TH, garrisoned, chiefOf, folkOf, keepOf, labour, needOf, villagers, workersOf } from './villages';
 export { auditorOf } from './auditor';
+export { influenceOf } from './adventurers';
+export { LAIR_TH } from './lands';
 export { POLICY_TH, landPolicyOf } from './charter';
 export { WAR_COST, enemyOf, ourForces, theirStrength } from './war';
 export { plagued, realmMiracleCost, realmMiracleReady } from './worldevents';

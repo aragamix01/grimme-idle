@@ -30,6 +30,7 @@ interface Walker {
   ty: number;
   wait: number;
   pick: () => { x: number; y: number }; // the next spot in its stretch
+  beast?: boolean; // a monster: one walk cycle, no facings
 }
 
 // One region up close: its kind of land, what its owner has raised on it, and its village:
@@ -72,7 +73,7 @@ export class RegionScene extends Phaser.Scene {
     const r = w?.regions?.find((x) => x.id === this.regionId);
     if (!w || !r || !this.textures.exists('rm-hut')) return; // the town scene loads every texture; wait for the last ones
     const folk = folkOf(w, r);
-    const key = JSON.stringify([r.id, r.owner, r.dev, r.village?.works, r.village?.chiefId, folk.map((n) => n.id), ageOf(w)]);
+    const key = JSON.stringify([r.id, r.owner, r.dev, r.village?.works, r.village?.chiefId, folk.map((n) => n.id), ageOf(w), Math.ceil((r.danger ?? 0) / 20)]);
     if (key !== this.key) {
       this.key = key;
       for (const o of this.drawn) o.destroy();
@@ -156,8 +157,13 @@ export class RegionScene extends Phaser.Scene {
       this.events.on('postupdate', () => this.thought?.setPosition(Math.max(58, Math.min(RW * TILE - 58, s.x)), s.y - 26));
     } else this.thought = null;
 
+    // A lair: its monsters prowl the whole stretch until a party clears them out.
+    const beasts = Math.ceil((r.danger ?? 0) / 15);
+    const kind = { plain: 'wolf', shore: 'raider', hills: 'goblin', woods: 'wolf', dunes: 'skeleton', peaks: 'goblin' }[r.kind];
+    for (let b = 0; b < beasts; b++) this.beast(kind, sea);
+
     // Its name, and whose it is.
-    const owner = r.owner === 'us' ? 'ของเรา' : r.village?.free ? 'หมู่บ้านอิสระ' : r.owner === undefined ? 'ไร้เจ้าของ' : (w.realms?.find((x) => x.id === r.owner)?.name ?? '');
+    const owner = r.owner === 'us' ? 'ของเรา' : r.village?.free ? 'หมู่บ้านอิสระ' : r.danger ? `รังมอนสเตอร์ · อันตราย ${r.danger}` : r.owner === undefined ? 'ไร้เจ้าของ' : (w.realms?.find((x) => x.id === r.owner)?.name ?? '');
     this.put(this.add.text(3, 2, `${r.name} · ${owner}`, { fontFamily: 'Mitr', fontSize: '7px', color: '#fff4d6', stroke: '#3b2416', strokeThickness: 2, resolution: 6 }).setDepth(20_001));
     if (r.owner !== undefined) {
       const realm = typeof r.owner === 'number' ? w.realms?.find((x) => x.id === r.owner) : undefined;
@@ -222,7 +228,7 @@ export class RegionScene extends Phaser.Scene {
     const claim = (x: number, y: number) => taken.add(at(x, y));
     for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (u !== 'fishery' || !sea(x, y)) claim(x, y);
     if (!level) {
-      for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) taken.delete(at(x, y));
+      for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (!sea(x, y)) taken.delete(at(x, y)); // the sea stays sea
       return;
     }
     const share = level / 3; // how much of the stretch is worked
@@ -304,11 +310,29 @@ export class RegionScene extends Phaser.Scene {
     return sprite;
   }
 
+  // A monster of the lair, wandering anywhere on the land.
+  private beast(key: string, sea: (x: number, y: number) => boolean): void {
+    if (!this.textures.exists(key)) return;
+    const all: Zone = { x0: 0, y0: 0, x1: RW - 1, y1: RH - 1 };
+    const spot = () => {
+      for (let i = 0; i < 8; i++) {
+        const x = Math.floor(this.rand() * RW);
+        const y = Math.floor(this.rand() * RH);
+        if (!sea(x, y)) return { x: x * TILE + TILE / 2, y: (y + 1) * TILE - 2 };
+      }
+      return { x: 10 * TILE, y: ROAD * TILE };
+    };
+    const s0 = spot();
+    const sprite = this.put(this.add.sprite(s0.x, s0.y, key).setOrigin(0.5, 1).play(`${key}-walk`).setDepth(s0.y + 2));
+    const t = spot();
+    this.walkers.push({ id: -1, sprite, key, zone: all, tx: t.x, ty: t.y, wait: this.rand() * 1500, pick: spot, beast: true });
+  }
+
   private walk(k: Walker, dt: number): void {
     const s = k.sprite;
     if (k.wait > 0) {
       k.wait -= dt;
-      if (k.wait <= 0) s.play(`${k.key}-down`, true).anims.pause();
+      if (k.wait <= 0 && !k.beast) s.play(`${k.key}-down`, true).anims.pause();
       return;
     }
     const dx = k.tx - s.x;
@@ -325,6 +349,7 @@ export class RegionScene extends Phaser.Scene {
     s.x += (dx / d) * step;
     s.y += (dy / d) * step;
     s.setDepth(s.y + 2);
+    if (k.beast) return void s.setFlipX(dx < 0);
     const face = Math.abs(dx) > Math.abs(dy) ? 'side' : dy < 0 ? 'up' : 'down';
     s.setFlipX(face === 'side' && dx < 0);
     if (s.anims.currentAnim?.key !== `${k.key}-${face}` || !s.anims.isPlaying) s.play(`${k.key}-${face}`, true);

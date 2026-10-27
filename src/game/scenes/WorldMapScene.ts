@@ -29,6 +29,7 @@ export class WorldMapScene extends Phaser.Scene {
   private landKey = '';
   private pickedLand: number | null = null;
   private landLabels: Phaser.GameObjects.Text[] = [];
+  private lairs: Phaser.GameObjects.Image[] = [];
   onRealm: (realm: Realm | null) => void = () => {};
   onRegion: (region: Region) => void = () => {};
 
@@ -227,7 +228,7 @@ export class WorldMapScene extends Phaser.Scene {
   private drawLands(w: WorldState): void {
     const regions = w.regions;
     if (!regions?.length) return;
-    const key = JSON.stringify([regions.map((r) => [r.id, r.owner]), w.realms?.map((r) => !!r.fallen)]);
+    const key = JSON.stringify([regions.map((r) => [r.id, r.owner, !!r.danger]), w.realms?.map((r) => !!r.fallen)]);
     if (key === this.landKey) return;
     this.landKey = key;
     const { grid } = partition(w);
@@ -269,6 +270,9 @@ export class WorldMapScene extends Phaser.Scene {
     this.landLabels = regions
       .filter((r) => !r.seat)
       .map((r) => this.label(r.x * TILE + TILE / 2, r.y * TILE + 4, r.name).setFontSize(8).setAlpha(0.85).setDepth(9_000));
+    // A skull over every monster lair still standing in the open country.
+    for (const s of this.lairs) s.destroy();
+    this.lairs = regions.filter((r) => (r.danger ?? 0) > 0).map((r) => this.add.image(r.x * TILE + TILE / 2, r.y * TILE - 4, 'skull').setDepth(9_001).setAlpha(0.9));
     this.drawLandRing();
   }
 

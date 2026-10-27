@@ -29,14 +29,15 @@ export const enemyOf = (world: WorldState) => (world.war ? world.realms?.find((r
 const hawk = (traits: string[]) => traits.includes('brave') || traits.includes('greedy') || traits.includes('vengeful');
 const dove = (traits: string[]) => traits.includes('kind') || traits.includes('coward');
 
-// Who fights for us: the garrison, knights, brave adventurers who volunteer, and the hero.
+// Who fights for us: the garrison, knights, brave adventurers who volunteer (swordsmen in the
+// line hold better than mages), a guild hired for the war, and the hero.
 export function ourForces(world: WorldState): { fighters: Npc[]; strength: number } {
   const fighters = adults(world).filter(
-    (n) => n.job === 'soldier' || n.knight || n.hero || (isAdventurer(n) && !n.retired && n.questId === undefined && (n.traits.includes('brave') || loyaltyOf(n) >= 60)),
+    (n) => n.job === 'soldier' || n.knight || n.hero || (isAdventurer(n) && !n.retired && n.questId === undefined && (n.traits.includes('brave') || loyaltyOf(n) >= 60 || (n.guildId !== undefined && n.guildId === world.war?.mercs))), // hired guild members march too
   );
   // Our own age arms us as theirs arms them (the second age is par).
   const firearms = industrial(world) ? 1.2 : 1; // and the industrial age arms the soldiers with guns
-  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1)) * (1 + 0.08 * peaksHeld(world)); // forts on the mountain passes we hold
+  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : n.guildId !== undefined && n.guildId === world.war?.mercs ? 1 : n.job === 'swordsman' ? 0.9 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1)) * (1 + 0.08 * peaksHeld(world)); // forts on the mountain passes we hold
   // Allies send part of their armies.
   for (const r of world.realms ?? []) if (r.pact && !r.war) strength += theirStrength(r) * 0.5;
   return { fighters, strength };

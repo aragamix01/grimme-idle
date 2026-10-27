@@ -11,6 +11,7 @@ import { enthrone, king, payrollReserve } from './society';
 import { literacy, literate } from './learning';
 import { proclaimRepublic } from './republic';
 import { writeCharter } from './charter';
+import { guildInCoup } from './adventurers';
 import type { Npc, Regime, WorldState } from './types';
 
 const TURN_DAY = 27; // day of the month the town may change how it is ruled
@@ -66,6 +67,7 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   const sour = grievance && soldiers.length >= 6 && avgLoyalty(soldiers) < JUNTA_LOYALTY && crownPower(world).total < 60 && chance(rng, 0.2);
   const bold = shamed && ambitious && soldiers.length >= 4 && chance(rng, 0.15);
   if (general && r !== 'junta' && settled && (sour || bold)) {
+    if (guildInCoup(world, ruler, general, soldiers.length, rng)) return; // the adventurers stood by the ruler
     log(world, 'politics', `ทหารหมดความอดทนกับ${ruler.name} ${general.name}นำกองทัพยึดอำนาจ ตั้งคณะทหารปกครองเมือง!`, general.id);
     retire(ruler, rng);
     return seize(world, 'junta', general, 'ยึดอำนาจโดยกองทัพ', `${general.name} ยึดอำนาจตั้งคณะทหาร`);

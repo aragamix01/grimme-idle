@@ -1,4 +1,4 @@
-import { DECREES, decreeActive, garrisoned, EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
+import { LAIR_TH, DECREES, decreeActive, garrisoned, EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
 import { el } from './icons';
 
 // The lands tab on the world map: what we hold and what it yields, the region picked on the
@@ -50,6 +50,7 @@ function card(world: WorldState, r: Region, full: boolean): HTMLElement {
           ...(r.seat ? [] : [el('ul', { className: 'land-uses' }, ...uses)]),
           ...(r.seat ? [] : [el('p', { className: 'realm-king__meta', textContent: `ผลผลิตต่อเดือน: ${yieldText(yieldOf(r))}` })]),
           ...(r.seat ? [] : [el('p', { className: 'realm-king__meta', textContent: `มูลค่าที่ดิน ${priceOf(r)} ทอง` })]),
+          ...(r.danger ? [el('p', { className: 'realm-king__meta land-plea', textContent: `${LAIR_TH(r)} · อันตราย ${r.danger} · ต้องให้นักผจญภัยกวาดล้างก่อนจึงบุกเบิกได้` })] : []),
           ...(r.seat ? [] : village(world, r)),
         ]
       : [el('p', { className: 'realm-king__meta', textContent: USES[r.kind].map((u) => `${USE_TH[u]} ${pips(levelOf(r, u))}`).join(' · ') })]),

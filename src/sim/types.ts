@@ -35,7 +35,7 @@ export interface Choice {
   other?: number; // the other person in it: a suitor, a cultist
 }
 
-export type CrimeKind = 'theft' | 'murder' | 'corruption';
+export type CrimeKind = 'theft' | 'murder' | 'corruption' | 'heresy';
 
 export interface Npc {
   id: number;
@@ -109,6 +109,7 @@ export interface Charter {
   freePress?: boolean; // the presses may print what they find, the ruler's doings included
   landPolicy?: LandPolicy; // how the crown may win land: settling only, buying too, or war; missing means settle
   provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
+  guilds?: 'free' | 'taxed' | 'banned'; // whether people may band together in guilds; missing means free
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
@@ -149,7 +150,7 @@ export interface Dungeon {
   found?: number; // day an adventurer discovered it
 }
 
-export type QuestKind = 'hunt' | 'explore' | 'escort' | 'pest' | 'bounty';
+export type QuestKind = 'hunt' | 'explore' | 'escort' | 'pest' | 'bounty' | 'land';
 export type QuestStage = 'recruiting' | 'travelling' | 'inside' | 'done' | 'failed' | 'expired';
 
 export interface Quest {
@@ -175,6 +176,8 @@ export interface Quest {
   crown?: boolean; // the town treasury
   divine?: boolean; // the player's god; pays double renown
   boss?: boolean; // a hunt for the dungeon's boss itself
+  regionId?: number; // land: the region the party rides out to
+  lair?: boolean; // land: clearing a monster lair, rather than answering a village's plea
   guildId?: number; // claimed by a guild: only its members (and their friends) may join
 }
 
@@ -265,6 +268,7 @@ export interface Region {
   dev?: Partial<Record<LandUse, number>>; // level of each use, 0..3
   since?: number; // day it last changed hands
   village?: Village; // the people who live and work there, once anyone does
+  danger?: number; // a monster lair in open country, 0..100: nobody settles it until a party clears it
 }
 
 // The works a village raises with its own purse.
@@ -280,6 +284,7 @@ export interface Village {
   plea?: { gold: number; until: number; text: string }; // help asked of the crown after a bad month
   grudge?: number; // pleas the crown let go unanswered, slowly forgiven
   garrison?: number; // day the crown's soldiers posted here by decree march home
+  guildId?: number; // the guild whose party came when the village called for help
 }
 
 // A neighbouring kingdom on the world map, simulated in broad strokes.
@@ -322,6 +327,7 @@ export interface War {
   battles: number;
   boost?: number; // the god's blessing on our next battle
   storm?: number; // the god's storm on theirs
+  mercs?: number; // a guild hired by the crown, fighting at full strength
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision' | 'ambition';
@@ -461,6 +467,7 @@ export interface WorldState {
   realms?: Realm[];
   regions?: Region[]; // the world map's lands; missing in saves from before them
   villagers?: Npc[]; // the folk living out on the lands, apart from the town's own
+  lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;

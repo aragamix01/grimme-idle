@@ -19,6 +19,7 @@ import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
 import { createRegions, ensureRegions, landsDay } from './lands';
 import { villagesDay } from './villages';
+import { adventurersDay, ward } from './adventurers';
 import { auditDay } from './auditor';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
@@ -169,6 +170,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   disastersDay(world, rng);
   justiceDay(world, rng);
   auditDay(world, rng);
+  adventurersDay(world, rng);
   avatarDay(world);
   dragonDay(world, rng);
   crownWorks(world, rng);
@@ -178,8 +180,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   decreesDay(world, rng);
   annalsDay(world);
   healBosses(world);
+  const warded = 1 - ward(world); // the mages' wards slow the monsters' return
   for (const d of world.dungeons) {
-    if (!calm(world, d)) d.power += 0.2;
+    if (!calm(world, d)) d.power += 0.2 * warded;
     // Under the demon lord the monsters are his garrison: they hold their dens instead of
     // breaking out, and the keep's raids and tribute are the town's burden.
     if (occupied(world)) d.power = Math.min(d.power, STAMPEDE_POWER - 1);

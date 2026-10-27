@@ -5,6 +5,7 @@
 // whether the ruler holds emergency powers, whether an independent auditor watches the officials
 // and the press may print what it finds, how the crown may win land, and what the villages are owed.
 import { log } from './core';
+import { GUILD_LAW_TH } from './adventurers';
 import type { Charter, LandPolicy, Regime, Tax, WorldState } from './types';
 
 const KEPT = 8; // amendments the record remembers
@@ -22,11 +23,11 @@ function draft(r: Regime): Omit<Charter, 'written' | 'amendments'> {
     case 'republic':
       return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle', provinces: true };
     case 'theocracy':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed' };
     case 'oligarchy':
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: 'normal', stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle' };
     case 'junta':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed' };
     default:
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, landPolicy: 'settle' };
   }
@@ -63,6 +64,7 @@ export function clauses(c: Charter): string[] {
   out.push(c.auditor ? 'มีองค์กรอิสระตรวจสอบเจ้าหน้าที่รัฐทุกคน รวมถึงผู้ปกครอง' : 'ไม่มีองค์กรอิสระตรวจสอบผู้ปกครอง');
   out.push(c.freePress ? 'สื่อมีเสรีภาพ ตีพิมพ์เรื่องของผู้มีอำนาจได้' : 'สื่อถูกควบคุม');
   out.push(POLICY_TH[landPolicyOf(c)]);
+  out.push(GUILD_LAW_TH[c.guilds ?? 'free']);
   out.push(c.provinces ? 'กฎบัตรหัวเมือง: หมู่บ้านเก็บส่วนแบ่งได้อย่างน้อยหนึ่งในสี่ และเลือกผู้ใหญ่บ้านเอง' : 'หัวเมืองขึ้นตรงต่อเมืองหลวง ส่วยเรียกเก็บได้ตามใจผู้ปกครอง');
   return out;
 }
