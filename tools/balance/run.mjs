@@ -76,6 +76,8 @@ if (isMainThread) {
   }
   const sum = (k) => reports.reduce((s, r) => s + r.events[k], 0);
   console.log(`\nรวมทุกเมือง: ${Object.keys(reports[0].events).map((k) => `${k} ${sum(k)}`).join(' · ')}`);
+  const avg = (f) => Math.round(reports.reduce((t, r) => t + f(r), 0) / reports.length);
+  console.log(`หิวรวม ${reports.reduce((t, r) => t + r.hunger, 0)} · คลังเฉลี่ย ${avg((r) => r.treasury)} · ศรัทธาเฉลี่ย ${avg((r) => r.faith)} · ความรู้เฉลี่ย ${avg((r) => r.knowledge)}`);
   for (const [name, get, lo, hi] of ACROSS) {
     const v = get(reports);
     console.log(`${name}: ${Math.round(v * 100) / 100}`);

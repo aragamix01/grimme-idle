@@ -8,6 +8,7 @@ import { jobName } from './ages';
 import { legend } from './quests';
 import { traveller } from './world';
 import { aidRealm } from './disasters';
+import { realmArms } from './realms';
 import { mastery } from './research';
 import type { Realm, RealmMiracle, WorldState } from './types';
 
@@ -80,7 +81,7 @@ function catchPlague(world: WorldState, r: Realm): void {
 }
 
 function skirmish(world: WorldState, a: Realm, b: Realm, rng: Rng): void {
-  const [win, lose] = chance(rng, a.army / (a.army + b.army)) ? [a, b] : [b, a];
+  const [win, lose] = chance(rng, (a.army * realmArms(a)) / (a.army * realmArms(a) + b.army * realmArms(b))) ? [a, b] : [b, a];
   const spoils = Math.round(lose.gold * 0.3);
   lose.gold -= spoils;
   win.gold += spoils;

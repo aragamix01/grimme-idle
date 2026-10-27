@@ -37,6 +37,11 @@ export const temperOf = (traits: Trait[]) =>
 const REGIME_LEAN: Record<Regime, number> = { monarchy: 0, republic: 8, oligarchy: 4, theocracy: 0, junta: -10 };
 export const realmRegime = (r: Realm): Regime => r.regime ?? 'monarchy';
 export const realmAge = (r: Realm) => r.age ?? 1;
+// What a realm's age is worth: better arms in war, deeper purses in trade (the second age is par).
+export const realmArms = (r: Realm) => 1 + 0.15 * (realmAge(r) - 1);
+// What a government is like to trade with: merchants pay best, generals worst.
+const REGIME_TRADE: Record<Regime, number> = { monarchy: 1, republic: 1.05, oligarchy: 1.15, theocracy: 0.95, junta: 0.85 };
+export const realmPurse = (r: Realm) => (1 + 0.1 * (realmAge(r) - 1)) * REGIME_TRADE[realmRegime(r)];
 const leanOf = (r: Realm) => temperOf(r.ruler.traits) + REGIME_LEAN[realmRegime(r)];
 const SHARE = 40; // knowledge a friendly neighbour ahead of us shares in a year
 const AGE_UP = 0.035; // yearly chance a realm comes into its next age

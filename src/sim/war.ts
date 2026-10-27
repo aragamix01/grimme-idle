@@ -11,6 +11,8 @@ import { king } from './society';
 import { loyaltyOf } from './politics';
 import { might } from './market';
 import { sway } from './cult';
+import { realmArms } from './realms';
+import { ageOf } from './ages';
 import type { Npc, Realm, War, WarAct, WorldState } from './types';
 
 const BATTLE_EVERY = 20;
@@ -30,13 +32,14 @@ export function ourForces(world: WorldState): { fighters: Npc[]; strength: numbe
   const fighters = adults(world).filter(
     (n) => n.job === 'soldier' || n.knight || n.hero || (isAdventurer(n) && !n.retired && n.questId === undefined && (n.traits.includes('brave') || loyaltyOf(n) >= 60)),
   );
-  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? 1 : n.hero ? 2 : 0.6), 0);
+  // Our own age arms us as theirs arms them (the second age is par).
+  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? 1 : n.hero ? 2 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1));
   // Allies send part of their armies.
-  for (const r of world.realms ?? []) if (r.pact && !r.war) strength += r.army * ENEMY_MIGHT * 0.5;
+  for (const r of world.realms ?? []) if (r.pact && !r.war) strength += theirStrength(r) * 0.5;
   return { fighters, strength };
 }
 
-export const theirStrength = (r: Realm) => r.army * ENEMY_MIGHT;
+export const theirStrength = (r: Realm) => r.army * ENEMY_MIGHT * realmArms(r); // a realm further on fights with better arms
 
 export function warDay(world: WorldState, rng: Rng): void {
   if (occupied(world)) return;

@@ -6,6 +6,7 @@ import { chance, int, type Rng } from './rng';
 import { cursed, decreeActive, log, perkLevel, known } from './core';
 import { weatherYield } from './divine';
 import { mastery } from './research';
+import { realmPurse } from './realms';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
 import { caravanHome } from './worldevents';
@@ -255,7 +256,7 @@ function caravans(world: WorldState, m: Market): void {
     const n = Math.ceil((m.stock[g] - TARGET[g] * EXPORT_AT[g]) * 0.3);
     m.stock[g] -= n;
     const wanted = trade.wants === g || (g === 'wool' && WOOL_BUYERS.includes(realm.terrain));
-    gold += n * BASE[g] * (wanted ? 0.9 : 0.6); // they pay well for what they lack
+    gold += n * BASE[g] * (wanted ? 0.9 : 0.6) * realmPurse(realm); // they pay well for what they lack, and better the further on they are
   }
   const n = TARGET.grain * 0.25;
   const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5);
