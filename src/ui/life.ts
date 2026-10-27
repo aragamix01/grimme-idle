@@ -1,10 +1,9 @@
 import { avatarOf, type WorldState } from '../sim';
 import { el } from './icons';
 
-// The life the player is living: the header button that sends the god down (or calls it back),
+// The life the player is living: the button in the god-powers sheet that sends the god down (or calls it back),
 // and the dialog that puts each turn of that life to the player. The town waits while it's open.
 const lifeBtn = document.getElementById('life-open') as HTMLButtonElement;
-const miracleBtn = document.getElementById('miracle-open') as HTMLButtonElement;
 const dialog = document.getElementById('choice') as HTMLDialogElement;
 const text = document.getElementById('choice-text')!;
 const options = document.getElementById('choice-options')!;
@@ -29,7 +28,6 @@ export function renderLife(world: WorldState): void {
   lifeBtn.dataset.living = living ? '1' : '';
   lifeBtn.textContent = living ? 'กลับเป็นเทพ' : 'ลงไปเกิด';
   lifeBtn.title = living ? `ตอนนี้คุณคือ${me?.name ?? ''}` : 'เกิดเป็นทารกในเมือง ใช้ชีวิตและตัดสินใจเอง ระหว่างนั้นใช้พลังเทพไม่ได้';
-  miracleBtn.disabled = living;
   const c = world.choice;
   const key = c ? `${c.day}:${c.kind}:${c.text}` : '';
   if (key === shown) return;

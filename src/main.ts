@@ -49,16 +49,30 @@ const send = (msg: ToWorker) => worker.postMessage(msg);
 
 let world: WorldState | null = null;
 let selected: number | null = null;
-let filterToNpc = false;
-let showYears = false; // the chronicle tab shows the yearly annals instead of the feed
-type Tab = 'log' | 'guild' | 'market' | 'kingdom' | 'people';
-let tab: Tab = 'log';
+
+// Five sections along the bottom, each with its own tabs over the sheet under the map. The world
+// section swaps the town on the canvas for the world map.
+type Section = 'town' | 'people' | 'power' | 'economy' | 'world';
+type Sub = 'all' | 'years' | 'npc' | 'people' | 'guild' | 'kingdom' | 'market' | 'realms' | 'lands';
+const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
+  town: { title: 'เมือง', subs: [['all', 'พงศาวดาร'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
+  people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์และเควส']] },
+  power: { title: 'อำนาจ', subs: [['kingdom', 'อาณาจักร']] },
+  economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาดและการค้า']] },
+  world: { title: 'โลก', subs: [['realms', 'อาณาจักร'], ['lands', 'ดินแดน']] },
+};
+const PANEL: Record<Sub, string> = { all: 'feed', years: 'annals', npc: 'feed', people: 'people', guild: 'guild', kingdom: 'kingdom', market: 'market', realms: 'realms', lands: 'lands' };
+let section: Section = 'town';
+const subOf: Record<Section, Sub> = { town: 'all', people: 'people', power: 'kingdom', economy: 'market', world: 'realms' };
+const sub = () => subOf[section];
+const app = document.getElementById('app')!;
+const subTabs = document.getElementById('sub-tabs')!;
 
 // A finger resting on a button must not have the button rebuilt under it, or the tap is lost:
 // while a press is held in the panels, only the header counters update.
 let pressing = false;
 let stale = false;
-addEventListener('pointerdown', (e) => (pressing = !!(e.target as Element).closest?.('#side, dialog')), true);
+addEventListener('pointerdown', (e) => (pressing = !!(e.target as Element).closest?.('#side, #nav, dialog')), true);
 const release = () => {
   if (!pressing) return;
   setTimeout(() => {
@@ -85,56 +99,74 @@ function render(): void {
   renderLife(world);
   followLife(world);
   renderNpcCard(world, selected);
-  if (onMap && mapTab === 'lands') renderLands(world);
-  else if (onMap) renderRealms(world);
-  else if (tab === 'log' && showYears) renderAnnals(world, (id) => select(id));
-  else if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
-  else if (tab === 'guild') renderGuild(world);
-  else if (tab === 'market') renderMarket(world);
-  else if (tab === 'kingdom') renderKingdom(world);
+  const s = sub();
+  if (s === 'lands') renderLands(world);
+  else if (s === 'realms') renderRealms(world);
+  else if (s === 'years') renderAnnals(world, (id) => select(id));
+  else if (s === 'all' || s === 'npc') renderFeed(world, s === 'npc' ? selected : null);
+  else if (s === 'guild') renderGuild(world);
+  else if (s === 'market') renderMarket(world);
+  else if (s === 'kingdom') renderKingdom(world);
   else renderPeople(world);
 }
 
-function setTab(next: Tab): void {
-  tab = next;
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
-    const on = b.dataset.tab === next;
-    b.setAttribute('aria-selected', String(on));
-    b.setAttribute('aria-pressed', String(on));
+// The section's tabs, its one visible panel, and the nav button that shows where we are.
+function showSection(): void {
+  const { title, subs } = SECTIONS[section];
+  app.dataset.section = section;
+  document.getElementById('sheet-title')!.textContent = title;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#nav [data-section]')) {
+    if (b.dataset.section === section) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
   }
-  document.getElementById('feed')!.hidden = next !== 'log' || showYears;
-  document.getElementById('annals')!.hidden = next !== 'log' || !showYears;
-  document.getElementById('log-tools')!.hidden = next !== 'log';
-  document.getElementById('guild')!.hidden = next !== 'guild';
-  document.getElementById('market')!.hidden = next !== 'market';
-  document.getElementById('kingdom')!.hidden = next !== 'kingdom';
-  document.getElementById('people')!.hidden = next !== 'people';
+  subTabs.hidden = subs.length < 2;
+  subTabs.replaceChildren(
+    ...subs.map(([key, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.dataset.sub = key;
+      b.textContent = label;
+      const on = key === sub();
+      b.setAttribute('aria-selected', String(on));
+      b.setAttribute('aria-pressed', String(on));
+      b.disabled = key === 'npc' && selected === null;
+      b.onclick = () => setSub(key);
+      return b;
+    }),
+  );
+  const shown = PANEL[sub()];
+  for (const id of new Set(Object.values(PANEL))) document.getElementById(id)!.hidden = id !== shown;
   render();
+}
+
+function setSub(next: Sub): void {
+  const owner = (Object.keys(SECTIONS) as Section[]).find((k) => SECTIONS[k].subs.some(([key]) => key === next))!;
+  subOf[owner] = next;
+  if (owner !== section) setSection(owner);
+  else showSection();
+}
+
+function setSection(next: Section): void {
+  const wasMap = section === 'world';
+  section = next;
+  if (wasMap !== (next === 'world')) swapMap(next === 'world');
+  showSection();
+  document.getElementById(PANEL[sub()])!.scrollTop = 0;
 }
 
 function select(id: number | null): void {
   selected = id;
   scene.select(id);
-  const npcTab = document.querySelector<HTMLButtonElement>('[data-filter="npc"]')!;
-  npcTab.disabled = id === null;
-  if (id === null && filterToNpc) setFilter('all');
-  render();
-}
-
-function setFilter(mode: 'all' | 'npc' | 'years'): void {
-  filterToNpc = mode === 'npc';
-  showYears = mode === 'years';
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) b.setAttribute('aria-pressed', String(b.dataset.filter === mode));
-  document.getElementById('feed')!.hidden = tab !== 'log' || showYears;
-  document.getElementById('annals')!.hidden = tab !== 'log' || !showYears;
-  render();
+  if (id === null && subOf.town === 'npc') subOf.town = 'all';
+  showSection();
 }
 
 scene.onSelect = select;
-scene.onGuild = () => setTab('guild');
+scene.onGuild = () => setSub('guild');
 initGuild({ onDivineQuest: () => send({ type: 'command', command: { type: 'divineQuest' } }), onSelectNpc: select });
-for (const b of document.querySelectorAll<HTMLButtonElement>('#side-tabs button')) {
-  b.onclick = () => setTab(b.dataset.tab as Tab);
+for (const b of document.querySelectorAll<HTMLButtonElement>('#nav [data-section]')) {
+  b.onclick = () => setSection(b.dataset.section as Section);
 }
 initMarket({ onSelectNpc: select });
 initKingdom({ onSelectNpc: select, onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
@@ -155,7 +187,7 @@ function followLife(w: WorldState): void {
   lifeId = id;
   if (id === undefined) return;
   select(id);
-  if (zoom.getAttribute('aria-pressed') !== 'true') zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
+  if (zoom.getAttribute('aria-pressed') !== 'true') showState(zoom, scene.toggleZoom());
 }
 initLife({
   onBorn: () => send({ type: 'command', command: { type: 'incarnate' } }),
@@ -164,35 +196,30 @@ initLife({
 });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));
-// Sheets and dialogs keep a finger's scroll to themselves.
-for (const id of ['npc-card', 'miracles', 'eras', 'offline']) containScroll(document.getElementById(id)!);
-let onMap = false; // the world map is up in the town's place
-initBubbles((id) => (onMap ? null : scene.npcScreenPos(id)));
+// Sheets, panels and dialogs keep a finger's scroll to themselves.
+for (const id of ['npc-card', 'miracles', 'eras', 'offline', ...new Set(Object.values(PANEL))]) containScroll(document.getElementById(id)!);
+const onMap = () => section === 'world'; // the world map is up in the town's place
+initBubbles((id) => (onMap() ? null : scene.npcScreenPos(id)));
+// The menu's toggles say whether they're on.
+const showState = (b: HTMLElement, on: boolean) => {
+  b.setAttribute('aria-pressed', String(on));
+  b.querySelector('.map-tools__state')!.textContent = on ? 'เปิด' : 'ปิด';
+};
 const zoom = document.getElementById('zoom')!;
-zoom.onclick = () => zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
+showState(zoom, false);
+zoom.onclick = () => showState(zoom, scene.toggleZoom());
 
-// The world map takes the town's place on the canvas; the town sleeps meanwhile, and the side
-// panel trades its tabs for the list of neighbouring realms.
-const mapBtn = document.getElementById('worldmap')!;
-mapBtn.onclick = () => {
-  onMap = !onMap;
-  mapBtn.setAttribute('aria-pressed', String(onMap));
-  zoom.hidden = onMap;
-  gameEl.classList.toggle('on-map', onMap); // the folded menu button turns gold while the world map is up
-  document.getElementById('side-tabs')!.hidden = onMap;
-  document.getElementById('map-tabs')!.hidden = !onMap;
-  setMapTab('realms');
-  if (!onMap) document.getElementById('realms')!.hidden = true;
-  for (const id of ['feed', 'log-tools', 'guild', 'market', 'kingdom', 'people']) document.getElementById(id)!.hidden = true;
-  if (!onMap) setTab(tab);
-  else if (world) {
+// The world map takes the town's place on the canvas; the town sleeps meanwhile.
+function swapMap(on: boolean): void {
+  zoom.hidden = on;
+  if (on && world) {
     pickRealm(world, null);
     mapScene.pick(null);
   }
   const game = scene.game;
-  if (onMap) {
+  if (on) {
     // A town still loading would ignore the sleep, so wait for it to finish starting.
-    if (scene.sys.settings.status < Phaser.Scenes.RUNNING) scene.events.once('create', () => onMap && game.scene.sleep('world'));
+    if (scene.sys.settings.status < Phaser.Scenes.RUNNING) scene.events.once('create', () => onMap() && game.scene.sleep('world'));
     else game.scene.sleep('world');
     game.scene.run('worldmap');
   } else {
@@ -200,22 +227,7 @@ mapBtn.onclick = () => {
     game.scene.sleep('worldmap');
     game.scene.wake('world');
   }
-};
-// The world map's side panel: the neighbours, or the lands.
-type MapTab = 'realms' | 'lands';
-let mapTab: MapTab = 'realms';
-function setMapTab(next: MapTab): void {
-  mapTab = next;
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#map-tabs button')) {
-    const on = b.dataset.maptab === next;
-    b.setAttribute('aria-selected', String(on));
-    b.setAttribute('aria-pressed', String(on));
-  }
-  document.getElementById('realms')!.hidden = !onMap || next !== 'realms';
-  document.getElementById('lands')!.hidden = !onMap || next !== 'lands';
-  render();
 }
-for (const b of document.querySelectorAll<HTMLButtonElement>('#map-tabs button')) b.onclick = () => setMapTab(b.dataset.maptab as MapTab);
 // A region up close takes the world map's place; back again from its card.
 let viewing: number | null = null;
 function look(id: number | null): void {
@@ -235,12 +247,12 @@ function look(id: number | null): void {
 }
 const pickRegion = (id: number) => {
   mapScene.pickLand(id);
-  if (mapTab !== 'lands') setMapTab('lands');
+  if (sub() !== 'lands') setSub('lands');
   if (world) pickLand(world, id);
 };
 mapScene.onRegion = (region) => pickRegion(region.id);
 regionScene.onVillager = (id) => {
-  if (mapTab !== 'lands') setMapTab('lands');
+  if (sub() !== 'lands') setSub('lands');
   if (world) pickVillager(world, id);
 };
 initLands({ onPick: pickRegion, onView: look });
@@ -250,30 +262,27 @@ const pick = (id: number) => {
 };
 mapScene.onRealm = (realm) => {
   if (!realm) return; // a tap on open ground keeps the pick
-  if (mapTab !== 'realms') setMapTab('realms');
+  if (sub() !== 'realms') setSub('realms');
   pick(realm.id);
 };
 initRealms({ onMiracle: (realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }), onPick: pick });
 
-// On phones the map's buttons fold behind one menu button (CSS hides them while folded) and
-// fold away again a few seconds after the last tap.
-const gameEl = document.getElementById('game')!;
+// The map's settings sit behind one menu button, as a list that closes after a pick or a tap
+// anywhere else.
 const menu = document.getElementById('map-menu')!;
-const FOLD_MS = 4000;
-let foldTimer = 0;
+const tools = document.getElementById('map-tools')!;
 function unfold(open: boolean): void {
-  gameEl.classList.toggle('tools-open', open);
+  tools.hidden = !open;
   menu.setAttribute('aria-expanded', String(open));
-  clearTimeout(foldTimer);
-  if (open) foldTimer = window.setTimeout(() => unfold(false), FOLD_MS);
 }
-menu.onclick = () => unfold(!gameEl.classList.contains('tools-open'));
-for (const id of ['worldmap', 'sound', 'daynight', 'zoom']) document.getElementById(id)!.addEventListener('click', () => gameEl.classList.contains('tools-open') && unfold(true));
+menu.onclick = () => unfold(menu.getAttribute('aria-expanded') !== 'true');
+tools.addEventListener('click', (e) => (e.target as Element).closest('button') && unfold(false));
+addEventListener('pointerdown', (e) => !tools.hidden && !(e.target as Element).closest?.('#map-tools, #map-menu') && unfold(false), true);
 
 // Sound waits for the first tap (browsers allow audio only after a gesture); buttons blip.
 const sound = document.getElementById('sound')!;
 const showSound = () => {
-  sound.setAttribute('aria-pressed', String(soundOn()));
+  showState(sound, soundOn());
   sound.querySelector('img')!.src = `/assets/sprites/icons/${soundOn() ? 'sound' : 'mute'}.png`;
 };
 showSound();
@@ -287,7 +296,7 @@ addEventListener('pointerdown', () => startSound(), { once: true });
 const dayNight = document.getElementById('daynight')!;
 const DAYNIGHT_KEY = 'grimm-daynight';
 const showDayNight = () => {
-  dayNight.setAttribute('aria-pressed', String(scene.dayNight));
+  showState(dayNight, scene.dayNight);
   dayNight.querySelector('img')!.src = `/assets/sprites/icons/${scene.dayNight ? 'daynight' : 'sun'}.png`;
   dayNight.title = scene.dayNight ? 'กลางวันกลางคืนหมุนเวียน (แตะเพื่อให้เป็นกลางวันตลอด)' : 'กลางวันตลอด (แตะเพื่อเปิดกลางวันกลางคืน)';
 };
@@ -307,10 +316,6 @@ dayNight.onclick = () => {
   showDayNight();
 };
 addEventListener('click', (e) => (e.target as Element).closest?.('button') && click(), true);
-
-for (const b of document.querySelectorAll<HTMLButtonElement>('#log-filter button')) {
-  b.onclick = () => setFilter(b.dataset.filter as 'all' | 'npc' | 'years');
-}
 
 const SPEEDS: Record<string, number> = { 0: 0, 1: TICK_MS, 3: TICK_MS / 3 };
 for (const b of document.querySelectorAll<HTMLButtonElement>('#speed button')) {
@@ -353,4 +358,6 @@ addEventListener('pagehide', () => send({ type: 'save' }));
 
 send({ type: 'start', tickMs: TICK_MS });
 
-if (import.meta.env.DEV) Object.assign(window, { __grimm: { scene, send, select, worker } });
+showSection();
+
+if (import.meta.env.DEV) Object.assign(window, { __grimm: { scene, mapScene, send, select, worker } });

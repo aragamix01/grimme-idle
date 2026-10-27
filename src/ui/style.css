@@ -22,24 +22,92 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: var(--meadow-deep); color: var(--ink); font-family: var(--font-body); }
 img, canvas { image-rendering: pixelated; }
-#app { display: flex; height: 100%; gap: 18px; padding: 18px; }
-#game { flex: 1; min-width: 0; position: relative; }
-.zoom-btn {
-  position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; place-items: center; width: 40px; height: 40px;
+/* ---- layout: the header, the map, the sheet and the nav ----
+   Wide screens: header across the top, the nav down the left, the map in the middle and the
+   sheet on the right. Phones (below): the map stays pinned under the header, the sheet fills the
+   rest and the nav sits along the bottom. The page itself never scrolls, only the panels in
+   the sheet, so the map's place on screen never moves under a finger. */
+html, body { overflow: hidden; }
+#app {
+  display: grid; height: 100%; height: 100dvh; gap: 14px; padding: 14px;
+  grid-template-columns: 200px minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "hud hud hud" "nav game side";
+}
+.hud {
+  grid-area: hud; display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+}
+#logo { height: 36px; width: auto; }
+.stats { display: flex; gap: 6px; margin: 0; min-width: 0; }
+.stat { display: flex; align-items: baseline; gap: 6px; padding: 2px 8px; background: var(--paper); border: 2px solid var(--outline); }
+.stat dt { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.stat dd { margin: 0; font: 700 18px/24px var(--font-num); font-variant-numeric: tabular-nums; }
+.stat--faith { background: var(--gold); }
+.stat--faith dt { color: var(--ink); }
+.speed { margin-left: auto; flex: none; }
+.speed button { min-width: 44px; font-weight: 600; }
+
+#game { grid-area: game; position: relative; min-width: 0; min-height: 0; touch-action: none; }
+.map-menu {
+  position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px;
   border: 2px solid var(--outline); background: var(--paper); box-shadow: 2px 2px 0 rgb(59 36 22 / 0.35); cursor: pointer;
 }
-.zoom-btn img { width: 24px; height: 24px; image-rendering: pixelated; }
-.zoom-btn[aria-pressed="true"] { background: var(--gold); }
-.sound-btn { right: 104px; }
-.map-btn { right: 56px; }
-.daynight-btn { right: 152px; }
-.daynight-btn[aria-pressed="true"] { background: var(--paper); }
-.menu-btn { display: none; }
-.menu-btn__bars, .menu-btn__bars::before, .menu-btn__bars::after { display: block; width: 14px; height: 3px; background: var(--outline); }
-.menu-btn__bars { position: relative; }
-.menu-btn__bars::before, .menu-btn__bars::after { content: ''; position: absolute; left: 0; }
-.menu-btn__bars::before { top: -5px; }
-.menu-btn__bars::after { top: 5px; }
+.map-menu[aria-expanded="true"] { background: var(--gold); }
+.map-menu__bars, .map-menu__bars::before, .map-menu__bars::after { display: block; width: 18px; height: 3px; background: var(--outline); }
+.map-menu__bars { position: relative; }
+.map-menu__bars::before, .map-menu__bars::after { content: ''; position: absolute; left: 0; }
+.map-menu__bars::before { top: -6px; }
+.map-menu__bars::after { top: 6px; }
+.map-tools {
+  position: absolute; right: 8px; top: 58px; z-index: 3; display: grid; min-width: 210px;
+  background: var(--paper); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(20 40 16 / 0.45);
+}
+.map-tools button {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 0; background: none;
+  cursor: pointer; font: 400 14px var(--font-body); text-align: left;
+}
+.map-tools button + button { border-top: 2px solid var(--paper-edge); }
+.map-tools button:hover { background: var(--paper-raised); }
+.map-tools img { width: 24px; height: 24px; }
+.map-tools__state { margin-left: auto; padding: 0 6px; border: 2px solid var(--outline); background: var(--paper-raised); font: 500 12px/18px var(--font-body); }
+.map-tools [aria-pressed="true"] .map-tools__state { background: var(--gold); }
+
+.sheet {
+  grid-area: side; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+}
+.sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 2px solid var(--paper-edge); }
+.sheet-title { margin: 0; font-size: 18px; font-weight: 600; }
+.tabs { flex: 1 1 100%; }
+.tabs button { padding: 3px 4px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--paper-edge) transparent; }
+#app:not([data-section="town"]):not([data-section="people"]) #npc-hint { display: none; }
+#npc-card { flex: 0 1 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; }
+
+.nav {
+  grid-area: nav; display: flex; flex-direction: column; gap: 6px; padding: 10px;
+  background: var(--paper); border: 3px solid var(--outline); box-shadow: var(--shadow);
+}
+.nav button {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 2px solid transparent;
+  background: none; cursor: pointer; font: 500 15px var(--font-body); text-align: left;
+}
+.nav button:hover:not([aria-current]) { border-color: var(--paper-edge); }
+.nav button[aria-current="page"] { background: var(--gold); border-color: var(--outline); font-weight: 600; }
+.nav .fab {
+  margin-top: auto; min-height: 56px; background: var(--gold); border: 3px solid var(--outline);
+  box-shadow: 4px 4px 0 rgb(20 40 16 / 0.45), inset 0 -4px 0 var(--gold-deep); font-size: 16px; font-weight: 600;
+}
+.nav .fab:active { transform: translate(2px, 2px); box-shadow: inset 0 -4px 0 var(--gold-deep); }
+
+/* The god's powers: miracles, the era and a life below, in one sheet. */
+.powers-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#miracles .powers-head form { margin: 0; }
+.dialog-x { width: 40px; height: 40px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 22px; line-height: 1; }
+.powers-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px; }
+.powers-top .era-open { min-height: 44px; }
+#life-open { background: var(--gold); box-shadow: inset 0 -3px 0 var(--gold-deep); font-weight: 600; }
+
 .realms { display: grid; gap: 8px; }
 .realm-card {
   display: grid; gap: 2px; padding: 8px 10px; cursor: pointer;
@@ -54,50 +122,8 @@ img, canvas { image-rendering: pixelated; }
 .realm-card__acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .realm-card__acts .chip { display: inline-flex; align-items: center; gap: 4px; }
 .realm-card__acts .chip:disabled { opacity: 0.45; }
-.sound-btn[aria-pressed="true"] { background: var(--paper); }
 
-/* Flat paper panel: solid fills, one outline, hard offset shadow. No stretched sprites. */
-#side {
-  width: 340px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  border: 3px solid var(--outline);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.side-head {
-  display: grid;
-  gap: 12px;
-  padding: 18px 18px 15px;
-  border-bottom: 3px solid var(--outline);
-  background: var(--paper-raised);
-}
-#logo { width: 192px; justify-self: center; }
-
-.stats { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 6px; margin: 0; }
-.stat { background: var(--paper); border: 2px solid var(--outline); padding: 4px 9px 3px; }
-.stat dt { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
-.stat dd { margin: 0; font: 700 20px/26px var(--font-num); font-variant-numeric: tabular-nums; }
-.stat--faith { background: var(--gold); }
-.stat--faith dt { color: var(--ink); }
-
-.log { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.log-head { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 18px 6px; }
-.log-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
-#log-count { font: 500 13px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-
-#feed {
-  list-style: none;
-  margin: 0;
-  padding: 0 6px 12px;
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--paper-edge) transparent;
-}
+#feed { list-style: none; margin: 0; padding: 0 6px 12px; }
 .entry {
   display: grid;
   grid-template-columns: 32px 1fr auto;
@@ -162,6 +188,22 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__doing { margin: 4px 0 0; font-size: 13px; line-height: 20px; font-weight: 500; }
 .npc__doing::before { content: "▸ "; color: var(--ink-muted); }
 .npc__bar { display: none; }
+.npc__life ol { list-style: none; margin: 0; padding: 0; }
+.life-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 6px; align-items: start; padding: 4px 0; border-bottom: 1px dashed var(--paper-edge); font-size: 13px; line-height: 20px; }
+.life-row img { width: 24px; height: 24px; }
+.life-row b { font: 500 12px/20px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.life-row--danger b { color: var(--danger); }
+/* The powers sit right under the stats, so a half-height sheet shows them without scrolling. */
+.npc__bar { order: -4; }
+.npc__head { order: -3; }
+.npc__stats { order: -2; }
+.npc__powers { order: -1; }
+.npc__bar-grow {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 0; border: 0;
+  background: none; cursor: pointer; text-align: left;
+}
+.npc__bar-grow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.npc__bar-grow span { flex: none; font-size: 12px; color: var(--ink-muted); }
 .npc__bar-close { width: 40px; height: 36px; border: 2px solid var(--outline); background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; }
 .npc__close { width: 28px; height: 28px; border: 2px solid var(--outline); background: var(--paper-raised); cursor: pointer; font-size: 18px; line-height: 1; }
 .npc__stats { display: grid; gap: 6px; }
@@ -188,10 +230,6 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* ---- side tabs: chronicle | guild ---- */
-.tabs { margin: 12px 18px 0; }
-.tabs button { font-weight: 600; padding: 3px 2px; font-size: 13px; } /* five tabs share the panel's width */
-.log-head .log-note { font-size: 12px; color: var(--ink-muted); }
 .chip--rank { background: var(--wood-light); font-weight: 600; }
 .chip--dead { text-decoration: line-through; color: var(--ink-muted); }
 
@@ -206,7 +244,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rank--S { background: var(--demon); color: var(--paper); }
 
 /* ---- guild board ---- */
-.guild { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 12px 14px; scrollbar-width: thin; scrollbar-color: var(--paper-edge) transparent; }
+.guild { padding: 6px 12px 14px; }
 .divine-bar { display: grid; gap: 4px; padding: 10px 6px 12px; border-bottom: 2px solid var(--paper-edge); }
 .divine { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .divine:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -408,7 +446,6 @@ html:has(dialog[open]) { overflow: hidden; }
 .miracle:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--gold); }
 .miracle--dark:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--demon); }
 .miracle:disabled { opacity: 0.45; cursor: not-allowed; }
-.head-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 .dream-kinds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 6px; }
 .chip--curse { background: #3a5a2a; color: var(--paper); border-color: var(--outline); }
 #eras {
@@ -438,42 +475,53 @@ html:has(dialog[open]) { overflow: hidden; }
 .offline-list { list-style: none; padding: 0; margin: 0 0 14px; border-top: 2px solid var(--paper-edge); }
 #offline form { display: flex; justify-content: flex-end; }
 
-/* Phones: map on top at its own aspect ratio, panel below, the page scrolls. */
+/* Phones: header, then the map pinned at its own aspect ratio, the sheet, and the nav along
+   the bottom with the god-powers button floating over the sheet. */
 @media (max-width: 800px) {
-  html, body { height: auto; }
-  #app { flex-direction: column; height: auto; min-height: 100%; padding: 10px; gap: 12px; }
-  #game { flex: none; width: 100%; aspect-ratio: 8 / 5; }
-  #side { width: auto; overflow: visible; }
-  .side-head { padding: 12px; gap: 10px; }
-  #logo { width: 132px; }
-  .npc { padding: 12px; }
-  .log { flex: none; }
-  #feed, .annals { max-height: 60vh; }
-  /* The map stays in view while the panels scroll under it. */
-  #game { position: sticky; top: 0; z-index: 4; background: var(--meadow-deep); }
-  /* A picked NPC opens as a sheet over the bottom of the screen, not far below the fold. */
-  .npc:not([hidden]) {
-    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 10; max-height: 42vh; overflow-y: auto; padding-top: 0;
-    border: 3px solid var(--outline); box-shadow: 4px 4px 0 rgb(20 40 16 / 0.45);
+  #app {
+    gap: 0; padding: 0;
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "hud" "game" "side" "nav";
   }
+  .hud { gap: 6px; padding: 6px 8px; padding-top: max(6px, env(safe-area-inset-top)); border: 0; border-bottom: 3px solid var(--outline); box-shadow: none; }
+  #logo { display: none; }
+  .stat { padding: 1px 6px; gap: 4px; }
+  .stat dt { font-size: 11px; }
+  .stat dd { font-size: 15px; line-height: 22px; }
+  .stat__label { display: none; }
+  .speed button { min-width: 36px; padding: 0 6px; }
+  #game { width: 100%; aspect-ratio: 8 / 5; max-height: 45dvh; background: var(--meadow-deep); }
+  .map-menu { top: 6px; right: 6px; width: 40px; height: 40px; }
+  .map-tools { top: 52px; right: 6px; }
+  .sheet { border: 0; border-top: 3px solid var(--outline); box-shadow: none; }
+  .sheet-head { padding: 8px 10px 6px; }
+  #side .panel { padding-bottom: 88px; } /* room to scroll the last row out from under the floating button */
+  .nav {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 0 0 env(safe-area-inset-bottom);
+    border: 0; border-top: 3px solid var(--outline); box-shadow: none;
+  }
+  .nav button { flex-direction: column; justify-content: center; gap: 2px; min-height: 60px; padding: 4px 0; border: 0; font-size: 12px; text-align: center; }
+  .nav button + button { border-left: 2px solid var(--paper-edge); }
+  .nav button[aria-current="page"] { border: 0; box-shadow: inset 0 0 0 2px var(--outline); }
+  .nav .fab {
+    position: fixed; right: 12px; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 6;
+    width: 68px; height: 68px; min-height: 0; padding: 0; gap: 0; font-size: 12px;
+    border: 3px solid var(--outline);
+  }
+  /* A picked townsperson opens as a sheet over the bottom half, and up to nearly full screen. */
+  #npc-card:not([hidden]) {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; max-height: 55dvh; padding: 0 12px 16px;
+    border-top: 3px solid var(--outline); border-bottom: 0; box-shadow: 0 -4px 0 rgb(20 40 16 / 0.35);
+  }
+  #npc-card.npc--full { top: 7dvh; max-height: none; }
   .npc__bar {
-    display: flex; position: sticky; top: 0; z-index: 2; margin: 0 -12px; padding: 6px 8px 6px 12px;
-    justify-content: space-between; align-items: center; gap: 8px;
+    display: flex; position: sticky; top: 0; z-index: 2; margin: 0 -12px; padding: 4px 8px 4px 12px;
+    justify-content: space-between; align-items: center; gap: 6px;
     background: var(--paper-raised); border-bottom: 2px solid var(--paper-edge); font-size: 15px;
   }
   .npc__head .npc__close { display: none; }
-  .zoom-btn { width: 34px; height: 34px; top: 6px; right: 6px; }
-  .zoom-btn img { width: 20px; height: 20px; }
-  /* The map's buttons fold behind one small menu button so the town stays in view; it opens
-     into a column down the right edge and folds itself away when left alone. */
-  .menu-btn { display: grid; width: 30px; height: 30px; opacity: 0.8; }
-  #game:not(.tools-open) .zoom-btn:not(.menu-btn) { display: none; }
-  #game.tools-open .menu-btn { opacity: 1; background: var(--gold); }
-  #game.on-map .menu-btn { background: var(--gold); opacity: 1; }
-  #game.tools-open .map-btn { top: 42px; }
-  #game.tools-open .sound-btn { top: 82px; }
-  #game.tools-open .daynight-btn { top: 122px; }
-  #game.tools-open #zoom { top: 162px; }
+  #sub-tabs [data-sub="npc"] { display: none; } /* the card covers the tabs; it carries the story instead */
+  dialog.sheet-dialog { margin: auto 0 0; width: 100%; max-width: none; max-height: 88dvh; border-bottom: 0; }
 }
 
 /* Fingers need bigger targets than a mouse. */
@@ -512,7 +560,7 @@ html:has(dialog[open]) { overflow: hidden; }
 .decree__seal { display: grid; place-items: center; width: 40px; height: 32px; font-size: 20px; color: var(--gold-deep); }
 
 /* ---- annals: one card per year ---- */
-.annals { display: grid; align-content: start; gap: 10px; padding: 4px 6px 12px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--paper-edge) transparent; }
+.annals { display: grid; align-content: start; gap: 10px; padding: 4px 6px 12px; }
 .annals > .log-note { margin: 0; font-size: 13px; color: var(--ink-muted); }
 .year { display: grid; gap: 8px; padding: 10px; background: var(--paper-raised); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.3); }
 .year--live { border-style: dashed; background: var(--paper); }
@@ -537,7 +585,6 @@ html:has(dialog[open]) { overflow: hidden; }
 .year__events .entry:first-child { background: none; }
 .entry--link { cursor: pointer; }
 .entry--link:hover p { text-decoration: underline; }
-#log-filter button { white-space: nowrap; }
 
 /* A turn of the player's life: the question, and one button per road. */
 .choice p {
