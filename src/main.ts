@@ -16,6 +16,7 @@ import { hideCatchup, showCatchup, showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
 import { containScroll } from './ui/contain';
+import { initLife, renderLife } from './ui/life';
 import type { FromWorker, ToWorker } from './worker/protocol';
 
 const TICK_MS = 600; // one in-game day at 1x
@@ -78,6 +79,8 @@ function render(): void {
   renderStats(world);
   renderEra(world);
   renderMiracles(world);
+  renderLife(world);
+  followLife(world);
   renderNpcCard(world, selected);
   if (onMap) renderRealms(world);
   else if (tab === 'log' && showYears) renderAnnals(world, (id) => select(id));
@@ -139,6 +142,21 @@ initMiracles((kind) => send({ type: 'command', command: { type: 'miracle', kind 
 initEra({
   onEndEra: () => send({ type: 'newEra' }),
   onPerk: (perk) => send({ type: 'command', command: { type: 'perk', perk } }),
+});
+// Born into the town: the camera finds the new life and stays with it.
+let lifeId: number | undefined;
+function followLife(w: WorldState): void {
+  const id = w.avatar?.id;
+  if (id === lifeId) return;
+  lifeId = id;
+  if (id === undefined) return;
+  select(id);
+  if (zoom.getAttribute('aria-pressed') !== 'true') zoom.setAttribute('aria-pressed', String(scene.toggleZoom()));
+}
+initLife({
+  onBorn: () => send({ type: 'command', command: { type: 'incarnate' } }),
+  onAscend: () => send({ type: 'command', command: { type: 'ascend' } }),
+  onChoose: (key) => send({ type: 'command', command: { type: 'choose', key } }),
 });
 initNpcCard({ onCommand: (command) => send({ type: 'command', command }), onClose: () => select(null), onSelect: select });
 document.getElementById('npc-card')!.addEventListener('rerender', () => world && renderNpcCard(world, selected, true));

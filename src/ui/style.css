@@ -538,3 +538,12 @@ html:has(dialog[open]) { overflow: hidden; }
 .entry--link { cursor: pointer; }
 .entry--link:hover p { text-decoration: underline; }
 #log-filter button { white-space: nowrap; }
+
+/* A turn of the player's life: the question, and one button per road. */
+.choice p {
+  margin: 0 0 12px;
+}
+.choice__options {
+  display: grid;
+  gap: 8px;
+}

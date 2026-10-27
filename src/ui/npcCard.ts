@@ -1,4 +1,4 @@
-import { CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -210,6 +210,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
+    ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
     ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),
     ...(npc.gear ? [el('span', { className: 'chip', textContent: `อุปกรณ์ +${npc.gear}` })] : []),
     ...(npc.alive && (npc.hunger ?? 0) >= 2 ? [el('span', { className: 'chip chip--danger', textContent: 'หิวโหย' })] : []),
@@ -280,6 +281,10 @@ function powerButton(name: string, label: string, cost: number, enabled: boolean
 }
 
 function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
+  if (world.avatar) {
+    // Living below: no powers, only the knowledge of who you are.
+    return el('div', { className: 'npc__powers' }, ...(isAvatar(world, npc) ? [el('p', { className: 'npc__traits', textContent: 'นี่คือชีวิตของคุณ ทุกทางแยกสำคัญคุณจะเป็นคนเลือก' })] : []));
+  }
   const can = (cost: number) => npc.alive && world.faith >= cost;
   const COMMAND_COST = { bless: costOf(world, 'bless'), curse: costOf(world, 'curse'), dream: costOf(world, 'dream'), hero: costOf(world, 'hero') };
   const grown = npc.age >= ADULT_AGE;
@@ -299,6 +304,11 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     }),
   );
   const wrap = el('div', { className: 'npc__powers' }, el('h4', { textContent: 'พลังเทพ' }), row);
+  if (npc.alive && npc.inside === undefined) {
+    const live = el('button', { type: 'button', className: 'btn divine', textContent: `ลงไปใช้ชีวิตเป็น${npc.name}` });
+    live.onclick = () => handlers.onCommand({ type: 'incarnate', npcId: npc.id });
+    wrap.append(live);
+  }
   // While the demon lord walks and no hero stands against it, the god may choose this one.
   if (heroCall && worthy(npc)) {
     const cost = COMMAND_COST.hero;
