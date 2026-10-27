@@ -20,6 +20,7 @@ import { createRealms, ensureRealms, realmsDay } from './realms';
 import { createRegions, ensureRegions, landsDay } from './lands';
 import { villagesDay } from './villages';
 import { adventurersDay, ward } from './adventurers';
+import { tradeHousesDay } from './tradehouses';
 import { auditDay } from './auditor';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
@@ -153,6 +154,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   romance(world, rng);
   births(world, rng);
   marketDay(world, rng);
+  tradeHousesDay(world, rng);
   wildsDay(world, rng);
   levy(world);
   payroll(world);

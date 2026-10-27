@@ -41,7 +41,7 @@ export function ward(world: WorldState): number {
 // What each kind of guild wants of each decree: +1 for, -1 against.
 const STAKE: Record<GuildKind, Partial<Record<Decree, number>>> = {
   adventurers: { bounty: 1, colonize: 1, garrison: 1, levy: -1 }, // paid work; but not their people pressed into the ranks
-  merchants: { taxfree: 1, labour: 1, expand: 1, tribute: -1, curfew: -1 },
+  merchants: { taxfree: 1, labour: 1, expand: 1, tribute: -1, curfew: -1, debase: -1 },
   thieves: { curfew: -1, levy: -1, bounty: -1 },
 };
 // The guild that will weigh in on a decree, if it has the weight and the stake: one seat's worth, two for the mighty.

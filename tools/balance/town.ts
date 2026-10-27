@@ -63,6 +63,14 @@ const EVENTS: Record<string, RegExp> = {
   guildLeft: /สมาชิก \d+ คนพากันย้ายไป/,
   mercs: /เป็นทหารรับจ้างในสงคราม/,
   heroExiled: /ระแวงชื่อเสียง/,
+  hoard: /กักตุนข้าวไว้ในโกดัง/,
+  hoardJailed: /มีความผิดฐานกักตุนสินค้า/,
+  loan: /กู้เงิน \d+ ทองจาก/,
+  repudiated: /ประกาศไม่ใช้หนี้/,
+  debased: /พระราชโองการลดค่าเหรียญ/,
+  pricier: /ข้าวของแพงขึ้นทั้งตลาด/,
+  cold: /ต้องทนหนาวตลอดฤดู/,
+  shipped: /ส่ง.+ไปขายที่/,
 };
 
 export interface TownReport {
@@ -78,6 +86,7 @@ export interface TownReport {
   ageYears: number[]; // the year each age was reached
   techs: number;
   lands: number; // regions we hold, our own country included
+  level: number; // the price level at the end
   villagers: number; // folk living out on our lands
   faith: number;
   knowledge: number;
@@ -114,13 +123,14 @@ export function runTown(seed: number, years: number): TownReport {
     ms: Date.now() - t0,
     pop: alive.length,
     hunger,
-    treasury: Math.round(w.treasury),
-    richest: Math.round(Math.max(0, ...alive.map((n) => n.gold))),
+    treasury: Math.round(w.treasury / (w.market?.level ?? 1)), // in today's coin's worth at the founding's prices
+    richest: Math.round(Math.max(0, ...alive.map((n) => n.gold)) / (w.market?.level ?? 1)),
     monument: w.monument ?? 0,
     age: ageOf(w),
     ageYears,
     techs: Object.keys(w.techs ?? {}).length,
     lands: (w.regions ?? []).filter((r) => r.owner === 'us').length,
+    level: Math.round((w.market?.level ?? 1) * 100) / 100,
     villagers: (w.villagers ?? []).filter((n) => n.alive && w.regions?.find((r) => r.id === n.regionId)?.owner === 'us').length,
     faith: Math.round(w.faith),
     knowledge: Math.round(w.knowledge ?? 0),

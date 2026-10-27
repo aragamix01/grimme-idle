@@ -7,12 +7,12 @@
 // from a neighbour short of gold, ceded by a friend at the table, or taken in war.
 import { chance, createRng, int, next, pick, type Rng } from './rng';
 import { clamp, decreeActive, log, occupied } from './core';
-import { ensureMarket } from './market';
+import { ensureMarket, levelOf as priceLevel, priceRatio } from './market';
 import { HOME } from './realms';
 import { MAP_H, MAP_W } from './town';
 import { canSend, changeHands, keepOf, labour, sendFamily } from './villages';
 import { landQuestOpen, postLandQuest } from './quests';
-import type { LandKind, LandUse, Realm, Region, WorldState } from './types';
+import type { Good, LandKind, LandUse, Realm, Region, WorldState } from './types';
 
 export const LAND_TH: Record<LandKind, string> = { plain: 'ทุ่งราบ', hills: 'เนินเขา', woods: 'ป่าไม้', shore: 'ชายฝั่ง', dunes: 'ทะเลทราย', peaks: 'เทือกเขา' };
 export const USE_TH: Record<LandUse, string> = { farm: 'นาข้าว', pasture: 'ทุ่งปศุสัตว์', mine: 'เหมืองแร่', lumber: 'ลานตัดไม้', fishery: 'ท่าประมง' };
@@ -39,11 +39,11 @@ const LAND_DAY = 17; // day of the month the land yields and the treasuries inve
 const STRETCH = 1.3; // map rows are read a little taller, as the map's keeps are laid out
 
 // What one level of a use brings its owner in a month.
-const YIELD: Record<LandUse, { grain?: number; meat?: number; wool?: number; gold?: number; gear?: number }> = {
+const YIELD: Record<LandUse, { grain?: number; meat?: number; wool?: number; gold?: number; timber?: number; ore?: number }> = {
   farm: { grain: 14 },
   pasture: { meat: 3, wool: 1 },
-  mine: { gold: 18 },
-  lumber: { gold: 12 },
+  mine: { ore: 4, gold: 6 }, // iron for the forge, and a little silver
+  lumber: { timber: 6 },
   fishery: { meat: 4, gold: 4 },
 };
 const DEV_COST = 150; // gold for the first level of a use; each level after costs as much again
@@ -63,8 +63,8 @@ export const best = (r: Region) => USES[r.kind][0];
 export const priceOf = (r: Region) => 300 + Object.values(r.dev ?? {}).reduce((s, l) => s + l * 120, 0);
 
 // What a region brings its owner each month, with its best use's bonus.
-export function yieldOf(r: Region): { grain: number; meat: number; wool: number; gold: number } {
-  const out = { grain: 0, meat: 0, wool: 0, gold: 0 };
+export function yieldOf(r: Region): { grain: number; meat: number; wool: number; gold: number; timber: number; ore: number } {
+  const out = { grain: 0, meat: 0, wool: 0, gold: 0, timber: 0, ore: 0 };
   for (const u of USES[r.kind]) {
     const l = levelOf(r, u);
     if (!l) continue;
@@ -74,6 +74,8 @@ export function yieldOf(r: Region): { grain: number; meat: number; wool: number;
     out.meat += Math.round((y.meat ?? 0) * k);
     out.wool += Math.round((y.wool ?? 0) * k);
     out.gold += Math.round((y.gold ?? 0) * k);
+    out.timber += Math.round((y.timber ?? 0) * k);
+    out.ore += Math.round((y.ore ?? 0) * k);
   }
   return out;
 }
@@ -210,18 +212,24 @@ export function landsDay(world: WorldState, rng: Rng): void {
       m.stock.grain += Math.round(y.grain * send);
       m.stock.meat += Math.round(y.meat * send);
       m.stock.wool += Math.round(y.wool * send);
-      world.treasury += Math.round(y.gold * send);
+      m.stock.timber += Math.round(y.timber * send);
+      m.stock.ore += Math.round(y.ore * send);
+      world.treasury += Math.round(y.gold * send * priceLevel(world));
       if (r.village) r.village.purse += Math.round((y.gold + (y.grain + y.meat * 3) / 4) * (k - send));
     } else if (r.village?.free) {
       continue; // a free village keeps what it grows
     } else {
       const realm = realmOf(world, r.owner);
-      if (realm && !realm.fallen) realm.gold += y.gold + Math.round((y.grain + y.meat * 3) / 4); // a neighbour's harvest sells at home
+      if (realm && !realm.fallen) realm.gold += y.gold + Math.round((y.grain + y.meat * 3 + y.timber * 2 + y.ore * 3) / 4); // a neighbour's harvest sells at home
     }
   }
   if (held) ourCrown(world, rng);
   for (const realm of world.realms ?? []) if (!realm.fallen && !realm.war) theirCrown(world, realm, rng);
 }
+
+// How much the market is crying out for what a use makes: a dear good draws the crown's investment.
+const OUTPUT: Record<LandUse, Good> = { farm: 'grain', pasture: 'meat', mine: 'ore', lumber: 'timber', fishery: 'meat' };
+const dearness = (world: WorldState, u: LandUse) => Math.round(Math.max(0, priceRatio(world, OUTPUT[u]) - 1) * 80);
 
 // Our treasury: work the land it holds, then reach for more.
 function ourCrown(world: WorldState, rng: Rng): void {
@@ -251,7 +259,7 @@ function ourCrown(world: WorldState, rng: Rng): void {
     return;
   }
   // Build up the cheapest use first; the best use of each land wins a tie.
-  const jobs = lands.flatMap((r) => USES[r.kind].filter((u) => levelOf(r, u) < MAX_LEVEL).map((u) => ({ r, u, cost: devCost(r, u) - (u === best(r) ? 1 : 0) })));
+  const jobs = lands.flatMap((r) => USES[r.kind].filter((u) => levelOf(r, u) < MAX_LEVEL).map((u) => ({ r, u, cost: devCost(r, u) - (u === best(r) ? 1 : 0) - dearness(world, u) })));
   jobs.sort((a, b) => a.cost - b.cost);
   const job = jobs[0];
   if (job && world.treasury - job.cost >= RESERVE + 400) {

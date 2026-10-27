@@ -24,7 +24,7 @@ const ownerName = (world: WorldState, r: Region) =>
   r.owner === 'us' ? 'อาณาจักรของเรา' : r.owner === undefined ? 'ดินแดนไร้เจ้าของ' : (world.realms?.find((x) => x.id === r.owner)?.name ?? 'แคว้นที่ล่มสลาย');
 
 const yieldText = (y: ReturnType<typeof yieldOf>) =>
-  [y.grain && `ข้าว ${y.grain}`, y.meat && `เนื้อ ${y.meat}`, y.wool && `ขนแกะ ${y.wool}`, y.gold && `ทอง ${y.gold}`].filter(Boolean).join(' · ') || 'ยังไม่มีผลผลิต';
+  [y.grain && `ข้าว ${y.grain}`, y.meat && `เนื้อ ${y.meat}`, y.wool && `ขนแกะ ${y.wool}`, y.timber && `ไม้ ${y.timber}`, y.ore && `แร่ ${y.ore}`, y.gold && `ทอง ${y.gold}`].filter(Boolean).join(' · ') || 'ยังไม่มีผลผลิต';
 
 // A use's level as filled and empty pips.
 const pips = (l: number) => '■'.repeat(l) + '□'.repeat(MAX_LEVEL - l);
@@ -129,7 +129,7 @@ export function renderLands(world: WorldState): void {
   if (key === lastKey) return;
   lastKey = key;
   const ours = ourLands(world).filter((r) => !r.seat);
-  const total = ours.map(yieldOf).reduce((s, y) => ({ grain: s.grain + y.grain, meat: s.meat + y.meat, wool: s.wool + y.wool, gold: s.gold + y.gold }), { grain: 0, meat: 0, wool: 0, gold: 0 });
+  const total = ours.map(yieldOf).reduce((s, y) => ({ grain: s.grain + y.grain, meat: s.meat + y.meat, wool: s.wool + y.wool, gold: s.gold + y.gold, timber: s.timber + y.timber, ore: s.ore + y.ore }), { grain: 0, meat: 0, wool: 0, gold: 0, timber: 0, ore: 0 });
   const pick = regions.find((r) => r.id === picked);
   view.replaceChildren(
     el('p', { className: 'log-note', textContent: 'แตะพื้นที่บนแผนที่เพื่อดูรายละเอียด ทางการจะบุกเบิก ซื้อ เจรจา หรือรบเพื่อขยายดินแดนเอง' }),

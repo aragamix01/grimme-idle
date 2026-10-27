@@ -1588,6 +1588,27 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "timber": {
+    "file": "assets/sprites/icons/timber.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "ore": {
+    "file": "assets/sprites/icons/ore.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "cloth": {
+    "file": "assets/sprites/icons/cloth.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "loot": {
     "file": "assets/sprites/icons/loot.png",
     "group": "icons",

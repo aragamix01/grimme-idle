@@ -51,6 +51,7 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
     tribute: has('greedy') - has('kind'),
     relief: has('kind') - has('greedy'),
     garrison: has('brave') + has('vengeful') - has('kind'),
+    debase: has('greedy') * 0.5 - has('loyal') - 0.5, // their rents are paid in the same thin coin
   };
   return stake[d] + (loyaltyOf(n) - 50) / 25 + getTie(world, n.id, ruler.id) / 50;
 }

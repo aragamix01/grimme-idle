@@ -5,7 +5,7 @@ import { decreeActive, known, log, occupied } from './core';
 import { RULER_TH } from './lexicon';
 import { writeCharter } from './charter';
 import { addTie } from './ties';
-import { buy, ensureMarket, priceRatio, sell } from './market';
+import { buy, ensureMarket, priceRatio, sell, levelOf } from './market';
 import { PLACES, type Spot } from './places';
 import { TOWN_SIZE } from './town';
 import { successor } from './regimes';
@@ -285,22 +285,25 @@ export function leisure(world: WorldState, rng: Rng): void {
   const courtesans = living(world, 'courtesan');
   if (!keepers.length && !courtesans.length) return;
   const byId = new Map(world.npcs.map((n) => [n.id, n]));
+  const p = levelOf(world); // a mug and an hour's company cost what the coin is worth today
+  const ale = Math.max(1, Math.round(ALE * p));
+  const company = Math.max(1, Math.round(COMPANY * p));
   for (const n of world.npcs) {
     if (!n.alive || n.age < 16 || n.inside !== undefined || n.job === 'innkeeper' || n.job === 'courtesan') continue;
-    if (keepers.length && n.gold >= 30 && chance(rng, 0.25)) {
+    if (keepers.length && n.gold >= 30 * p && chance(rng, 0.25)) {
       const k = pick(rng, keepers);
-      n.gold -= ALE;
-      k.gold += ALE;
+      n.gold -= ale;
+      k.gold += ale;
       k.ales = (k.ales ?? 0) + 1;
       if (k.ales >= 2 && buy(world, k, 'grain')) k.ales -= 2;
     }
     const spouse = byId.get(n.spouseId ?? -1);
     const married = !!spouse?.alive;
     const odds = married ? (n.morality < 0 ? 0.02 : 0) : 0.06;
-    if (courtesans.length && n.gold >= 50 && chance(rng, odds)) {
+    if (courtesans.length && n.gold >= 50 * p && chance(rng, odds)) {
       const c = pick(rng, courtesans);
-      n.gold -= COMPANY;
-      c.gold += COMPANY;
+      n.gold -= company;
+      c.gold += company;
       addTie(world, n, c, 3);
       if (married && chance(rng, 0.3)) {
         addTie(world, spouse!, n, -30);
@@ -320,6 +323,12 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
   const need = known(world, 'metallurgy') ? 1 : 2;
   if (m.stock.loot >= need && chance(rng, 0.35)) {
     m.stock.loot -= need;
+    sell(world, npc, 'gear', 1, rng);
+    return;
+  }
+  // Iron from the mines (ours, or the mountain caravans') forges as well as any dungeon find.
+  if (m.stock.ore >= 2 && chance(rng, 0.3)) {
+    m.stock.ore -= 2;
     sell(world, npc, 'gear', 1, rng);
     return;
   }

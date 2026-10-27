@@ -2,9 +2,10 @@
 // own way. A decree is issued at the start of a month when its need is plain, costs the
 // treasury what it costs, runs a while, and can't be issued again for a season.
 import { chance, int, pick, type Rng } from './rng';
-import { decreeActive, log, loyaltyNudge } from './core';
+import { decreeActive, known, log, loyaltyNudge } from './core';
 import { leaveTrade } from './society';
-import { priceRatio } from './market';
+import { ensureMarket, priceRatio } from './market';
+import { literate } from './learning';
 import { king, payrollReserve } from './society';
 import { traveller } from './world';
 import { putToCouncil } from './government';
@@ -33,8 +34,9 @@ export const DECREES: Record<Decree, DecreeDef> = {
   tribute: { name: 'เกณฑ์ส่วยหัวเมือง', text: 'เรียกเก็บผลผลิตทั้งหมดจากหมู่บ้านเพื่ออุดท้องพระคลัง หมู่บ้านไม่พอใจ', days: 60 },
   relief: { name: 'ลดส่วยหัวเมือง', text: 'ลดส่วยให้หมู่บ้านที่ลำบากหรือไม่พอใจ เก็บผลผลิตไว้เองได้มากขึ้น', days: 90 },
   garrison: { name: 'ส่งทหารรักษาหัวเมือง', text: 'ส่งทหารไปประจำหมู่บ้านที่คิดแยกตัว กันไม่ให้แยกตัวได้ แต่ชาวบ้านรู้สึกถูกยึดครอง', days: 120 },
+  debase: { name: 'ลดค่าเหรียญ', text: 'ผสมโลหะลงในเหรียญทองเพื่อผลิตเหรียญเพิ่ม ท้องพระคลังได้ทองทันที แต่ข้าวของแพงขึ้นทั้งเมือง', days: 30 },
 };
-export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy', 'colonize', 'expand', 'tribute', 'relief', 'garrison'];
+export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy', 'colonize', 'expand', 'tribute', 'relief', 'garrison', 'debase'];
 
 const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
@@ -134,6 +136,11 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
     wants: (world, k) => (has(k, 'kind') || has(k, 'loyal')) && !has(k, 'greedy') && (restless(world, 45).length >= 2 || restless(world, 30).length >= 1),
     issue: (world) => `ลดส่วยให้หมู่บ้าน 90 วัน (${restless(world, 45).length} หมู่บ้านกำลังไม่พอใจ)`,
   },
+  // A greedy ruler with an empty vault thins the coin rather than tighten the belt.
+  debase: {
+    wants: (world, k) => has(k, 'greedy') && world.treasury < payrollReserve(world) && (ensureMarket(world).debase ?? 1) < 1.6 && world.day - (world.decreeAt?.debase ?? -9999) >= 1095, // once in three years at most
+    issue: (world, k) => debase(world, k),
+  },
   // A village on the edge of breaking away: a bold or vengeful ruler sends soldiers to hold it.
   garrison: {
     wants: (world, k) => (has(k, 'brave') || has(k, 'vengeful')) && restless(world, 25).length >= 1 && world.npcs.filter((n) => n.alive && n.job === 'soldier').length >= 6 && budget(world) >= GARRISON_COST,
@@ -145,6 +152,21 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
     },
   },
 };
+// Clipping the coin: a greedy ruler short of gold mints more out of the same metal. The vault
+// fills at once; every coin in every purse is worth less from then on, and a free press says so.
+const DEBASE_BY = 1.12;
+function debase(world: WorldState, k: Npc): string {
+  const m = ensureMarket(world);
+  const minted = 200 + Math.floor(Math.max(0, world.treasury) * 0.2);
+  world.treasury += minted;
+  m.debase = Math.round((m.debase ?? 1) * DEBASE_BY * 1000) / 1000;
+  if (charterOf(world).freePress && known(world, 'printing')) {
+    for (const n of world.npcs) if (n.alive && n.age >= 16 && literate(n)) loyaltyNudge(n, -6);
+    log(world, 'politics', `ใบปลิวเปิดโปงว่า${k.name}สั่งผสมโลหะในเหรียญ ชาวเมืองที่อ่านออกโกรธเคือง`, k.id);
+  }
+  return `ผลิตเหรียญใหม่ได้ ${minted} ทอง ค่าเงินลดลงอีก ${Math.round((DEBASE_BY - 1) * 100)}%`;
+}
+
 export const GRANT = 40; // gold for each family who goes out under the expansion decree
 const GARRISON_COST = 60; // the soldiers' upkeep, per village held
 

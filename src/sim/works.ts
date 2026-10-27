@@ -6,11 +6,11 @@ import { known, log } from './core';
 import { legend } from './quests';
 import { king, payrollReserve } from './society';
 import { PLOTS } from './town';
-import { ensureMarket } from './market';
+import { basePrice, ensureMarket, levelOf } from './market';
 import { mastery } from './research';
 import { traveller } from './world';
 import { feed } from './demonlord';
-import type { Npc, Work, WorldState } from './types';
+import type { Good, Npc, Work, WorldState } from './types';
 
 export interface WorkDef {
   name: string;
@@ -104,11 +104,37 @@ function industry(world: WorldState, rng: Rng): void {
   if (built(world, 'factory')) {
     if (lord) feed(lord, 1); // its arms go to the demon's host
     else {
-      ensureMarket(world).stock.gear += FACTORY_GEAR;
+      // The furnaces eat ore: short of it, the factory turns out half as much.
+      const m = ensureMarket(world);
+      const ore = Math.min(m.stock.ore, FACTORY_GEAR);
+      m.stock.ore -= ore;
+      m.stock.gear += ore + Math.floor((FACTORY_GEAR - ore) / 2);
       world.treasury += FACTORY_GOLD;
     }
   }
   if (built(world, 'station') && !lord && chance(rng, STATION_VISITORS)) traveller(world, rng);
+}
+
+// A work is built of timber and iron as well as gold: bought off the market's shelves at today's
+// price, and whatever the shelves lack shipped in at twice the usual cost.
+const materialsOf = (world: WorldState, k: Work) => ({ timber: Math.round(workCost(world, k) / 12), ore: Math.round(workCost(world, k) / 30) });
+export function materialsCost(world: WorldState, k: Work): number {
+  const m = ensureMarket(world);
+  return Object.entries(materialsOf(world, k)).reduce((s, [g, n]) => {
+    const here = Math.min(n, Math.floor(m.stock[g as Good]));
+    return s + here * m.price[g as Good] + (n - here) * basePrice(g as Good) * 2 * levelOf(world);
+  }, 0);
+}
+function buyMaterials(world: WorldState, k: Work): number {
+  const m = ensureMarket(world);
+  const cost = Math.round(materialsCost(world, k));
+  for (const [g, n] of Object.entries(materialsOf(world, k)) as [Good, number][]) {
+    const here = Math.min(n, Math.floor(m.stock[g]));
+    m.stock[g] -= here;
+    m.till += here * m.price[g]; // what the shelves supplied, the shop is paid for
+  }
+  world.treasury -= cost;
+  return cost;
 }
 
 export function crownWorks(world: WorldState, rng: Rng): void {
@@ -132,9 +158,10 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   // A greedy king sits on his gold more often than not.
   if (ruler.traits.includes('greedy') && chance(rng, 0.5)) return;
   const budget = world.treasury - payrollReserve(world) - SPARE;
-  const k = WORK_ORDER.filter((w) => open(world, w) && workCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
+  const k = WORK_ORDER.filter((w) => open(world, w) && workCost(world, w) + materialsCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
   if (!k) return;
+  const materials = buyMaterials(world, k);
   world.treasury -= workCost(world, k);
   world.building = { kind: k, done: world.day + workDays(world, k) };
-  log(world, 'politics', `กษัตริย์${ruler.name}ทุ่มทอง ${workCost(world, k)} เหรียญสร้าง${WORKS[k].name}`, ruler.id);
+  log(world, 'politics', `กษัตริย์${ruler.name}ทุ่มทอง ${workCost(world, k)} เหรียญสร้าง${WORKS[k].name} และซื้อไม้กับแร่อีก ${materials} ทอง`, ruler.id);
 }

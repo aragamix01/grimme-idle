@@ -39,6 +39,7 @@ export { EDGE_TH, LAND_TH, MAX_LEVEL, USES, USE_TH, best as bestUse, devCost, is
 export { VILLAGER_TH, WORKERS_PER_LEVEL, WORK_TH, garrisoned, chiefOf, folkOf, keepOf, labour, needOf, villagers, workersOf } from './villages';
 export { auditorOf } from './auditor';
 export { influenceOf } from './adventurers';
+export { houses } from './tradehouses';
 export { LAIR_TH } from './lands';
 export { POLICY_TH, landPolicyOf } from './charter';
 export { WAR_COST, enemyOf, ourForces, theirStrength } from './war';

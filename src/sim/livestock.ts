@@ -45,6 +45,7 @@ export function tendHerd(world: WorldState, npc: Npc, rng: Rng): number {
 export function hunt(world: WorldState, npc: Npc, rng: Rng): void {
   ensureWilds(world);
   if (chance(rng, MAULED)) return kill(world, npc, 'ถูกหมีป่าขย้ำระหว่างออกล่า');
+  if (chance(rng, 0.2)) sell(world, npc, 'timber', 1, rng); // deadwood hauled home from the forest
   const odds = HUNT * (world.game! / GAME_CAP) * (seasonOf(world.day) === 'winter' ? 0.6 : 1) * (cursed(world, npc) ? 0.5 : 1) * (npc.blessed ? 1.3 : 1) * (industrial(world) ? 1.3 : 1); // a rifle carries further than a bow
   if (!chance(rng, odds)) return;
   world.game!--;

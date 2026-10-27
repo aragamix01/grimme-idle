@@ -12,6 +12,7 @@ import { charterOf } from './charter';
 import { literacy, literate } from './learning';
 import { isRepublic, proclaimRepublic } from './republic';
 import { sway } from './cult';
+import { ensureMarket, levelOf } from './market';
 import type { Crown, Npc, Tax, WorldState } from './types';
 
 export const TAX_RATE: Record<Tax, number> = { low: 0.04, normal: 0.08, high: 0.14 };
@@ -135,7 +136,7 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
 // A greedy king helps himself to the treasury; the court notices.
 function embezzle(world: WorldState, k: Npc): void {
   if (!k.traits.includes('greedy') || world.treasury < payrollReserve(world) + 200) return;
-  const take = Math.floor(world.treasury * 0.05);
+  const take = Math.min(Math.floor(world.treasury * 0.05), Math.round(150 * levelOf(world))); // what a king can pocket unnoticed in a month
   world.treasury -= take;
   k.gold += take;
   (k.record ??= []).push({ kind: 'corruption', day: world.day, gold: take });
@@ -144,6 +145,7 @@ function embezzle(world: WorldState, k: Npc): void {
 }
 
 // A full treasury buys goodwill: a feast for the whole town, the inns doing the serving.
+const FEAST_SERVING = 150; // the most one innkeeper is paid for a feast's serving
 function festival(world: WorldState, crown: Crown, k: Npc): void {
   const cost = Math.max(FESTIVAL_COST, Math.floor(world.treasury * 0.15)); // the richer the crown, the grander the feast
   if (world.treasury < cost + payrollReserve(world) + 600) return;
@@ -153,8 +155,20 @@ function festival(world: WorldState, crown: Crown, k: Npc): void {
   world.treasury -= cost;
   crown.lastFestival = world.day;
   sway(world, 2);
+  // The innkeepers are paid for the serving; the feast itself is bought at the market, meat
+  // and grain off its shelves, and whatever the shelves can't supply stays in the vault.
   const keepers = adults(world).filter((n) => n.job === 'innkeeper');
-  for (const n of keepers) n.gold += Math.floor((cost * 0.6) / keepers.length);
+  const serving = keepers.length ? Math.min(FEAST_SERVING, Math.floor((cost * 0.3) / keepers.length)) : 0;
+  for (const n of keepers) n.gold += serving;
+  let left = cost - serving * keepers.length;
+  const m = ensureMarket(world);
+  for (const g of ['meat', 'grain'] as const) {
+    const n = Math.min(Math.floor(m.stock[g] * 0.3), Math.floor(left / Math.max(1, m.price[g])));
+    m.stock[g] -= n;
+    m.till += n * m.price[g];
+    left -= n * m.price[g];
+  }
+  world.treasury += left;
   for (const n of adults(world)) nudge(n, 10);
   log(world, 'politics', `กษัตริย์${k.name}จัดเทศกาลเฉลิมฉลอง ชาวเมืองกินดื่มกันทั้งเมือง`, k.id);
 }
