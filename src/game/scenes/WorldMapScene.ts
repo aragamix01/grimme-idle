@@ -1,11 +1,12 @@
 import * as Phaser from 'phaser';
-import { HOME, type Realm, type WorldState } from '../../sim';
+import { HOME, partition, regionAt, type Realm, type Region, type WorldState } from '../../sim';
 import { createRng, next } from '../../sim/rng';
 import { MAP_H, MAP_W } from '../../sim/town';
 import { TILE } from './WorldScene';
 
 // Banner colours, matching the palette characters realms are given.
 const FLAG: Record<string, number> = { r: 0xe8503a, b: 0x4a86e0, y: 0xffd23f, g: 0x56a832, a: 0x7fd8f8, v: 0x9a66e0 };
+export const OUR_COLOR = 0xf582b8; // our own lands, in fairy pink
 
 type Ground = 'grass' | 'water' | 'sand' | 'road';
 
@@ -22,7 +23,20 @@ export class WorldMapScene extends Phaser.Scene {
   private swords: Phaser.GameObjects.Image | null = null;
   private ring: Phaser.GameObjects.Graphics | null = null;
   private picked: number | null = null;
+  private ground: Ground[] = [];
+  private lands: Phaser.GameObjects.Graphics | null = null;
+  private landRing: Phaser.GameObjects.Graphics | null = null;
+  private landKey = '';
+  private pickedLand: number | null = null;
+  private landLabels: Phaser.GameObjects.Text[] = [];
   onRealm: (realm: Realm | null) => void = () => {};
+  onRegion: (region: Region) => void = () => {};
+
+  // A gold outline around the region picked from the map or the side panel.
+  pickLand(id: number | null): void {
+    this.pickedLand = id;
+    this.drawLandRing();
+  }
 
   // A gold ring under the keep picked from the map or the side panel.
   pick(id: number | null): void {
@@ -54,7 +68,13 @@ export class WorldMapScene extends Phaser.Scene {
           best = r;
         }
       }
-      this.onRealm(best);
+      if (best || !this.world?.regions) return this.onRealm(best);
+      // Open ground: the region under the finger.
+      const x = Math.floor(p.worldX / TILE);
+      const y = Math.floor(p.worldY / TILE);
+      if (this.ground[y * MAP_W + x] === 'water') return;
+      const region = regionAt(this.world, x, y);
+      if (region) this.onRegion(region);
     });
   }
 
@@ -71,6 +91,7 @@ export class WorldMapScene extends Phaser.Scene {
       this.pick(this.picked);
     }
     this.moveWagon(w);
+    this.drawLands(w);
     // Crossed swords halfway to the realm we are at war with.
     const foe = w.war && w.realms.find((r) => r.id === w.war!.realmId);
     this.swords ??= this.add.image(0, 0, 'sword').setDepth(10_004).setScale(1.5);
@@ -98,6 +119,7 @@ export class WorldMapScene extends Phaser.Scene {
     const rand = () => next(rng);
     const realms = w.realms!;
     const ground: Ground[] = new Array(MAP_W * MAP_H).fill('grass');
+    this.ground = ground;
     const props: (string | null)[] = new Array(MAP_W * MAP_H).fill(null);
     const at = (x: number, y: number) => y * MAP_W + x;
     const near = (x: number, y: number, r: { x: number; y: number }) => Math.hypot(x - r.x, (y - r.y) * 1.3);
@@ -193,6 +215,76 @@ export class WorldMapScene extends Phaser.Scene {
       .setVisible(true)
       .setPosition(pos.x * TILE + TILE / 2, pos.y * TILE + TILE)
       .setFlipX(outbound ? r.x < HOME.x : r.x > HOME.x);
+  }
+
+  // The lands: each owner's regions washed in its colour, thin lines between regions and
+  // a dark one where two owners meet. Redrawn only when land changes hands.
+  private drawLands(w: WorldState): void {
+    const regions = w.regions;
+    if (!regions?.length) return;
+    const key = JSON.stringify([regions.map((r) => [r.id, r.owner]), w.realms?.map((r) => !!r.fallen)]);
+    if (key === this.landKey) return;
+    this.landKey = key;
+    const { grid } = partition(w);
+    const byId = new Map(regions.map((r) => [r.id, r]));
+    const colorOf = (r: Region | undefined) => {
+      if (!r || r.owner === undefined) return null;
+      if (r.owner === 'us') return OUR_COLOR;
+      const realm = w.realms?.find((x) => x.id === r.owner);
+      return realm?.fallen ? 0x2a1a2e : (FLAG[realm?.color ?? ''] ?? 0xffffff);
+    };
+    const g = (this.lands ??= this.add.graphics().setDepth(1));
+    g.clear();
+    const land = (i: number) => this.ground[i] !== 'water';
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const i = y * MAP_W + x;
+        if (!land(i)) continue;
+        const c = colorOf(byId.get(grid[i]));
+        if (c !== null) g.fillStyle(c, 0.26).fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const i = y * MAP_W + x;
+        for (const [dx, dy] of [[1, 0], [0, 1]]) {
+          const j = (y + dy) * MAP_W + x + dx;
+          if (x + dx >= MAP_W || y + dy >= MAP_H || grid[i] === grid[j] || !land(i) || !land(j)) continue;
+          const a = byId.get(grid[i]);
+          const b = byId.get(grid[j]);
+          const rival = a?.owner !== b?.owner;
+          g.lineStyle(rival ? 2 : 1, 0x3b2416, rival ? 0.75 : 0.3);
+          const px = (x + dx) * TILE;
+          const py = (y + dy) * TILE;
+          if (dx) g.lineBetween(px, y * TILE, px, (y + 1) * TILE);
+          else g.lineBetween(x * TILE, py, (x + 1) * TILE, py);
+        }
+      }
+    // Open and worked country carries its name; the seats are named by their keeps.
+    for (const t of this.landLabels) t.destroy();
+    this.landLabels = regions
+      .filter((r) => !r.seat)
+      .map((r) => this.label(r.x * TILE + TILE / 2, r.y * TILE + 4, r.name).setFontSize(8).setAlpha(0.85).setDepth(9_000));
+    this.drawLandRing();
+  }
+
+  private drawLandRing(): void {
+    const w = this.world;
+    const ring = (this.landRing ??= this.add.graphics().setDepth(9_998));
+    ring.clear();
+    if (!w?.regions || this.pickedLand === null) return;
+    const { grid } = partition(w);
+    const id = this.pickedLand;
+    ring.lineStyle(2, 0xffd23f, 1);
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        if (grid[y * MAP_W + x] !== id) continue;
+        const px = x * TILE;
+        const py = y * TILE;
+        if (x === MAP_W - 1 || grid[y * MAP_W + x + 1] !== id) ring.lineBetween(px + TILE, py, px + TILE, py + TILE);
+        if (x === 0 || grid[y * MAP_W + x - 1] !== id) ring.lineBetween(px, py, px, py + TILE);
+        if (y === MAP_H - 1 || grid[(y + 1) * MAP_W + x] !== id) ring.lineBetween(px, py + TILE, px + TILE, py + TILE);
+        if (y === 0 || grid[(y - 1) * MAP_W + x] !== id) ring.lineBetween(px, py, px + TILE, py);
+      }
   }
 
   private label(x: number, y: number, text: string): Phaser.GameObjects.Text {

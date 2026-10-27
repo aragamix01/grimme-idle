@@ -2,6 +2,8 @@ import * as Phaser from 'phaser';
 import type { WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
+import { RegionScene } from './game/scenes/RegionScene';
+import { initLands, pickLand, renderLands, viewLand } from './ui/lands';
 import { initRealms, pickRealm, renderRealms } from './ui/realm';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
@@ -23,6 +25,7 @@ const TICK_MS = 600; // one in-game day at 1x
 
 const scene = new WorldScene();
 const mapScene = new WorldMapScene();
+const regionScene = new RegionScene();
 scene.tickMs = TICK_MS;
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -32,7 +35,7 @@ new Phaser.Game({
   pixelArt: true,
   backgroundColor: '#8fd64e',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [scene, mapScene],
+  scene: [scene, mapScene, regionScene],
 });
 // Phaser keeps the canvas's place on the page and only rechecks it every half second. The map
 // stays pinned while the page scrolls under it, so a tap just after a scroll landed hundreds of
@@ -82,7 +85,8 @@ function render(): void {
   renderLife(world);
   followLife(world);
   renderNpcCard(world, selected);
-  if (onMap) renderRealms(world);
+  if (onMap && mapTab === 'lands') renderLands(world);
+  else if (onMap) renderRealms(world);
   else if (tab === 'log' && showYears) renderAnnals(world, (id) => select(id));
   else if (tab === 'log') renderFeed(world, filterToNpc ? selected : null);
   else if (tab === 'guild') renderGuild(world);
@@ -176,7 +180,9 @@ mapBtn.onclick = () => {
   zoom.hidden = onMap;
   gameEl.classList.toggle('on-map', onMap); // the folded menu button turns gold while the world map is up
   document.getElementById('side-tabs')!.hidden = onMap;
-  document.getElementById('realms')!.hidden = !onMap;
+  document.getElementById('map-tabs')!.hidden = !onMap;
+  setMapTab('realms');
+  if (!onMap) document.getElementById('realms')!.hidden = true;
   for (const id of ['feed', 'log-tools', 'guild', 'market', 'kingdom', 'people']) document.getElementById(id)!.hidden = true;
   if (!onMap) setTab(tab);
   else if (world) {
@@ -190,15 +196,59 @@ mapBtn.onclick = () => {
     else game.scene.sleep('world');
     game.scene.run('worldmap');
   } else {
+    if (viewing !== null) look(null);
     game.scene.sleep('worldmap');
     game.scene.wake('world');
   }
 };
+// The world map's side panel: the neighbours, or the lands.
+type MapTab = 'realms' | 'lands';
+let mapTab: MapTab = 'realms';
+function setMapTab(next: MapTab): void {
+  mapTab = next;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#map-tabs button')) {
+    const on = b.dataset.maptab === next;
+    b.setAttribute('aria-selected', String(on));
+    b.setAttribute('aria-pressed', String(on));
+  }
+  document.getElementById('realms')!.hidden = !onMap || next !== 'realms';
+  document.getElementById('lands')!.hidden = !onMap || next !== 'lands';
+  render();
+}
+for (const b of document.querySelectorAll<HTMLButtonElement>('#map-tabs button')) b.onclick = () => setMapTab(b.dataset.maptab as MapTab);
+// A region up close takes the world map's place; back again from its card.
+let viewing: number | null = null;
+function look(id: number | null): void {
+  const game = scene.game;
+  if (id !== null) {
+    regionScene.show(id);
+    if (viewing === null) {
+      game.scene.sleep('worldmap');
+      game.scene.run('region');
+    }
+  } else if (viewing !== null) {
+    game.scene.sleep('region');
+    game.scene.wake('worldmap');
+  }
+  viewing = id;
+  if (world) viewLand(world, id);
+}
+const pickRegion = (id: number) => {
+  mapScene.pickLand(id);
+  if (mapTab !== 'lands') setMapTab('lands');
+  if (world) pickLand(world, id);
+};
+mapScene.onRegion = (region) => pickRegion(region.id);
+initLands({ onPick: pickRegion, onView: look });
 const pick = (id: number) => {
   mapScene.pick(id);
   if (world) pickRealm(world, id);
 };
-mapScene.onRealm = (realm) => realm && pick(realm.id); // a tap on open ground keeps the pick
+mapScene.onRealm = (realm) => {
+  if (!realm) return; // a tap on open ground keeps the pick
+  if (mapTab !== 'realms') setMapTab('realms');
+  pick(realm.id);
+};
 initRealms({ onMiracle: (realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }), onPick: pick });
 
 // On phones the map's buttons fold behind one menu button (CSS hides them while folded) and
@@ -286,6 +336,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
   world = msg.world;
   scene.setWorld(world);
   mapScene.setWorld(world);
+  regionScene.setWorld(world);
   pushBubbles(world, selected);
   updateMood(world);
   playEvents(world);

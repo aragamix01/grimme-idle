@@ -12,6 +12,7 @@ import { loyaltyOf } from './politics';
 import { might } from './market';
 import { sway } from './cult';
 import { realmArms } from './realms';
+import { conquer, peaksHeld } from './lands';
 import { ageOf, industrial } from './ages';
 import type { Npc, Realm, War, WarAct, WorldState } from './types';
 
@@ -34,7 +35,7 @@ export function ourForces(world: WorldState): { fighters: Npc[]; strength: numbe
   );
   // Our own age arms us as theirs arms them (the second age is par).
   const firearms = industrial(world) ? 1.2 : 1; // and the industrial age arms the soldiers with guns
-  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1));
+  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1)) * (1 + 0.08 * peaksHeld(world)); // forts on the mountain passes we hold
   // Allies send part of their armies.
   for (const r of world.realms ?? []) if (r.pact && !r.war) strength += theirStrength(r) * 0.5;
   return { fighters, strength };
@@ -119,6 +120,8 @@ export function endWar(world: WorldState, enemy: Realm, how: 'won' | 'lost' | 'd
     sway(world, 1);
     for (const n of adults(world)) n.loyalty = clamp(loyaltyOf(n) + 12, 0, 100);
     log(world, 'politics', `สงครามจบลง อาณาจักรของเราได้รับชัยชนะ ${enemy.name}ต้องจ่ายค่าปฏิกรรมสงคราม ${spoils} ทอง`);
+    const land = conquer(world, enemy, 'us');
+    if (land) log(world, 'politics', `${enemy.name}ต้องยก${land.name}ให้เราตามสัญญาสงบศึก`);
     legend(world, `กษัตริย์${k?.name ?? ''}ชนะสงครามกับ${enemy.name}`, k?.id);
   } else if (how === 'lost' || how === 'sued') {
     // Sacked, not destroyed: the treasury and purses are plundered.
@@ -129,6 +132,8 @@ export function endWar(world: WorldState, enemy: Realm, how: 'won' | 'lost' | 'd
     enemy.relation = 0;
     for (const n of adults(world)) n.loyalty = clamp(loyaltyOf(n) - 10, 0, 100);
     log(world, 'politics', how === 'sued' ? `กษัตริย์${k?.name ?? ''}ขอสงบศึกกับ${enemy.name} ยอมจ่าย ${loot} ทอง` : `อาณาจักรของเราแพ้สงคราม ทหาร${enemy.name}ปล้นเมืองไป ${loot} ทอง`);
+    const land = how === 'lost' ? conquer(world, 'us', enemy) : undefined;
+    if (land) log(world, 'politics', `${enemy.name}ยึด${land.name}ไปจากเรา`);
   } else {
     enemy.relation = how === 'vision' ? 10 : -10;
     log(world, 'politics', how === 'vision' ? `ผู้ปกครองทั้งสองฝ่ายฝันเห็นนิมิตเดียวกัน สงครามกับ${enemy.name}ยุติลงอย่างสันติ` : `สงครามกับ${enemy.name}ยืดเยื้อจนทั้งสองฝ่ายหมดแรง จึงยอมสงบศึก`);

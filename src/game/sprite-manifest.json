@@ -1329,6 +1329,34 @@
     "frameHeight": 24,
     "frames": 1
   },
+  "rm-mine": {
+    "file": "assets/sprites/worldmap/rm-mine.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "rm-logs": {
+    "file": "assets/sprites/worldmap/rm-logs.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 12,
+    "frames": 1
+  },
+  "rm-boat": {
+    "file": "assets/sprites/worldmap/rm-boat.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 14,
+    "frames": 1
+  },
+  "rm-hut": {
+    "file": "assets/sprites/worldmap/rm-hut.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "globe": {
     "file": "assets/sprites/icons/globe.png",
     "group": "icons",

@@ -17,6 +17,7 @@ import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
 import { createRealms, ensureRealms, realmsDay } from './realms';
+import { createRegions, ensureRegions, landsDay } from './lands';
 import { diplomacy } from './diplomacy';
 import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
@@ -101,6 +102,7 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
     boss: newBoss(kind),
   });
   createRealms(world, rng);
+  createRegions(world);
   world.rng = rng.state;
   log(world, 'world', `ยุคที่ ${legacy?.era ?? 1} เริ่มต้น โลกตื่นจากนิทรา`);
   const hero = statueHero(world);
@@ -123,6 +125,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   ensureGuild(world);
   ensureDungeons(world);
   ensureRealms(world, rng);
+  ensureRegions(world);
   ensureWilds(world);
   charterOf(world);
   applyCommands(world, commands, rng);
@@ -155,6 +158,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   updateQuests(world, rng);
   dungeonsDay(world);
   realmsDay(world, rng);
+  landsDay(world, rng);
   diplomacy(world, rng);
   warDay(world, rng);
   worldEvents(world, rng);

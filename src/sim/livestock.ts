@@ -6,6 +6,7 @@ import { chance, int, type Rng } from './rng';
 import { cursed, kill, log } from './core';
 import { seasonOf, sell } from './market';
 import { industrial } from './ages';
+import { woodsHeld } from './lands';
 import type { Npc, WorldState } from './types';
 
 export const HERD_CAP = 24; // beasts the pasture can feed
@@ -55,7 +56,7 @@ export function hunt(world: WorldState, npc: Npc, rng: Rng): void {
 export function wildsDay(world: WorldState, rng: Rng): void {
   ensureWilds(world);
   const g = world.game!;
-  if (g < GAME_CAP && chance(rng, 0.03 + 0.25 * (g / GAME_CAP) * (1 - g / GAME_CAP))) world.game!++;
+  if (g < GAME_CAP && chance(rng, 0.03 + 0.25 * (g / GAME_CAP) * (1 - g / GAME_CAP) + 0.02 * woodsHeld(world))) world.game!++; // the woods we hold send more deer
   const herders = world.npcs.some((n) => n.alive && n.job === 'herder' && n.age >= 16);
   if (!herders && world.herd! > STRAY_FLOOR && chance(rng, 0.01)) world.herd!--;
   if (world.day % 30 === 9) murrain(world, rng);

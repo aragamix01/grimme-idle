@@ -10,6 +10,7 @@ import { realmPurse } from './realms';
 import { portentYield } from './portents';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
+import { shoresHeld } from './lands';
 import { caravanHome } from './worldevents';
 import { built } from './works';
 import { jobName } from './ages';
@@ -273,6 +274,7 @@ function caravans(world: WorldState, m: Market): void {
   if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
   if (built(world, 'station')) gold *= 1.2; // goods go by rail
   gold *= 1 + mastery(world, 'commerce');
+  gold *= 1 + 0.1 * shoresHeld(world); // our own harbours on the coast
   if (!gold && !buying && !gear) return;
   const charted = known(world, 'navigation'); // maps and a compass: shorter roads, better deals
   if (charted) gold *= 1.15;
