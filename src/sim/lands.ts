@@ -11,6 +11,7 @@ import { ensureMarket } from './market';
 import { HOME } from './realms';
 import { MAP_H, MAP_W } from './town';
 import { canSend, changeHands, keepOf, labour, sendFamily } from './villages';
+import { landQuestOpen, postLandQuest } from './quests';
 import type { LandKind, LandUse, Realm, Region, WorldState } from './types';
 
 export const LAND_TH: Record<LandKind, string> = { plain: 'ทุ่งราบ', hills: 'เนินเขา', woods: 'ป่าไม้', shore: 'ชายฝั่ง', dunes: 'ทะเลทราย', peaks: 'เทือกเขา' };
@@ -135,6 +136,8 @@ export function frontier(world: WorldState, owner: Region['owner']): Region[] {
   for (const r of world.regions ?? []) if (r.owner === owner) for (const n of neighbours(world, r)) if (n.owner !== owner) out.add(n);
   return [...out];
 }
+// Lairs on a region's borders.
+export const neighbourLairs = (world: WorldState, r: Region) => neighbours(world, r).filter((n) => (n.danger ?? 0) > 0).length;
 export const touches = (world: WorldState, r: Region, owner: Region['owner']) => neighbours(world, r).some((n) => n.owner === owner);
 
 // ---------- laying the lands out ----------
@@ -161,6 +164,7 @@ export function createRegions(world: WorldState): void {
       regions.push({ id: world.nextId++, name: name(kind), kind, x, y });
     }
   world.regions = regions;
+  seedLairs(world, rng);
   // Each seat starts with the nearest open region beside it, worked a little.
   for (const seat of regions.filter((r) => r.seat)) {
     const n = neighbours(world, seat)
@@ -168,13 +172,23 @@ export function createRegions(world: WorldState): void {
       .sort((a, b) => Math.hypot(a.x - seat.x, a.y - seat.y) - Math.hypot(b.x - seat.x, b.y - seat.y))[0];
     if (!n) continue;
     n.owner = seat.owner;
+    n.danger = undefined;
     n.dev = { [best(n)]: 1 };
   }
 }
 
 export function ensureRegions(world: WorldState): void {
   if (!world.regions?.length && world.realms?.length) createRegions(world);
+  if (world.regions?.length && !world.lairsSeeded) seedLairs(world, createRng(world.seed ^ 0x1a12));
 }
+
+// Monsters den in some of the open country, the wilder kinds of land most of all.
+function seedLairs(world: WorldState, rng: Rng): void {
+  world.lairsSeeded = true;
+  const odds: Record<LandKind, number> = { plain: 0.3, shore: 0.25, hills: 0.45, woods: 0.55, dunes: 0.4, peaks: 0.6 };
+  for (const r of world.regions ?? []) if (r.owner === undefined && !r.village && chance(rng, odds[r.kind])) r.danger = int(rng, 30, 80);
+}
+export const LAIR_TH = (r: Region) => ({ plain: 'ฝูงหมาป่า', shore: 'รังโจรสลัด', hills: 'รังก็อบลิน', woods: 'ถ้ำหมาป่ายักษ์', dunes: 'รังแมงป่องยักษ์', peaks: 'รังโทรลล์' })[r.kind];
 
 // ---------- the yearly round ----------
 
@@ -213,6 +227,15 @@ export function landsDay(world: WorldState, rng: Rng): void {
 function ourCrown(world: WorldState, rng: Rng): void {
   const lands = ourLands(world).filter((r) => !r.seat);
   const open = frontier(world, 'us').filter((r) => !r.seat);
+  // A lair on our border: the crown puts a price on it, so the settlers can follow.
+  const den = open.filter(lairOf).sort((a, b) => a.danger! - b.danger!)[0];
+  if (den && !landQuestOpen(world, den.id)) {
+    const reward = 40 + Math.round(den.danger! * 0.8);
+    if (world.treasury - reward >= RESERVE / 2) {
+      world.treasury -= reward;
+      postLandQuest(world, den.id, true, `กวาดล้าง${LAIR_TH(den)}ใน${den.name}`, reward, 25 + den.danger!, true);
+    }
+  }
   // Open country first, while there is any: the neighbours are settling it too. Settlers go
   // with the first family the town can spare.
   const wild = open.filter(isWild);
@@ -266,6 +289,14 @@ function ourCrown(world: WorldState, rng: Rng): void {
 // A neighbour's treasury: settle open country near home, work its lands, and buy ours when we are broke.
 function theirCrown(world: WorldState, realm: Realm, rng: Rng): void {
   const mine = (world.regions ?? []).filter((r) => r.owner === realm.id && !r.seat);
+  // A neighbour's soldiers cut back the lairs on its border, at some cost in men.
+  for (const den of frontier(world, realm.id).filter(lairOf)) {
+    if (!chance(rng, 0.25)) continue;
+    den.danger = Math.max(0, den.danger! - Math.round(realm.army * 0.4));
+    realm.army = Math.max(5, realm.army - 1);
+    if (!den.danger) log(world, 'world', `กองทัพ${realm.name}กวาดล้าง${LAIR_TH(den)}ใน${den.name}`);
+    break;
+  }
   const wild = frontier(world, realm.id).filter(isWild);
   const settle = SETTLE_COST + 120 * mine.length;
   if (wild.length && realm.gold >= settle + 200 && chance(rng, 0.12)) {
@@ -293,8 +324,9 @@ function theirCrown(world: WorldState, realm: Realm, rng: Rng): void {
   }
 }
 
-// Open country nobody has settled: a free village is not for the taking.
-const isWild = (r: Region) => r.owner === undefined && !r.village?.free;
+// Open country nobody has settled: a free village is not for the taking, nor a monster's den.
+const isWild = (r: Region) => r.owner === undefined && !r.village?.free && !r.danger;
+const lairOf = (r: Region) => r.owner === undefined && !r.village?.free && (r.danger ?? 0) > 0;
 
 function take(world: WorldState, r: Region, owner: Region['owner'], how: 'settle' | 'buy' | 'cede' | 'war', rng?: Rng): void {
   r.owner = owner;

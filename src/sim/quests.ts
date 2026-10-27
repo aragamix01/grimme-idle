@@ -1,7 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
-import { atSpot, clamp, inTraining, kill, log, makePlan, stepToward } from './core';
+import { atSpot, clamp, inTraining, kill, known, log, makePlan, stepToward } from './core';
 import { FIELDS, PASTURE, PLACES, dungeonDoor, type Spot } from './places';
 import { wolvesAtFlock } from './livestock';
 import { snap } from './nav';
@@ -186,6 +186,30 @@ export function postDivineQuest(world: WorldState): void {
   log(world, 'quest', `เทพเจ้าประทานเควสศักดิ์สิทธิ์แรงก์ ${rankName(rank)}: ${q.title}`);
 }
 
+// A call for adventurers out on the lands: a village's plea, paid from its own purse (and the
+// crown's, if the village has little), or the crown's price on a monster lair blocking settlement.
+export function postLandQuest(world: WorldState, regionId: number, lair: boolean, title: string, reward: number, difficulty: number, crown: boolean): void {
+  if (openQuest(world, (q) => q.kind === 'land' && q.regionId === regionId)) return;
+  const rank = clamp(Math.floor(difficulty / 25), 0, 5);
+  const q = newQuest(world, 'land', title, rank, difficulty, reward, 2);
+  q.regionId = regionId;
+  q.lair = lair;
+  q.crown = crown;
+  world.quests.push(q);
+  log(world, 'quest', `ประกาศจ้างนักผจญภัยแรงก์ ${rankName(rank)}: ${title} (${reward} ทอง)`);
+}
+export const landQuestOpen = (world: WorldState, regionId: number) => openQuest(world, (q) => q.kind === 'land' && q.regionId === regionId);
+
+// What each calling brings to a party: a mage's spells carry it through, the more so with the
+// scholars' arcana; a swordsman's shield stands between the others and the worst of it.
+const MAGE_BOOST = 0.15;
+const ARCANA_BOOST = 0.15;
+const SHIELD = 0.6; // the share of a failed quest's danger a party with a swordsman still faces
+const partyMight = (world: WorldState, party: Npc[]) => {
+  const raw = party.reduce((s, n) => s + might(world, n), 0);
+  return party.some((n) => n.job === 'mage') ? raw * (1 + MAGE_BOOST + (known(world, 'arcana') ? ARCANA_BOOST : 0)) : raw;
+};
+
 // ---------- the life of a quest ----------
 
 const byId = (world: WorldState, id?: number) => (id === undefined ? undefined : world.npcs.find((n) => n.id === id));
@@ -202,7 +226,7 @@ const everyone = (world: WorldState, q: Quest) => {
 const onSite = (q: Quest) => q.kind === 'pest' || q.kind === 'bounty';
 
 function destination(world: WorldState, q: Quest): Spot {
-  if (q.kind === 'escort') return PLACES.gate;
+  if (q.kind === 'escort' || q.kind === 'land') return PLACES.gate;
   if (q.kind === 'pest') return q.spot!;
   if (q.kind === 'bounty') {
     const t = byId(world, q.targetId);
@@ -244,10 +268,10 @@ function advance(world: WorldState, q: Quest, rng: Rng): void {
     const arrived = onSite(q) ? party.some((n) => atSpot(n, dest, 1)) : party.every((n) => atSpot(n, dest, 1));
     if (arrived || waited >= TRAVEL_DAYS) {
       setStage(world, q, 'inside');
-      q.daysLeft = { explore: int(rng, 6, 10), escort: int(rng, 10, 15), hunt: int(rng, 3, 6), pest: 2, bounty: 1 }[q.kind];
+      q.daysLeft = { explore: int(rng, 6, 10), escort: int(rng, 10, 15), hunt: int(rng, 3, 6), pest: 2, bounty: 1, land: int(rng, 8, 12) }[q.kind];
       if (!onSite(q))
         for (const n of party) {
-          n.inside = q.kind === 'escort' ? AWAY : q.dungeonId;
+          n.inside = q.kind === 'escort' || q.kind === 'land' ? AWAY : q.dungeonId;
           n.x = dest.x;
           n.y = dest.y;
         }
@@ -297,6 +321,8 @@ function recruit(world: WorldState, q: Quest, rng: Rng): void {
 }
 
 function refund(world: WorldState, q: Quest): void {
+  const v = q.kind === 'land' && !q.lair ? world.regions?.find((r) => r.id === q.regionId)?.village : undefined;
+  if (v) return void (v.purse += q.reward); // back to the village that paid it
   const patron = byId(world, q.patronId);
   if (patron?.alive) patron.gold += q.reward;
   else if (q.crown) world.treasury += q.reward;
@@ -312,7 +338,7 @@ function expire(world: WorldState, q: Quest): void {
 
 function resolve(world: WorldState, q: Quest, rng: Rng): void {
   const party = members(world, q);
-  const strength = party.reduce((s, n) => s + might(world, n), 0);
+  const strength = partyMight(world, party);
   const target = byId(world, q.targetId);
   const lair = q.boss ? world.dungeons.find((d) => d.id === q.dungeonId && bossAlive(d)) : undefined;
   // A boss is as hard as the health it has left: every failed try makes the next one likelier.
@@ -369,6 +395,7 @@ function succeed(world: WorldState, q: Quest, party: Npc[], rng: Rng): void {
   }
   const leader = party[0];
   const who = guild ? guild.name : `ปาร์ตี้ของ${leader.name}`;
+  if (q.kind === 'land') landDone(world, q, party, who, guild);
   const target = byId(world, q.targetId);
   if (target && patron) {
     // The thief is caught: the victim gets paid back out of the thief's purse.
@@ -395,13 +422,31 @@ function fail(world: WorldState, q: Quest, party: Npc[], rng?: Rng): void {
   }
   log(world, 'quest', `ปาร์ตี้ของ${party[0].name} ล้มเหลวในเควส: ${q.title}`, party[0].id);
   bondParty(world, party, 6); // surviving a disaster together still counts for something
-  const risk = (q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length);
+  const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1);
   for (const n of party) {
     if (chance(rng, risk)) kill(world, n, `ล้มลงระหว่างเควส${q.title}`);
     else wearGear(n, rng);
   }
   const c = client(world, q);
   if (c && chance(rng, risk)) kill(world, c, 'ถูกโจรป่าซุ่มโจมตีระหว่างเดินทาง');
+}
+
+// A land quest done: the lair is cut back (cleared, once its danger is gone), or the village's
+// trouble is dealt with and it remembers who came.
+function landDone(world: WorldState, q: Quest, party: Npc[], who: string, guild: Guild | undefined): void {
+  const r = world.regions?.find((x) => x.id === q.regionId);
+  if (!r) return;
+  if (q.lair) {
+    r.danger = Math.max(0, (r.danger ?? 0) - (30 + q.rank * 8 + party.length * 4));
+    if (!r.danger) log(world, 'quest', `${who}กวาดล้างรังมอนสเตอร์ใน${r.name}สิ้นซาก ดินแดนพร้อมให้บุกเบิกแล้ว`, party[0].id);
+    return;
+  }
+  const v = r.village;
+  if (!v) return;
+  v.plea = undefined;
+  v.loyalty = clamp(v.loyalty + 6, 0, 100);
+  v.guildId = guild?.id ?? v.guildId;
+  v.thought = `${who}มาช่วยพวกเราไว้ ชาวบ้านจะไม่ลืมบุญคุณ`;
 }
 
 function rankUp(world: WorldState, n: Npc): void {

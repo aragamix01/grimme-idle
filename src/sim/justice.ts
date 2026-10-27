@@ -12,7 +12,7 @@ import { jobName } from './ages';
 import { isAvatar } from './avatar';
 import type { CrimeKind, Npc, WorldState } from './types';
 
-export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต' };
+export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต', heresy: 'นอกรีต' };
 const DAY = 6; // day of the month the watch follows up old crimes
 const COLD = 365; // days after which a crime is no longer chased
 const WATCH_PAY = 1; // gold a day for a watchman
@@ -138,6 +138,22 @@ function sentence(world: WorldState, n: Npc, crime: NonNullable<Npc['record']>[n
       }
       return jail(harsh ? 240 : 120, back ? `คืนเงิน ${back} ทองให้คลังและ` : '');
     }
+    case 'heresy':
+      // The church's court: under the priests a mage may be driven out for good; elsewhere a spell
+      // in the cells, and many come out swearing off the art.
+      if (r === 'theocracy' && chance(rng, 0.4)) {
+        n.alive = false;
+        n.left = true;
+        n.plan = undefined;
+        log(world, 'politics', `${bench}ตัดสินเนรเทศ${n.name}ออกจากเมืองตลอดกาลฐานใช้เวทมนตร์นอกรีต`, n.id);
+        return;
+      }
+      if (chance(rng, 0.5)) {
+        n.job = 'scholar';
+        n.rank = n.renown = n.guildId = undefined;
+        log(world, 'politics', `${n.name}ยอมสาบานเลิกใช้เวทมนตร์ หันไปเป็นนักปราชญ์`, n.id);
+      }
+      return jail(harsh ? 180 : 60, '');
     case 'murder':
       if (!merciful && (harsh || chance(rng, 0.5))) {
         justiceOf(world).executions++;

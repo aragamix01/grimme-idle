@@ -7,6 +7,7 @@ import { RULER_TH } from './lexicon';
 import { crownPower, loyaltyOf } from './politics';
 import { getTie } from './ties';
 import { charterOf } from './charter';
+import { lobby } from './adventurers';
 import type { Decree, Npc, Regime, WorldState } from './types';
 
 export interface RegimeDef {
@@ -62,9 +63,15 @@ export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: 
   const feud = (world.council?.deadlock ?? 0) > world.day;
   const nays = feud ? seats : seats.filter((n) => lean(world, n, d, ruler) + (chance(rng, 0.5) ? 0.5 : -0.5) < 0);
   const c = (world.council ??= { vetoes: 0, overrides: 0 });
-  const tally = `${seats.length - nays.length} ต่อ ${nays.length}`;
-  if (nays.length * 2 <= seats.length) {
-    c.last = { decree: d, day: world.day, ayes: seats.length - nays.length, nays: nays.length, result: 'passed' };
+  // A guild with the weight to be heard casts its seat (or two) with the lords.
+  const guild = lobby(world, d);
+  const total = seats.length + (guild?.weight ?? 0);
+  const no = nays.length + (guild && !guild.aye ? guild.weight : 0);
+  const tally = `${total - no} ต่อ ${no}`;
+  const swung = !!guild && (no * 2 <= total) !== (nays.length * 2 <= seats.length);
+  if (swung) log(world, 'guild', `${guild!.guild.name}ล็อบบี้สภา${guild!.aye ? 'หนุน' : 'ค้าน'}${name} จนพลิกผลมติ`);
+  if (no * 2 <= total) {
+    c.last = { decree: d, day: world.day, ayes: total - no, nays: no, result: 'passed' };
     return true;
   }
   // A strong crown, or a hot-headed king, may push it through anyway.
@@ -72,12 +79,12 @@ export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: 
   if (forceful) {
     for (const n of nays) loyaltyNudge(n, SNUB);
     c.overrides++;
-    c.last = { decree: d, day: world.day, ayes: seats.length - nays.length, nays: nays.length, result: 'overridden' };
+    c.last = { decree: d, day: world.day, ayes: total - no, nays: no, result: 'overridden' };
     log(world, 'politics', `สภาขุนนางลงมติคัดค้าน${name} (${tally}) แต่กษัตริย์${ruler.name}ทรงใช้พระราชอำนาจผลักดันจนได้ ขุนนางที่คัดค้านไม่พอใจ`, ruler.id);
     return true;
   }
   c.vetoes++;
-  c.last = { decree: d, day: world.day, ayes: seats.length - nays.length, nays: nays.length, result: 'vetoed' };
+  c.last = { decree: d, day: world.day, ayes: total - no, nays: no, result: 'vetoed' };
   log(world, 'politics', `สภาขุนนางลงมติยับยั้ง${name} (${tally}) กษัตริย์${ruler.name}ต้องถอยไปก่อน`, ruler.id);
   return false;
 }

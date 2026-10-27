@@ -10,6 +10,7 @@ import { amend, charterOf, landPolicyOf } from './charter';
 import { approval, crownPower, loyaltyOf } from './politics';
 import { king } from './society';
 import { literacy, literate } from './learning';
+import { guildLaw } from './adventurers';
 import type { Npc, WorldState } from './types';
 
 const PUSH_DAY = 23; // day of the month a change may be pushed
@@ -121,6 +122,9 @@ export function amendmentsDay(world: WorldState, rng: Rng): void {
       return amend(world, { freePress: false }, `${title}${ruler.name}สั่งควบคุมโรงพิมพ์ ห้ามตีพิมพ์เรื่องของผู้ปกครอง`);
     }
   }
+
+  // The guilds: banned by a fearful ruler, taxed by a grasping one, freed by a kind one.
+  if (guildLaw(world, ruler, strong, title, rng)) return;
 
   // Land: a grasping or warlike ruler writes in conquest; a gentle one writes it out again.
   const policy = landPolicyOf(c);

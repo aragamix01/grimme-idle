@@ -4,6 +4,7 @@ import { chance, pick, type Rng } from './rng';
 import { log } from './core';
 import { isActive, isAdventurer, legend, postExpedition, rankName } from './quests';
 import { ENEMY, FRIEND, getTie } from './ties';
+import { charterOf } from './charter';
 import type { Guild, GuildKind, Npc, WorldState } from './types';
 
 const MAX_GUILDS = 7;
@@ -50,6 +51,7 @@ function guildName(world: WorldState, kind: GuildKind, rng: Rng): string {
 // A seasoned adventurer with drive starts their own guild; a prosperous merchant starts a trade
 // association; a rich thief with a dark heart starts a thieves' society.
 function found(world: WorldState, rng: Rng): void {
+  if (charterOf(world).guilds === 'banned') return; // the law forbids it
   if (world.guilds.length >= MAX_GUILDS) return;
   for (const n of world.npcs) {
     if (!n.alive || n.gold < FOUND_COST + 10 || n.questId !== undefined) continue;
