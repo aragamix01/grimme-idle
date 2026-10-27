@@ -29,7 +29,7 @@ const SPEED_MS = 4000; // one town, five years, on a quiet core: the offline cat
 const ACROSS = [
   ['เปลี่ยนการปกครองรวม', (rs) => rs.reduce((s, r) => s + r.events.regime, 0), (y) => (y >= 10 ? 1 : 0), Infinity],
   ['ยุคสมัยเฉลี่ย', (rs) => rs.reduce((s, r) => s + r.age, 0) / rs.length, (y) => (y >= 25 ? 0.8 : 0), (y) => (y <= 25 ? 2.2 : 3)],
-  ['ถึงยุคอุตสาหกรรมก่อนปีที่ 30', (rs) => rs.filter((r) => (r.ageYears[3] ?? Infinity) < 30).length, 0, 0],
+  ['สัดส่วนเมืองที่ถึงยุคอุตสาหกรรมก่อนปีที่ 30', (rs) => rs.filter((r) => (r.ageYears[3] ?? Infinity) < 30).length / rs.length, 0, 0.07],
 ];
 
 async function build() {

@@ -42,6 +42,9 @@ const AGE_JOBS: Partial<Record<Job, (string | undefined)[]>> = {
   soldier: ['ทหารเกณฑ์', undefined, undefined, 'ทหารปืนไฟ'],
   mage: [undefined, undefined, undefined, 'นักเวทศาสตร์'],
   doctor: [undefined, undefined, undefined, 'แพทย์'],
+  watchman: ['คนเฝ้ายาม', undefined, undefined, 'ตำรวจ'],
+  judge: ['ผู้ใหญ่บ้าน', 'ตุลาการ', undefined, undefined],
+  lawyer: [undefined, undefined, 'ผู้ว่าความ', undefined],
 };
 
 export function jobName(world: WorldState, job: Job): string {

@@ -346,6 +346,10 @@ const FEATHER_CAP = [
 ];
 
 const RUFF = ['...wwwwwwwwww...'];
+const LANTERN = ['..y.............', '.yyy............', '.yYy............', '..M.............'];
+const WATCH_CAP = ['................', '................', '................', '....BBBBBBBB....', '...BBBBBBBBBB...', '..BBBBBBBBBBBB..', '.....yy.........'];
+const WIG = ['................', '................', '...zzzzzzzzzz...', '..zzzzzzzzzzzz..', '..zz........zz..', '..zz........zz..', '..zz........zz..', '..zz........zz..'];
+const SATCHEL = ['...........MM...', '..........MccM..', '..........McCM..', '..........MMMM..'];
 const HEAD_MIRROR = ['......xzzx......', '.......xx.......'];
 const DOCTOR_BAG = ['...........kk...', '..........kkkk..', '..........kwkk..', '..........kkkk..'];
 const NECKTIE = ['......wkkw......', '.......kk.......', '.......kk.......'];
@@ -566,6 +570,18 @@ const JOBS = {
   alchemist: {
     slots: { 1: 'G', 2: 'M', 3: 'G', 4: 'M', 5: 'O' },
     layers: [[HAIR_LONG], [GOGGLES, 0, 6], [FLASK, 0, 12]],
+  },
+  watchman: {
+    slots: { 1: 'B', 2: 'y', 3: 'B', 4: 'k', 5: 'M' },
+    layers: [[HAIR_SHORT], [WATCH_CAP], [LANTERN, 0, 14]],
+  },
+  judge: {
+    slots: { 1: 'k', 2: 'w', 3: 'k', 4: 'k', 5: 'k' },
+    layers: [[WIG]],
+  },
+  lawyer: {
+    slots: { 1: 'X', 2: 'w', 3: 'X', 4: 'k', 5: 'M' },
+    layers: [[HAIR_SHORT], [SATCHEL, 0, 15]],
   },
   doctor: {
     slots: { 1: 'c', 2: 'C', 3: 'c', 4: 'k', 5: 'M' },

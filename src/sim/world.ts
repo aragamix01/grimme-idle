@@ -22,6 +22,7 @@ import { WAR_COST, warAct, warDay } from './war';
 import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { disastersDay, rebuild, ruinSite } from './disasters';
+import { commit, jailed, justiceDay } from './justice';
 import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
@@ -156,6 +157,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   worldEvents(world, rng);
   troubles(world, rng);
   disastersDay(world, rng);
+  justiceDay(world, rng);
   dragonDay(world, rng);
   crownWorks(world, rng);
   spendSurplus(world);
@@ -256,6 +258,11 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
 
 function live(world: WorldState, npc: Npc, rng: Rng): void {
   if (isChild(npc)) return childDay(world, npc, rng);
+  if (jailed(world, npc)) {
+    // In the cells under the castle: walked there, then kept.
+    if (npc.x !== PLACES.castle.x || npc.y !== PLACES.castle.y) return stepToward(world, npc, plan('idle', PLACES.castle, 1), rng);
+    return;
+  }
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
   if (npc.inside === AWAY && npc.trip !== undefined) return caravanDay(world, npc, rng);
   if (npc.inside !== undefined && npc.plan?.kind === 'crusade') return; // in the demon's keep, waiting on the battle
@@ -336,6 +343,12 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return chance(rng, 0.7) ? plan('work', PLACES.brothel, int(rng, 4, 8)) : idle();
     case 'priest':
       return chance(rng, 0.75) ? plan('work', PLACES.church, int(rng, 5, 10)) : idle();
+    case 'watchman':
+      return chance(rng, 0.8) ? plan('work', patrolPost(rng), int(rng, 4, 8)) : idle();
+    case 'judge':
+      return chance(rng, 0.7) ? plan('work', PLACES.castle, int(rng, 5, 10)) : idle();
+    case 'lawyer':
+      return chance(rng, 0.6) ? plan('work', near(chance(rng, 0.5) ? PLACES.castle : PLACES.square), int(rng, 4, 8)) : idle();
     case 'doctor':
       // Seeing patients by the church's door, or calling on them at home.
       return chance(rng, 0.7) ? plan('work', near(chance(rng, 0.5) ? PLACES.church : PLACES.square), int(rng, 5, 10)) : idle();
@@ -491,8 +504,9 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
     addTie(world, victim, npc, -15);
     addTie(world, guard, npc, -10);
     addTie(world, victim, guard, 8);
-    log(world, 'theft', `ทหาร${guard.name}จับ${npc.name}ได้ขณะกำลังขโมยของ${victim.name}${fine ? ` ปรับ ${fine} ทอง` : ''}`, npc.id);
-    npc.plan = plan('flee', snap(world, { x: int(rng, 0, 26), y: int(rng, 18, 24) }), 0);
+    log(world, 'theft', `${jobName(world, guard.job)}${guard.name}จับ${npc.name}ได้ขณะกำลังขโมยของ${victim.name}${fine ? ` ปรับ ${fine} ทอง` : ''}`, npc.id);
+    commit(world, npc, 'theft', rng, 0, victim.id, true);
+    if (!jailed(world, npc)) npc.plan = plan('flee', snap(world, { x: int(rng, 0, 26), y: int(rng, 18, 24) }), 0);
     return;
   }
   if (chance(rng, (society ? 0.55 : 0.4) * (doomed ? 0.5 : 1))) {
@@ -503,6 +517,7 @@ function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {
     if (society) society.treasury += Math.floor(stolen / 5);
     sway(world, -0.3);
     log(world, 'theft', `${npc.name} ขโมยทอง ${stolen} เหรียญจาก ${victim.name}`, npc.id);
+    commit(world, npc, 'theft', rng, stolen, victim.id);
     addTie(world, victim, npc, -10); // rumours get around
     maybeBounty(world, victim, npc, stolen, rng);
   } else {

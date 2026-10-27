@@ -17,9 +17,14 @@ export type Job =
   | 'engineer'
   | 'builder'
   | 'doctor'
+  | 'watchman'
+  | 'judge'
+  | 'lawyer'
   | 'noble'
   | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';
+
+export type CrimeKind = 'theft' | 'murder' | 'corruption';
 
 export interface Npc {
   id: number;
@@ -29,6 +34,8 @@ export interface Npc {
   level: number;
   gold: number;
   morality: number; // -100..100
+  record?: { kind: CrimeKind; day: number; gold?: number; victimId?: number; tried?: number; verdict?: 'guilty' | 'acquitted' }[]; // offences, known or not
+  jailedUntil?: number; // day they walk out of the castle's cells
   traits: Trait[];
   x: number;
   y: number;
@@ -361,6 +368,7 @@ export interface WorldState {
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
   dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
+  justice?: { cases: number; convicted: number; acquitted: number; bribes: number; executions: number; corruption: number }; // the courts' tally
   portent?: number; // the last portent of the gathering dread the chronicle announced (see portents.ts)
   demon?: DemonLord;
   demonsSlain?: number;

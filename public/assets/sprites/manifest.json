@@ -398,6 +398,90 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "watchman": {
+    "file": "assets/sprites/characters/watchman.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "watchman-age0": {
+    "file": "assets/sprites/characters/watchman-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "watchman-age2": {
+    "file": "assets/sprites/characters/watchman-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "watchman-age3": {
+    "file": "assets/sprites/characters/watchman-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "judge": {
+    "file": "assets/sprites/characters/judge.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "judge-age0": {
+    "file": "assets/sprites/characters/judge-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "judge-age2": {
+    "file": "assets/sprites/characters/judge-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "judge-age3": {
+    "file": "assets/sprites/characters/judge-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "lawyer": {
+    "file": "assets/sprites/characters/lawyer.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "lawyer-age0": {
+    "file": "assets/sprites/characters/lawyer-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "lawyer-age2": {
+    "file": "assets/sprites/characters/lawyer-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "lawyer-age3": {
+    "file": "assets/sprites/characters/lawyer-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "doctor": {
     "file": "assets/sprites/characters/doctor.png",
     "group": "characters",

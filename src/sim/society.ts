@@ -33,11 +33,11 @@ const JOB_WEIGHTS: [Job, number][] = [
   ['engineer', 2],
 ];
 // Learned trades the crown only fills from the fields when the town is fed.
-const BOOKISH: readonly Job[] = ['scholar', 'alchemist', 'engineer', 'doctor'];
+const BOOKISH: readonly Job[] = ['scholar', 'alchemist', 'engineer', 'doctor', 'judge', 'lawyer'];
 // Trades that only exist once the scholars have found what they rest on.
 const NEEDS: Partial<Record<Job, Tech>> = { alchemist: 'arcana', engineer: 'architecture', doctor: 'medicine' };
 // ...and the age they belong to: doctors come with the third age, when the sick stop going to the priests.
-const AGE_OF_JOB: Partial<Record<Job, number>> = { doctor: 2 };
+const AGE_OF_JOB: Partial<Record<Job, number>> = { doctor: 2, judge: 1, lawyer: 2 };
 export const COMMON_JOBS: readonly Job[] = JOB_WEIGHTS.map(([j]) => j);
 export const isGentry = (n: Npc) => n.job === 'king' || n.job === 'noble';
 
@@ -165,11 +165,11 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1], ['doctor', 2]];
+const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1], ['doctor', 2], ['watchman', 2], ['judge', 1], ['lawyer', 1]];
 function fillTrades(world: WorldState, rng: Rng): void {
   for (const [job, need] of ESSENTIAL) {
     if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!)) || ageOf(world) < (AGE_OF_JOB[job] ?? 0)) continue;
-    if (BOOKISH.includes(job) && priceRatio(world, 'grain') >= 1.5) continue; // no farmer is spared for books while bread is dear
+    if ((BOOKISH.includes(job) || job === 'watchman') && priceRatio(world, 'grain') >= 1.5) continue; // no farmer is spared for books or the watch while bread is dear
     const merchants = living(world, 'merchant').length;
     const pool = world.npcs.filter(
       (n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined && (n.job === 'farmer' || (n.job === 'merchant' && job !== 'merchant' && merchants > 2)),
@@ -356,7 +356,7 @@ export function payRent(world: WorldState, farmer: Npc, earned: number, rng: Rng
 // A soldier on duty close enough to see what happens at (x, y).
 export function guardNear(world: WorldState, x: number, y: number): Npc | undefined {
   return world.npcs.find(
-    (n) => n.alive && n.job === 'soldier' && n.plan?.kind === 'work' && n.inside === undefined && Math.abs(n.x - x) + Math.abs(n.y - y) <= PATROL_REACH,
+    (n) => n.alive && (n.job === 'soldier' || n.job === 'watchman') && n.plan?.kind === 'work' && n.inside === undefined && Math.abs(n.x - x) + Math.abs(n.y - y) <= PATROL_REACH,
   );
 }
 

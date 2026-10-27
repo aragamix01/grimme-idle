@@ -12,6 +12,7 @@ export { troubleChance } from './troubles';
 export { flooded, ruined, stricken } from './disasters';
 export { PORTENTS, portentOf } from './portents';
 export { DEMON_KINDS, demonTitle } from './demonkinds';
+export { CRIME_TH, jailed } from './justice';
 export { standing as generalsStanding } from './demonlord';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER, workCost } from './works';

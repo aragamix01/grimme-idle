@@ -398,7 +398,7 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
     npc.guildId = undefined;
     return true;
   }
-  if (['merchant', 'thief', 'innkeeper', 'courtesan', 'priest', 'scholar'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
+  if (['merchant', 'thief', 'innkeeper', 'courtesan', 'priest', 'scholar', 'watchman', 'lawyer'].includes(npc.job) && keepTwo && r >= 2 && npc.gold < m.price.grain * 3 && chance(rng, 0.05)) {
     log(world, 'trade', `${npc.name} เลิกเป็น${jobName(world, npc.job)} หันมาทำนาเพราะข้าวแพง`, npc.id);
     npc.job = 'farmer';
     return true;

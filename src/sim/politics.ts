@@ -138,6 +138,8 @@ function embezzle(world: WorldState, k: Npc): void {
   const take = Math.floor(world.treasury * 0.05);
   world.treasury -= take;
   k.gold += take;
+  (k.record ??= []).push({ kind: 'corruption', day: world.day, gold: take });
+  if (world.justice) world.justice.corruption += take;
   for (const n of adults(world)) if (n.job === 'noble') nudge(n, -2);
 }
 

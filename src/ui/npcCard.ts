@@ -71,6 +71,9 @@ const WORK_TH: Partial<Record<Job, string>> = {
   engineer: 'คุมงานก่อสร้าง',
   builder: 'สร้างบ้านที่พังขึ้นใหม่',
   doctor: 'ตรวจรักษาผู้ป่วย',
+  watchman: 'ลาดตระเวนจับคนร้าย',
+  judge: 'พิจารณาคดี',
+  lawyer: 'ว่าความให้จำเลย',
   soldier: 'ยืนยามเฝ้าเมือง',
 };
 

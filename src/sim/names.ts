@@ -35,6 +35,9 @@ export const JOB_TH: Record<Job, string> = {
   engineer: 'วิศวกร',
   builder: 'ช่างก่อสร้าง',
   doctor: 'หมอ',
+  watchman: 'ยามรักษาการณ์',
+  judge: 'ผู้พิพากษา',
+  lawyer: 'ทนายความ',
   noble: 'ขุนนาง',
   king: 'กษัตริย์',
 };
