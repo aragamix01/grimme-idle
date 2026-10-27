@@ -23,6 +23,7 @@ function run(ms: number): void {
   if (ms <= 0) return;
   timer = setInterval(() => {
     if (!world) return;
+    if (world.choice) return; // the player's life waits on their answer, and so does the town
     tick(world, pending);
     pending = [];
     if (world.day % AUTOSAVE_EVERY === 0) void writeSave(world);
@@ -73,7 +74,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
   if (msg.type === 'start') {
     void start(msg.tickMs);
   } else if (msg.type === 'command') {
-    if (tickMs > 0) {
+    if (tickMs > 0 && !world?.choice) {
       pending.push(msg.command);
     } else if (world) {
       // Paused: powers still land right away.

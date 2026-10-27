@@ -13,6 +13,7 @@ export { flooded, ruined, stricken } from './disasters';
 export { PORTENTS, portentOf } from './portents';
 export { DEMON_KINDS, demonTitle } from './demonkinds';
 export { CRIME_TH, jailed } from './justice';
+export { avatarOf, isAvatar } from './avatar';
 export { standing as generalsStanding } from './demonlord';
 export { DRAGON_RELIC } from './dragon';
 export { WORKS, WORK_ORDER, workCost } from './works';

@@ -23,6 +23,7 @@ import { realmMiracle, realmMiracleCost, worldEvents } from './worldevents';
 import { troubles } from './troubles';
 import { disastersDay, rebuild, ruinSite } from './disasters';
 import { commit, jailed, justiceDay } from './justice';
+import { ascend, avatarDay, choose, incarnate } from './avatar';
 import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
 import { BUILDINGS, doorOf } from './town';
@@ -125,6 +126,8 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   ensureWilds(world);
   charterOf(world);
   applyCommands(world, commands, rng);
+  // A choice still waiting when the day must pass (the days away) takes its default.
+  if (world.choice) choose(world, world.choice.fallback, rng);
 
   world.day++;
   holdCourt(world, rng);
@@ -158,6 +161,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   troubles(world, rng);
   disastersDay(world, rng);
   justiceDay(world, rng);
+  avatarDay(world);
   dragonDay(world, rng);
   crownWorks(world, rng);
   spendSurplus(world);
@@ -543,7 +547,17 @@ export function applyCommands(world: WorldState, commands: Command[], rng?: Rng)
   if (!rng) world.rng = r.state;
 }
 
+// While the player lives in town the god's hands are tied: only the life's own commands pass.
+const MORTAL: readonly Command['type'][] = ['incarnate', 'ascend', 'choose', 'perk'];
+
 function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
+  if (world.avatar && !MORTAL.includes(cmd.type)) return;
+  if (cmd.type === 'incarnate') {
+    if (!world.avatar) incarnate(world, rng, cmd.npcId);
+    return;
+  }
+  if (cmd.type === 'ascend') return ascend(world);
+  if (cmd.type === 'choose') return choose(world, cmd.key, rng);
   if (cmd.type === 'perk') {
     buyPerk(world, cmd.perk);
     return;

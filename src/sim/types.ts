@@ -24,6 +24,17 @@ export type Job =
   | 'king';
 export type Trait = 'greedy' | 'brave' | 'coward' | 'loyal' | 'vengeful' | 'kind';
 
+// A turn of the player's life that waits on them (see avatar.ts).
+export type ChoiceKind = 'job' | 'marry' | 'cult' | 'exodus' | 'hero' | 'rebirth';
+export interface Choice {
+  kind: ChoiceKind;
+  day: number;
+  text: string;
+  options: { key: string; label: string }[];
+  fallback: string; // taken if the town must go on without an answer (the days away)
+  other?: number; // the other person in it: a suitor, a cultist
+}
+
 export type CrimeKind = 'theft' | 'murder' | 'corruption';
 
 export interface Npc {
@@ -368,6 +379,8 @@ export interface WorldState {
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
   dread?: number; // 0..100: dark pressure building toward the demon lord's awakening
+  avatar?: { id: number; since: number; lives: number }; // the townsperson the player is living as; missing while they play the god
+  choice?: Choice; // a turn of that life waiting on the player
   justice?: { cases: number; convicted: number; acquitted: number; bribes: number; executions: number; corruption: number }; // the courts' tally
   portent?: number; // the last portent of the gathering dread the chronicle announced (see portents.ts)
   demon?: DemonLord;
@@ -422,4 +435,7 @@ export type Command =
   | { type: 'perk'; perk: Perk }
   | { type: 'miracle'; kind: MiracleKind }
   | { type: 'war'; act: WarAct }
-  | { type: 'realm'; realmId: number; kind: RealmMiracle };
+  | { type: 'realm'; realmId: number; kind: RealmMiracle }
+  | { type: 'incarnate'; npcId?: number } // live as this townsperson, or as a newborn
+  | { type: 'ascend' } // return to godhood
+  | { type: 'choose'; key: string };

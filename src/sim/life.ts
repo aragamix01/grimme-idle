@@ -2,6 +2,7 @@
 import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { jobName } from './ages';
+import { isAvatar, offerCalling } from './avatar';
 import { PLACES } from './places';
 import { TOWN_SIZE } from './town';
 import { inheritedJob } from './society';
@@ -67,6 +68,7 @@ function comeOfAge(world: WorldState, n: Npc, rng: Rng): void {
   }
   n.plan = undefined;
   log(world, 'world', `${n.name} เติบโตเป็นผู้ใหญ่ และเลือกเป็น${jobName(world, n.job)}`, n.id);
+  if (isAvatar(world, n)) offerCalling(world, n); // the player picks, the town's guess is the default
 }
 
 // Who this NPC is sweet on: their closest single adult friend, if close enough.
@@ -144,7 +146,7 @@ export function births(world: WorldState, rng: Rng): void {
   }
 }
 
-function bornTo(world: WorldState, a: Npc, b: Npc, rng: Rng): Npc {
+export function bornTo(world: WorldState, a: Npc, b: Npc, rng: Rng): Npc {
   // One trait from each parent, with a chance of something all their own.
   const traits = new Set<Trait>([pick(rng, a.traits), pick(rng, b.traits)]);
   if (chance(rng, 0.2)) traits.add(pick(rng, ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'] as const));
