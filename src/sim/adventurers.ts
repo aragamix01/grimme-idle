@@ -27,7 +27,7 @@ const FAMOUS = 30; // renown past which a ruler starts to watch an adventurer
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16);
 export const membersOf = (world: WorldState, g: Guild) => world.npcs.filter((n) => n.alive && n.guildId === g.id);
 // A guild's weight in the town: its name, its coffers and its numbers.
-export const influenceOf = (world: WorldState, g: Guild) => Math.round(g.renown + g.treasury / 20 + membersOf(world, g).length * 2);
+export const influenceOf = (world: WorldState, g: Guild) => Math.round(g.renown + Math.min(30, g.treasury / 20) + membersOf(world, g).length * 2); // coffers buy only so much say
 const strongest = (world: WorldState) => [...world.guilds].sort((a, b) => influenceOf(world, b) - influenceOf(world, a))[0];
 
 // The wards: seasoned mages at home slow the monsters' return to the dungeons.
@@ -41,8 +41,8 @@ export function ward(world: WorldState): number {
 // What each kind of guild wants of each decree: +1 for, -1 against.
 const STAKE: Record<GuildKind, Partial<Record<Decree, number>>> = {
   adventurers: { bounty: 1, colonize: 1, garrison: 1, levy: -1 }, // paid work; but not their people pressed into the ranks
-  merchants: { taxfree: 1, labour: 1, expand: 1, tribute: -1, curfew: -1, debase: -1 },
-  thieves: { curfew: -1, levy: -1, bounty: -1 },
+  merchants: { taxfree: 1, labour: 1, expand: 1, tribute: -1, curfew: -1, debase: -1, tariff: -1, embargo: -1, ceiling: -1 },
+  thieves: { curfew: -1, levy: -1, bounty: -1, tariff: 1, embargo: 1, ceiling: 1 }, // every barrier is a smuggler's living
 };
 // The guild that will weigh in on a decree, if it has the weight and the stake: one seat's worth, two for the mighty.
 export function lobby(world: WorldState, d: Decree): { guild: Guild; aye: boolean; weight: number } | undefined {

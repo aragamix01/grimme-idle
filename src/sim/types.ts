@@ -94,7 +94,7 @@ export interface Plan {
   target?: number; // npc id (steal) or dungeon id (adventure, delve)
 }
 
-export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy' | 'colonize' | 'expand' | 'tribute' | 'relief' | 'garrison' | 'debase';
+export type Decree = 'labour' | 'subsidy' | 'bounty' | 'curfew' | 'taxfree' | 'levy' | 'colonize' | 'expand' | 'tribute' | 'relief' | 'garrison' | 'debase' | 'tariff' | 'embargo' | 'ceiling';
 export type LandPolicy = 'peace' | 'settle' | 'conquest';
 
 // The town's constitution (see charter.ts).
@@ -111,6 +111,7 @@ export interface Charter {
   landPolicy?: LandPolicy; // how the crown may win land: settling only, buying too, or war; missing means settle
   provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
   guilds?: 'free' | 'taxed' | 'banned'; // whether people may band together in guilds; missing means free
+  economy?: 'free' | 'guided'; // free trade (no tariffs or price caps) or a guided market; missing means the ruler decides
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
@@ -196,7 +197,7 @@ export interface Guild {
   hoarding?: number; // day a greedy house began sitting on grain in a dearth
 }
 
-export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth';
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice';
 
 export interface Market {
   stock: Record<Good, number>;
@@ -312,6 +313,7 @@ export interface Realm {
   pact?: 'alliance';
   wed?: string; // our royal child married into their court
   trades?: number; // caravans that came back from them
+  treaty?: boolean; // a trade treaty: better prices both ways while relations hold
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
   plagueUntil?: number;
@@ -475,6 +477,7 @@ export interface WorldState {
   regions?: Region[]; // the world map's lands; missing in saves from before them
   villagers?: Npc[]; // the folk living out on the lands, apart from the town's own
   debt?: { guildId: number; owed: number; since: number }; // what the crown owes a trade house
+  embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];

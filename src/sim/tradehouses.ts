@@ -11,6 +11,7 @@ import { GOODS, GOOD_TH, SELLS, basePrice, ensureMarket, levelOf, priceRatio } f
 import { commit } from './justice';
 import { payrollReserve, king } from './society';
 import { TRADE } from './diplomacy';
+import { exportRate, levyTrade, tradesWith } from './commerce';
 import type { Good, Guild, WorldState } from './types';
 
 const DAY = 8; // day of the month the houses do their business
@@ -29,7 +30,10 @@ const leaderOf = (world: WorldState, g: Guild) => world.npcs.find((n) => n.id ==
 
 export function tradeHousesDay(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== DAY || occupied(world)) return;
-  for (const g of houses(world)) business(world, g, rng);
+  for (const g of houses(world)) {
+    business(world, g, rng);
+    dividend(world, g);
+  }
   debtDay(world, rng);
 }
 
@@ -64,16 +68,34 @@ function business(world: WorldState, g: Guild, rng: Rng): void {
   }
   // Ship the biggest surplus to the neighbour that wants it most.
   const good = (Object.keys(stock) as Good[]).filter((x) => (stock[x] ?? 0) >= SHIP_AT).sort((a, b) => (stock[b] ?? 0) - (stock[a] ?? 0))[0];
-  const realm = good && (world.realms ?? []).filter((r) => !r.fallen && !r.war && r.relation >= 0).sort((a, b) => wants(b.terrain, good) - wants(a.terrain, good))[0];
+  const realm = good && (world.realms ?? []).filter((r) => tradesWith(world, r) && r.relation >= 0).sort((a, b) => wants(b.terrain, good) - wants(a.terrain, good))[0];
   if (good && realm) {
     const n = stock[good]!;
     stock[good] = 0;
     if (chance(rng, SHIP_LOST)) return log(world, 'trade', `เกวียนสินค้าของ${g.name}ที่บรรทุก${GOOD_TH[good]}ไป${realm.name}ถูกปล้นกลางทาง`);
-    const gold = Math.round(n * basePrice(good) * (0.8 + wants(realm.terrain, good) * 0.4) * levelOf(world));
+    const gross = n * basePrice(good) * (0.8 + wants(realm.terrain, good) * 0.4) * levelOf(world);
+    levyTrade(world, gross);
+    const gold = Math.round(gross * exportRate(world, realm));
     g.treasury += gold;
     realm.relation = clamp(realm.relation + 1, -100, 100);
     if (gold >= 600) log(world, 'trade', `${g.name}ส่ง${GOOD_TH[good]} ${n} หน่วยไปขายที่${realm.name} ได้ ${gold} ทอง`);
   }
+}
+
+// A house's profits past its working capital go out each month: a modest share to its members,
+// the rest in wages to the porters, carters and clerks it hires (through the market's till).
+const CAPITAL = 1000; // what a house keeps for its trade and its loans, at founding prices
+const DIVIDEND = 0.1; // of the rest, paid out monthly
+const SHARE_CAP = 40; // the most one member draws in a month, at founding prices
+function dividend(world: WorldState, g: Guild): void {
+  const over = g.treasury - CAPITAL * levelOf(world);
+  if (over <= 0) return;
+  const out = Math.floor(over * DIVIDEND);
+  const members = world.npcs.filter((n) => n.alive && n.guildId === g.id);
+  const each = members.length ? Math.min(Math.floor(out / members.length), Math.round(SHARE_CAP * levelOf(world))) : 0;
+  for (const n of members) n.gold += each;
+  ensureMarket(world).till += out - each * members.length;
+  g.treasury -= out;
 }
 
 // How much a kind of country wants a good: its staple want most, then what it doesn't make itself.

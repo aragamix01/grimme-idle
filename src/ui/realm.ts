@@ -1,4 +1,4 @@
-import { stricken, AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
+import { decreeActive, stricken, AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 // While the world map is up, the side panel lists every neighbour in full, so nobody has to
@@ -33,6 +33,7 @@ function miracles(world: WorldState, r: Realm): HTMLElement {
 }
 
 function card(world: WorldState, r: Realm): HTMLElement {
+  const embargoed = world.embargo === r.id && decreeActive(world, 'embargo');
   const box = el(
     'article',
     { className: `realm-card${r.id === picked ? ' realm-card--picked' : ''}` },
@@ -47,7 +48,7 @@ function card(world: WorldState, r: Realm): HTMLElement {
     ...(stricken(world, r) && !r.fallen ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: `${({ drought: 'ภัยแล้ง', flood: 'น้ำท่วม', quake: 'แผ่นดินไหว' } as const)[r.disaster!.kind]} อีก ${r.disaster!.until - world.day} วันจะฟื้นตัว (บันดาลพรช่วยได้)` })] : []),
     ...(plagued(world, r) ? [el('p', { className: 'realm-card__rel realm-card__rel--bad', textContent: `โรคระบาดอีก ${r.plagueUntil! - world.day} วัน คาราวานเสี่ยงติดเชื้อ` })] : []),
     ...(r.fallen ? [] : [miracles(world, r)]),
-    ...(r.pact || r.wed ? [el('p', { className: 'realm-king__meta', textContent: [r.pact ? 'พันธมิตรตามสนธิสัญญา' : '', r.wed ? `${r.wed}อภิเษกกับราชวงศ์นี้` : ''].filter(Boolean).join(' · ') })] : []),
+    ...(r.pact || r.wed || r.treaty || embargoed ? [el('p', { className: 'realm-king__meta', textContent: [r.pact ? 'พันธมิตรตามสนธิสัญญา' : '', r.treaty ? 'มีสนธิสัญญาการค้า ซื้อขายได้ราคาดีกว่า' : '', embargoed ? 'ถูกห้ามค้าด้วยพระราชโองการ' : '', r.wed ? `${r.wed}อภิเษกกับราชวงศ์นี้` : ''].filter(Boolean).join(' · ') })] : []),
     el('p', { className: `realm-card__rel${r.relation <= -15 ? ' realm-card__rel--bad' : r.relation >= 15 ? ' realm-card__rel--good' : ''}`, textContent: `ท่าทีต่อเรา: ${relationWord(r.relation)} (${r.relation > 0 ? '+' : ''}${r.relation})` }),
   );
   box.dataset.realm = String(r.id);

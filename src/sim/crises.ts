@@ -7,6 +7,8 @@ import { kill, log, loyaltyNudge } from './core';
 import { charterOf } from './charter';
 import { loyaltyOf } from './politics';
 import { king } from './society';
+import { inequality } from './commerce';
+import { levelOf } from './market';
 import type { WorldState } from './types';
 
 const STRIKE_DAYS = 30;
@@ -35,7 +37,7 @@ export function rulerScandal(world: WorldState): boolean {
 export function strike(world: WorldState, rng: Rng): boolean {
   const ruler = king(world);
   const rich = adults(world).sort((a, b) => b.gold - a.gold)[0];
-  const grievance = world.crown?.tax === 'high' || (rich?.gold ?? 0) >= 500;
+  const grievance = world.crown?.tax === 'high' || (rich?.gold ?? 0) >= 500 * levelOf(world) || inequality(world) > 0.75; // a few holding nearly everything
   const workers = adults(world).filter((n) => (WORKERS as readonly string[]).includes(n.job));
   if (!ruler || !grievance || workers.length < 8) return false;
   world.strike = world.day + STRIKE_DAYS;

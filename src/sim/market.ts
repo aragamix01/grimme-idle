@@ -10,6 +10,7 @@ import { realmPurse } from './realms';
 import { portentYield } from './portents';
 import { RELIC_POWER } from './dungeons';
 import { TRADE, WOOL_BUYERS, tradePartner, tripDays } from './diplomacy';
+import { TARIFF_ON_IMPORTS, blackMarket, capOf, exportRate, importRate, levyTrade } from './commerce';
 import { shoresHeld } from './lands';
 import { caravanHome } from './worldevents';
 import { built } from './works';
@@ -17,11 +18,11 @@ import { jobName } from './ages';
 import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } from './types';
 import { TOWN_SIZE } from './town';
 
-export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear'];
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า' };
-const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8 };
+export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15 };
 export const basePrice = (g: Good) => BASE[g];
-const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50 }; // grain: enough to carry the town through winter // stock that sells at the base price
+const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
@@ -47,16 +48,16 @@ export const seasonOf = (day: number): Season => SEASONS[Math.floor((day % 365) 
 
 export function ensureMarket(world: WorldState): Market {
   const m = (world.market ??= {
-    stock: { grain: 250, meat: 40, wool: 0, loot: 4, gear: 4, timber: 30, ore: 10, cloth: 20 },
+    stock: { grain: 250, meat: 40, wool: 0, loot: 4, gear: 4, timber: 30, ore: 10, cloth: 20, spice: 4 },
     price: { ...BASE },
     till: 60,
-    history: { grain: [], meat: [], wool: [], loot: [], gear: [], timber: [], ore: [], cloth: [] },
-    alert: { grain: 0, meat: 0, wool: 0, loot: 0, gear: 0, timber: 0, ore: 0, cloth: 0 },
+    history: { grain: [], meat: [], wool: [], loot: [], gear: [], timber: [], ore: [], cloth: [], spice: [] },
+    alert: { grain: 0, meat: 0, wool: 0, loot: 0, gear: 0, timber: 0, ore: 0, cloth: 0, spice: 0 },
   });
   // Saves from before a good existed: its shelf starts (nearly) empty at the base price.
   for (const g of GOODS) {
     if (m.stock[g] !== undefined) continue;
-    m.stock[g] = { meat: 20, timber: 30, ore: 10, cloth: 20 }[g as string] ?? 0;
+    m.stock[g] = { meat: 20, timber: 30, ore: 10, cloth: 20, spice: 4 }[g as string] ?? 0;
     m.price[g] = BASE[g];
     m.history[g] = [];
     m.alert[g] = 0;
@@ -68,12 +69,13 @@ export function ensureMarket(world: WorldState): Market {
 export const priceRatio = (world: WorldState, g: Good) => ensureMarket(world).price[g] / (BASE[g] * levelOf(world));
 export const levelOf = (world: WorldState) => world.market?.level ?? 1;
 
-function reprice(m: Market): void {
+function reprice(world: WorldState, m: Market): void {
   for (const g of GOODS) {
     const t = TARGET[g];
     const factor = Math.min(5, Math.max(0.3, (t / Math.max(m.stock[g], t * 0.05)) ** 0.7));
     m.price[g] = Math.max(1, Math.round(BASE[g] * factor * (m.level ?? 1)));
   }
+  m.price.grain = Math.min(m.price.grain, capOf(world, BASE.grain)); // a capped price, by decree
 }
 
 // The price level. People get used to how much coin passes through their hands; when coin floods
@@ -114,8 +116,8 @@ function inflate(world: WorldState, m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2 };
-const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
@@ -133,6 +135,16 @@ function payOut(m: Market, g: Good, n: number, rng: Rng, hall = false): number {
 export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng): number {
   if (n <= 0) return 0;
   const m = ensureMarket(world);
+  // Under a price cap, grain slips out the back door to whoever pays over the odds.
+  if (g === 'grain' && blackMarket(world, rng)) {
+    const paid = Math.round(n * BASE.grain * 2 * (m.level ?? 1));
+    const buyer = world.npcs.filter((o) => o.alive && o !== npc && o.gold >= paid * 2).sort((a, b) => b.gold - a.gold)[0];
+    if (buyer) {
+      buyer.gold -= paid;
+      npc.gold += paid;
+      return paid;
+    }
+  }
   const trade = world.guilds.some((x) => x.id === npc.guildId && x.kind === 'merchants');
   const paid = payOut(m, g, n, rng, built(world, 'market'));
   const got = trade ? Math.ceil(paid * 1.1) : paid; // the association haggles for its members
@@ -246,7 +258,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
     armGuilds(world, m);
   }
 
-  reprice(m);
+  reprice(world, m);
   if (world.day % HISTORY_EVERY === 0)
     for (const g of GOODS) {
       m.history[g].push(m.price[g]);
@@ -324,7 +336,7 @@ function tithe(world: WorldState): void {
 const TRIP_DAYS = 12;
 // What each kind of country makes beyond its staple: the forests timber, the mountains ore, the coast and the desert cloth.
 export const SELLS: Record<Realm['terrain'], Good> = { forest: 'timber', mountain: 'ore', coast: 'cloth', desert: 'cloth' };
-const IMPORTS: readonly Good[] = ['timber', 'ore', 'cloth'];
+const IMPORTS: readonly Good[] = ['timber', 'ore', 'cloth', 'spice'];
 const BANDITS = 0.05; // chance a caravan is robbed on the road
 export const WEST_GATE = { x: 0, y: 9 };
 
@@ -353,24 +365,35 @@ function caravans(world: WorldState, m: Market): void {
   }
   // Timber, ore and cloth the town is short of, bought cheap where they're made and dear elsewhere.
   const goods: Partial<Record<Good, number>> = {};
+  let spent = 0; // on imports, for the crown's duty
   for (const g of lacking) {
     const want = Math.ceil(TARGET[g] * (g === 'cloth' ? 1 : 0.5));
-    const each = BASE[g] * (SELLS[realm.terrain] === g ? 1.1 : 1.6) * (m.level ?? 1);
+    const made = SELLS[realm.terrain] === g || (g === 'spice' && realm.terrain === 'desert'); // spice comes up the desert roads
+    const each = BASE[g] * (made ? 1.1 : 1.6) * (m.level ?? 1) * importRate(world, realm);
     if (m.till < want * each + 50) continue;
     m.till -= want * each;
+    spent += want * each;
     goods[g] = want;
   }
   const n = TARGET.grain * 0.25;
-  const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5);
+  const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5) * (m.level ?? 1) * importRate(world, realm, true);
   const buying = short && m.till >= cost;
   if (buying) {
     m.till -= cost;
     m.lastImport = world.day;
   }
   // Mountain smiths sell arms cheaply when the shop is short of them.
-  const gearCost = BASE.gear * 0.8 * 3;
+  const gearCost = BASE.gear * 0.8 * 3 * (m.level ?? 1) * importRate(world, realm);
   const gear = trade.sells === 'gear' && m.stock.gear < TARGET.gear && m.till >= gearCost + 50 ? 3 : 0;
-  if (gear) m.till -= gearCost;
+  if (gear) {
+    m.till -= gearCost;
+    spent += gearCost;
+  }
+  // The crown's tariff takes its share of the exports at the gate and the surcharge on the imports;
+  // a treaty sweetens both.
+  levyTrade(world, gold);
+  if (decreeActive(world, 'tariff')) world.treasury += Math.round(spent * (1 - 1 / TARIFF_ON_IMPORTS));
+  gold *= exportRate(world, realm);
   if (built(world, 'market')) gold *= 1.2; // the hall's name opens doors abroad
   if (built(world, 'station')) gold *= 1.2; // goods go by rail
   gold *= 1 + mastery(world, 'commerce');

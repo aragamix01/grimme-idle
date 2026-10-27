@@ -1609,6 +1609,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "spice": {
+    "file": "assets/sprites/icons/spice.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "loot": {
     "file": "assets/sprites/icons/loot.png",
     "group": "icons",

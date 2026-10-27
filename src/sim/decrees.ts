@@ -14,6 +14,7 @@ import { charterOf, landPolicyOf } from './charter';
 import { frontier } from './lands';
 import { canSend, folkOf, labour } from './villages';
 import { conquestWar, weakest } from './war';
+import { CEILING, TARIFF, TARIFF_ON_IMPORTS, breadIsDear, embargo, embargoTarget } from './commerce';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -34,9 +35,12 @@ export const DECREES: Record<Decree, DecreeDef> = {
   tribute: { name: 'เกณฑ์ส่วยหัวเมือง', text: 'เรียกเก็บผลผลิตทั้งหมดจากหมู่บ้านเพื่ออุดท้องพระคลัง หมู่บ้านไม่พอใจ', days: 60 },
   relief: { name: 'ลดส่วยหัวเมือง', text: 'ลดส่วยให้หมู่บ้านที่ลำบากหรือไม่พอใจ เก็บผลผลิตไว้เองได้มากขึ้น', days: 90 },
   garrison: { name: 'ส่งทหารรักษาหัวเมือง', text: 'ส่งทหารไปประจำหมู่บ้านที่คิดแยกตัว กันไม่ให้แยกตัวได้ แต่ชาวบ้านรู้สึกถูกยึดครอง', days: 120 },
+  tariff: { name: 'ภาษีศุลกากร', text: 'เก็บภาษีสินค้าเข้าออกประตูเมือง คลังได้เงินเพิ่ม แต่การค้าซบเซาและกิลด์โจรได้ลักลอบขนของ', days: 120 },
+  embargo: { name: 'ห้ามค้ากับแคว้นศัตรู', text: 'ปิดเส้นทางการค้ากับแคว้นที่เป็นศัตรู ทำให้เขาเสียรายได้ แต่ของเถื่อนไหลเข้ามาแทน', days: 180 },
+  ceiling: { name: 'คุมราคาข้าว', text: 'กำหนดราคาข้าวสูงสุดในยามข้าวแพง ข้าวบางส่วนหลุดไปขายในตลาดมืดแทน', days: 60 },
   debase: { name: 'ลดค่าเหรียญ', text: 'ผสมโลหะลงในเหรียญทองเพื่อผลิตเหรียญเพิ่ม ท้องพระคลังได้ทองทันที แต่ข้าวของแพงขึ้นทั้งเมือง', days: 30 },
 };
-export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy', 'colonize', 'expand', 'tribute', 'relief', 'garrison', 'debase'];
+export const DECREE_ORDER: readonly Decree[] = ['labour', 'subsidy', 'bounty', 'curfew', 'taxfree', 'levy', 'colonize', 'expand', 'tribute', 'relief', 'garrison', 'tariff', 'embargo', 'ceiling', 'debase'];
 
 const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
@@ -135,6 +139,25 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
   relief: {
     wants: (world, k) => (has(k, 'kind') || has(k, 'loyal')) && !has(k, 'greedy') && (restless(world, 45).length >= 2 || restless(world, 30).length >= 1),
     issue: (world) => `ลดส่วยให้หมู่บ้าน 90 วัน (${restless(world, 45).length} หมู่บ้านกำลังไม่พอใจ)`,
+  },
+  // A ruler who wants the gates to pay: a greedy one, or a crown short of gold, where the charter allows it.
+  tariff: {
+    wants: (world, k) => world.day > 365 && world.day - (world.decreeAt?.tariff ?? -9999) >= 540 && charterOf(world).economy !== 'free' && budget(world) < (has(k, 'greedy') ? 100 : -100) && !has(k, 'kind') && world.npcs.some((n) => n.alive && n.job === 'merchant'), // a squeeze for a crown in real need, not a habit
+    issue: () => `เก็บภาษีขาออก ${TARIFF * 100}% และขาเข้า ${Math.round((TARIFF_ON_IMPORTS - 1) * 100)}% ที่ประตูเมือง 120 วัน`,
+  },
+  // A bold or vengeful ruler starves an enemy of our trade.
+  embargo: {
+    wants: (world, k) => (has(k, 'vengeful') || has(k, 'brave')) && !!embargoTarget(world),
+    issue: (world) => {
+      const r = embargoTarget(world)!;
+      embargo(world, r);
+      return `ปิดเส้นทางการค้ากับ${r.name} 180 วัน`;
+    },
+  },
+  // Bread too dear for the poor: a kind ruler, or one afraid of the street, caps its price.
+  ceiling: {
+    wants: (world, k) => charterOf(world).economy !== 'free' && breadIsDear(world) && (has(k, 'kind') || world.regime === 'junta' || (world.crown?.unrest ?? 0) > 0),
+    issue: () => `ราคาข้าวต้องไม่เกิน ${CEILING} เท่าของราคาปกติ 60 วัน`,
   },
   // A greedy ruler with an empty vault thins the coin rather than tighten the belt.
   debase: {
