@@ -59,6 +59,49 @@ function town() {
   return done(g);
 }
 
+// A region's own map: the works raised on its land.
+// A mine's mouth in a rock face, with a cart on its rails.
+function mine() {
+  const g = new Grid(16, 16);
+  g.tri(8, 1, 7, 12, 'x');
+  g.ellipse(8, 10, 3, 3, 'k').rect(5, 10, 7, 3, 'k');
+  g.vline(4, 8, 5, 'N').vline(12, 8, 5, 'N').hline(4, 7, 9, 'N');
+  g.hline(1, 14, 14, 'M');
+  g.rect(10, 11, 5, 3, 'X').set(11, 11, 'y').set(13, 11, 'y');
+  return done(g);
+}
+
+// Cut logs stacked beside a stump and its axe.
+function logs() {
+  const g = new Grid(16, 12);
+  for (const [x, y] of [[1, 7], [6, 7], [3.5, 3]]) {
+    const cx = Math.round(x);
+    g.rect(cx, y, 9, 4, 'N').ellipse(cx, y + 1, 1, 1, 'n').set(cx, y + 1, 'T');
+  }
+  g.rect(13, 6, 3, 5, 'M').vline(14, 2, 4, 'h').rect(13, 1, 2, 2, 'x');
+  return done(g);
+}
+
+// A fishing boat with its sail up.
+function boat() {
+  const g = new Grid(16, 14);
+  g.rect(2, 10, 13, 3, 'N').hline(3, 13, 11, 'M');
+  g.vline(8, 1, 9, 'M');
+  g.tri(5, 2, 3, 7, 'c');
+  g.rect(9, 3, 4, 5, 'w');
+  return done(g);
+}
+
+// A settler's hut with a thatch roof.
+function hut() {
+  const g = new Grid(16, 16);
+  g.rect(3, 8, 10, 7, 'n');
+  g.tri(8, 2, 7, 7, 'y');
+  g.hline(1, 8, 14, 'Y');
+  g.rect(7, 11, 3, 4, 'M').rect(4, 10, 2, 2, 'i');
+  return done(g);
+}
+
 export function worldmap() {
   return [
     { name: 'wm-mountain', group: 'worldmap', frames: [mountain()] },
@@ -66,5 +109,9 @@ export function worldmap() {
     { name: 'wm-castle', group: 'worldmap', frames: [castle()] },
     { name: 'wm-flag', group: 'worldmap', frames: [flag()] },
     { name: 'wm-town', group: 'worldmap', frames: [town()] },
+    { name: 'rm-mine', group: 'worldmap', frames: [mine()] },
+    { name: 'rm-logs', group: 'worldmap', frames: [logs()] },
+    { name: 'rm-boat', group: 'worldmap', frames: [boat()] },
+    { name: 'rm-hut', group: 'worldmap', frames: [hut()] },
   ];
 }

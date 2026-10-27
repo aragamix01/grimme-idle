@@ -553,3 +553,29 @@ html:has(dialog[open]) { overflow: hidden; }
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* The lands tab: each use of a region, its level as pips, and what the next level costs. */
+.land-uses {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.land-use {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  font-size: 13px;
+}
+.land-use__pips {
+  color: var(--gold-deep);
+  letter-spacing: 1px;
+}
+.land-use__next {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.realm-card .btn {
+  margin-top: 6px;
+}

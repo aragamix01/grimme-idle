@@ -8,6 +8,7 @@ import { clamp, log } from './core';
 import { FIRST_NAMES } from './names';
 import { AGES, ageOf } from './ages';
 import { RULER_TH } from './lexicon';
+import { landsOf } from './lands';
 import type { Realm, Regime, Terrain, Trait, WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
@@ -98,7 +99,8 @@ export function realmsDay(world: WorldState, rng: Rng): void {
     if (r.fallen) continue; // under the demon lord nothing grows
     r.gold = Math.max(0, r.gold + Math.round(r.people * 0.4) - r.army * 4 + int(rng, -40, 40));
     r.army = clamp(r.army + (r.gold > r.army * 15 ? 1 : -1), 5, Math.max(5, Math.round(r.people / 8))); // a realm can only field so many of its people
-    r.people = clamp(Math.round(r.people * (1 + 0.015 * (1 - r.people / 900))) + int(rng, -5, 5), 50, 2000); // grows toward what the land can feed
+    const room = 900 + 120 * Math.max(0, landsOf(world, r) - 1);
+    r.people = clamp(Math.round(r.people * (1 + 0.015 * (1 - r.people / room))) + int(rng, -5, 5), 50, 2000); // grows toward what its lands can feed
     const lean = leanOf(r);
     r.relation = clamp(Math.round(r.relation + (lean - r.relation) * 0.05 + int(rng, -2, 2)), -100, 100);
     if (world.day % 365 < 30) {

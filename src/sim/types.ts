@@ -244,6 +244,22 @@ export interface DemonLord {
 
 export type Terrain = 'mountain' | 'coast' | 'desert' | 'forest';
 
+// A region of the world map (see lands.ts): a seat (ours or a neighbour's heartland) or open
+// country, worked for what its kind of land is good for.
+export type LandKind = 'plain' | 'hills' | 'woods' | 'shore' | 'dunes' | 'peaks';
+export type LandUse = 'farm' | 'pasture' | 'mine' | 'lumber' | 'fishery';
+export interface Region {
+  id: number;
+  name: string;
+  kind: LandKind;
+  x: number; // its centre on the world map
+  y: number;
+  owner?: 'us' | number; // a realm's id; missing while it is open country
+  seat?: boolean; // a town's or a keep's own country: never sold or taken
+  dev?: Partial<Record<LandUse, number>>; // level of each use, 0..3
+  since?: number; // day it last changed hands
+}
+
 // A neighbouring kingdom on the world map, simulated in broad strokes.
 export interface Realm {
   id: number;
@@ -420,6 +436,7 @@ export interface WorldState {
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];
+  regions?: Region[]; // the world map's lands; missing in saves from before them
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;

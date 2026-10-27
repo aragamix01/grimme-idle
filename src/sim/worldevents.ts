@@ -9,6 +9,7 @@ import { legend } from './quests';
 import { traveller } from './world';
 import { aidRealm } from './disasters';
 import { realmArms } from './realms';
+import { conquer } from './lands';
 import { mastery } from './research';
 import type { Realm, RealmMiracle, WorldState } from './types';
 
@@ -91,6 +92,8 @@ function skirmish(world: WorldState, a: Realm, b: Realm, rng: Rng): void {
   const fled = int(rng, 2, 4);
   for (let i = 0; i < fled; i++) traveller(world, rng);
   log(world, 'world', `${win.name}รบชนะ${lose.name} ผู้ลี้ภัย ${fled} คนหนีภัยสงครามมาถึงเมืองของเรา`);
+  const land = conquer(world, lose, win);
+  if (land) log(world, 'world', `${win.name}ยึด${land.name}ไปจาก${lose.name}`);
 }
 
 // The demon lord is slain: every kingdom it took is free again, and grateful.
