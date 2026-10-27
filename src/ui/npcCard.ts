@@ -1,5 +1,5 @@
 import { isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
-import { el, icon, iconUrl } from './icons';
+import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
 const card = document.getElementById('npc-card')!;
@@ -16,6 +16,7 @@ let handlers: Handlers;
 let lastKey = '';
 let shownId: number | null = null;
 let choosingDream = false;
+let full = false; // on phones the sheet is pulled up to nearly the whole screen
 
 export function initNpcCard(h: Handlers): void {
   handlers = h;
@@ -27,6 +28,7 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   hint.hidden = !!npc;
   if (!npc) {
     choosingDream = false;
+    full = false;
     lastKey = '';
     return;
   }
@@ -37,24 +39,37 @@ export function renderNpcCard(world: WorldState, npcId: number | null, force = f
   const ties = topTies(world, npc.id);
   const guild = world.guilds.find((g) => g.id === npc.guildId);
   const fam = family(world, npc);
-  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, cursed(world, npc), Math.floor(world.day / 10), canAwaken(world), ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive])]);
+  const told = world.chronicle.filter((e) => e.npcId === npc.id).slice(-LIFE_ROWS);
+  const key = JSON.stringify([shown, doing, Math.floor(world.faith), choosingDream, full, cursed(world, npc), Math.floor(world.day / 10), canAwaken(world), ties, guild?.name, guild?.leaderId, fam.map((f) => [f.role, f.npc.id, f.npc.alive]), told.length, told.at(-1)?.text]);
   if (!force && key === lastKey) return;
   lastKey = key;
   const membership = guild && { name: guild.name, leads: guild.leaderId === npc.id };
   // On phones the card is a scrolling sheet: keep the reader's place across rebuilds, start at the top for someone new.
+  if (shownId !== npc.id) full = false; // someone new opens at half height
   const scroll = shownId === npc.id ? card.scrollTop : 0;
   shownId = npc.id;
-  card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), recordBlock(npc, world), powers(npc, world, canAwaken(world)));
+  card.classList.toggle('npc--full', full);
+  card.replaceChildren(bar(npc), header(npc, doing, world, membership), stats(npc), familyBlock(fam), relations(world, ties), recordBlock(npc, world), lifeBlock(told), powers(npc, world, canAwaken(world)));
   localize(card, world);
   card.scrollTop = scroll;
 }
 
-// A slim bar that stays at the top of the phone sheet, so it can always be closed.
+// A slim bar that stays at the top of the phone sheet: the name pulls the sheet up to full
+// height (and back down), and the cross closes it.
 function bar(npc: Npc): HTMLElement {
+  const grow = el('button', { type: 'button', className: 'npc__bar-grow' }, el('b', { textContent: npc.name }), el('span', { textContent: full ? 'ย่อ ▾' : 'ดูทั้งหมด ▴' }));
+  grow.setAttribute('aria-expanded', String(full));
+  grow.onclick = () => setFull(!full);
   const close = el('button', { type: 'button', className: 'npc__bar-close', textContent: '×', title: 'ปิด' });
   close.setAttribute('aria-label', 'ปิดข้อมูลชาวเมือง');
   close.onclick = () => handlers.onClose();
-  return el('div', { className: 'npc__bar' }, el('b', { textContent: npc.name }), close);
+  return el('div', { className: 'npc__bar' }, grow, close);
+}
+
+function setFull(on: boolean): void {
+  full = on;
+  lastKey = '';
+  card.dispatchEvent(new Event('rerender'));
 }
 
 const WORK_TH: Partial<Record<Job, string>> = {
@@ -173,6 +188,17 @@ function recordBlock(npc: Npc, world: WorldState): HTMLElement {
       return el('li', { className: r.verdict === 'guilty' || !r.verdict ? 'rel rel--bad' : 'rel' }, el('span', { textContent: what }), el('span', { className: 'rel__label', textContent: verdict }), el('b', { textContent: `D${r.day}` }));
     });
   return el('div', { className: 'npc__rels' }, el('h4', { textContent: `ประวัติคดี (${rec.length})` }), el('ul', {}, ...rows));
+}
+
+// The latest of this life in the chronicle, newest first: on a phone the card covers the
+// chronicle's own "this one" tab, so the story travels with the card.
+const LIFE_ROWS = 8;
+function lifeBlock(told: WorldState['chronicle']): HTMLElement {
+  if (!told.length) return el('div');
+  const rows = [...told].reverse().map((e) =>
+    el('li', { className: DANGER_KINDS.has(e.kind) ? 'life-row life-row--danger' : 'life-row' }, icon(EVENT_ICON[e.kind], 24), el('span', { textContent: e.text }), el('b', { textContent: `D${e.day}` })),
+  );
+  return el('div', { className: 'npc__rels npc__life' }, el('h4', { textContent: 'เรื่องราวล่าสุด' }), el('ol', {}, ...rows));
 }
 
 function relations(world: WorldState, ties: { id: number; value: number }[]): HTMLElement {
@@ -299,6 +325,7 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     ),
     powerButton('dream', 'ส่งความฝัน', COMMAND_COST.dream, can(COMMAND_COST.dream) && grown, () => {
       choosingDream = !choosingDream;
+      if (choosingDream) full = true; // the dreams to pick from need the room
       lastKey = '';
       card.dispatchEvent(new Event('rerender'));
     }),

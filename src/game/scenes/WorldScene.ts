@@ -159,20 +159,27 @@ export class WorldScene extends Phaser.Scene {
       cam.stopFollow();
       cam.setScroll(d.sx - (p.x - d.x) / cam.zoom, d.sy - (p.y - d.y) / cam.zoom);
     });
-    // A tap picks the nearest living NPC within reach; empty ground clears the selection.
-    // Reach is measured on screen, wider for a fingertip than a mouse, so tiny sprites stay tappable.
+    // A tap picks the living NPC nearest the finger: a tap anywhere on a body is a hit, and a
+    // miss by up to a fingertip's width (measured on screen, so it holds at any zoom) still counts.
+    // Empty ground clears the selection.
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       const moved = this.drag?.moved;
       this.drag = null;
       if (moved) return;
       const k = (this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width) * cam.zoom;
       let best: number | null = null;
-      let bestD = Math.max(10, (p.wasTouch ? 40 : 24) / k);
+      let bestD = (p.wasTouch ? 28 : 16) / k;
+      let bestC = Infinity; // among bodies hit, the one whose middle is closest
       for (const [id, s] of this.npcSprites) {
         if (!s.visible) continue;
-        const d = Phaser.Math.Distance.Between(p.worldX, p.worldY, s.x, s.y - 10);
-        if (d < bestD) {
+        const half = s.displayWidth / 4; // the figure, not its empty frame
+        const dx = Math.max(0, Math.abs(p.worldX - s.x) - half);
+        const dy = Math.max(0, s.y - s.displayHeight * 0.8 - p.worldY, p.worldY - s.y);
+        const d = Math.hypot(dx, dy);
+        const c = Math.hypot(p.worldX - s.x, p.worldY - (s.y - s.displayHeight / 2));
+        if (d < bestD || (d === bestD && c < bestC)) {
           bestD = d;
+          bestC = c;
           best = id;
         }
       }
