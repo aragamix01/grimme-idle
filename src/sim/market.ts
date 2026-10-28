@@ -312,7 +312,8 @@ function tithe(world: WorldState): void {
   let collected = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.gold <= TITHE_FLOOR) continue;
-    const gift = Math.floor((n.gold - TITHE_FLOOR) * TITHE * (n.traits.includes('kind') ? 2 : 1));
+    const devotion = n.creed === 'none' ? 0.5 : 0.5 + (n.piety ?? 50) / 100; // the devout give more, the faithless less
+    const gift = Math.floor((n.gold - TITHE_FLOOR) * TITHE * (n.traits.includes('kind') ? 2 : 1) * devotion);
     n.gold -= gift;
     collected += gift;
   }

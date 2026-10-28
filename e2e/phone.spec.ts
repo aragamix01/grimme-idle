@@ -148,6 +148,7 @@ test('every section opens its panel, and the town map still answers a tap after 
 });
 
 test('every tab in every section, then a tap on the map', async ({ page }) => {
+  test.setTimeout(120_000); // sixteen tabs, a tap on the map after each
   const tabs: [string, string, string][] = [
     ['town', 'years', '#annals'],
     ['town', 'all', '#feed'],
@@ -158,6 +159,7 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
     ['power', 'council', '#kingdom'],
     ['power', 'law', '#kingdom'],
     ['power', 'court', '#kingdom'],
+    ['power', 'faith', '#faith'],
     ['power', 'threat', '#kingdom'],
     ['power', 'overview', '#kingdom'],
     ['economy', 'houses', '#market'],
@@ -566,6 +568,34 @@ test('a miracle tile shows what it does before it is worked, and a dream goes to
   await closeCard(page);
   await tapNpc(page);
   await closeCard(page);
+});
+
+test('the religion tab: creeds, the holy day, the rites; a believer opens with their faith on the card', async ({ page }) => {
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const view = page.locator('#faith');
+  await expect(view).toBeVisible();
+  await expect(view.locator('.k-tile')).toHaveCount(3);
+  await expect(view.locator('.ballot__row')).toHaveCount(3);
+  await expect(view.locator('.faith-holy')).toContainText('วันพระ');
+  // The creed counts add up to the grown townsfolk.
+  const [shown, grown] = await Promise.all([
+    view.locator('.ballot__row b').evaluateAll((els) => els.reduce((s, e) => s + Number(e.textContent), 0)),
+    page.evaluate(() => (window as any).__grimm.scene.world.npcs.filter((n: any) => n.alive && n.age >= 16 && n.creed).length),
+  ]);
+  expect(shown).toBe(grown);
+  // A devout believer's row opens their card, which tells their faith once opened in full.
+  const row = view.locator('.guild-sec').nth(1).locator('.chip--button').first();
+  const name = await row.textContent();
+  await row.tap();
+  await expect(card(page).locator('.npc__name')).toHaveText(name!);
+  await card(page).locator('.npc__open').tap();
+  await expect(card(page)).toHaveClass(/npc--full/);
+  await expect(card(page).locator('.npc__faith')).toContainText('นับถือเทพเจ้า');
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
 });
 
 test('the people list filters, and a row opens that person', async ({ page }) => {

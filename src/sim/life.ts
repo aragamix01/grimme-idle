@@ -10,6 +10,7 @@ import { priceRatio } from './market';
 import { graduate, lesson, schoolAge } from './learning';
 import { built } from './works';
 import { addTie, getTie, setTie } from './ties';
+import { naming, wedding } from './religion';
 import type { Npc, Trait, WorldState } from './types';
 
 export const ADULT_AGE = 16;
@@ -140,7 +141,7 @@ export function wed(world: WorldState, a: Npc, b: Npc): void {
   b.spouseId = a.id;
   lookup(world).single.delete(a.id);
   lookup(world).single.delete(b.id);
-  log(world, 'bond', `${a.name} และ${b.name} แต่งงานกัน`, a.id);
+  log(world, 'bond', wedding(world, a, b), a.id);
 }
 
 // Couples in their child-raising years sometimes welcome a child.
@@ -154,7 +155,7 @@ export function births(world: WorldState, rng: Rng): void {
     if (kids >= MAX_CHILDREN || !chance(rng, BIRTH_CHANCE)) continue;
     const child = bornTo(world, a, b, rng);
     world.npcs.push(child);
-    log(world, 'bond', `${a.name} และ${b.name} ต้อนรับลูกคนใหม่ ชื่อ${child.name}`, child.id);
+    log(world, 'bond', `${a.name} และ${b.name} ต้อนรับลูกคนใหม่ ชื่อ${child.name}${naming(world, child, a, b, rng)}`, child.id);
   }
 }
 

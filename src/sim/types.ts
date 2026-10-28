@@ -79,12 +79,30 @@ export interface Npc {
   coat?: number; // day they last bought cloth for a winter coat; a coat lasts two winters
   lettered?: boolean; // can read and write; missing means whatever their trade implies (see literate)
   regionId?: number; // lives in a village out on the lands (kept in world.villagers, not world.npcs)
+  creed?: Creed; // what they believe in; missing until the religion first counts them (see religion.ts)
+  piety?: number; // 0..100: how much their belief rules their days
+}
+
+// What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
+// or nothing at all.
+export type Creed = 'god' | 'spirits' | 'none';
+
+// The town's religious life (see religion.ts).
+export interface Religion {
+  seen: number; // the last chronicle entry looked at for deaths to bury
+  year: number; // the year the tallies below count
+  weddings: number;
+  funerals: number;
+  namings: number;
+  offerings: number; // gold given at the church on holy days this year
+  worshippers?: number; // believers who kept the last holy day
+  prayer?: number; // faith the believers' prayers bring each day, worked out every few days
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray';
 
 export interface Plan {
   kind: PlanKind;
@@ -479,6 +497,7 @@ export interface WorldState {
   debt?: { guildId: number; owed: number; since: number }; // what the crown owes a trade house
   embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
+  religion?: Religion; // missing in saves from before the townsfolk had beliefs of their own
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;

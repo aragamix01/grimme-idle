@@ -122,6 +122,7 @@ const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)]
 function lineFor(world: WorldState, n: Npc): string | undefined {
   if (n.age < ADULT_AGE) return any(KIDS);
   const p = n.plan?.kind;
+  if (p === 'pray') return any(['วันนี้วันพระ ไปโบสถ์กัน', 'ขอเทพเจ้าคุ้มครอง', 'ทำบุญสักหน่อย']);
   if (p === 'ritual') return any(['(กระซิบ) ไปที่ดันเจี้ยน…', 'อย่าให้ใครเห็น…']);
   if (p === 'steal') return any(['เป้าหมายอยู่ตรงนั้น…', 'ค่อยๆ ย่องไป…']);
   if (p === 'flee') return any(['หนีเร็ว!', 'ไม่ได้ทำอะไรนะ!']);

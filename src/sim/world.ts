@@ -44,6 +44,7 @@ import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
+import { religionDay, religionOf, worship } from './religion';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -154,6 +155,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   socialize(world, rng);
   romance(world, rng);
   births(world, rng);
+  religionDay(world, rng);
   marketDay(world, rng);
   tradeHousesDay(world, rng);
   commerceDay(world, rng);
@@ -211,7 +213,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.charter?.stateFaith ? 0.3 : 0.1) + Math.min(5, world.monument ?? 0) * 0.02; // a state faith prays all day; pilgrims visit the monument
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
   world.rng = rng.state;
   return world;
 }
@@ -427,6 +429,9 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
     case 'buy':
       buyGear(world, npc);
       npc.plan = undefined;
+      return;
+    case 'pray':
+      worship(world, npc, p);
       return;
     case 'ritual':
       performRitual(world, npc);

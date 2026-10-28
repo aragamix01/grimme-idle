@@ -98,7 +98,7 @@ function regimeFeeling(world: WorldState, n: Npc): number {
     case 'junta':
       return n.job === 'soldier' || n.knight ? 1 : -0.6;
     case 'theocracy':
-      return n.job === 'priest' ? 1 : n.morality > 0 ? 0.3 : -0.8;
+      return n.job === 'priest' ? 1 : n.creed === 'none' ? -1 : (n.piety ?? 50) >= 60 ? 0.6 : n.morality > 0 ? 0.3 : -0.8;
     case 'oligarchy':
       return n.gold >= 60 ? 1 : n.gold < 15 ? -0.8 : 0;
     default:

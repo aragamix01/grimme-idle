@@ -290,7 +290,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__title .rank { width: 24px; height: 24px; font-size: 14px; }
 .npc__meta { margin: 0; font-size: 13px; line-height: 20px; color: var(--ink-muted); }
 .npc__stats .npc__stat:first-child { order: 3; } /* gold under morality and loyalty */
-.npc:not(.npc--full) .npc__powers h4, .npc:not(.npc--full) .npc__traits { display: none; }
+.npc:not(.npc--full) .npc__powers h4, .npc:not(.npc--full) .npc__traits, .npc:not(.npc--full) .npc__faith { display: none; }
 /* At half height the powers come straight after the name, so a short screen still shows them. */
 .npc:not(.npc--full) .npc__powers { order: -2; }
 .npc:not(.npc--full) .npc__stats { order: -1; }
@@ -332,7 +332,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .npc__id { min-width: 0; }
 .npc__name { margin: 0; font-size: 17px; line-height: 26px; font-weight: 600; }
 .npc__chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
-.npc__traits { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.npc__traits, .npc__faith { margin: 0; font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .npc__doing { margin: 4px 0 0; font-size: 13px; line-height: 20px; font-weight: 500; }
 .npc__doing::before { content: "▸ "; color: var(--ink-muted); }
 .npc__bar { display: none; }
@@ -724,6 +724,10 @@ html:has(dialog[open]) { overflow: hidden; }
 .ballot__bar i { display: block; height: 100%; background: var(--paper-edge); }
 .ballot__row--won .ballot__bar i { background: var(--gold); }
 .ballot__row b { font: 500 12px var(--font-num); text-align: right; }
+/* ---- ศาสนา ---- */
+.faith .ballot__row { grid-template-columns: 116px minmax(0, 1fr) 32px; font-size: 13px; }
+.faith .ballot small { margin-top: 2px; }
+.faith-holy p { display: flex; gap: 6px; align-items: center; margin: 0; }
 .council { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 4px; }
 .council .realm-king__meta { margin: 0; flex-basis: 100%; }
 .tech__icon { width: 32px; height: 32px; justify-self: center; image-rendering: pixelated; }

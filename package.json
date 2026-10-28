@@ -13,6 +13,7 @@
     "sprites": "node tools/sprites/build.mjs",
     "deploy": "npm run build && wrangler deploy",
     "test:e2e": "playwright test",
+    "test:sim": "node tools/simtest/run.mjs",
     "balance": "node tools/balance/run.mjs"
   },
   "dependencies": {
