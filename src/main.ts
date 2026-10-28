@@ -370,7 +370,7 @@ function look(id: number | null): void {
   viewing = id;
   if (world) viewLand(world, id);
 }
-const pickRegion = (id: number) => {
+const pickRegion = (id: number | null) => {
   mapScene.pickLand(id);
   if (sub() !== 'lands') setSub('lands');
   if (world) pickLand(world, id);
