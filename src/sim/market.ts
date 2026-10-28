@@ -15,6 +15,7 @@ import { shoresHeld } from './lands';
 import { caravanHome } from './worldevents';
 import { built } from './works';
 import { jobName } from './ages';
+import { churchOf } from './church';
 import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } from './types';
 import { TOWN_SIZE } from './town';
 
@@ -323,12 +324,15 @@ function tithe(world: WorldState): void {
   for (const p of priests) p.gold += share;
   // The church's larder buys bread for whoever goes hungry; what it can't use goes to the market.
   const larder = Math.floor(collected * 0.35);
+  // And a tenth for the church's own purse, the root of its standing.
+  const church = Math.floor(collected * 0.1);
+  churchOf(world).purse += church;
   world.alms = (world.alms ?? 0) + larder;
   if (world.alms > ALMS_KEPT) {
     ensureMarket(world).till += world.alms - ALMS_KEPT;
     world.alms = ALMS_KEPT;
   }
-  world.treasury += collected - share * priests.length - larder;
+  world.treasury += collected - share * priests.length - larder - church;
 }
 
 // A merchant takes a caravan out the west gate to the neighbouring towns: carrying surplus to

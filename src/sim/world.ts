@@ -45,6 +45,7 @@ import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
+import { churchDay, judgeSect, sectCost } from './church';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -156,6 +157,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   romance(world, rng);
   births(world, rng);
   religionDay(world, rng);
+  churchDay(world, rng);
   marketDay(world, rng);
   tradeHousesDay(world, rng);
   commerceDay(world, rng);
@@ -595,6 +597,11 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'war') {
     const cost = Math.max(1, Math.round(WAR_COST[cmd.act] * (1 - 0.1 * perkLevel(world, 'grace'))));
     if (world.faith >= cost && warAct(world, cmd.act)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'sect') {
+    const cost = sectCost(world);
+    if (world.faith >= cost && judgeSect(world, cmd.act)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'tenet') {

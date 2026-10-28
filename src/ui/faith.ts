@@ -1,4 +1,4 @@
-import { CREED_TH, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, adherence, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, prophetOf, religionOf, support, tenetCost, tenetOn, type Creed, type Npc, type Tenet, type WorldState } from '../sim';
+import { CREED_TH, FAITH_LAW_TH, charterOf, churchOf, faithLawOf, headOf, sectCost, sectMembers, sectOf, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, adherence, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, prophetOf, religionOf, support, tenetCost, tenetOn, type Creed, type Npc, type Tenet, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -10,6 +10,7 @@ const view = document.getElementById('faith')!;
 interface Handlers {
   onSelectNpc: (id: number) => void;
   onTenet: (k: Tenet) => void; // hand a commandment down, or take it back
+  onSect: (act: 'embrace' | 'condemn') => void; // the god's word on a schism
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -18,7 +19,7 @@ export function initFaith(h: Handlers): void {
   handlers = h;
 }
 
-const CREEDS: Creed[] = ['god', 'spirits', 'none'];
+const CREEDS: Creed[] = ['god', 'sect', 'spirits', 'none'];
 
 export function renderFaith(world: WorldState): void {
   const c = creedCounts(world);
@@ -27,15 +28,17 @@ export function renderFaith(world: WorldState): void {
   const devout = world.npcs.filter((n) => n.alive && n.age >= 16 && n.creed === 'god' && n.job !== 'priest').sort((a, b) => pietyOf(b) - pietyOf(a)).slice(0, 5);
   const daily = Math.round(prayers(world) * 100) / 100;
   const prophet = prophetOf(world);
-  const key = JSON.stringify([c, rel, daily, Math.floor(world.faith), prophet?.id, TENET_ORDER.map((k) => Math.round(support(world, k) * 20)), priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
+  const key = JSON.stringify([world.charter?.faith, world.charter?.stateFaith, headOf(world)?.id, c, rel, daily, Math.floor(world.faith), prophet?.id, TENET_ORDER.map((k) => Math.round(support(world, k) * 20)), priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
   if (key === lastKey) return;
   lastKey = key;
-  const total = c.god + c.spirits + c.none || 1;
+  const total = c.god + c.sect + c.spirits + c.none || 1;
   const share = Math.round((c.god / total) * 100);
   view.replaceChildren(
     tiles(share, c.piety, daily),
     holyDay(world),
-    creeds(c, total),
+    creeds(world, c, total),
+    church(world),
+    sect(world),
     tenets(world, prophet),
     rites(world),
     section('นักบวช', priests.length ? priests.map((n) => personRow(n, jobName(world, n.job))) : [empty('เมืองไม่มีนักบวช ไม่มีใครประกอบพิธี และคนที่ไม่เชื่อจะไม่มีใครมาชักชวน')], `${priests.length} คน`),
@@ -75,8 +78,9 @@ function holyDay(world: WorldState): HTMLElement {
 }
 
 // Who believes in what, in town and out in the villages.
-function creeds(c: ReturnType<typeof creedCounts>, total: number): HTMLElement {
-  const villages = c.villages.god + c.villages.spirits + c.villages.none;
+function creeds(world: WorldState, c: ReturnType<typeof creedCounts>, total: number): HTMLElement {
+  const villages = c.villages.god + c.villages.sect + c.villages.spirits + c.villages.none;
+  const label = (k: Creed) => (k === 'sect' ? world.religion?.sect?.name ?? CREED_TH.sect : CREED_TH[k]);
   return el(
     'section',
     { className: 'k-block' },
@@ -84,16 +88,68 @@ function creeds(c: ReturnType<typeof creedCounts>, total: number): HTMLElement {
     el(
       'div',
       { className: 'ballot' },
-      ...CREEDS.map((k) => {
+      ...CREEDS.filter((k) => k !== 'sect' || c.sect || world.religion?.sect).map((k) => {
         const fill = el('i');
         fill.style.width = `${(c[k] / total) * 100}%`;
-        const row = el('div', { className: `ballot__row${k === 'god' ? ' ballot__row--won' : ''}` }, el('span', { textContent: CREED_TH[k] }), el('span', { className: 'ballot__bar' }, fill), el('b', { textContent: String(c[k]) }));
+        const row = el('div', { className: `ballot__row${k === 'god' ? ' ballot__row--won' : ''}` }, el('span', { textContent: label(k) }), el('span', { className: 'ballot__bar' }, fill), el('b', { textContent: String(c[k]) }));
         row.dataset.creed = k;
         return row;
       }),
-      ...(villages ? [el('small', { textContent: `หมู่บ้านในดินแดนของเรา ${villages} คน: ${CREEDS.filter((k) => c.villages[k]).map((k) => `${CREED_TH[k]} ${c.villages[k]}`).join(' · ')}` })] : []),
+      ...(villages ? [el('small', { textContent: `หมู่บ้านในดินแดนของเรา ${villages} คน: ${CREEDS.filter((k) => c.villages[k]).map((k) => `${label(k)} ${c.villages[k]}`).join(' · ')}` })] : []),
     ),
   );
+}
+
+// The church as a power: its head, its standing, its purse, its word on the ruler, and the law.
+function church(world: WorldState): HTMLElement {
+  const c = churchOf(world);
+  const head = headOf(world);
+  const fill = el('span', { className: `realm-meter__fill realm-meter__fill--${c.influence < 30 ? 'weak' : 'strong'}` });
+  fill.style.width = `${c.influence}%`;
+  const headBtn = head ? el('button', { type: 'button', className: 'chip chip--button', textContent: `มหาเถระ${head.name}` }) : el('span', { className: 'chip', textContent: 'ไม่มีมหาเถระ' });
+  if (head) headBtn.onclick = () => handlers.onSelectNpc(head.id);
+  const word = c.stance === 'denounces' ? 'ประณามผู้ปกครอง ผู้ศรัทธาหันหลังให้ราชบัลลังก์' : c.stance === 'blesses' ? 'อวยพรผู้ปกครอง ผู้ศรัทธาภักดีขึ้น' : 'วางตัวเป็นกลางต่อผู้ปกครอง';
+  return el(
+    'section',
+    { className: 'k-block faith-church' },
+    el('h3', { textContent: 'ศาสนจักร' }),
+    el('div', { className: 'realm-meter' }, el('span', { className: 'realm-meter__label', textContent: 'อิทธิพล' }), el('span', { className: 'realm-meter__track' }, fill), el('b', { textContent: String(c.influence) })),
+    el('div', { className: 'faith-church__row' }, headBtn, el('span', { className: 'chip', textContent: `คลังวัด ${Math.floor(c.purse)} ทอง` })),
+    el('p', { className: `realm-king__meta${c.stance === 'denounces' ? ' faith-church__bad' : ''}`, textContent: word }),
+    el('p', { className: 'realm-king__meta', textContent: `กฎหมาย: ${FAITH_LAW_TH[faithLawOf(charterOf(world))]}` }),
+  );
+}
+
+// A sect broken from the church, and the god's two answers to it.
+function sect(world: WorldState): HTMLElement {
+  const s = sectOf(world);
+  if (!s) return section('นิกาย', [empty('ยังไม่มีนิกายแยก ถ้าคนอ่านออกเขียนได้มากขึ้น บัญญัติขัดกับชีวิตจริง หรือศาสนจักรร่ำรวยจนฉ้อฉล อาจมีคนตั้งนิกายใหม่')]);
+  const members = sectMembers(world);
+  const leader = world.npcs.find((n) => n.id === s.leaderId);
+  const cost = sectCost(world);
+  const act = (a: 'embrace' | 'condemn', label: string, gold: boolean) => {
+    const b = el('button', { type: 'button', className: `btn${gold ? ' btn--gold' : ''} divine`, disabled: world.faith < cost }, label, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    b.dataset.act = a;
+    b.onclick = () => handlers.onSect(a);
+    return b;
+  };
+  const why = s.cause === 'corrupt' ? 'ประณามว่าศาสนจักรร่ำรวยและฉ้อฉล' : s.cause === 'tenet' ? 'ไม่ยอมรับบัญญัติบางข้อ' : 'สอนให้อ่านคัมภีร์เองโดยไม่ต้องผ่านนักบวช';
+  const li = el(
+    'li',
+    { className: 'faith-sect' },
+    el('p', { className: 'realm-cult__name', textContent: s.name }),
+    el('p', { className: 'realm-king__meta', textContent: `ตั้งเมื่อ D${s.founded} · ${why} · สาวก ${members.length} คน` }),
+    el('div', { className: 'quest__party' }, ...(leader ? [el('span', { className: 'realm-king__meta', textContent: 'ผู้นำ' }), personChip(leader)] : [])),
+    el('div', { className: 'faith-sect__acts' }, act('embrace', 'รับรองการปฏิรูป', true), act('condemn', 'ประณามว่านอกรีต', false)),
+    el('p', { className: 'realm-king__meta', textContent: 'รับรอง: สาวกกลับเข้าโบสถ์ ศาสนจักรปฏิรูป คนอ่านหนังสือศรัทธาเสื่อมน้อยลง · ประณาม: นิกายสลาย แต่ครึ่งหนึ่งหมดศรัทธา' }),
+  );
+  return section('นิกาย', [li], `สาวก ${members.length} คน`);
+}
+
+function personChip(n: Npc): HTMLElement {
+  const b = el('button', { type: 'button', className: 'chip chip--button', textContent: n.name });
+  b.onclick = () => handlers.onSelectNpc(n.id);
+  return b;
 }
 
 // This year's rites, and the church's larder for the hungry.

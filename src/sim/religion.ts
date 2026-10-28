@@ -44,7 +44,7 @@ export const TENET_ORDER = Object.keys(TENETS) as Tenet[];
 const grace = (world: WorldState, cost: number) => Math.max(1, Math.round(cost * (1 - 0.1 * perkLevel(world, 'grace'))));
 export const tenetCost = (world: WorldState, k: Tenet) => grace(world, tenetOn(world, k) ? REVOKE_COST : TENET_COST);
 
-export const CREED_TH: Record<Creed, string> = { god: 'นับถือเทพเจ้า', spirits: 'นับถือผีบรรพบุรุษ', none: 'ไม่นับถือสิ่งใด' };
+export const CREED_TH: Record<Creed, string> = { god: 'นับถือเทพเจ้า', sect: 'นิกายแยก', spirits: 'นับถือผีบรรพบุรุษ', none: 'ไม่นับถือสิ่งใด' };
 
 const grown = (n: Npc) => n.alive && n.age >= 16;
 const townAdults = (world: WorldState) => world.npcs.filter(grown);
@@ -97,7 +97,8 @@ export function pietyPull(world: WorldState, n: Npc, priests: number, adults: nu
   if (n.traits.includes('greedy')) t -= 6;
   if ((n.hunger ?? 0) >= 2) t += 6; // the hungry pray
   if (occupied(world)) t += 8; // and so do the conquered
-  if (literate(n)) t -= 8;
+  if (literate(n)) t -= world.religion?.reformed ? 4 : 8; // a reformed church reads with its flock
+  if (world.charter?.faith === 'secular') t -= 4;
   if (industrial(world)) t -= 10;
   if (cursed(world, n)) t -= 25;
   if (n.cultist) t -= 30;
@@ -222,8 +223,9 @@ export function proclaim(world: WorldState, k: Tenet): boolean {
 // Faith the god draws each day from the prayers of those who believe in them.
 export function prayers(world: WorldState): number {
   let sum = 0;
-  for (const n of world.npcs) if (grown(n) && believer(n)) sum += pietyOf(n) / 100;
-  for (const n of world.villagers ?? []) if (grown(n) && believer(n)) sum += pietyOf(n) / 100;
+  const weight = (n: Npc) => (!grown(n) ? 0 : believer(n) ? 1 : n.creed === 'sect' ? 0.6 : 0); // a sect prays to the god too, in its own way
+  for (const n of world.npcs) sum += (weight(n) * pietyOf(n)) / 100;
+  for (const n of world.villagers ?? []) sum += (weight(n) * pietyOf(n)) / 100;
   return sum * PRAYER * (world.charter?.stateFaith ? 1.5 : 1) * (tenetOn(world, 'learning') ? 0.85 : 1);
 }
 
@@ -328,8 +330,8 @@ function burials(world: WorldState, rel: Religion): void {
 }
 
 // The town's beliefs at a glance: how many hold each creed, and how devout the believers are.
-export function creedCounts(world: WorldState): { god: number; spirits: number; none: number; piety: number; villages: { god: number; spirits: number; none: number } } {
-  const out = { god: 0, spirits: 0, none: 0, piety: 0, villages: { god: 0, spirits: 0, none: 0 } };
+export function creedCounts(world: WorldState): Record<Creed, number> & { piety: number; villages: Record<Creed, number> } {
+  const out = { god: 0, sect: 0, spirits: 0, none: 0, piety: 0, villages: { god: 0, sect: 0, spirits: 0, none: 0 } };
   let sum = 0;
   for (const n of world.npcs) {
     if (!grown(n) || !n.creed) continue;
@@ -337,7 +339,7 @@ export function creedCounts(world: WorldState): { god: number; spirits: number; 
     sum += pietyOf(n);
   }
   for (const n of world.villagers ?? []) if (grown(n) && n.creed && world.regions?.find((r) => r.id === n.regionId)?.owner === 'us') out.villages[n.creed]++;
-  const counted = out.god + out.spirits + out.none;
+  const counted = out.god + out.sect + out.spirits + out.none;
   out.piety = counted ? Math.round(sum / counted) : 0;
   return out;
 }

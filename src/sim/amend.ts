@@ -6,7 +6,8 @@
 // on him; a pious ruler makes the faith the state's, a learned one separates them again.
 import { chance, type Rng } from './rng';
 import { known, log, loyaltyNudge, occupied } from './core';
-import { amend, charterOf, landPolicyOf } from './charter';
+import { amend, charterOf, faithLaw, faithLawOf, landPolicyOf } from './charter';
+import { churchOf } from './church';
 import { approval, crownPower, loyaltyOf } from './politics';
 import { king } from './society';
 import { literacy, literate } from './learning';
@@ -91,12 +92,21 @@ export function amendmentsDay(world: WorldState, rng: Rng): void {
 
   // Church and state, in any regime but the priests' own.
   if (r !== 'theocracy') {
+    const law = faithLawOf(c);
     // Only a town that doesn't yet read much takes a state faith; once it reads, it lets go.
-    if (!c.stateFaith && has(ruler, 'kind', 'loyal') && literacy(world) < 0.5 && world.faith >= 200 && world.works?.cathedral !== undefined && chance(rng, 0.15)) {
-      return amend(world, { stateFaith: true }, 'ประกาศให้ศาสนาของเทพเจ้าเป็นศาสนาประจำรัฐ');
+    if ((law === 'tolerant' || law === 'secular') && has(ruler, 'kind', 'loyal') && literacy(world) < 0.5 && (churchOf(world).influence >= 55 || world.faith >= 200) && world.works?.cathedral !== undefined && chance(rng, 0.15)) {
+      return amend(world, faithLaw('state'), 'ประกาศให้ศาสนาของเทพเจ้าเป็นศาสนาประจำรัฐ');
     }
-    if (c.stateFaith && literacy(world) >= 0.5 && known(world, 'printing') && chance(rng, 0.2)) {
-      return amend(world, { stateFaith: false }, 'แยกศาสนาออกจากรัฐ นักปราชญ์ค้นคว้าได้อย่างเสรี');
+    // A vengeful, devout ruler turns the state faith on everyone outside it.
+    const outsiders = adults(world).filter((n) => n.creed !== 'god').length;
+    if (law === 'state' && has(ruler, 'vengeful') && (ruler.piety ?? 50) >= 60 && (world.religion?.sect || outsiders >= adults(world).length * 0.2) && chance(rng, 0.2)) {
+      return amend(world, faithLaw('persecute'), `${ruler.name}สั่งไล่ล่าผู้นับถือความเชื่ออื่นและพวกนอกรีต`);
+    }
+    if (law === 'persecute' && (has(ruler, 'kind') || approval(world) < 35) && chance(rng, 0.25)) {
+      return amend(world, faithLaw('state'), 'ยกเลิกการไล่ล่าคนนอกศาสนา ศาสนาของเทพเจ้ายังเป็นศาสนาประจำรัฐ');
+    }
+    if ((law === 'state' || law === 'persecute') && literacy(world) >= 0.5 && known(world, 'printing') && chance(rng, 0.2)) {
+      return amend(world, faithLaw('secular'), 'แยกศาสนาออกจากรัฐ นักปราชญ์ค้นคว้าได้อย่างเสรี');
     }
   }
 

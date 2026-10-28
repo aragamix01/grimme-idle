@@ -729,6 +729,13 @@ html:has(dialog[open]) { overflow: hidden; }
 .faith .ballot small { margin-top: 2px; }
 .faith-holy p { display: flex; gap: 6px; align-items: center; margin: 0; }
 .tenets ul { display: grid; gap: 6px; }
+.faith-church .realm-meter { margin: 4px 0; }
+.faith-church__row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.faith-church__bad { color: var(--danger); }
+.faith-church p { margin: 2px 0; }
+.faith-sect { display: grid; gap: 4px; padding: 8px; border: 2px solid var(--outline); background: var(--paper-raised); }
+.faith-sect p { margin: 0; }
+.faith-sect__acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .tenet { display: grid; gap: 2px; padding: 6px 8px; border: 2px solid var(--outline); background: var(--paper-raised); }
 .tenet--on { background: #fff4c7; }
 .tenet__head { display: flex; gap: 6px; align-items: center; justify-content: space-between; }

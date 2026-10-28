@@ -622,6 +622,50 @@ test('a commandment handed down through a dream shows in force, can be taken bac
   await pageStill(page);
 });
 
+test('the church and a sect on the religion tab: the god embraces the sect, and the map still answers', async ({ page }) => {
+  // Seed a sect into the save: stop the sim, write the world back with a sect in it, and reload.
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.npcs.some((n: any) => n.creed));
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const members = w.npcs.filter((n: any) => n.alive && n.age >= 16 && n.job !== 'king' && n.job !== 'priest').slice(0, 6);
+    for (const n of members) n.creed = 'sect';
+    w.religion.sect = { name: 'นิกายแสงใหม่', founded: w.day, leaderId: members[0].id, cause: 'reform' };
+    w.faith = 200;
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.religion?.sect);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const church = page.locator('#faith .faith-church');
+  await expect(church).toContainText('อิทธิพล');
+  await expect(church).toContainText('กฎหมาย:');
+  await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toContainText('นิกายแสงใหม่');
+  const sect = page.locator('#faith .faith-sect');
+  await expect(sect).toContainText('นิกายแสงใหม่');
+  await expect(sect).toContainText('สาวก 6 คน');
+  await sect.locator('[data-act="embrace"]').tap();
+  await expect(sect).toHaveCount(0);
+  await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text)).toContain('ปฏิรูป');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('the people list filters, and a row opens that person', async ({ page }) => {
   await section(page, 'people');
   const rows = page.locator('#people .people-row');

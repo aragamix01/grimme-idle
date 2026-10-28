@@ -238,7 +238,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#nav [data-section
   b.onclick = () => setSection(b.dataset.section as Section);
 }
 initMarket({ onSelectNpc: select });
-initFaith({ onSelectNpc: select, onTenet: (tenet) => send({ type: 'command', command: { type: 'tenet', tenet } }) });
+initFaith({ onSelectNpc: select, onTenet: (tenet) => send({ type: 'command', command: { type: 'tenet', tenet } }), onSect: (act) => send({ type: 'command', command: { type: 'sect', act } }) });
 initKingdom({ onSelectNpc: select, onLaw: () => setSub('law'), onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
   onWar: (act) => send({ type: 'command', command: { type: 'war', act } }),

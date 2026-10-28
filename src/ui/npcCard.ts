@@ -271,7 +271,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
       }),
       ...(chips.childElementCount ? [chips] : []),
       el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}${schooled(npc)}` }),
-      ...(npc.creed ? [el('p', { className: 'npc__faith', textContent: `ความเชื่อ: ${CREED_TH[npc.creed]} · ศรัทธา ${Math.round(npc.piety ?? 50)}` })] : []),
+      ...(npc.creed ? [el('p', { className: 'npc__faith', textContent: `ความเชื่อ: ${npc.creed === 'sect' ? world.religion?.sect?.name ?? CREED_TH.sect : CREED_TH[npc.creed]} · ศรัทธา ${Math.round(npc.piety ?? 50)}` })] : []),
       el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,
