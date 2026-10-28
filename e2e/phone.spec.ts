@@ -198,7 +198,7 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
   await page.locator('#map-menu').tap();
   await expect(page.locator('#map-tools')).toBeHidden();
   await page.locator('#map-menu').tap();
-  await page.locator('#sheet-title').tap();
+  await page.locator('#urgent').tap({ position: { x: 10, y: 10 } });
   await expect(page.locator('#map-tools')).toBeHidden();
 
   for (const id of ['#daynight', '#sound', '#zoom']) {
@@ -333,28 +333,30 @@ test('the god-powers sheet fits the screen, keeps its close button in view, and 
   await closeCard(page);
 });
 
-test('the sheet pulls up over the map and back, by its grab bar and by a swipe', async ({ page, browserName }) => {
-  chromeOnly(browserName);
+test('a tap on the title opens the sheet over the map, hides the speech bubbles, and folds back', async ({ page }) => {
   const side = page.locator('#side');
   const mapTop = (await page.locator('#map').boundingBox())!.y;
   const before = (await side.boundingBox())!;
-  await page.locator('#sheet-grab').tap();
+  await expect(page.locator('#bubbles')).toBeAttached();
+  await page.locator('#sheet-toggle').tap();
   await expect(page.locator('#app')).toHaveAttribute('data-sheet', 'full');
   const full = (await side.boundingBox())!;
   expect(full.y).toBeLessThanOrEqual(mapTop + 1);
   expect(full.height).toBeGreaterThan(before.height + 150);
-  await page.locator('#sheet-grab').tap();
+  await expect(page.locator('#bubbles')).toBeHidden();
+  // The same in every section: the world map's sheet too.
+  await section(page, 'world');
+  await expect(page.locator('#sheet-toggle')).toBeVisible();
+  await section(page, 'town');
+  await page.locator('#sheet-toggle').tap();
   await expect(page.locator('#app')).not.toHaveAttribute('data-sheet', 'full');
+  await expect(page.locator('#bubbles')).toBeVisible();
   await tapNpc(page);
+  // A whole card covers the map too: no bubbles over it.
+  await card(page).locator('.npc__open').tap();
+  await expect(page.locator('#bubbles')).toBeHidden();
   await closeCard(page);
-  // A swipe up on the sheet's head pulls it up; a swipe down puts it back.
-  const cdp = await page.context().newCDPSession(page);
-  const head = (await page.locator('#sheet-head').boundingBox())!;
-  await swipe(cdp, head.x + 30, head.y + head.height / 2, 0, -120);
-  await expect(page.locator('#app')).toHaveAttribute('data-sheet', 'full');
-  const head2 = (await page.locator('#sheet-head').boundingBox())!;
-  await swipe(cdp, head2.x + 30, head2.y + head2.height / 2, 0, 120);
-  await expect(page.locator('#app')).not.toHaveAttribute('data-sheet', 'full');
+  await expect(page.locator('#bubbles')).toBeVisible();
   await tapNpc(page);
   await closeCard(page);
 });

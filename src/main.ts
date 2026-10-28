@@ -392,25 +392,16 @@ mapScene.onRealm = (realm) => {
 };
 initRealms({ onMiracle: (realmId, kind) => send({ type: 'command', command: { type: 'realm', realmId, kind } }), onPick: pick });
 
-// On phones the sheet can be pulled up over the map to read more, by its grab bar or a swipe
-// on its head, and pushed back down the same way.
-const grab = document.getElementById('sheet-grab')!;
-function pullSheet(full: boolean): void {
+// On phones a tap on the section's title opens the sheet over the whole map to read more, and
+// another tap folds it back.
+const toggle = document.getElementById('sheet-toggle')!;
+toggle.onclick = () => {
+  const full = app.dataset.sheet !== 'full';
   if (full) app.dataset.sheet = 'full';
   else delete app.dataset.sheet;
-  grab.setAttribute('aria-expanded', String(full));
-  grab.setAttribute('aria-label', full ? 'ย่อแผ่นข้อมูลลงให้เห็นแผนที่' : 'ขยายแผ่นข้อมูลขึ้นทับแผนที่');
-}
-grab.onclick = () => pullSheet(app.dataset.sheet !== 'full');
-const sheetHead = document.getElementById('sheet-head')!;
-let swipeY: number | null = null;
-sheetHead.addEventListener('touchstart', (e) => (swipeY = e.touches[0].clientY), { passive: true });
-sheetHead.addEventListener('touchend', (e) => {
-  if (swipeY === null) return;
-  const dy = e.changedTouches[0].clientY - swipeY;
-  swipeY = null;
-  if (Math.abs(dy) > 30) pullSheet(dy < 0);
-});
+  toggle.setAttribute('aria-expanded', String(full));
+  toggle.title = full ? 'แตะเพื่อย่อ' : 'แตะเพื่อขยายเต็มจอ';
+};
 
 // The map's settings sit behind one menu button, as a list that closes after a pick or a tap
 // anywhere else.
