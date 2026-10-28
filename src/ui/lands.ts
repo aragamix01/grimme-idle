@@ -1,13 +1,14 @@
 import { LAIR_TH, DECREES, decreeActive, garrisoned, EDGE_TH, LAND_TH, MAX_LEVEL, TRAIT_TH, USES, USE_TH, VILLAGER_TH, WORK_TH, bestUse, chiefOf, devCost, folkOf, jobName, keepOf, labour, levelOf, needOf, ourLands, priceOf, villagers, workersOf, yieldOf, type Npc, type Region, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
-// The lands tab on the world map: what we hold and what it yields, the region picked on the
+// The lands tab on the world map: what we hold and what it yields, each land a card that opens in
+// place (the list keeps its order, so it's plain which one is open), the region picked on the
 // map in full (its kind, its owner, the edge it gives, each use and its level, its village and
 // headman), a way in to see the region up close, and whichever villager was tapped there.
 const view = document.getElementById('lands')!;
 
 interface Handlers {
-  onPick: (regionId: number) => void;
+  onPick: (regionId: number | null) => void; // null: fold the open land away
   onView: (regionId: number | null) => void; // null: back to the world map
 }
 let handlers: Handlers;
@@ -39,10 +40,13 @@ function card(world: WorldState, r: Region, full: boolean): HTMLElement {
       el('span', { className: 'land-use__next', textContent: levelOf(r, u) >= MAX_LEVEL ? 'เต็มแล้ว' : `ขั้นต่อไป ${devCost(r, u)} ทอง` }),
     ),
   );
+  const head = el('div', { className: 'realm-card__head' }, el('b', { textContent: `${full ? '▾' : '▸'} ${r.name}` }), el('span', { className: 'chip', textContent: LAND_TH[r.kind] }));
+  head.setAttribute('role', 'button');
+  head.setAttribute('aria-expanded', String(full));
   const box = el(
     'article',
     { className: `realm-card${r.id === picked ? ' realm-card--picked' : ''}` },
-    el('div', { className: 'realm-card__head' }, el('b', { textContent: r.name }), el('span', { className: 'chip', textContent: LAND_TH[r.kind] })),
+    head,
     el('p', { className: 'realm-king__meta', textContent: `เจ้าของ: ${ownerName(world, r)}${r.seat ? ' (แดนหลวง)' : ''}` }),
     ...(full
       ? [
@@ -63,7 +67,9 @@ function card(world: WorldState, r: Region, full: boolean): HTMLElement {
     };
     box.append(look);
   }
-  box.onclick = () => handlers.onPick(r.id);
+  // Folded, a tap anywhere opens the card; open, only its head folds it, so its buttons stay buttons.
+  if (full) head.onclick = () => handlers.onPick(null);
+  else box.onclick = () => handlers.onPick(r.id);
   return box;
 }
 
@@ -144,20 +150,31 @@ export function renderLands(world: WorldState): void {
   lastKey = key;
   const ours = ourLands(world).filter((r) => !r.seat);
   const total = ours.map(yieldOf).reduce((s, y) => ({ grain: s.grain + y.grain, meat: s.meat + y.meat, wool: s.wool + y.wool, gold: s.gold + y.gold, timber: s.timber + y.timber, ore: s.ore + y.ore }), { grain: 0, meat: 0, wool: 0, gold: 0, timber: 0, ore: 0 });
-  const pick = regions.find((r) => r.id === picked);
+  // A land of someone else's, picked on the map, isn't in our list: it opens above it.
+  const other = regions.find((r) => r.id === picked && !ours.includes(r));
   view.replaceChildren(
-    el('p', { className: 'log-note', textContent: 'แตะพื้นที่บนแผนที่เพื่อดูรายละเอียด ทางการจะบุกเบิก ซื้อ เจรจา หรือรบเพื่อขยายดินแดนเอง' }),
-    ...(pick ? [card(world, pick, true)] : []),
+    el('p', { className: 'log-note', textContent: 'แตะการ์ดหรือพื้นที่บนแผนที่เพื่อเปิดดูรายละเอียด ทางการจะบุกเบิก ซื้อ เจรจา หรือรบเพื่อขยายดินแดนเอง' }),
+    ...(other ? [card(world, other, true)] : []),
     el('h4', { textContent: `ดินแดนของเรา ${ours.length} เขต` }),
     el('p', { className: 'realm-king__meta', textContent: `ผลผลิตรวมต่อเดือน: ${yieldText(total)}` }),
-    ...ours.filter((r) => r.id !== picked).map((r) => card(world, r, false)),
+    ...ours.map((r) => card(world, r, r.id === picked)),
   );
+}
+
+// Bring the open card's head into view by scrolling the list alone: scrollIntoView would also
+// shift the boxes around it and move the map out from under the next tap.
+function reveal(): void {
+  const open = view.querySelector<HTMLElement>('.realm-card--picked');
+  if (!open) return;
+  const top = open.offsetTop - view.offsetTop;
+  if (top < view.scrollTop || top > view.scrollTop + view.clientHeight - 60) view.scrollTop = Math.max(0, top - 8);
 }
 
 export function pickLand(world: WorldState, id: number | null): void {
   picked = id;
   lastKey = '';
   renderLands(world);
+  reveal();
 }
 
 export function pickVillager(world: WorldState, id: number | null): void {

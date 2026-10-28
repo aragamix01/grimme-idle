@@ -429,6 +429,30 @@ test('the world map: keeps, lands, a land up close, and back to a tappable town'
   await pageStill(page);
 });
 
+test('land cards open in place, keep their order, and fold from their head', async ({ page }) => {
+  // Let the crown settle a second land, so there are two cards to open.
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 5 }));
+  await page.waitForFunction(() => ((window as any).__grimm.scene.world.regions ?? []).filter((r: any) => r.owner === 'us' && !r.seat).length >= 2, null, { timeout: 50_000 });
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await section(page, 'world');
+  await sub(page, 'lands');
+  const cards = page.locator('#lands .realm-card');
+  await expect(cards.nth(1)).toBeVisible();
+  const order = await cards.locator('.realm-card__head b').allTextContents();
+  await cards.nth(1).locator('.realm-card__head b').tap(); // the name, clear of the floating powers button
+  await expect(cards.nth(1)).toHaveClass(/realm-card--picked/);
+  await expect(cards.nth(1).locator('.realm-card__head')).toHaveAttribute('aria-expanded', 'true');
+  const names = (t: string[]) => t.map((x) => x.replace(/^[▸▾] /, ''));
+  expect(names(await cards.locator('.realm-card__head b').allTextContents())).toEqual(names(order));
+  // Opening another folds the first; the head of the open one folds it.
+  await cards.nth(0).locator('.realm-card__head b').tap();
+  await expect(cards.nth(0)).toHaveClass(/realm-card--picked/);
+  await expect(cards.nth(1)).not.toHaveClass(/realm-card--picked/);
+  await cards.nth(0).locator('.realm-card__head').tap();
+  await expect(page.locator('#lands .realm-card--picked')).toHaveCount(0);
+  expect(names(await cards.locator('.realm-card__head b').allTextContents())).toEqual(names(order));
+});
+
 test('leaving the world map from a land up close goes straight home', async ({ page }) => {
   await section(page, 'world');
   const land = await landPos(page);
