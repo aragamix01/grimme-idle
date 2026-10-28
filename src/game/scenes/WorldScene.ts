@@ -86,7 +86,7 @@ export class WorldScene extends Phaser.Scene {
   private glow!: Phaser.GameObjects.Graphics;
   private clock = -1; // eased copy of world.day, so the sky turns smoothly between ticks
   private seenSeq = -1; // last chronicle entry the scene has reacted to
-  private drag: { x: number; y: number; sx: number; sy: number; moved: boolean } | null = null;
+  private drag: { sx: number; sy: number } | null = null;
   private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blight!: Phaser.GameObjects.Rectangle;
   private raining = false;
@@ -145,48 +145,46 @@ export class WorldScene extends Phaser.Scene {
     this.selectRing.lineStyle(2, 0x3b2416).strokeEllipse(0, 0, 18, 8);
     this.selectRing.lineStyle(1, 0xffd23f).strokeEllipse(0, 0, 16, 6);
 
-    // Zoomed in, a drag pans the map; a tap that didn't drag picks someone.
-    const cam = this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.drag = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
-    });
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      const d = this.drag;
-      if (!d || !p.isDown) return;
-      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) < 6) return;
-      d.moved = true;
-      if (cam.zoom <= 1) return;
-      cam.stopFollow();
-      cam.setScroll(d.sx - (p.x - d.x) / cam.zoom, d.sy - (p.y - d.y) / cam.zoom);
-    });
-    // A tap picks the living NPC nearest the finger: a tap anywhere on a body is a hit, and a
-    // miss by up to a fingertip's width (measured on screen, so it holds at any zoom) still counts.
-    // Empty ground clears the selection.
-    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      const moved = this.drag?.moved;
-      this.drag = null;
-      if (moved) return;
-      const k = (this.game.canvas.getBoundingClientRect().width / this.scale.gameSize.width) * cam.zoom;
-      let best: number | null = null;
-      let bestD = (p.wasTouch ? 28 : 16) / k;
-      let bestC = Infinity; // among bodies hit, the one whose middle is closest
-      for (const [id, s] of this.npcSprites) {
-        if (!s.visible) continue;
-        const half = s.displayWidth / 4; // the figure, not its empty frame
-        const dx = Math.max(0, Math.abs(p.worldX - s.x) - half);
-        const dy = Math.max(0, s.y - s.displayHeight * 0.8 - p.worldY, p.worldY - s.y);
-        const d = Math.hypot(dx, dy);
-        const c = Math.hypot(p.worldX - s.x, p.worldY - (s.y - s.displayHeight / 2));
-        if (d < bestD || (d === bestD && c < bestC)) {
-          bestD = d;
-          bestC = c;
-          best = id;
-        }
+    this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
+  }
+
+  // Taps and drags reach the scenes from the page's own pointer events (see mapInput.ts).
+  // Zoomed in, a drag pans the map from where the camera was when the finger landed.
+  grab(): void {
+    const cam = this.cameras.main;
+    this.drag = { sx: cam.scrollX, sy: cam.scrollY };
+  }
+
+  dragBy(dx: number, dy: number): void {
+    const cam = this.cameras.main;
+    if (!this.drag || cam.zoom <= 1) return;
+    cam.stopFollow();
+    cam.setScroll(this.drag.sx - dx / cam.zoom, this.drag.sy - dy / cam.zoom);
+  }
+
+  // A tap picks the living NPC nearest the finger: a tap anywhere on a body is a hit, and a
+  // miss by up to a fingertip's width (measured on screen, so it holds at any zoom) still counts.
+  // Empty ground clears the selection. k is screen pixels per world pixel.
+  tap(x: number, y: number, k: number, touch: boolean): void {
+    let best: number | null = null;
+    let bestD = (touch ? 28 : 16) / k;
+    let bestC = Infinity; // among bodies hit, the one whose middle is closest
+    for (const [id, s] of this.npcSprites) {
+      if (!s.visible) continue;
+      const half = s.displayWidth / 4; // the figure, not its empty frame
+      const dx = Math.max(0, Math.abs(x - s.x) - half);
+      const dy = Math.max(0, s.y - s.displayHeight * 0.8 - y, y - s.y);
+      const d = Math.hypot(dx, dy);
+      const c = Math.hypot(x - s.x, y - (s.y - s.displayHeight / 2));
+      if (d < bestD || (d === bestD && c < bestC)) {
+        bestD = d;
+        bestC = c;
+        best = id;
       }
-      if (best === null && this.guildBounds?.contains(p.worldX, p.worldY)) return this.onGuild();
-      this.select(best);
-      this.onSelect(best);
-    });
+    }
+    if (best === null && this.guildBounds?.contains(x, y)) return this.onGuild();
+    this.select(best);
+    this.onSelect(best);
   }
 
   // Toggle a 2x close-up, centred on whoever is selected (and following them) or on the town.

@@ -1,5 +1,5 @@
 import { avatarOf, type WorldState } from '../sim';
-import { el } from './icons';
+import { el, icon } from './icons';
 
 // The life the player is living: the button in the god-powers sheet that sends the god down (or calls it back),
 // and the dialog that puts each turn of that life to the player. The town waits while it's open.
@@ -26,7 +26,11 @@ export function renderLife(world: WorldState): void {
   const me = avatarOf(world);
   const living = !!world.avatar;
   lifeBtn.dataset.living = living ? '1' : '';
-  lifeBtn.textContent = living ? 'กลับเป็นเทพ' : 'ลงไปเกิด';
+  const face = `${living}:${me?.name}`;
+  if (lifeBtn.dataset.face !== face) {
+    lifeBtn.dataset.face = face;
+    lifeBtn.replaceChildren(icon(living ? 'faith' : 'awaken', 32), el('span', {}, el('b', { textContent: living ? 'กลับเป็นเทพ' : 'ลงไปเกิด' }), el('small', { textContent: living ? `ตอนนี้คือ${me?.name ?? ''}` : 'เกิดเป็นทารกในเมือง' })));
+  }
   lifeBtn.title = living ? `ตอนนี้คุณคือ${me?.name ?? ''}` : 'เกิดเป็นทารกในเมือง ใช้ชีวิตและตัดสินใจเอง ระหว่างนั้นใช้พลังเทพไม่ได้';
   const c = world.choice;
   const key = c ? `${c.day}:${c.kind}:${c.text}` : '';

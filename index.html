@@ -12,15 +12,10 @@
   <body>
     <div id="app" data-section="town">
       <header id="hud" class="hud">
-        <img id="logo" src="/assets/sprites/logo/logo.png" alt="Grimm Idle" />
-        <dl class="stats">
-          <div class="stat"><dt>ปีที่</dt><dd id="stat-year">1</dd></div>
-          <div class="stat"><dt>วันที่</dt><dd id="stat-day">1</dd></div>
-          <div class="stat stat--faith">
-            <dt><img src="/assets/sprites/icons/faith.png" alt="" width="16" height="16" /><span class="stat__label">ศรัทธา</span></dt>
-            <dd id="stat-faith">0</dd>
-          </div>
-        </dl>
+        <span class="hud__brand" aria-label="Grimm Idle">GRIMM<span class="hud__wide"> IDLE</span></span>
+        <span class="hud__chip">ปี <b id="stat-year">1</b> · วัน <b id="stat-day">1</b><span class="hud__wide" id="stat-season"></span></span>
+        <span class="hud__chip hud__wide" id="stat-realm"></span>
+        <span class="hud__chip hud__chip--faith" title="ศรัทธา"><img src="/assets/sprites/icons/faith.png" alt="" width="16" height="16" /><b id="stat-faith">0</b></span>
         <div class="seg speed" role="group" aria-label="ความเร็วของเวลา" id="speed">
           <button type="button" data-speed="0" aria-label="หยุดเวลา">II</button>
           <button type="button" data-speed="1" aria-pressed="true">1×</button>
@@ -28,9 +23,13 @@
         </div>
       </header>
 
-      <div id="game">
+      <div id="map" class="map">
+        <div id="game"></div>
+        <span id="map-note" class="map-note" hidden></span>
+        <span id="map-chips" class="map-chips" hidden></span>
         <button type="button" id="map-menu" class="map-menu" aria-expanded="false" aria-controls="map-tools" aria-label="เมนูแผนที่"><span class="map-menu__bars"></span></button>
         <div id="map-tools" class="map-tools" role="menu" hidden>
+          <button type="button" id="worldmap-tool" role="menuitem"><img src="/assets/sprites/icons/globe.png" alt="" width="24" height="24" /><span>แผนที่โลก</span></button>
           <button type="button" id="zoom" role="menuitemcheckbox" aria-pressed="false"><img src="/assets/sprites/icons/zoom.png" alt="" width="24" height="24" /><span>ซูมแผนที่</span><b class="map-tools__state"></b></button>
           <button type="button" id="daynight" role="menuitemcheckbox" aria-pressed="true"><img src="/assets/sprites/icons/daynight.png" alt="" width="24" height="24" /><span>กลางวันกลางคืน</span><b class="map-tools__state"></b></button>
           <button type="button" id="sound" role="menuitemcheckbox" aria-pressed="true"><img src="/assets/sprites/icons/sound.png" alt="" width="24" height="24" /><span>เสียงเพลง</span><b class="map-tools__state"></b></button>
@@ -38,12 +37,15 @@
       </div>
 
       <aside id="side" class="sheet">
-        <section id="npc-card" class="npc" hidden aria-live="polite"></section>
-        <div class="sheet-head">
+        <div class="sheet-head" id="sheet-head">
+          <button type="button" id="sheet-grab" class="sheet-grab" aria-expanded="false" aria-label="ขยายแผ่นข้อมูลขึ้นทับแผนที่"></button>
           <h2 id="sheet-title" class="sheet-title">เมือง</h2>
+          <span id="sheet-chip" class="chip sheet-chip" hidden></span>
           <div class="seg tabs" role="tablist" aria-label="หัวข้อย่อย" id="sub-tabs"></div>
         </div>
+        <section id="npc-card" class="npc" hidden aria-live="polite"></section>
         <p id="npc-hint" class="hint">แตะชาวเมืองบนแผนที่เพื่อดูชีวิตและใช้พลังเทพ</p>
+        <div id="urgent" class="panel urgent" role="tabpanel" hidden></div>
         <ol id="feed" class="panel" role="tabpanel"></ol>
         <div id="annals" class="panel annals" role="tabpanel" hidden></div>
         <div id="guild" class="panel guild" role="tabpanel" hidden></div>
@@ -55,12 +57,16 @@
       </aside>
 
       <nav id="nav" class="nav" aria-label="หมวดหลัก">
-        <button type="button" data-section="town" aria-current="page"><img src="/assets/sprites/icons/book.png" alt="" width="24" height="24" /><span>เมือง</span></button>
+        <button type="button" data-section="town" aria-current="page"><img src="/assets/sprites/icons/book.png" alt="" width="24" height="24" /><span>เมือง</span><b class="nav__badge" id="urgent-badge" hidden></b></button>
         <button type="button" data-section="people"><img src="/assets/sprites/icons/heart.png" alt="" width="24" height="24" /><span>ผู้คน</span></button>
         <button type="button" data-section="power"><img src="/assets/sprites/icons/crown.png" alt="" width="24" height="24" /><span>อำนาจ</span></button>
         <button type="button" data-section="economy"><img src="/assets/sprites/icons/gold.png" alt="" width="24" height="24" /><span>เศรษฐกิจ</span></button>
         <button type="button" data-section="world" id="worldmap"><img src="/assets/sprites/icons/globe.png" alt="" width="24" height="24" /><span>โลก</span></button>
         <button type="button" id="miracle-open" class="fab"><img src="/assets/sprites/icons/faith.png" alt="" width="32" height="32" /><span>พลังเทพ</span></button>
+        <section class="rail-urgent" aria-labelledby="rail-urgent-title">
+          <h3 id="rail-urgent-title">เรื่องด่วน</h3>
+          <div id="rail-urgent"></div>
+        </section>
       </nav>
     </div>
 
@@ -83,14 +89,15 @@
     <dialog id="miracles" class="sheet-dialog">
       <div class="powers-head">
         <h2>พลังเทพ</h2>
+        <span class="hud__chip hud__chip--faith"><img src="/assets/sprites/icons/faith.png" alt="" width="16" height="16" /><b id="powers-faith">0</b></span>
         <form method="dialog"><button class="dialog-x" aria-label="ปิด">×</button></form>
       </div>
       <div class="powers-top">
-        <button type="button" id="life-open" class="era-open">ลงไปเกิด</button>
-        <button type="button" id="era-open" class="era-open">ยุคที่ 1</button>
+        <button type="button" id="dream-open" class="power-big"><img src="/assets/sprites/icons/dream.png" alt="" width="32" height="32" /><span><b>ส่งความฝัน</b><small id="dream-cost">แตะคนบนแผนที่</small></span></button>
+        <button type="button" id="life-open" class="power-big power-big--gold">ลงไปเกิด</button>
       </div>
       <div id="miracles-body"></div>
-      <form method="dialog"><button class="btn">ปิด</button></form>
+      <button type="button" id="era-open" class="era-line">ยุคที่ 1</button>
     </dialog>
 
     <dialog id="choice" class="choice">
