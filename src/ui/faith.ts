@@ -1,13 +1,15 @@
-import { CREED_TH, HOLY_EVERY, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, religionOf, type Creed, type Npc, type WorldState } from '../sim';
+import { CREED_TH, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, adherence, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, prophetOf, religionOf, support, tenetCost, tenetOn, type Creed, type Npc, type Tenet, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
 // ศาสนา: what the townsfolk believe, how devout they are, the holy day, the year's rites, and
-// the priests who keep it all going. The god's faith flows from the believers' prayers.
+// the priests who keep it all going. The god's faith flows from the believers' prayers. The god's
+// commandments go out through a prophet's dream, and come back the same way.
 
 const view = document.getElementById('faith')!;
 interface Handlers {
   onSelectNpc: (id: number) => void;
+  onTenet: (k: Tenet) => void; // hand a commandment down, or take it back
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -24,7 +26,8 @@ export function renderFaith(world: WorldState): void {
   const priests = world.npcs.filter((n) => n.alive && n.age >= 16 && n.job === 'priest');
   const devout = world.npcs.filter((n) => n.alive && n.age >= 16 && n.creed === 'god' && n.job !== 'priest').sort((a, b) => pietyOf(b) - pietyOf(a)).slice(0, 5);
   const daily = Math.round(prayers(world) * 100) / 100;
-  const key = JSON.stringify([c, rel, daily, priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
+  const prophet = prophetOf(world);
+  const key = JSON.stringify([c, rel, daily, Math.floor(world.faith), prophet?.id, TENET_ORDER.map((k) => Math.round(support(world, k) * 20)), priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
   if (key === lastKey) return;
   lastKey = key;
   const total = c.god + c.spirits + c.none || 1;
@@ -33,6 +36,7 @@ export function renderFaith(world: WorldState): void {
     tiles(share, c.piety, daily),
     holyDay(world),
     creeds(c, total),
+    tenets(world, prophet),
     rites(world),
     section('นักบวช', priests.length ? priests.map((n) => personRow(n, jobName(world, n.job))) : [empty('เมืองไม่มีนักบวช ไม่มีใครประกอบพิธี และคนที่ไม่เชื่อจะไม่มีใครมาชักชวน')], `${priests.length} คน`),
     section('ผู้ศรัทธาแรงกล้า', devout.length ? devout.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครนับถือเทพเจ้า')]),
@@ -109,6 +113,46 @@ function rites(world: WorldState): HTMLElement {
       el('span', { textContent: `โรงทานของโบสถ์ ${Math.floor(world.alms ?? 0)} ทอง` }),
     ),
   );
+}
+
+// The god's commandments: those in force with how gladly they are kept, the rest to hand down
+// through a dream to the prophet.
+function tenets(world: WorldState, prophet: Npc | undefined): HTMLElement {
+  const on = religionOf(world).tenets ?? [];
+  const full = on.length >= MAX_TENETS;
+  const rows = TENET_ORDER.map((k) => {
+    const t = TENETS[k];
+    const active = tenetOn(world, k);
+    const cost = tenetCost(world, k);
+    const btn = el(
+      'button',
+      { type: 'button', className: `btn${active ? '' : ' btn--gold'} divine`, disabled: world.faith < cost || (!active && (full || !prophet)) },
+      active ? 'ยกเลิก' : 'ประทาน',
+      el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)),
+    );
+    btn.onclick = () => handlers.onTenet(k);
+    const since = on.find((x) => x.kind === k);
+    const li = el(
+      'li',
+      { className: `tenet${active ? ' tenet--on' : ''}` },
+      el('div', { className: 'tenet__head' }, el('b', { textContent: t.name }), btn),
+      el('p', { className: 'tenet__text', textContent: `"${t.text}"` }),
+      el('p', { className: 'tenet__good', textContent: `+ ${t.good}` }),
+      el('p', { className: 'tenet__bad', textContent: `− ${t.bad}` }),
+      ...(since
+        ? [el('p', { className: 'tenet__since' }, el('span', { className: 'chip chip--gold', textContent: `ยึดถือด้วยใจ ${Math.round(support(world, k) * 100)}%` }), `ประกาศเมื่อ D${since.day} โดย${world.npcs.find((n) => n.id === since.prophetId)?.name ?? 'ศาสดา'}`)]
+        : []),
+    );
+    li.dataset.tenet = k;
+    return li;
+  });
+  const hint = `${on.length}/${MAX_TENETS} · ผู้คนยึดถือ ${Math.round(adherence(world) * 100)}%`;
+  const s = section('บัญญัติแห่งเทพ', rows, hint);
+  s.classList.add('tenets');
+  s.querySelector('h3')!.after(
+    el('p', { className: 'realm-king__meta', textContent: prophet ? `นิมิตจะไปถึง${prophet.name} (${jobName(world, prophet.job)} ศรัทธา ${Math.round(pietyOf(prophet))}) ผู้จะตื่นมาประกาศเป็นศาสดา ผลของบัญญัติขึ้นกับว่าผู้คนยึดถือแค่ไหน` : 'ไม่มีผู้ศรัทธาที่จะรับนิมิตได้' }),
+  );
+  return s;
 }
 
 function personRow(n: Npc, note: string): HTMLElement {

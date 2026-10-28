@@ -5,7 +5,7 @@
 // loses is sacked, never destroyed. The god may only help: bless our ranks, send a storm
 // against theirs, or send both kings a vision of peace.
 import { chance, type Rng } from './rng';
-import { clamp, kill, log, occupied } from './core';
+import { clamp, kill, log, occupied, adherence, tenetOn } from './core';
 import { legend, isAdventurer } from './quests';
 import { king } from './society';
 import { loyaltyOf } from './politics';
@@ -37,7 +37,7 @@ export function ourForces(world: WorldState): { fighters: Npc[]; strength: numbe
   );
   // Our own age arms us as theirs arms them (the second age is par).
   const firearms = industrial(world) ? 1.2 : 1; // and the industrial age arms the soldiers with guns
-  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : n.guildId !== undefined && n.guildId === world.war?.mercs ? 1 : n.job === 'swordsman' ? 0.9 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1)) * (1 + 0.08 * peaksHeld(world)); // forts on the mountain passes we hold
+  let strength = fighters.reduce((s, n) => s + might(world, n) * (n.job === 'soldier' || n.knight ? firearms : n.hero ? 2 : n.guildId !== undefined && n.guildId === world.war?.mercs ? 1 : n.job === 'swordsman' ? 0.9 : 0.6), 0) * (1 + 0.15 * (ageOf(world) - 1)) * (1 + 0.08 * peaksHeld(world)) * (tenetOn(world, 'holywar') ? 1 + 0.25 * adherence(world) : 1); // forts on the mountain passes we hold; zeal for the god's war
   // Allies send part of their armies.
   for (const r of world.realms ?? []) if (r.pact && !r.war) strength += theirStrength(r) * 0.5;
   return { fighters, strength };

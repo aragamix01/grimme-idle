@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
+import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -44,7 +44,7 @@ import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
-import { religionDay, religionOf, worship } from './religion';
+import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -444,6 +444,11 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       npc.inside = p.target; // through the dungeon to the keep behind it
       return;
     case 'work':
+      // The god's day of rest: the devout lay down their tools.
+      if (tenetOn(world, 'restday') && isHolyDay(world) && npc.creed === 'god' && (npc.piety ?? 50) >= 40) {
+        if (--p.days <= 0) npc.plan = undefined;
+        return;
+      }
       if (npc.job === 'farmer') {
         payRent(world, npc, harvest(world, npc, rng), rng);
         maybePestQuest(world, npc, rng);
@@ -590,6 +595,11 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'war') {
     const cost = Math.max(1, Math.round(WAR_COST[cmd.act] * (1 - 0.1 * perkLevel(world, 'grace'))));
     if (world.faith >= cost && warAct(world, cmd.act)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'tenet') {
+    const cost = tenetCost(world, cmd.tenet);
+    if (world.faith >= cost && proclaim(world, cmd.tenet)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'miracle') {

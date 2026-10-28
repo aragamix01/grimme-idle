@@ -598,6 +598,31 @@ test('the religion tab: creeds, the holy day, the rites; a believer opens with t
   await pageStill(page);
 });
 
+test('a commandment handed down through a dream shows in force, can be taken back, and the map still answers', async ({ page }) => {
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const row = page.locator('#faith .tenet[data-tenet="charity"]');
+  await expect(page.locator('#faith .tenet')).toHaveCount(6);
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 4 })); // gather the faith the dream costs
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.faith >= 45, null, { timeout: 60_000 });
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 0 })); // still the world before reaching for the button
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await expect(row.locator('.btn')).toBeEnabled();
+  await row.locator('.btn').tap();
+  await expect(row).toHaveClass(/tenet--on/);
+  await expect(row.locator('.tenet__since .chip')).toContainText('ยึดถือด้วยใจ');
+  await expect(row).toContainText('ประกาศเมื่อ');
+  await expect(row.locator('.btn')).toContainText('ยกเลิก');
+  const told = await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text);
+  expect(told).toContain('ประทานบัญญัติ');
+  await expect.poll(() => page.evaluate(() => (window as any).__grimm.scene.world.faith >= 20)).toBe(true);
+  await row.locator('.btn').tap();
+  await expect(row).not.toHaveClass(/tenet--on/);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('the people list filters, and a row opens that person', async ({ page }) => {
   await section(page, 'people');
   const rows = page.locator('#people .people-row');

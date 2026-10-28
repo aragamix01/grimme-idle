@@ -240,6 +240,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.relic ? [el('span', { className: 'chip chip--gold', textContent: npc.relic })] : []),
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
+    ...(npc.prophet ? [el('span', { className: 'chip chip--gold', textContent: 'ศาสดา' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
     ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),

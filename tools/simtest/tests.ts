@@ -1,8 +1,10 @@
 // The rule tests run by run.mjs: each sets up a scene in a fresh world, ticks it, and checks.
-import { createWorld, tick } from '../../src/sim/world';
+import { applyCommands, createWorld, tick } from '../../src/sim/world';
 import { kill } from '../../src/sim/core';
 import { wed, births } from '../../src/sim/life';
-import { creedCounts, daysToHoly, isHolyDay, prayers, religionOf } from '../../src/sim/religion';
+import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
+import { tenetOn } from '../../src/sim/core';
+import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
 import type { Npc, WorldState } from '../../src/sim/types';
 
@@ -150,4 +152,112 @@ test('letters and a town without priests wear belief down; priests and a cathedr
   const f = creedCounts(faith);
   ok(d.piety < f.piety, `piety: doubters ${d.piety}, faithful ${f.piety}`);
   ok(d.god / (d.god + d.spirits + d.none) < f.god / (f.god + f.spirits + f.none), 'the doubters kept as many believers');
+});
+
+// ---------- phase 2: the god's commandments ----------
+
+const devout = (w: WorldState) => {
+  for (const n of w.npcs) {
+    n.creed = 'god';
+    n.piety = 90;
+  }
+  religionOf(w).adherence = 0.9;
+};
+
+test("a commandment goes to the most devout priest in a dream, who becomes the prophet", () => {
+  const w = world();
+  const { priest } = cast(w);
+  priest.piety = 99;
+  w.faith = 500;
+  applyCommands(w, [{ type: 'command' as never, tenet: 'charity' } as never]); // unknown commands are ignored
+  applyCommands(w, [{ type: 'tenet', tenet: 'charity' }]);
+  ok(tenetOn(w, 'charity'), 'the commandment was not handed down');
+  ok(priest.prophet && religionOf(w).tenets![0].prophetId === priest.id, 'the devout priest was not the prophet');
+  ok(w.faith === 500 - tenetCost(w, 'nomeat'), `faith paid: ${500 - w.faith}`);
+  applyCommands(w, [{ type: 'tenet', tenet: 'charity' }]);
+  ok(!tenetOn(w, 'charity'), 'the commandment was not taken back');
+});
+
+test(`no more than ${MAX_TENETS} commandments at once, and none without the faith to pay`, () => {
+  const w = world();
+  cast(w);
+  w.faith = 1000;
+  for (const k of ['usury', 'charity', 'nomeat', 'learning'] as const) applyCommands(w, [{ type: 'tenet', tenet: k }]);
+  ok(religionOf(w).tenets!.length === MAX_TENETS, `in force: ${religionOf(w).tenets!.length}`);
+  w.faith = 5;
+  applyCommands(w, [{ type: 'tenet', tenet: 'usury' }]);
+  ok(tenetOn(w, 'usury'), 'taken back without the faith to pay');
+});
+
+test('no usury: the crown owes the trade house no interest while the town keeps the word', () => {
+  const owed = (on: boolean) => {
+    const w = world();
+    const { a } = cast(w);
+    devout(w);
+    if (on) proclaim(w, 'usury');
+    a.job = 'merchant';
+    a.guildId = 999;
+    w.guilds.push({ id: 999, name: 'บ้านทดสอบ', kind: 'merchants', leaderId: a.id, founded: 0, renown: 0, treasury: 5000 });
+    w.debt = { guildId: 999, owed: 1000, since: 0 };
+    w.treasury = 0;
+    w.treasury = 0;
+    run(w, 31);
+    return [w.debt?.owed ?? 0, w.guilds.some((g) => g.id === 999)];
+  };
+  const [kept, without] = [owed(true), owed(false)];
+  ok(kept[0] < without[0], `the debt grew as fast under the commandment: ${kept} vs ${without}`);
+});
+
+test('no meat: the devout eat grain, and hunters and herders are ground down by it', () => {
+  const meatLeft = (on: boolean) => {
+    const w = world();
+    cast(w);
+    devout(w);
+    if (on) proclaim(w, 'nomeat');
+    const m = w.market!;
+    m.stock.grain = m.stock.meat = 500;
+    m.price.grain = 2;
+    m.price.meat = 2; // meat the cheaper for its worth: without the word, they would eat it
+    for (const n of w.npcs) n.gold = 100;
+    run(w, 10);
+    return m.stock.meat;
+  };
+  const kept = meatLeft(true);
+  const eaten = meatLeft(false);
+  ok(kept > eaten + 30, `meat left: ${Math.round(kept)} with the word, ${Math.round(eaten)} without`);
+  const w = world();
+  const { a } = cast(w);
+  a.job = 'hunter';
+  ok(strain(w, a, 'nomeat') < 0, 'a hunter does not mind the commandment');
+});
+
+test('a day of rest: the devout farmer brings in no harvest on the holy day', () => {
+  const harvested = (on: boolean) => {
+    const w = world();
+    const { a } = cast(w);
+    devout(w);
+    if (on) proclaim(w, 'restday');
+    while (!isHolyDay({ ...w, day: w.day + 1 })) tick(w);
+    a.job = 'farmer';
+    a.plan = { kind: 'work', x: a.x, y: a.y, days: 5 };
+    const grain = w.market!.stock.grain;
+    const gold = a.gold;
+    tick(w);
+    return w.market!.stock.grain - grain + (a.gold - gold);
+  };
+  ok(harvested(true) <= 0 && harvested(false) !== harvested(true), 'the farmer worked the holy day');
+});
+
+test('holy war makes our army stronger; learning lets readers keep their faith and study faster', () => {
+  const w = world();
+  cast(w);
+  devout(w);
+  const before = ourForces(w).strength;
+  proclaim(w, 'holywar');
+  ok(ourForces(w).strength > before, 'the army did not grow stronger');
+  const reader = grown(w)[0];
+  reader.lettered = true;
+  const pull = pietyPull(w, reader, 2, 50);
+  proclaim(w, 'learning');
+  ok(pietyPull(w, reader, 2, 50) > pull, 'reading still wears faith down under the commandment');
 });

@@ -6,7 +6,7 @@
 // crown pays it down from its surplus, a greedy ruler may repudiate it, and a crown sunk in debt
 // to its merchants is one they may buy outright (see regimes.ts).
 import { chance, type Rng } from './rng';
-import { clamp, log, loyaltyNudge, occupied } from './core';
+import { adherence, clamp, log, loyaltyNudge, occupied, tenetOn } from './core';
 import { GOODS, GOOD_TH, SELLS, basePrice, ensureMarket, levelOf, priceRatio } from './market';
 import { commit } from './justice';
 import { payrollReserve, king } from './society';
@@ -146,7 +146,7 @@ function debtDay(world: WorldState, rng: Rng): void {
       world.debt = undefined; // the house is gone: nobody left to collect
       return;
     }
-    d.owed = Math.round(d.owed * (1 + INTEREST));
+    d.owed = Math.round(d.owed * (1 + INTEREST * (tenetOn(world, 'usury') ? 1 - adherence(world) : 1))); // the god's word against usury
     // A greedy ruler deep in debt may simply refuse to pay.
     if (ruler && ruler.traits.includes('greedy') && d.owed > 600 && chance(rng, 0.1)) {
       world.debt = undefined;

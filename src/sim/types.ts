@@ -81,11 +81,15 @@ export interface Npc {
   regionId?: number; // lives in a village out on the lands (kept in world.villagers, not world.npcs)
   creed?: Creed; // what they believe in; missing until the religion first counts them (see religion.ts)
   piety?: number; // 0..100: how much their belief rules their days
+  prophet?: boolean; // proclaimed a commandment the god sent them in a dream
 }
 
 // What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
 // or nothing at all.
 export type Creed = 'god' | 'spirits' | 'none';
+
+// The god's commandments, handed down through a prophet's dream (see religion.ts).
+export type Tenet = 'usury' | 'charity' | 'nomeat' | 'holywar' | 'learning' | 'restday';
 
 // The town's religious life (see religion.ts).
 export interface Religion {
@@ -97,6 +101,8 @@ export interface Religion {
   offerings: number; // gold given at the church on holy days this year
   worshippers?: number; // believers who kept the last holy day
   prayer?: number; // faith the believers' prayers bring each day, worked out every few days
+  tenets?: { kind: Tenet; day: number; prophetId: number }[]; // the commandments in force, and who proclaimed each
+  adherence?: number; // 0..1: how closely the town keeps them, worked out monthly
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
@@ -517,4 +523,5 @@ export type Command =
   | { type: 'realm'; realmId: number; kind: RealmMiracle }
   | { type: 'incarnate'; npcId?: number } // live as this townsperson, or as a newborn
   | { type: 'ascend' } // return to godhood
-  | { type: 'choose'; key: string };
+  | { type: 'choose'; key: string }
+  | { type: 'tenet'; tenet: Tenet }; // a commandment through a prophet's dream, or taken back

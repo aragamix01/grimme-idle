@@ -4,14 +4,16 @@
 // The god's faith is the prayers of those who believe: no believers, no power.
 // Every seventh day is a holy day, when the devout walk to the church and give what they can;
 // weddings, namings and funerals pass through the church for those who keep the god's faith.
+// The god may hand down commandments through a prophet's dream: each changes how the believers
+// live, as closely as they keep it, and each grates on someone, who may lose faith over it.
 import { chance, int, type Rng } from './rng';
-import { clamp, cursed, log, makePlan, occupied } from './core';
+import { clamp, cursed, log, makePlan, occupied, perkLevel, tenetOn } from './core';
 import { industrial } from './ages';
 import { literate } from './learning';
-import { levelOf } from './market';
+import { levelOf, priceRatio } from './market';
 import { PLACES } from './places';
 import { built } from './works';
-import type { Creed, Npc, Plan, Religion, WorldState } from './types';
+import type { Creed, Npc, Plan, Religion, Tenet, WorldState } from './types';
 
 export const HOLY_EVERY = 7; // days from one holy day to the next
 const SET_OUT = 2; // days before the holy day the devout near the church walk over (a day's walk is a tile)
@@ -25,6 +27,22 @@ const WEDDING_FEE = 6; // coins at the founding's prices, to the priest who weds
 const NAMING_FEE = 2;
 const FUNERAL_FEE = 4;
 const OFFERING = 1; // what the devout give on a holy day, at the founding's prices
+
+export const MAX_TENETS = 3;
+const TENET_COST = 40; // faith for the dream that hands a commandment down
+const REVOKE_COST = 20; // and for the one that takes it back
+// Each commandment: what it asks, what it brings, and whom it grates on.
+export const TENETS: Record<Tenet, { name: string; text: string; good: string; bad: string }> = {
+  usury: { name: 'ห้ามคิดดอกเบี้ย', text: 'ผู้ใดให้กู้ยืม จงอย่าเอากำไรจากความลำบากของผู้อื่น', good: 'ดอกเบี้ยเงินกู้หลวงลดลงตามที่คนยึดถือ', bad: 'พ่อค้าและคนโลภไม่พอใจ ศรัทธาลด' },
+  charity: { name: 'ให้ทานหนึ่งในสิบ', text: 'จงแบ่งสิ่งที่มีให้ผู้ที่ขาดแคลน', good: 'คนถวายวัดมากขึ้น โรงทานเลี้ยงคนหิวได้มาก', bad: 'คนรวยไม่พอใจ ศรัทธาลด' },
+  nomeat: { name: 'งดกินเนื้อสัตว์', text: 'ชีวิตทุกชีวิตเป็นของเทพเจ้า', good: 'ผู้ศรัทธากินข้าวแทนเนื้อ ล่าสัตว์น้อยลง สัตว์ป่าฟื้นตัว', bad: 'พรานและคนเลี้ยงสัตว์เสียงาน ถ้าข้าวแพงคนจะไม่พอใจ' },
+  holywar: { name: 'สงครามศักดิ์สิทธิ์', text: 'จงจับดาบปกป้องศรัทธา', good: 'กองทัพฮึกเหิม แข็งแกร่งขึ้นในสงคราม ทหารศรัทธามากขึ้น', bad: 'แคว้นเพื่อนบ้านหวาดระแวง ความสัมพันธ์แย่ลงทุกเดือน' },
+  learning: { name: 'ความรู้คือการสรรเสริญ', text: 'จงศึกษาโลกที่เทพเจ้าสร้าง', good: 'การรู้หนังสือไม่ทำให้ศรัทธาเสื่อม นักปราชญ์ค้นคว้าเร็วขึ้น', bad: 'คำภาวนาได้ศรัทธาน้อยลง' },
+  restday: { name: 'วันพระเป็นวันหยุด', text: 'วันที่เจ็ดเป็นของเทพเจ้า', good: 'ผู้ศรัทธาถือวันพระมากขึ้น ศรัทธาเพิ่ม', bad: 'ผู้ศรัทธาไม่ทำงานในวันพระ ผลผลิตลดลง' },
+};
+export const TENET_ORDER = Object.keys(TENETS) as Tenet[];
+const grace = (world: WorldState, cost: number) => Math.max(1, Math.round(cost * (1 - 0.1 * perkLevel(world, 'grace'))));
+export const tenetCost = (world: WorldState, k: Tenet) => grace(world, tenetOn(world, k) ? REVOKE_COST : TENET_COST);
 
 export const CREED_TH: Record<Creed, string> = { god: 'นับถือเทพเจ้า', spirits: 'นับถือผีบรรพบุรุษ', none: 'ไม่นับถือสิ่งใด' };
 
@@ -83,8 +101,36 @@ export function pietyPull(world: WorldState, n: Npc, priests: number, adults: nu
   if (industrial(world)) t -= 10;
   if (cursed(world, n)) t -= 25;
   if (n.cultist) t -= 30;
+  if (n.prophet) t += 25;
   t += (world.balance ?? 0) / 10;
+  for (const k of world.religion?.tenets ?? []) t += believer(n) ? strain(world, n, k.kind) : 0;
+  if (literate(n) && tenetOn(world, 'learning')) t += 8; // the commandment makes reading a prayer
   return clamp(t, 5, 95);
+}
+
+// How a commandment sits with one believer: above zero it draws them closer, below it grates.
+export function strain(world: WorldState, n: Npc, k: Tenet): number {
+  const rich = n.gold >= 100 * levelOf(world);
+  switch (k) {
+    case 'usury':
+      return n.job === 'merchant' || n.traits.includes('greedy') ? -8 : 0;
+    case 'charity':
+      return rich ? -6 : n.traits.includes('kind') || (n.hunger ?? 0) >= 2 ? 4 : 0;
+    case 'nomeat':
+      return n.job === 'hunter' || n.job === 'herder' ? -12 : priceRatio(world, 'grain') >= 1.8 ? -6 : 0; // grain this dear, going without meat bites
+    case 'holywar':
+      return n.job === 'soldier' || n.knight ? 6 : n.traits.includes('coward') ? -4 : 0;
+    case 'learning':
+      return 0;
+    case 'restday':
+      return n.traits.includes('greedy') ? -4 : 4;
+  }
+}
+
+// The share of believers who keep a commandment gladly: devout enough, and not ground down by it.
+export function support(world: WorldState, k: Tenet): number {
+  const faithful = world.npcs.filter((n) => grown(n) && believer(n));
+  return faithful.length ? faithful.filter((n) => pietyOf(n) >= 50 && strain(world, n, k) >= 0).length / faithful.length : 0;
 }
 
 export function religionDay(world: WorldState, rng: Rng): void {
@@ -128,7 +174,49 @@ function settle(world: WorldState, rng: Rng): void {
     if (n.creed !== 'none' && n.piety >= 70 && n.morality < 30 && chance(rng, 0.3)) n.morality = clamp(n.morality + 1, -100, 100);
   }
   if (found >= 3) log(world, 'bless', `ชาวเมือง ${found} คนหันมานับถือเทพเจ้าในเดือนนี้`);
+  keepTenets(world, rng);
   if (lost >= 3) log(world, 'world', `ชาวเมือง ${lost} คนเลิกเชื่อในเทพเจ้า ไม่เข้าโบสถ์อีกต่อไป`);
+}
+
+// Once a month: how closely the town keeps the commandments, what keeping them does abroad, and
+// the grumbling of those a commandment grinds down.
+function keepTenets(world: WorldState, rng: Rng): void {
+  const rel = religionOf(world);
+  const adults = townAdults(world);
+  const faithful = adults.filter(believer);
+  rel.adherence = adults.length ? (faithful.length / adults.length) * (faithful.reduce((s, n) => s + pietyOf(n), 0) / Math.max(1, faithful.length) / 100) : 0;
+  if (!rel.tenets?.length) return;
+  // Zealots frighten the neighbours.
+  if (tenetOn(world, 'holywar')) for (const r of world.realms ?? []) if (!r.fallen && !r.pact) r.relation = clamp(r.relation - 2 * rel.adherence, -100, 100);
+  for (const t of rel.tenets) {
+    const ground = faithful.filter((n) => strain(world, n, t.kind) < 0).length;
+    if (ground >= 5 && ground >= faithful.length * 0.15 && chance(rng, 0.25)) log(world, 'world', `ผู้ศรัทธา ${ground} คนบ่นว่าบัญญัติ"${TENETS[t.kind].name}"ขัดกับชีวิตจริง บางคนเริ่มห่างจากโบสถ์`);
+  }
+}
+
+// Who the god's dream would find: the most devout priest, else the most devout believer.
+export function prophetOf(world: WorldState): Npc | undefined {
+  const faithful = townAdults(world).filter((n) => believer(n) && n.job !== 'king');
+  const best = (list: Npc[]) => list.sort((a, b) => pietyOf(b) - pietyOf(a))[0];
+  return best(faithful.filter((n) => n.job === 'priest')) ?? best(faithful);
+}
+
+// The god's dream to the prophet: a commandment handed down, or one taken back.
+export function proclaim(world: WorldState, k: Tenet): boolean {
+  const rel = religionOf(world);
+  const prophet = prophetOf(world);
+  const t = TENETS[k];
+  if (tenetOn(world, k)) {
+    rel.tenets = rel.tenets!.filter((x) => x.kind !== k);
+    log(world, 'dream', `${prophet?.name ?? 'นักบวช'}ฝันว่าเทพเจ้ายกบัญญัติ"${t.name}"ออกจากคำสอน ผู้ศรัทธาไม่ต้องยึดถืออีกต่อไป`, prophet?.id);
+    return true;
+  }
+  if (!prophet || (rel.tenets?.length ?? 0) >= MAX_TENETS) return false;
+  (rel.tenets ??= []).push({ kind: k, day: world.day, prophetId: prophet.id });
+  prophet.prophet = true;
+  prophet.piety = 100;
+  log(world, 'dream', `${prophet.name}ฝันเห็นเทพเจ้าประทานบัญญัติใหม่ ตื่นมาประกาศต่อผู้ศรัทธา: "${t.text}" (${t.name})`, prophet.id);
+  return true;
 }
 
 // Faith the god draws each day from the prayers of those who believe in them.
@@ -136,7 +224,7 @@ export function prayers(world: WorldState): number {
   let sum = 0;
   for (const n of world.npcs) if (grown(n) && believer(n)) sum += pietyOf(n) / 100;
   for (const n of world.villagers ?? []) if (grown(n) && believer(n)) sum += pietyOf(n) / 100;
-  return sum * PRAYER * (world.charter?.stateFaith ? 1.5 : 1);
+  return sum * PRAYER * (world.charter?.stateFaith ? 1.5 : 1) * (tenetOn(world, 'learning') ? 0.85 : 1);
 }
 
 const mayWorship = (world: WorldState, n: Npc) =>
@@ -160,7 +248,7 @@ function holyDay(world: WorldState, rel: Religion, rng: Rng): void {
   const gift = Math.max(1, Math.round(OFFERING * levelOf(world)));
   let kept = 0;
   for (const n of world.npcs) {
-    if (!believer(n) || !grown(n) || !chance(rng, n.plan?.kind === 'pray' ? 1 : pietyOf(n) / 100)) continue;
+    if (!believer(n) || !grown(n) || !chance(rng, n.plan?.kind === 'pray' ? 1 : Math.min(1, pietyOf(n) / 100 + (tenetOn(world, 'restday') ? 0.3 : 0)))) continue;
     kept++;
     if (pietyOf(n) >= 40 && n.gold >= gift * 10) {
       n.gold -= gift;
