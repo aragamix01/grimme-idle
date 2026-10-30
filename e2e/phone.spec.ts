@@ -585,7 +585,7 @@ test('the religion tab: creeds, the holy day, the rites; a believer opens with t
   ]);
   expect(shown).toBe(grown);
   // A devout believer's row opens their card, which tells their faith once opened in full.
-  const row = view.locator('.guild-sec').nth(1).locator('.chip--button').first();
+  const row = view.locator('.faith-devout .chip--button').first();
   const name = await row.textContent();
   await row.tap();
   await expect(card(page).locator('.npc__name')).toHaveText(name!);
@@ -656,7 +656,8 @@ test('the church and a sect on the religion tab: the god embraces the sect, and 
   await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toContainText('นิกายแสงใหม่');
   const sect = page.locator('#faith .faith-sect');
   await expect(sect).toContainText('นิกายแสงใหม่');
-  await expect(sect).toContainText('สาวก 6 คน');
+  const following = await page.evaluate(() => (window as any).__grimm.scene.world.npcs.filter((n: any) => n.alive && n.age >= 16 && n.creed === 'sect').length);
+  await expect(sect).toContainText(`สาวก ${following} คน`); // the town ran a few days before the pause: the sect may have grown
   await sect.locator('[data-act="embrace"]').tap();
   await expect(sect).toHaveCount(0);
   await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toHaveCount(0);

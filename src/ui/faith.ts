@@ -44,7 +44,7 @@ export function renderFaith(world: WorldState): void {
     abroad(world),
     rites(world),
     section('นักบวช', priests.length ? priests.map((n) => personRow(n, jobName(world, n.job))) : [empty('เมืองไม่มีนักบวช ไม่มีใครประกอบพิธี และคนที่ไม่เชื่อจะไม่มีใครมาชักชวน')], `${priests.length} คน`),
-    section('ผู้ศรัทธาแรงกล้า', devout.length ? devout.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครนับถือเทพเจ้า')]),
+    devoutList(devout.length ? devout.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครนับถือเทพเจ้า')]),
     el('p', { className: 'log-note', textContent: 'ศรัทธาของเทพเจ้ามาจากคำภาวนาของผู้ที่นับถือ ยิ่งศรัทธาแรงยิ่งได้มาก นักบวช มหาวิหาร และพรของเทพทำให้คนศรัทธามากขึ้น ส่วนการรู้หนังสือ ยุคเครื่องจักร และคำสาปทำให้ศรัทธาเสื่อม' }),
   );
   localize(view, world);
@@ -238,6 +238,12 @@ function tenets(world: WorldState, prophet: Npc | undefined): HTMLElement {
   );
   return s;
 }
+
+const devoutList = (rows: HTMLElement[]) => {
+  const s = section('ผู้ศรัทธาแรงกล้า', rows);
+  s.classList.add('faith-devout');
+  return s;
+};
 
 function personRow(n: Npc, note: string): HTMLElement {
   const b = el('button', { type: 'button', className: 'chip chip--button', textContent: n.name });
