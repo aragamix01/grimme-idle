@@ -53,3 +53,17 @@ test('sections, the map menu, the card and the world map by mouse', async ({ pag
   await page.locator('#nav [data-section="town"]').click();
   await clickNpc(page);
 });
+
+test('the dreams to send wrap inside the card instead of running off its side', async ({ page }) => {
+  await page.locator('#nav [data-section="power"]').click();
+  await page.locator('#sub-tabs [data-sub="faith"]').click();
+  await page.locator('#speed button[data-speed="3"]').click(); // gather the faith a dream costs
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.faith >= 10, null, { timeout: 40_000 });
+  await page.locator('#speed button[data-speed="0"]').click();
+  await clickNpc(page);
+  await page.locator('#npc-card .power', { hasText: 'ส่งความฝัน' }).click();
+  await expect(page.locator('#npc-card .dream-pick')).toBeVisible();
+  for (const id of ['#npc-card', '#side']) expect(await page.locator(id).evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
+  await page.locator('#npc-card .npc__head .npc__close').click();
+  await expect(page.locator('#npc-card')).toBeHidden();
+});
