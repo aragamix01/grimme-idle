@@ -52,7 +52,8 @@ export function renderPeople(world: WorldState): void {
   if (key === lastKey) return;
   lastKey = key;
 
-  view.replaceChildren(filters(world, adults), roster(world, adults), overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living));
+  // The town at a glance and its people by trade come first; the filterable roster follows.
+  view.replaceChildren(overview(world, living, adults), classBar(adults), ...CLASSES.flatMap((c) => c.jobs).map((job) => jobSection(world, job, adults.filter((n) => n.job === job))), childrenSection(living), filters(world, adults), roster(world, adults));
   localize(view, world);
 }
 
