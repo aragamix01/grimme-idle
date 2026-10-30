@@ -76,10 +76,23 @@ export const draughts = (world: WorldState) => world.npcs.some((n) => n.alive &&
 export const knowledgeOf = (world: WorldState) => world.knowledge ?? 0;
 
 // A day of study, at the school if the town has one, else in the castle's library.
+// Past a handful, more scholars mostly go over each other's ground: a city's crowd of them finds
+// things sooner than a town's few, but not in proportion (counted once a day).
+const SCHOLARS_FULL = 6;
+let scholarCount: { npcs: Npc[]; day: number; n: number } | null = null;
+function crowdedStudy(world: WorldState): number {
+  if (scholarCount?.npcs !== world.npcs || scholarCount.day !== world.day) {
+    let n = 0;
+    for (const x of world.npcs) if (x.alive && x.job === 'scholar') n++;
+    scholarCount = { npcs: world.npcs, day: world.day, n };
+  }
+  return Math.min(1, Math.sqrt(SCHOLARS_FULL / Math.max(1, scholarCount.n)));
+}
+
 export function study(world: WorldState, npc: Npc, rng: Rng): void {
   const rate =
     KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (world.charter?.stateFaith ? 0.8 : world.charter?.faith === 'secular' ? 1.1 : 1) * (world.demon?.stage === 'occupied' ? 0.3 : 1) * (tenetOn(world, 'learning') ? 1 + 0.15 * adherence(world) : 1); // the god bids them study; a state church frowns on some questions; under the demon books are hidden
-  world.knowledge = knowledgeOf(world) + rate;
+  world.knowledge = knowledgeOf(world) + rate * crowdedStudy(world);
   if (chance(rng, 0.004)) npc.level++; // years of reading tell, slowly
 }
 

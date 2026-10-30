@@ -438,7 +438,7 @@ export interface Home {
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
 // and the god may whisper to tip the scale.
-export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe';
+export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode';
 export interface Happening {
   kind: HappeningKind;
   title: string;
@@ -455,7 +455,7 @@ export interface Happening {
   outcome?: string; // what came of it
 }
 // A happening's lasting effect: added to a rate somewhere in the sim until the day it wears off.
-export type ModKey = 'harvest' | 'sickness' | 'crime' | 'arrivals' | 'piety';
+export type ModKey = 'harvest' | 'sickness' | 'crime' | 'arrivals' | 'piety' | 'fire' | 'building';
 export interface Mod {
   key: ModKey;
   value: number;
@@ -561,7 +561,9 @@ export interface WorldState {
   rank?: number; // camp, village, town, city: the last the chronicle announced
   homes?: Home[]; // the town's homes, one per built house lot
   buildRev?: number; // counts changes to the homes, so the town is only laid out again when one comes or goes
-  homeless?: number; // townsfolk with no room in any home, as of the last count
+  homeless?: number; // townsfolk with no room in any home, nor a shack, as of the last count
+  shacks?: number[]; // the shanty's shacks, by spot (town.ts SHACK_SPOTS)
+  slum?: number; // townsfolk living in them, as of the last count
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last
   happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up

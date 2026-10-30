@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
-import { BUILDINGS, LOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { BUILDINGS, LOTS, SHACK_SPOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -254,6 +254,7 @@ export class WorldScene extends Phaser.Scene {
       ageOf(w), // a new age rebuilds the houses
       (w.ruins ?? []).map((r) => `${r.x}.${r.y}`).join(','), // homes brought down or rebuilt
       w.buildRev ?? 0, // a home started, finished or built up
+      (w.shacks ?? []).join(','), // the shanty, drawn apart from the layout
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -501,6 +502,8 @@ export class WorldScene extends Phaser.Scene {
         s.setDepth(s.y + 1);
       } else this.placeProp({ key: 'scaffold', x: tx, y: ty, anchor: 'top' });
     }
+    // The shanty's shacks.
+    for (const s of w.shacks ?? []) this.placeProp({ key: 'shack', x: SHACK_SPOTS[s].x, y: SHACK_SPOTS[s].y, anchor: 'bottom' });
     // Before there is a church or a market on the square, the camp gathers round a fire there.
     if (!founded(w, 'church') && !founded(w, 'shop')) this.placeProp({ key: 'campfire', x: PLACES.square.x, y: PLACES.square.y, anchor: 'bottom' });
     // A hero of a past era stands in stone in the square.

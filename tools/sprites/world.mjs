@@ -622,6 +622,18 @@ function hall() {
   return finishBuilding(g);
 }
 
+// A shack in the shanty: scrap planks leaning on a post, a patched cloth for a roof.
+function shack() {
+  const g = new Grid(16, 16);
+  g.rect(2, 8, 12, 7, 'N');
+  for (const x of [4, 8, 11]) g.vline(x, 8, 7, 'M');
+  g.rect(6, 10, 3, 5, 'k'); // the gap for a door
+  g.rect(1, 5, 14, 3, 'C').rect(3, 5, 4, 3, 'h').rect(10, 6, 3, 2, 'x'); // patched cloth
+  g.hline(1, 5, 14, 'c');
+  g.set(13, 4, 'M').set(13, 3, 'M');
+  return finishBuilding(g);
+}
+
 // The camp's fire in the square, before the town has a church or a market around it.
 function campfire() {
   const g = new Grid(16, 16);
@@ -638,6 +650,7 @@ export function buildings() {
     { name: 'hut', group: 'buildings', frames: [hut()] },
     { name: 'hall', group: 'buildings', frames: [hall()] },
     { name: 'campfire', group: 'props', frames: [campfire()] },
+    { name: 'shack', group: 'props', frames: [shack()] },
     ...['', '-red', '-blue'].flatMap((c) => [
       { name: `townhouse${c}`, group: 'buildings', frames: [townhouse(c ? c.slice(1) : 'brown', 2)] },
       { name: `townhouse${c}-age3`, group: 'buildings', frames: [townhouse(c ? c.slice(1) : 'brown', 3)] },

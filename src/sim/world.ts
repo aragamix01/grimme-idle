@@ -11,7 +11,7 @@ import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
 import { TOWN_SIZE, WALL } from './town';
-import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, priceRatio, sell, tendShop, wantsGear, wearGear } from './market';
+import { ensureMarket, arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, priceRatio, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, approval, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
@@ -47,6 +47,7 @@ import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divin
 import { happeningsDay, whisper, whisperCost } from './happenings';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
 import { founded, growthDay } from './growth';
+import { shantyCrime, slumsDay } from './slums';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -141,6 +142,9 @@ const CAMP_TREASURY = 150;
 function pitchCamp(world: WorldState, rng: Rng): void {
   world.founded = {};
   world.treasury = CAMP_TREASURY;
+  const m = ensureMarket(world);
+  m.stock.grain = 120; // the pioneers' own sacks: a winter's worth for two dozen
+  m.stock.timber = 20;
   const folk = PIONEER_JOBS.map((job) => {
     const n = spawnNpc(world, rng);
     n.age = int(rng, 18, 40);
@@ -234,6 +238,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   decreesDay(world, rng);
   housingDay(world, rng);
   growthDay(world);
+  slumsDay(world, rng);
   happeningsDay(world, rng);
   annalsDay(world);
   healBosses(world);
@@ -468,7 +473,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
-      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1) * (decreeActive(world, 'curfew') ? 0.4 : 1) * Math.max(0, 1 + modOf(world, 'crime')))) {
+      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1) * (decreeActive(world, 'curfew') ? 0.4 : 1) * Math.max(0, 1 + modOf(world, 'crime')) * shantyCrime(world))) {
         const victim = pick(rng, marks);
         return plan('steal', victim, PURSUIT_DAYS, victim.id);
       }

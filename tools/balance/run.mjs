@@ -18,11 +18,12 @@ const bundle = join(here, '../../node_modules/.cache/balance/town.mjs');
 const PER_25 = (years) => years / 25;
 const BOUNDS = [
   // A town starts as a camp of two dozen and grows as its homes do: by the twenty-fifth year anything
-  // from a struggling village to a city. Past the top, the sim's daily cost runs away.
-  ['ประชากรตอนจบ', (r) => r.pop, (y) => (y >= 20 ? 60 : 15), 260],
+  // from a struggling village to a city. Every lot built up a storey holds about 300; past that
+  // something is wrong (and the sim's daily cost runs away).
+  ['ประชากรตอนจบ', (r) => r.pop, (y) => (y >= 20 ? 60 : 15), 320],
   ['ความหิว (คน×เดือน)', (r) => r.hunger, 0, (y) => 500 * PER_25(y)], // one town's famine swings a lot from seed to seed
   ['ท้องพระคลัง', (r) => r.treasury, 0, 25000],
-  ['คนรวยที่สุด', (r) => r.richest, 0, 8000],
+  ['คนรวยที่สุด', (r) => r.richest * Math.min(1, 150 / Math.max(1, r.pop)), 0, 8000], // a city's market makes bigger fortunes: judged as if it were a town of 150
   ['ภัยพิบัติ', (r) => r.events.disaster, 0, (y) => 18 * PER_25(y)],
   ['ทิ้งเมืองเพราะหิว', (r) => r.events.starvedOut, 0, (y) => 25 * PER_25(y)],
 ];

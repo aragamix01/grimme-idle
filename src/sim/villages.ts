@@ -13,6 +13,7 @@ import { commit, jailed } from './justice';
 import { ADULT_AGE, ELDER_AGE, isBirthday, isChild } from './life';
 import { FIRST_NAMES } from './names';
 import { builtFor } from './housing';
+import { TOWN_RANK, rankOf } from './growth';
 import { LAND_TH, USES, best, isOurs, levelOf, neighbourLairs, touches } from './lands';
 import { isAdventurer, postLandQuest } from './quests';
 import type { Job, LandUse, Npc, Realm, Region, Trait, Village, VillageWork, WorldState } from './types';
@@ -163,7 +164,8 @@ function spare(world: WorldState, n: Npc): boolean {
 
 // Whether the town has anyone to send.
 // Under a colonial decree the crown drives people out even from a thinning town.
-const floorOf = (world: WorldState) => Math.round(builtFor(world) * (decreeActive(world, 'colonize') ? 0.75 : TOWN_FLOOR));
+// A camp or a village has nobody to spare for the lands, whatever its rooms: it needs every hand at home.
+const floorOf = (world: WorldState) => (world.founded && rankOf(world) < TOWN_RANK ? Infinity : Math.round(builtFor(world) * (decreeActive(world, 'colonize') ? 0.75 : TOWN_FLOOR)));
 export const canSend = (world: WorldState) => world.npcs.filter((n) => n.alive).length >= floorOf(world) && world.npcs.some((n) => spare(world, n));
 
 // A family from town moves out to a land: the one picked, their spouse and their children.

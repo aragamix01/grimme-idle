@@ -8,7 +8,7 @@ import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell, levelOf } from './market';
 import { PLACES, type Spot } from './places';
 import { builtFor, townPop } from './housing';
-import { founded, rankOf } from './growth';
+import { TOWN_RANK, founded, rankOf } from './growth';
 import { successor } from './regimes';
 import { ageOf, industrial, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
@@ -55,9 +55,10 @@ const TRIBUTE_FLOOR = 100;
 const STIPEND = 5; // the king's own pay, each payday
 const KNIGHT_PAY = 8;
 const SCHOLAR_PAY = 3; // the crown keeps its scholars in ink and bread
+const FARM_SHARE = 0.15; // of the town, kept in the fields before the crown enlists a farmer
 const ARMY_SHARE = 0.1; // of the town: the crown recruits up to this many while it can pay them
-// A camp has its watch and no standing army.
-const armyTarget = (world: WorldState) => (world.founded && rankOf(world) < 1 ? 0 : Math.round(Math.max(townPop(world), builtFor(world)) * ARMY_SHARE));
+// A camp or a village has its watch and no standing army; the crown raises one once it is a town.
+const armyTarget = (world: WorldState) => (world.founded && rankOf(world) < TOWN_RANK ? 0 : Math.round(Math.max(townPop(world), builtFor(world)) * ARMY_SHARE));
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
 const ALE = 2;
@@ -180,7 +181,7 @@ function fillTrades(world: WorldState, rng: Rng): void {
     const pool = world.npcs.filter(
       (n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined && (n.job === 'farmer' || (n.job === 'merchant' && job !== 'merchant' && merchants > 2)),
     );
-    if (pool.length < 6) continue;
+    if (pool.length < 6 || living(world, 'farmer').length <= townPop(world) * FARM_SHARE) continue; // never at the fields' expense
     const n = pick(rng, pool);
     const was = n.job;
     leaveTrade(n);
@@ -270,8 +271,10 @@ function recruit(world: WorldState): void {
   // In wartime the crown raises more men while it can pay them; a junta always wants more.
   if (occupied(world) || army >= armyTarget(world) * (world.regime === 'junta' ? 1.5 : 1) + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
-  // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
-  const spare = (job: Job) => ['farmer', 'herder', 'hunter', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;
+  // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two,
+  // nor a farmer from fields that are short-handed or a town where bread is already dear.
+  const fieldsShort = living(world, 'farmer').length <= Math.max(2, townPop(world) * FARM_SHARE) || priceRatio(world, 'grain') >= 1.3;
+  const spare = (job: Job) => ['farmer', 'herder', 'hunter', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2 && !(job === 'farmer' && fieldsShort);
   const r = world.npcs
     .filter((n) => n.alive && n.age >= 16 && n.age < 45 && spare(n.job) && n.rank === undefined && n.questId === undefined && n.inside === undefined && n.gold < 30)
     .sort((a, b) => keen(b) - keen(a) || a.gold - b.gold)[0];

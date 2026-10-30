@@ -113,6 +113,16 @@ export const LOTS: readonly Lot[] = [
 ];
 export const FIRST_LOTS = 16; // the lots built on at the founding
 
+// Where the homeless knock up shacks when there is no room for them: one tile each, along the
+// strip between the south wall and the fields, then along the far edge past the fields.
+export const SHACK_SPOTS: readonly { x: number; y: number }[] = [
+  ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((x) => ({ x, y: 18 })),
+  ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((x) => ({ x, y: 24 })),
+];
+// Shacks come and go too often to lay the town out again for each, so they are drawn on their own
+// (WorldScene) and nobody has to walk round them.
+export const SHACK_BASE = 1000; // a home number past this is a shack: SHACK_BASE + its spot
+
 // Where someone stands to use a building: the tile in front of its door.
 export const doorOf = (key: string, tx: number, ty: number) => {
   const [w, h] = BUILDING_PX[key];

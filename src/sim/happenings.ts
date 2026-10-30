@@ -15,7 +15,7 @@ import { headOf } from './church';
 import { addTie } from './ties';
 import { basePrice, ensureMarket, levelOf, priceRatio, target } from './market';
 import { traveller } from './world';
-import { capacity } from './housing';
+import { capacity, inShack } from './housing';
 import type { Happening, HappeningKind, Mod, ModKey, Npc, Trait, WorldState } from './types';
 
 export const WHISPER_COST = 8; // faith to whisper for one option
@@ -47,7 +47,7 @@ interface Def {
 
 // ---------- mods: a happening's lasting effect on some rate in the sim (addMod, modOf in core.ts) ----------
 
-export const MOD_TH: Record<ModKey, string> = { harvest: 'ผลผลิตข้าว', sickness: 'โรคภัย', crime: 'อาชญากรรม', arrivals: 'คนย้ายเข้าเมือง', piety: 'ศรัทธา' };
+export const MOD_TH: Record<ModKey, string> = { harvest: 'ผลผลิตข้าว', sickness: 'โรคภัย', crime: 'อาชญากรรม', arrivals: 'คนย้ายเข้าเมือง', piety: 'ศรัทธา', fire: 'ไฟไหม้', building: 'การสร้างบ้านของทางการ' };
 export const activeMods = (world: WorldState): Mod[] => (world.mods ?? []).filter((m) => m.until > world.day);
 
 // ---------- who decides ----------
@@ -440,6 +440,93 @@ const DEFS: Record<HappeningKind, Def> = {
           addMod(w, 'crime', -0.4, 180, 'กวาดล้างโจร');
           nudgeAll(ofJob(w, 'thief'), -10);
           return 'ทหารออกลาดตระเวนทุกคืน โจรต้องหลบซ่อน';
+        },
+      },
+    ],
+  },
+  shanty: {
+    title: 'ชุมชนแออัดนอกกำแพง',
+    mtth: 120,
+    gap: 360,
+    can: (w) => (w.shacks?.length ?? 0) >= 4,
+    decider: ruler,
+    text: (w) => `เพิง ${w.shacks?.length ?? 0} หลังเบียดกันนอกกำแพง คน ${w.slum ?? 0} คนไม่มีบ้านจริง ๆ ให้อยู่ ขโมยและโรคภัยเริ่มลามเข้าเมือง`,
+    options: [
+      {
+        key: 'clear',
+        label: 'รื้อทิ้ง ไล่คนออกไป',
+        likes: { vengeful: 2.5, greedy: 1.5, kind: 0.3 },
+        act: (w) => {
+          const out = w.npcs.filter((n) => n.alive && inShack(n));
+          for (const n of out) {
+            n.home = undefined;
+            loyaltyNudge(n, -8);
+          }
+          w.shacks = [];
+          w.slum = 0;
+          w.homeless = (w.homeless ?? 0) + out.length;
+          addMod(w, 'crime', -0.2, 90, 'รื้อชุมชนแออัด');
+          return `ทหารรื้อเพิงทั้งหมด คน ${out.length} คนไม่มีที่ซุกหัวนอน หลายคนคงต้องทิ้งเมืองไป`;
+        },
+      },
+      {
+        key: 'house',
+        label: 'ทางการสร้างบ้านให้',
+        likes: { kind: 3, loyal: 1.5, greedy: 0.4 },
+        can: (w) => w.treasury >= 300,
+        act: (w) => {
+          addMod(w, 'building', 1, 360, 'ทางการเร่งสร้างบ้านให้คนในชุมชนแออัด');
+          nudgeAll(w.npcs.filter((n) => n.alive && inShack(n)), 6);
+          return 'ทางการเร่งจ้างช่างสร้างบ้านทีละหลายหลัง ออกเงินเองตลอดปี';
+        },
+      },
+      {
+        key: 'ignore',
+        label: 'ปล่อยไว้',
+        likes: { greedy: 2, coward: 1.5 },
+        act: (w) => {
+          addMod(w, 'crime', 0.3, 180, 'ชุมชนแออัดที่ไม่มีใครดูแล');
+          return 'ไม่มีใครทำอะไร ชุมชนแออัดยังขยายต่อไป';
+        },
+      },
+    ],
+  },
+  firecode: {
+    title: 'หลังเพลิงสงบ',
+    mtth: 1,
+    gap: 0,
+    can: () => false, // raised by a fire (slums.ts)
+    decider: ruler,
+    text: () => 'เถ้าถ่านยังกรุ่นอยู่ บ้านที่ไหม้จะสร้างขึ้นใหม่อย่างไร',
+    options: [
+      {
+        key: 'stone',
+        label: 'สร้างใหม่ด้วยอิฐและหิน (200 ทอง)',
+        likes: { kind: 1.5, loyal: 1.5, coward: 2, greedy: 0.4 },
+        can: (w) => w.treasury >= 200,
+        act: (w) => {
+          w.treasury -= 200;
+          addMod(w, 'fire', -0.6, 1800, 'บ้านสร้างใหม่ด้วยอิฐ');
+          return 'บ้านที่สร้างใหม่ทนไฟกว่าเดิมมาก ไฟจะไหม้ยากขึ้นไปอีกหลายปี';
+        },
+      },
+      {
+        key: 'wood',
+        label: 'สร้างด้วยไม้เหมือนเดิม',
+        likes: { greedy: 2, brave: 1.3 },
+        act: (w) => {
+          for (const r of w.ruins ?? []) r.until = w.day + Math.ceil((r.until - w.day) * 0.7);
+          return 'บ้านไม้กลับมายืนเร็ว แต่ก็ไหม้ได้อีกเหมือนเดิม';
+        },
+      },
+      {
+        key: 'ban',
+        label: 'ห้ามก่อไฟในบ้านไม้ยามค่ำ',
+        likes: { vengeful: 2, coward: 1.5, kind: 0.6 },
+        act: (w) => {
+          addMod(w, 'fire', -0.3, 720, 'กฎห้ามก่อไฟยามค่ำ');
+          nudgeAll(adults(w), -2);
+          return 'ยามเดินตรวจทุกคืน ชาวเมืองบ่นว่าหนาวและมืด แต่ไฟไหม้ยากขึ้น';
         },
       },
     ],

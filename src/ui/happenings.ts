@@ -7,6 +7,7 @@ import { localize } from './lexicon';
 // effects still in force.
 
 const view = document.getElementById('happenings')!;
+const BAD = new Set(['sickness', 'crime', 'fire']); // more of these is worse
 let lastKey = '';
 
 function entry(world: WorldState, h: Happening, onNpc: (id: number) => void, pending: boolean): HTMLElement {
@@ -49,7 +50,7 @@ export function renderHappenings(world: WorldState, onNpc: (id: number) => void)
         { className: 'happening-mods' },
         el('h3', { textContent: 'ผลที่ยังอยู่' }),
         ...mods.map((m) =>
-          el('p', { className: 'happening-mods__row' }, el('span', { textContent: m.why }), el('b', { className: m.value > 0 === (m.key !== 'sickness' && m.key !== 'crime') ? 'up' : 'down', textContent: `${MOD_TH[m.key]} ${m.value > 0 ? '+' : ''}${m.key === 'piety' ? m.value : `${Math.round(m.value * 100)}%`}` }), el('time', { textContent: `อีก ${m.until - world.day} วัน` })),
+          el('p', { className: 'happening-mods__row' }, el('span', { textContent: m.why }), el('b', { className: m.value > 0 === !BAD.has(m.key) ? 'up' : 'down', textContent: `${MOD_TH[m.key]} ${m.value > 0 ? '+' : ''}${m.key === 'piety' ? m.value : `${Math.round(m.value * 100)}%`}` }), el('time', { textContent: `อีก ${m.until - world.day} วัน` })),
         ),
       ),
     );

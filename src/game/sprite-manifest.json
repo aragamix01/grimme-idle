@@ -1007,6 +1007,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "shack": {
+    "file": "assets/sprites/props/shack.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "townhouse": {
     "file": "assets/sprites/buildings/townhouse.png",
     "group": "buildings",

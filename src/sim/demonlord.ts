@@ -17,6 +17,7 @@ import { ageOf, industrial } from './ages';
 import { DEMON_KINDS, GENERALS, demonNature, kindFor } from './demonkinds';
 import { portents } from './portents';
 import { avatarOf, isAvatar, offer } from './avatar';
+import { TOWN_RANK, rankOf } from './growth';
 import type { DemonLord, Npc, WorldState } from './types';
 
 const LORD_NAMES = ['มัลกาซาร์', 'เนเฟรอส', 'ซาร์โกธ', 'โมรเดรา', 'อัซราเอล', 'เบลโกรน'];
@@ -74,7 +75,8 @@ function gatherDread(world: WorldState, rng: Rng): void {
   const ward = 1 - 0.2 * perkLevel(world, 'ward');
   world.dread = clamp((world.dread ?? 0) + Math.max(0, -b - 15) * 0.01 * ward - (b > 10 ? 0.1 : 0), 0, DREAD_TO_RISE);
   portents(world, rng);
-  if (world.dread >= DREAD_TO_RISE) rise(world, rng);
+  // A camp or a village is beneath the demon's notice: the dread waits for a town worth taking.
+  if (world.dread >= DREAD_TO_RISE && !(world.founded && rankOf(world) < TOWN_RANK)) rise(world, rng);
 }
 
 function rise(world: WorldState, rng: Rng): void {

@@ -6,13 +6,13 @@
 // taken. The town's size follows its homes: newcomers come while there are rooms, and the
 // homeless drift away.
 import { chance, type Rng } from './rng';
-import { log } from './core';
+import { log, modOf } from './core';
 import { isAvatar } from './avatar';
 import { ensureMarket, levelOf } from './market';
 import { ageOf } from './ages';
 import { payrollReserve } from './society';
 import { rankOf } from './growth';
-import { FIRST_LOTS, LOTS, TOWN_SIZE } from './town';
+import { FIRST_LOTS, LOTS, SHACK_BASE, SHACK_SPOTS, TOWN_SIZE } from './town';
 import { AWAY, type Home, type Npc, type WorldState } from './types';
 
 export const ROOMS = [4, 8, 11] as const; // by tier: a hut, a house, a townhouse a storey up
@@ -26,6 +26,10 @@ const CROWN_SPARE = 300; // gold the crown keeps back beyond the payroll before 
 const SETTLE_EVERY = 10; // days between sorting out who lives where
 const LEAVE_ODDS = 0.08; // monthly, for each homeless household
 const GENTRY = new Set<Npc['job']>(['king', 'noble']); // they live in the castle and the manor
+export const SHACK_ROOMS = 5; // squeezed in
+const SHANTY_LEAVE = 0.5; // a shack is a roof of sorts: those in one give up on the town less often, unless they are going hungry too
+export const inShack = (n: Npc) => (n.home ?? -1) >= SHACK_BASE;
+export const shackDoor = (s: number) => ({ x: SHACK_SPOTS[s].x, y: SHACK_SPOTS[s].y === 24 ? 23 : SHACK_SPOTS[s].y + 1 });
 
 // ---------- lots and homes ----------
 
@@ -110,6 +114,8 @@ export function settle(world: WorldState): void {
   };
   const waiting: Npc[][] = [];
   let out = 0;
+  const shacks = new Set(world.shacks ?? []);
+  const inShackNow = new Map<number, number>(); // spot -> people
   for (const g of households(world)) {
     const head = g.find((n) => n.home !== undefined) ?? g[0];
     if (g.some((n) => GENTRY.has(n.job))) {
@@ -117,7 +123,7 @@ export function settle(world: WorldState): void {
       continue;
     }
     const lot = head.home;
-    if (lot !== undefined && (used.get(lot) ?? 0) + g.length <= rooms(lot)) {
+    if (lot !== undefined && lot < SHACK_BASE && (used.get(lot) ?? 0) + g.length <= rooms(lot)) {
       used.set(lot, (used.get(lot) ?? 0) + g.length);
       for (const n of g) n.home = lot;
     } else waiting.push(g);
@@ -134,16 +140,36 @@ export function settle(world: WorldState): void {
         spare = left;
       }
     }
-    if (best >= 0) used.set(best, (used.get(best) ?? 0) + g.length);
-    else out += g.length;
-    for (const n of g) n.home = best >= 0 ? best : undefined;
+    if (best >= 0) {
+      used.set(best, (used.get(best) ?? 0) + g.length);
+      for (const n of g) n.home = best;
+      continue;
+    }
+    // No room in any home: a shack, theirs from before if it still stands, else one with space,
+    // else a new one knocked up on a free spot. With no spot left they sleep rough.
+    const had = g[0].home !== undefined && g[0].home >= SHACK_BASE ? g[0].home - SHACK_BASE : -1;
+    const fits = (s: number) => (inShackNow.get(s) ?? 0) + g.length <= SHACK_ROOMS;
+    let s = shacks.has(had) && fits(had) ? had : [...shacks].find(fits) ?? -1;
+    if (s < 0) s = SHACK_SPOTS.findIndex((_, i) => !shacks.has(i));
+    if (s < 0 || g.length > SHACK_ROOMS) {
+      out += g.length;
+      for (const n of g) n.home = undefined;
+      continue;
+    }
+    shacks.add(s);
+    inShackNow.set(s, (inShackNow.get(s) ?? 0) + g.length);
+    for (const n of g) n.home = SHACK_BASE + s;
   }
   world.homeless = out;
+  // Shacks stand while anyone lives in them; the empty ones are pulled down for firewood.
+  const kept = [...shacks].filter((s) => inShackNow.has(s)).sort((a, b) => a - b);
+  if (kept.join() !== (world.shacks ?? []).join()) world.shacks = kept;
+  world.slum = [...inShackNow.values()].reduce((a, b) => a + b, 0);
 }
 
 // Where someone goes home to: their home's door; with none, a corner by the inn.
 export function homeDoor(n: Npc): { x: number; y: number } | undefined {
-  return n.home === undefined ? undefined : lotDoor(n.home);
+  return n.home === undefined ? undefined : n.home >= SHACK_BASE ? shackDoor(n.home - SHACK_BASE) : lotDoor(n.home);
 }
 
 // ---------- building ----------
@@ -155,14 +181,15 @@ function payer(world: WorldState, cost: number): Npc | 'crown' | undefined {
   let rich: Npc | undefined;
   for (const n of world.npcs) if (n.alive && n.age >= 16 && n.inside !== AWAY && !GENTRY.has(n.job) && n.gold >= cost * 2 && (!rich || n.gold > rich.gold)) rich = n;
   if (rich) return rich;
-  return world.treasury >= cost + payrollReserve(world) + CROWN_SPARE ? 'crown' : undefined;
+  return world.treasury >= cost + payrollReserve(world) + (modOf(world, 'building') > 0 ? 0 : CROWN_SPARE) ? 'crown' : undefined;
 }
 
 // When homes run short and someone can pay, a new one goes up, or an old one a storey higher.
 function build(world: WorldState): void {
   const underway = sites(world).length;
-  const short = homeless(world) + SPARE_ROOMS - Math.max(0, freeRooms(world));
-  if (underway >= MAX_SITES || short <= 0) return;
+  const short = homeless(world) + (world.slum ?? 0) + SPARE_ROOMS - Math.max(0, freeRooms(world));
+  const drive = modOf(world, 'building') > 0; // the crown has set about housing the town
+  if (underway >= MAX_SITES + (drive ? 2 : 0) || short <= 0) return;
   const m = ensureMarket(world);
   // A hut is made a proper house first, once the town knows how; then new lots, inside the walls
   // before out; then, with every lot taken, homes go up a storey.
@@ -213,11 +240,12 @@ export const homeSite = (world: WorldState) => {
 
 // Households without a roof give up on the town now and then.
 function drift(world: WorldState, rng: Rng): void {
-  if (!homeless(world)) return;
+  if (!homeless(world) && !world.slum) return;
   const gone: string[] = [];
   for (const g of households(world)) {
-    if (g[0].home !== undefined || g.some((n) => GENTRY.has(n.job) || isAvatar(world, n) || n.questId !== undefined || n.inside !== undefined)) continue;
-    if (!chance(rng, LEAVE_ODDS)) continue;
+    if ((g[0].home !== undefined && !inShack(g[0])) || g.some((n) => GENTRY.has(n.job) || isAvatar(world, n) || n.questId !== undefined || n.inside !== undefined)) continue;
+    const hungry = g.some((n) => (n.hunger ?? 0) >= 2);
+    if (!chance(rng, LEAVE_ODDS * (inShack(g[0]) && !hungry ? SHANTY_LEAVE : 1))) continue;
     for (const n of g) {
       n.alive = false;
       n.left = true;

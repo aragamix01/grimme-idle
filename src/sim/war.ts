@@ -16,6 +16,7 @@ import { conquer, frontier, peaksHeld } from './lands';
 import { charterOf, landPolicyOf } from './charter';
 import { ageOf, industrial } from './ages';
 import { holyTarget, sharesFaith, warConverts } from './missions';
+import { TOWN_RANK, rankOf } from './growth';
 import type { Npc, Realm, War, WarAct, WorldState } from './types';
 
 const BATTLE_EVERY = 20;
@@ -95,6 +96,7 @@ export function weakest(world: WorldState, strength = ourForces(world).strength)
 export const conquestWar = (world: WorldState, r: Realm) => declare(world, r, 'us');
 
 function declare(world: WorldState, r: Realm, attacker: War['attacker']): void {
+  if (world.founded && rankOf(world) < TOWN_RANK) return; // nobody makes war on a camp or a village, nor can it make one
   const k = king(world);
   r.war = true;
   world.war = { realmId: r.id, since: world.day, attacker, nextBattle: world.day + BATTLE_EVERY, score: 0, battles: 0 };

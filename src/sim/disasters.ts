@@ -14,7 +14,7 @@ import { traveller } from './world';
 import { clamp } from './core';
 import { king, payrollReserve } from './society';
 import { LOTS } from './town';
-import { sites, standing, workOnHome } from './housing';
+import { sites, standing, townPop, workOnHome } from './housing';
 import { WORKS, WORK_ORDER } from './works';
 import { isAvatar, offer } from './avatar';
 import type { Realm, Terrain, Work, WorldState } from './types';
@@ -124,7 +124,8 @@ function hireBuilders(world: WorldState, rng: Rng): void {
   const want = priceRatio(world, 'grain') >= 1.6 ? 0 : Math.min(MAX_BUILDERS, Math.ceil((world.ruins?.length ?? 0) * BUILDERS_PER_RUIN + sites(world).length));
   if (builders.length < want && world.treasury > 100) {
     const farmers = living(world).filter((n) => n.job === 'farmer' && n.age >= 16 && n.questId === undefined);
-    for (let i = builders.length; i < want && farmers.length > 6; i++) {
+    const keep = Math.max(6, Math.ceil(townPop(world) * 0.2)); // the fields come first
+    for (let i = builders.length; i < want && farmers.length > keep; i++) {
       const n = farmers.splice(int(rng, 0, farmers.length - 1), 1)[0];
       n.formerJob = 'farmer';
       n.job = 'builder';

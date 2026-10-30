@@ -24,7 +24,7 @@ export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เ
 const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15 };
 export const basePrice = (g: Good) => BASE[g];
 // Stock that sells at the base price. Grain follows the town's mouths: enough to carry them through winter.
-export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(40, townPop(world))) / 80) : TARGET[g]);
+export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(12, townPop(world))) / 80) : TARGET[g]); // a floor of a dozen mouths: higher, and a camp's bread is priced as if it were starving
 export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
@@ -570,7 +570,11 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
 }
 
 // Newcomers follow the money: a famine draws farmers in, dear meat draws herders and hunters.
+// A settlement short of farmers draws them first: word goes round there is land to be had.
+const FARM_SHARE = 0.2;
 export function arrivalJob(world: WorldState, rng: Rng): Npc['job'] | null {
+  const grown = world.npcs.filter((n) => n.alive && n.age >= 16);
+  if (grown.filter((n) => n.job === 'farmer').length < grown.length * FARM_SHARE) return 'farmer';
   if (priceRatio(world, 'grain') >= 1.8 && chance(rng, 0.5)) return 'farmer';
   if (priceRatio(world, 'meat') >= 1.8 && chance(rng, 0.5)) return chance(rng, 0.5) ? 'herder' : 'hunter';
   return null;

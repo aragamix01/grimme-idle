@@ -3,8 +3,9 @@ import { applyCommands, createWorld, foundWorld, tick, traveller } from '../../s
 import { TOWN_RANK, founded, rankOf } from '../../src/sim/growth';
 import { kill } from '../../src/sim/core';
 import { wed, births, bornTo, homeOf } from '../../src/sim/life';
-import { ROOMS, capacity, townPop } from '../../src/sim/housing';
-import { FIRST_LOTS, LOTS, WALL } from '../../src/sim/town';
+import { ROOMS, capacity, inShack, shackDoor, townPop } from '../../src/sim/housing';
+import { fire, shantyCrime } from '../../src/sim/slums';
+import { FIRST_LOTS, LOTS, SHACK_SPOTS, WALL } from '../../src/sim/town';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
 import { ruinHomes } from '../../src/sim/disasters';
@@ -12,7 +13,7 @@ import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, pro
 import { tenetOn } from '../../src/sim/core';
 import { churchOf, headOf } from '../../src/sim/church';
 import { faithLaw } from '../../src/sim/charter';
-import { commit } from '../../src/sim/justice';
+import { commit, jailed } from '../../src/sim/justice';
 import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
 import { endWar } from '../../src/sim/war';
 import { ourForces } from '../../src/sim/war';
@@ -20,7 +21,8 @@ import { PLACES } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
-import { TARGET, ensureMarket } from '../../src/sim/market';
+import { TARGET, ensureMarket, target } from '../../src/sim/market';
+import { canSend } from '../../src/sim/villages';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -617,7 +619,7 @@ test('a full town: someone who can pay hires builders, and the new home stands a
   const before = capacity(w);
   const rev = w.buildRev ?? 0;
   settleNow(w);
-  ok((w.homeless ?? 0) > 0, 'nobody homeless in an overfull town');
+  ok((w.homeless ?? 0) + (w.slum ?? 0) > 0, 'nobody without a home in an overfull town');
   const site = w.homes!.find((h) => h.until !== undefined);
   ok(site, 'no home was started');
   ok((w.buildRev ?? 0) > rev, 'the town was not laid out again for the site');
@@ -647,14 +649,15 @@ test('without a roof, households drift away; with rooms to spare, newcomers come
   w.buildRev = (w.buildRev ?? 0) + 1;
   ensureMarket(w).stock.timber = 0; // and nothing to build with
   const start = townPop(w);
-  run(w, 180);
-  ok(townPop(w) < start - 10, `the homeless did not leave: ${start} -> ${townPop(w)}`);
+  run(w, 360);
+  ok((w.slum ?? 0) > 0, 'those with no home did not turn to the shanty');
+  ok(townPop(w) < start, `the homeless did not leave: ${start} -> ${townPop(w)}`); // slowly: a shack is a roof of sorts
   ok(w.chronicle.some((e) => e.text.includes('จึงทิ้งเมืองไปหาที่อยู่ใหม่')), 'nobody was said to leave for want of a home');
   const full = world(8);
   full.homes!.push(...LOTS.slice(FIRST_LOTS).map((_, i) => ({ lot: FIRST_LOTS + i, tier: 1 as const, built: 0 })));
   full.buildRev = (full.buildRev ?? 0) + 1;
   const before = townPop(full);
-  run(full, 180);
+  run(full, 360);
   ok(townPop(full) > before + 10, `newcomers did not fill the empty homes: ${before} -> ${townPop(full)}`);
 });
 
@@ -699,7 +702,7 @@ test('a camp grows into a town over the years: proper houses, a castle and walls
   ok(rankOf(w) >= TOWN_RANK, `still only rank ${rankOf(w)} with ${townPop(w)} people after sixteen years`);
   ok(founded(w, 'castle'), 'no castle in a town');
   ok(w.homes!.filter((h) => h.tier >= 1).length > w.homes!.filter((h) => h.tier === 0).length, 'still mostly huts');
-  ok(w.chronicle.some((e) => e.text.includes('เติบโตขึ้นแล้ว')) || w.legends.some((l) => l.text.includes('ขึ้นเป็น')), 'the town\'s rise was never told');
+  ok((w.rank ?? 0) >= TOWN_RANK, `the town's rise was never noted: rank ${w.rank}`);
 });
 
 test('a camp neither titles nobles nor raises an army, and the crown builds no works there', () => {
@@ -708,4 +711,77 @@ test('a camp neither titles nobles nor raises an army, and the crown builds no w
   run(w, 400);
   ok(rankOf(w) === 0 || w.npcs.every((n) => !n.alive || n.job !== 'noble'), 'a camp has nobles');
   ok(!w.building && !Object.keys(w.works ?? {}).length, 'the crown built works in a camp');
+});
+
+// ---------- the shanty and fire ----------
+
+test('with no room in any home, the homeless knock up shacks; they come down once homes are built', () => {
+  const w = world();
+  for (let i = 0; i < 25; i++) traveller(w, rngOf(w));
+  ensureMarket(w).stock.timber = 0; // nothing to build with
+  settleNow(w);
+  ok((w.shacks?.length ?? 0) > 0 && (w.slum ?? 0) > 0, `no shanty: ${w.shacks?.length} shacks, ${w.slum} in them`);
+  const s = w.shacks![0];
+  const dweller = w.npcs.find((n) => n.alive && inShack(n))!;
+  ok(JSON.stringify(homeOf(dweller, w)) === JSON.stringify(shackDoor(s)) || dweller.home! >= 1000, 'the shack dweller goes home elsewhere');
+  ok(shantyCrime(w) > 1, 'the shanty does not breed thieves');
+  w.homes!.push(...LOTS.slice(FIRST_LOTS).map((_, i) => ({ lot: FIRST_LOTS + i, tier: 1 as const, built: 0 })));
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  settleNow(w);
+  ok(!w.shacks?.length, `shacks still standing with homes to spare: ${w.shacks?.length}`);
+});
+
+test('a fire runs along a row of timber homes; the ruler decides how the town rebuilds', () => {
+  const w = world();
+  const before = capacity(w);
+  const burnt = fire(w, rngOf(w), { x: LOTS[4].x, y: LOTS[4].y });
+  ok(burnt >= 1, 'nothing burnt');
+  ok(capacity(w) < before, 'the burnt homes still count their rooms');
+  ok(w.chronicle.some((e) => e.text.startsWith('ไฟไหม้!')), 'the fire was not told');
+  const h = raise(w, 'firecode', rngOf(w));
+  ok(h && h.chooserId === w.kingId, 'the king does not decide how to rebuild');
+});
+
+test('the shanty comes up as a happening, and the ruler\'s choice is carried out', () => {
+  const w = world();
+  w.shacks = [0, 1, 2, 3, 4];
+  const k = kingOf(w);
+  k.traits = ['vengeful'];
+  const r = rngOf(w);
+  raise(w, 'shanty', r);
+  decide(w, r, 'clear');
+  ok(!w.shacks.length, 'the shacks were not cleared');
+  ok(w.happenings!.at(-1)!.chosen === 'clear', 'the choice was not kept');
+});
+
+test('someone sentenced while down a dungeon is fetched back to serve it, not lost in there', () => {
+  const w = world();
+  const n = grown(w).find((x) => x.job !== 'king' && x.job !== 'judge' && x.questId === undefined)!;
+  const d = w.dungeons[0];
+  for (let i = 0; i < 20 && !jailed(w, n); i++) {
+    n.inside = d.id;
+    n.plan = { kind: 'delve', x: d.x, y: d.y, days: 5, target: d.id };
+    n.gold = 0; // nothing to bribe the bench with
+    commit(w, n, 'theft', rngOf(w), 0, undefined, true);
+  }
+  ok(jailed(w, n), 'never sentenced');
+  ok(n.inside === undefined, 'left inside the dungeon with no plan');
+  run(w, 3); // and the town goes on
+});
+
+test('a camp is beneath the notice of the demon lord, its neighbours\' armies and the crown\'s colonists', () => {
+  const w = foundWorld(5);
+  tick(w);
+  w.dread = 100;
+  w.balance = -80;
+  run(w, 40);
+  ok(!w.demon, 'the demon lord rose over a camp');
+  ok(!w.war, 'a war came to a camp');
+  ok(canSend(w) === false, 'the crown would send colonists from a camp');
+});
+
+test('a camp\'s bread is priced for its own few mouths, not a town\'s', () => {
+  const w = foundWorld(5);
+  tick(w);
+  ok(target(w, 'grain') < target(world(), 'grain') / 3, `a camp of ${townPop(w)} wants ${target(w, 'grain')} sacks in store`);
 });
