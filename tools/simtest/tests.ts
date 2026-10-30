@@ -11,6 +11,9 @@ import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, s
 import { endWar } from '../../src/sim/war';
 import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
+import { decide, raise, whisperCost } from '../../src/sim/happenings';
+import { addMod, modOf } from '../../src/sim/core';
+import { TARGET, ensureMarket } from '../../src/sim/market';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -459,4 +462,117 @@ test('under holy war, a won war turns the vanquished; a devout ruler has grievan
   r.war = true;
   endWar(w, r, 'won');
   ok((r.converts ?? 0) >= 30, `converts after the war: ${r.converts}`);
+});
+
+// ---------- happenings: matters that come up, decided by someone in town ----------
+
+const rngOf = (w: WorldState) => ({ state: w.rng });
+const kingOf = (w: WorldState) => w.npcs.find((n) => n.id === w.kingId && n.alive)!;
+// A bumper harvest: the market holds well over what the town needs.
+function bumper(w: WorldState): void {
+  ensureMarket(w).stock.grain = TARGET.grain * 2.5;
+}
+// How often a decider takes each option over many fresh tries at the same matter.
+function tally(seedBase: number, setup: (w: WorldState) => void, tries = 40): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (let i = 0; i < tries; i++) {
+    const w = world(seedBase + i);
+    setup(w);
+    const r = rngOf(w);
+    raise(w, 'bumper', r);
+    decide(w, r);
+    const h = w.happenings!.at(-1)!;
+    out[h.chosen!] = (out[h.chosen!] ?? 0) + 1;
+  }
+  return out;
+}
+
+test('a happening waits a few days, then its decider settles it; the book and the chronicle keep it', () => {
+  const w = world();
+  bumper(w);
+  const h = raise(w, 'bumper', rngOf(w))!;
+  ok(h && w.happening === h, 'the bumper harvest did not come up');
+  ok(h.chooserId === w.kingId, 'the king should decide what to do with the harvest');
+  run(w, 2);
+  ok(w.happening === h, 'it was decided before its time');
+  run(w, 5);
+  ok(!w.happening, 'still waiting after its time was up');
+  const done = w.happenings!.at(-1)!;
+  ok(done.chosen && done.outcome, 'decided with no choice or outcome');
+  ok(w.chronicle.some((e) => e.kind === 'happening' && e.text.includes('เลือก')), 'the chronicle does not say what was chosen');
+});
+
+test('the decider decides as the person they are: a greedy king sells, a kind one feasts', () => {
+  const greedy = tally(100, (w) => {
+    bumper(w);
+    kingOf(w).traits = ['greedy'];
+  });
+  const kind = tally(100, (w) => {
+    bumper(w);
+    kingOf(w).traits = ['kind'];
+  });
+  ok((greedy.sell ?? 0) > (greedy.feast ?? 0), `greedy king: ${JSON.stringify(greedy)}`);
+  ok((kind.feast ?? 0) > (kind.sell ?? 0), `kind king: ${JSON.stringify(kind)}`);
+});
+
+test('the god whispers for an option once, pays for it, and tips the scale', () => {
+  const w = world();
+  bumper(w);
+  w.faith = 100;
+  raise(w, 'bumper', rngOf(w));
+  applyCommands(w, [{ type: 'whisper', key: 'feast' }]);
+  ok(w.happening!.whisper === 'feast', 'the whisper did not take');
+  ok(w.faith === 100 - whisperCost(w), `faith after whispering: ${w.faith}`);
+  applyCommands(w, [{ type: 'whisper', key: 'sell' }]);
+  ok(w.happening!.whisper === 'feast' && w.faith === 100 - whisperCost(w), 'a second whisper changed the matter or cost faith');
+  const plain = tally(200, (x) => {
+    bumper(x);
+    kingOf(x).traits = ['greedy'];
+  });
+  let feasts = 0;
+  for (let i = 0; i < 40; i++) {
+    const x = world(200 + i);
+    bumper(x);
+    kingOf(x).traits = ['greedy'];
+    x.faith = 100;
+    const r = rngOf(x);
+    raise(x, 'bumper', r);
+    x.happening!.whisper = 'feast';
+    decide(x, r);
+    if (x.happenings!.at(-1)!.chosen === 'feast') feasts++;
+  }
+  ok(feasts > (plain.feast ?? 0), `whispered feasts ${feasts} vs plain ${plain.feast ?? 0}`);
+});
+
+test('a life the player lives decides its own matter, for free and at once', () => {
+  const w = world();
+  const young = grown(w).find((n) => n.age <= 25 && n.spouseId === undefined && n.questId === undefined && !['king', 'noble', 'priest', 'judge'].includes(n.job))!;
+  ok(young, 'no young single townsperson to test with');
+  young.inside = undefined;
+  for (const n of grown(w)) if (n !== young && n.age <= 25) n.age = 26; // the only one dreaming of the city
+  applyCommands(w, [{ type: 'incarnate', npcId: young.id }]);
+  const r = rngOf(w);
+  const h = raise(w, 'wanderlust', r);
+  ok(h?.chooserId === young.id, `the player was never the one to decide: avatar ${w.avatar?.id}, young ${young.id}, last ${h?.chooserId}`);
+  const faith = w.faith;
+  applyCommands(w, [{ type: 'whisper', key: 'stay' }]);
+  ok(!w.happening, 'the player\'s choice did not settle it');
+  ok(w.happenings!.at(-1)!.chosen === 'stay' && young.alive, 'the player stayed but the choice says otherwise');
+  ok(w.faith === faith, 'the player paid faith for their own life\'s choice');
+});
+
+test('a happening\'s lasting effect counts while in force and then wears off', () => {
+  const w = world();
+  addMod(w, 'harvest', 0.15, 10, 'test');
+  ok(Math.abs(modOf(w, 'harvest') - 0.15) < 1e-9, `harvest mod: ${modOf(w, 'harvest')}`);
+  run(w, 11);
+  ok(modOf(w, 'harvest') === 0, 'the mod did not wear off');
+});
+
+test('happenings come up on their own over the years, and each is decided', () => {
+  const w = world(11);
+  run(w, 360 * 4);
+  const book = w.happenings ?? [];
+  ok(book.length >= 3, `only ${book.length} happenings in four years`);
+  ok(book.every((h) => h.chosen || h.outcome), 'a happening left undecided');
 });

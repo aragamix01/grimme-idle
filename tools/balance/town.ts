@@ -80,6 +80,7 @@ const EVENTS: Record<string, RegExp> = {
   freeTrade: /ประกาศการค้าเสรี/,
   guided: /ประกาศให้รัฐกำกับตลาด/,
   strike: /นัดหยุดงาน|หยุดงานประท้วง/,
+  happening: /เลือก「/, // a happening decided
 };
 
 export interface TownReport {

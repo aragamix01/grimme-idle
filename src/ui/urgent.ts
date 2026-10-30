@@ -1,4 +1,4 @@
-import { approval, weatherOf, type WorldState } from '../sim';
+import { approval, isAvatar, weatherOf, whisperCost, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -9,6 +9,7 @@ import { localize } from './lexicon';
 export type Go = 'war' | 'threat' | 'lands' | 'market' | 'overview';
 interface Handlers {
   onChoose: (key: string) => void;
+  onWhisper: (key: string) => void;
   onGo: (where: Go, regionId?: number) => void;
 }
 interface Item {
@@ -43,6 +44,24 @@ function items(world: WorldState): Item[] {
       text: c.text,
       acts: c.options.map((o, i) => ({ label: o.label, gold: i === 0, run: () => handlers.onChoose(o.key) })),
     });
+  const h = world.happening;
+  if (h) {
+    const own = isAvatar(world, world.npcs.find((n) => n.id === h.chooserId));
+    const cost = whisperCost(world);
+    const heard = h.options.find((o) => o.key === h.whisper);
+    out.push({
+      key: `happening:${h.kind}:${h.day}`,
+      tone: 'plain',
+      icon: 'book',
+      title: h.title,
+      text: `${h.text} · ${own ? 'คุณเป็นผู้ตัดสิน' : `${h.who}จะตัดสินใน ${Math.max(0, h.until - day)} วัน`}${heard ? ` · กระซิบให้「${heard.label}」แล้ว` : ''}`,
+      acts: own
+        ? h.options.map((o, i) => ({ label: o.label, gold: i === 0, run: () => handlers.onWhisper(o.key) }))
+        : heard || world.avatar
+          ? []
+          : h.options.map((o) => ({ label: `กระซิบ: ${o.label} (${cost})`, gold: world.faith >= cost, run: () => handlers.onWhisper(o.key) })),
+    });
+  }
   const war = world.war;
   const foe = war && world.realms?.find((r) => r.id === war.realmId);
   if (war && foe)
@@ -152,10 +171,10 @@ function card(i: Item): HTMLElement {
     return b;
   });
   // A single way in sits beside the text; a choice puts its options in a row underneath.
-  const wide = acts.length > 1 || i.key.startsWith('choice');
+  const wide = acts.length > 1 || i.key.startsWith('choice') || i.key.startsWith('happening');
   return el(
     'article',
-    { className: `urgent-card${i.tone === 'danger' ? ' urgent-card--danger' : ''}${wide ? ' urgent-card--choice' : ''}` },
+    { className: `urgent-card${i.tone === 'danger' ? ' urgent-card--danger' : ''}${wide ? ' urgent-card--choice' : ''}${i.key.startsWith('happening') ? ' urgent-card--happening' : ''}` },
     icon(i.icon, 32),
     el('div', { className: 'urgent-card__body' }, el('b', { textContent: i.title }), el('p', { textContent: i.text })),
     ...(wide ? [el('div', { className: 'urgent-card__acts' }, ...acts)] : acts),

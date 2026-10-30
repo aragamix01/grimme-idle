@@ -10,6 +10,7 @@ import { dragonArrives } from './dragon';
 import { assassination, deadlock, decadence, rulerScandal, strike } from './crises';
 import type { WorldState } from './types';
 import { TOWN_SIZE } from './town';
+import { modOf } from './core';
 
 const GOLDEN_TREASURY = 900;
 const GOLDEN_APPROVAL = 52;
@@ -35,7 +36,7 @@ const townsfolk = (world: WorldState) => world.npcs.filter((n) => n.alive && n.i
 function crowdPlague(world: WorldState, rng: Rng): boolean {
   const people = townsfolk(world);
   if (people < CROWDED) return false;
-  plagueStrike(world, rng, 0.4 + (people - CROWDED) * 0.02, `ชาวเมือง ${people} คนอยู่กันแออัด โรคระบาดในเมือง`);
+  plagueStrike(world, rng, (0.4 + (people - CROWDED) * 0.02) * Math.max(0.3, 1 + modOf(world, 'sickness')), `ชาวเมือง ${people} คนอยู่กันแออัด โรคระบาดในเมือง`);
   return true;
 }
 
@@ -44,6 +45,9 @@ export function troubles(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== 22) return;
   // A town packed past bursting falls sick whatever the times.
   if (townsfolk(world) >= PACKED && chance(rng, 0.08)) crowdPlague(world, rng);
+  // Foul water spreads sickness whatever the crowding (see happenings.ts).
+  const foul = modOf(world, 'sickness');
+  if (foul > 0 && chance(rng, 0.06 * foul)) plagueStrike(world, rng, 0.25 * foul, 'น้ำเน่าเสียทำให้ผู้คนล้มป่วย โรคระบาดในเมือง');
   // A hated ruler has enemies whatever the times.
   if (king(world) && approval(world) < HATED && chance(rng, HATED_CHANCE)) assassination(world, rng);
   if (!goldenMonth(world)) {

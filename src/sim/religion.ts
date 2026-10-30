@@ -7,7 +7,7 @@
 // The god may hand down commandments through a prophet's dream: each changes how the believers
 // live, as closely as they keep it, and each grates on someone, who may lose faith over it.
 import { chance, int, type Rng } from './rng';
-import { clamp, cursed, log, makePlan, occupied, perkLevel, tenetOn } from './core';
+import { clamp, cursed, log, makePlan, modOf, occupied, perkLevel, tenetOn } from './core';
 import { industrial } from './ages';
 import { literate } from './learning';
 import { levelOf, priceRatio } from './market';
@@ -106,6 +106,7 @@ export function pietyPull(world: WorldState, n: Npc, priests: number, adults: nu
   t += (world.balance ?? 0) / 10;
   for (const k of world.religion?.tenets ?? []) t += believer(n) ? strain(world, n, k.kind) : 0;
   if (literate(n) && tenetOn(world, 'learning')) t += 8; // the commandment makes reading a prayer
+  t += modOf(world, 'piety'); // a feast, a festival
   return clamp(t, 5, 95);
 }
 

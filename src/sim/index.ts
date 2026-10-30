@@ -27,6 +27,7 @@ export { AGES, AGE_SUFFIX, ageOf, jobName } from './ages';
 export { literacy, literate, schoolAge } from './learning';
 export const PLACES_SCHOOL = PLACES.school;
 export { yearPage } from './annals';
+export { HAPPENING_ORDER, MOD_TH, activeMods, happeningTitle, whisperCost } from './happenings';
 export { DECREES, DECREE_ORDER, decreeActive } from './decrees';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';
 export { balanceOf, cultists } from './cult';

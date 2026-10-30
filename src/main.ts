@@ -15,6 +15,7 @@ import { initFaith, renderFaith } from './ui/faith';
 import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard, startDream } from './ui/npcCard';
 import { renderAnnals } from './ui/annals';
+import { renderHappenings } from './ui/happenings';
 import { hideCatchup, showCatchup, showOfflineReport } from './ui/offline';
 import { initEra, renderEra } from './ui/era';
 import { initMiracles, renderMiracles } from './ui/miracles';
@@ -59,9 +60,9 @@ let selected: number | null = null;
 // Five sections along the bottom, each with its own tabs over the sheet under the map. The world
 // section swaps the town on the canvas for the world map.
 type Section = 'town' | 'people' | 'power' | 'economy' | 'world';
-type Sub = 'urgent' | 'all' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'faith' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
+type Sub = 'urgent' | 'all' | 'events' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'faith' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
 const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
-  town: { title: 'เมือง', subs: [['urgent', 'ด่วน'], ['all', 'พงศาวดาร'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
+  town: { title: 'เมือง', subs: [['urgent', 'ด่วน'], ['all', 'พงศาวดาร'], ['events', 'เหตุการณ์'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
   people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์'], ['quests', 'เควส']] },
   power: { title: 'อำนาจ', subs: [['overview', 'ภาพรวม'], ['council', 'สภา'], ['law', 'กฎหมาย'], ['court', 'ศาล'], ['faith', 'ศาสนา'], ['threat', 'ภัย']] },
   economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาด'], ['houses', 'บ้านการค้า'], ['works', 'ก่อสร้าง'], ['research', 'วิจัย']] },
@@ -69,7 +70,7 @@ const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
 };
 // Each tab's panel, and for panels shared by several tabs, which of its parts to show.
 const PANEL: Record<Sub, [string, string?]> = {
-  urgent: ['urgent'], all: ['feed'], years: ['annals'], npc: ['feed'],
+  urgent: ['urgent'], all: ['feed'], events: ['happenings'], years: ['annals'], npc: ['feed'],
   people: ['people'], guild: ['guild', 'guilds'], quests: ['guild', 'quests'],
   overview: ['kingdom', 'overview'], council: ['kingdom', 'council'], law: ['kingdom', 'law'], court: ['kingdom', 'court'], faith: ['faith'], threat: ['kingdom', 'threat'],
   market: ['market', 'prices'], houses: ['market', 'houses'], works: ['kingdom', 'works'], research: ['kingdom', 'research'],
@@ -121,6 +122,7 @@ function render(): void {
   if (panel === 'lands') renderLands(world);
   else if (panel === 'realms') renderRealms(world);
   else if (panel === 'annals') renderAnnals(world, (id) => select(id));
+  else if (panel === 'happenings') renderHappenings(world, (id) => select(id));
   else if (panel === 'feed') renderFeed(world, s === 'npc' ? selected : null);
   else if (panel === 'guild') renderGuild(world);
   else if (panel === 'market') renderMarket(world);
@@ -253,6 +255,7 @@ initPeople({
 });
 initUrgent({
   onChoose: (key) => send({ type: 'command', command: { type: 'choose', key } }),
+  onWhisper: (key) => send({ type: 'command', command: { type: 'whisper', key } }),
   onGo: (where, regionId) => {
     if (where === 'lands') {
       setSub('lands');

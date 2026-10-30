@@ -420,7 +420,35 @@ export type EventKind =
   | 'guild'
   | 'trade'
   | 'politics'
-  | 'cult';
+  | 'cult'
+  | 'happening';
+
+// Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
+// and the god may whisper to tip the scale.
+export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe';
+export interface Happening {
+  kind: HappeningKind;
+  title: string;
+  day: number; // when it came up
+  until: number; // the day the decision is made
+  text: string;
+  who: string; // the decider, as the log names them
+  chooserId?: number;
+  ctx?: number; // who or what it is about: a realm, a noble
+  options: { key: string; label: string }[];
+  whisper?: string; // the option the god whispered for
+  chosen?: string;
+  reason?: string; // why the decider went that way
+  outcome?: string; // what came of it
+}
+// A happening's lasting effect: added to a rate somewhere in the sim until the day it wears off.
+export type ModKey = 'harvest' | 'sickness' | 'crime' | 'arrivals' | 'piety';
+export interface Mod {
+  key: ModKey;
+  value: number;
+  until: number;
+  why: string;
+}
 
 // One year of the annals: its name, its picture, how the town fared month by month, and what mattered.
 export interface YearRecord {
@@ -515,6 +543,10 @@ export interface WorldState {
   embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   religion?: Religion; // missing in saves from before the townsfolk had beliefs of their own
+  happening?: Happening; // the matter waiting on a decision
+  happenings?: Happening[]; // the last ones decided, newest last
+  happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up
+  mods?: Mod[]; // happenings' effects still in force
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
   chronicleSeq: number;
@@ -537,4 +569,5 @@ export type Command =
   | { type: 'choose'; key: string }
   | { type: 'tenet'; tenet: Tenet }
   | { type: 'sect'; act: 'embrace' | 'condemn' }
-  | { type: 'mission'; realmId: number }; // a priest sent to preach in a neighbouring realm // the god takes a side in a schism // a commandment through a prophet's dream, or taken back
+  | { type: 'mission'; realmId: number }
+  | { type: 'whisper'; key: string } // the god tips a pending happening; a life the player lives decides it outright // a priest sent to preach in a neighbouring realm // the god takes a side in a schism // a commandment through a prophet's dream, or taken back

@@ -18,6 +18,7 @@ export const EVENT_ICON: Record<EventKind, string> = {
   trade: 'grain',
   politics: 'crown',
   cult: 'cult',
+  happening: 'book',
 };
 
 export const EVENT_LABEL: Record<EventKind, string> = {
@@ -36,6 +37,7 @@ export const EVENT_LABEL: Record<EventKind, string> = {
   trade: 'การค้า',
   politics: 'การเมือง',
   cult: 'ลัทธิมาร',
+  happening: 'เหตุการณ์',
 };
 
 export const DANGER_KINDS = new Set<EventKind>(['death', 'disaster']);

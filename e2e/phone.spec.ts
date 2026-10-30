@@ -151,6 +151,7 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
   test.setTimeout(120_000); // sixteen tabs, a tap on the map after each
   const tabs: [string, string, string][] = [
     ['town', 'years', '#annals'],
+    ['town', 'events', '#happenings'],
     ['town', 'all', '#feed'],
     ['town', 'urgent', '#urgent'],
     ['people', 'guild', '#guild'],
@@ -730,4 +731,55 @@ test('day and night can be held at noon, and the choice is remembered', async ({
   await page.reload();
   await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
   await expect(page.locator('#daynight')).toHaveAttribute('aria-pressed', 'false');
+});
+
+// Write a world back to the save and reload into it, the sim held still.
+async function reloadInto(page: Page, edit: string) {
+  await page.evaluate(async (edit) => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    new Function('w', edit)(w);
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  }, edit);
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
+  await page.locator('#speed button[data-speed="0"]').tap();
+}
+
+test('a happening on the urgent tab: the god whispers, the king decides, the book keeps it', async ({ page }) => {
+  await reloadInto(
+    page,
+    `w.faith = 100;
+     w.happening = { kind: 'bumper', title: 'ข้าวล้นยุ้ง', day: w.day, until: w.day + 60, text: 'ปีนี้ข้าวดีจนล้นยุ้ง', who: 'กษัตริย์', chooserId: w.kingId,
+       options: [{ key: 'sell', label: 'ขายให้แคว้นข้างเคียง' }, { key: 'store', label: 'เก็บไว้ยามข้าวยากหมากแพง' }, { key: 'feast', label: 'จัดงานเลี้ยงฉลองทั้งเมือง' }] };`,
+  );
+  await section(page, 'town');
+  await sub(page, 'urgent');
+  const cardEl = page.locator('#urgent .urgent-card--happening');
+  await expect(cardEl).toContainText('ข้าวล้นยุ้ง');
+  await cardEl.locator('.btn', { hasText: 'จัดงานเลี้ยง' }).tap();
+  await expect(cardEl).toContainText('กระซิบให้「จัดงานเลี้ยงฉลองทั้งเมือง」แล้ว');
+  await expect(cardEl.locator('.btn')).toHaveCount(0);
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 30 }));
+  await page.waitForFunction(() => !(window as any).__grimm.scene.world.happening, null, { timeout: 20_000 });
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 0 }));
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await sub(page, 'events');
+  const done = page.locator('#happenings .happening').filter({ hasText: 'ข้าวล้นยุ้ง' }).first();
+  await expect(done.locator('.happening__option--chosen')).toHaveCount(1);
+  await expect(done.locator('.happening__whisper')).toContainText('เทพกระซิบ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
 });

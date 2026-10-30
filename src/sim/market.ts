@@ -3,7 +3,7 @@
 // Prices follow stock: scarce goods get dear, gluts go cheap, and the chronicle
 // notices when it gets extreme.
 import { chance, int, type Rng } from './rng';
-import { cursed, decreeActive, log, perkLevel, known, adherence, tenetOn } from './core';
+import { cursed, decreeActive, log, perkLevel, known, adherence, modOf, tenetOn } from './core';
 import { weatherYield } from './divine';
 import { mastery } from './research';
 import { realmPurse } from './realms';
@@ -23,7 +23,7 @@ export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber
 export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ' };
 const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15 };
 export const basePrice = (g: Good) => BASE[g];
-const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
@@ -193,7 +193,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1); // half the hands are out on strike
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1) * Math.max(0.2, 1 + modOf(world, 'harvest')); // half the hands are out on strike; new fields or blights
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }

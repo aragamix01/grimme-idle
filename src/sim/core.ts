@@ -1,6 +1,6 @@
 // Small helpers shared by the world loop and the guild.
 import { chance, type Rng } from './rng';
-import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Tech, Tenet, WorldState } from './types';
+import type { Decree, EventKind, ModKey, Npc, Perk, Plan, PlanKind, Tech, Tenet, WorldState } from './types';
 import { COUNCIL_TH, say } from './lexicon';
 import type { Spot } from './places';
 import { walk } from './nav';
@@ -77,4 +77,16 @@ export function stepToward(world: WorldState, npc: Npc, to: Spot, rng: Rng): voi
   else npc.x += dx;
   npc.x = clamp(npc.x, 0, world.width - 1);
   npc.y = clamp(npc.y, 0, world.height - 1);
+}
+
+// Lasting effects of happenings (see happenings.ts): each adds to some rate until the day it wears off.
+export function addMod(world: WorldState, key: ModKey, value: number, days: number, why: string): void {
+  (world.mods ??= []).push({ key, value, until: world.day + days, why });
+}
+
+// The sum of the mods in force for this key: 0 when there are none.
+export function modOf(world: WorldState, key: ModKey): number {
+  let v = 0;
+  for (const m of world.mods ?? []) if (m.key === key && m.until > world.day) v += m.value;
+  return v;
 }

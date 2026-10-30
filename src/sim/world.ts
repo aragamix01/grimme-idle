@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward, tenetOn } from './core';
+import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, modOf, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -44,6 +44,7 @@ import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
+import { happeningsDay, whisper, whisperCost } from './happenings';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -188,6 +189,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   researchDay(world, rng);
   pressDay(world, rng);
   decreesDay(world, rng);
+  happeningsDay(world, rng);
   annalsDay(world);
   healBosses(world);
   const warded = 1 - ward(world); // the mages' wards slow the monsters' return
@@ -215,7 +217,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   }
   // Travellers walk in through the west gate while the town is below its starting size.
   const living = world.npcs.filter((n) => n.alive).length;
-  if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
+  if (living < TOWN_SIZE && chance(rng, (ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING) * Math.max(0, 1 + modOf(world, 'arrivals')))) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
   world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + abroadPrayers(world) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
   world.rng = rng.state;
@@ -416,7 +418,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
-      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1) * (decreeActive(world, 'curfew') ? 0.4 : 1))) {
+      if (marks.length && chance(rng, STEAL_CHANCE * (hungry ? 2 : 1) * (decreeActive(world, 'curfew') ? 0.4 : 1) * Math.max(0, 1 + modOf(world, 'crime')))) {
         const victim = pick(rng, marks);
         return plan('steal', victim, PURSUIT_DAYS, victim.id);
       }
@@ -578,7 +580,7 @@ export function applyCommands(world: WorldState, commands: Command[], rng?: Rng)
 }
 
 // While the player lives in town the god's hands are tied: only the life's own commands pass.
-const MORTAL: readonly Command['type'][] = ['incarnate', 'ascend', 'choose', 'perk'];
+const MORTAL: readonly Command['type'][] = ['incarnate', 'ascend', 'choose', 'perk', 'whisper'];
 
 function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (world.avatar && !MORTAL.includes(cmd.type)) return;
@@ -588,6 +590,13 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   }
   if (cmd.type === 'ascend') return ascend(world);
   if (cmd.type === 'choose') return choose(world, cmd.key, rng);
+  if (cmd.type === 'whisper') {
+    // A life the player lives decides its own matters for free; the god pays to whisper.
+    const own = !!world.avatar;
+    const cost = whisperCost(world);
+    if ((own || world.faith >= cost) && whisper(world, cmd.key, rng) && !own) world.faith -= cost;
+    return;
+  }
   if (cmd.type === 'perk') {
     buyPerk(world, cmd.perk);
     return;
