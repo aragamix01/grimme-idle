@@ -121,6 +121,9 @@ function sentence(world: WorldState, n: Npc, crime: NonNullable<Npc['record']>[n
   const jail = (days: number, what: string) => {
     n.jailedUntil = world.day + days;
     n.plan = undefined;
+    // Sentenced while down a dungeon or preaching abroad, they are fetched back to serve it (a
+    // caravan on the road only answers once it is home). Left there with no plan, they'd be lost.
+    if (n.inside !== undefined && n.trip === undefined) n.inside = undefined;
     log(world, 'politics', `${bench}ตัดสินให้${n.name}มีความผิดฐาน${CRIME_TH[crime.kind]} ${what}จำคุก ${days} วัน`, n.id);
   };
   switch (crime.kind) {
