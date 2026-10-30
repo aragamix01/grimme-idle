@@ -1,7 +1,8 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
-import { LOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { BUILDINGS, LOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
 import manifest from '../sprite-manifest.json';
@@ -477,8 +478,9 @@ export class WorldScene extends Phaser.Scene {
     // Homes going up stand in scaffolding until they are done.
     const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${LOTS[h.lot].x},${LOTS[h.lot].y}`));
     for (const p of town.props) {
-      const shell = p.key.startsWith('house') && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
-      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: shell || this.aged(p.key) } : p);
+      const home = /^(house|townhouse|hut)/.test(p.key);
+      const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : p);
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
@@ -490,6 +492,17 @@ export class WorldScene extends Phaser.Scene {
         this.glow.fillStyle(0xffe27a, 1).fillRect(img.x + x, img.y + y, ww, h);
       }
     }
+    // A building the town is founding stands in scaffolding on its plot (the castle over the old hall).
+    const raising = w.raising && w.raising.kind !== 'walls' ? BUILDINGS.find(([k]) => k === w.raising!.kind) : undefined;
+    if (raising) {
+      const [k, tx, ty] = raising;
+      if (k === 'castle') {
+        const s = this.add.image(tx * TILE + 32, ty * TILE + 56, 'scaffold').setOrigin(0.5, 1);
+        s.setDepth(s.y + 1);
+      } else this.placeProp({ key: 'scaffold', x: tx, y: ty, anchor: 'top' });
+    }
+    // Before there is a church or a market on the square, the camp gathers round a fire there.
+    if (!founded(w, 'church') && !founded(w, 'shop')) this.placeProp({ key: 'campfire', x: PLACES.square.x, y: PLACES.square.y, anchor: 'bottom' });
     // A hero of a past era stands in stone in the square.
     if (statueHero(w)) {
       const st = this.add.image(PLACES.square.x * TILE + TILE / 2, (PLACES.square.y + 1) * TILE, 'statue').setOrigin(0.5, 1);

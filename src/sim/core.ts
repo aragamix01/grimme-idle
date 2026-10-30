@@ -90,3 +90,12 @@ export function modOf(world: WorldState, key: ModKey): number {
   for (const m of world.mods ?? []) if (m.key === key && m.until > world.day) v += m.value;
   return v;
 }
+
+export const isAdventurer = (npc: Npc) => (npc.job === 'swordsman' || npc.job === 'mage') && npc.age >= 16;
+
+const LEGENDS_KEPT = 20;
+// A deed for the town's legends: the great things an era is remembered by.
+export function legend(world: WorldState, text: string, npcId?: number): void {
+  world.legends.push({ day: world.day, text, npcId });
+  if (world.legends.length > LEGENDS_KEPT) world.legends.shift();
+}

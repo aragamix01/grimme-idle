@@ -17,7 +17,7 @@ const GOLDEN_APPROVAL = 52;
 const CALM_MONTHS = 6; // a golden age runs this long before it starts to strain
 const STRAIN = 0.04; // added to the monthly chance of trouble for each month past CALM_MONTHS
 const MAX_CHANCE = 0.35;
-const CROWDED = -10; // townsfolk over what the town is built for, past which sickness spreads street to street
+const CROWDED = 0.92; // of what the town is built for: past this, sickness spreads street to street
 const PACKED = 8; // so many over that it may break out in any month, golden or not
 const HATED = 30; // approval under which a ruler may be struck down in any month
 const HATED_CHANCE = 0.05;
@@ -35,7 +35,7 @@ const townsfolk = (world: WorldState) => world.npcs.filter((n) => n.alive && n.i
 // Sickness in streets grown too full. The town's own plague: the priests are all that slow it.
 function crowdPlague(world: WorldState, rng: Rng): boolean {
   const people = townsfolk(world);
-  const crowded = builtFor(world) + CROWDED;
+  const crowded = Math.round(builtFor(world) * CROWDED);
   if (people < crowded) return false;
   plagueStrike(world, rng, (0.4 + (people - crowded) * 0.02) * Math.max(0.3, 1 + modOf(world, 'sickness')), `ชาวเมือง ${people} คนอยู่กันแออัด โรคระบาดในเมือง`);
   return true;

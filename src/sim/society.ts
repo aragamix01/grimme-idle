@@ -8,6 +8,7 @@ import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell, levelOf } from './market';
 import { PLACES, type Spot } from './places';
 import { builtFor, townPop } from './housing';
+import { founded, rankOf } from './growth';
 import { successor } from './regimes';
 import { ageOf, industrial, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
@@ -55,7 +56,8 @@ const STIPEND = 5; // the king's own pay, each payday
 const KNIGHT_PAY = 8;
 const SCHOLAR_PAY = 3; // the crown keeps its scholars in ink and bread
 const ARMY_SHARE = 0.1; // of the town: the crown recruits up to this many while it can pay them
-const armyTarget = (world: WorldState) => Math.round(Math.max(townPop(world), builtFor(world)) * ARMY_SHARE);
+// A camp has its watch and no standing army.
+const armyTarget = (world: WorldState) => (world.founded && rankOf(world) < 1 ? 0 : Math.round(Math.max(townPop(world), builtFor(world)) * ARMY_SHARE));
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
 const ALE = 2;
@@ -129,7 +131,7 @@ export function holdCourt(world: WorldState, rng: Rng): void {
   }
   if (world.day % COURT_EVERY !== 0) return;
   fillTrades(world, rng);
-  if (r !== 'monarchy' || living(world, 'noble').length >= MIN_NOBLES) return; // only a crown grants titles
+  if (r !== 'monarchy' || living(world, 'noble').length >= MIN_NOBLES || rankOf(world) < 1) return; // only a crown grants titles, and not over a camp
   const candidate = world.npcs
     .filter((n) => n.alive && n.age >= 16 && n.gold >= TITLE_GOLD && ['merchant', 'farmer', 'herder', 'blacksmith', 'innkeeper'].includes(n.job))
     .sort((a, b) => b.gold - a.gold)[0];
@@ -166,10 +168,13 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
 
 // A trade the town is short of is an opening: a farmer, or a merchant if the shop can spare one,
 // takes it up. The shop needs at least two hands to keep the stall and run the caravans.
-const ESSENTIAL: [Job, number][] = [['merchant', 2], ['herder', 2], ['hunter', 1], ['blacksmith', 1], ['innkeeper', 1], ['priest', 1], ['courtesan', 1], ['scholar', 1], ['alchemist', 1], ['engineer', 1], ['doctor', 2], ['watchman', 2], ['judge', 1], ['lawyer', 1]];
+// Each with how many the town wants, and from what rank (a camp keeps its hands in the fields).
+const ESSENTIAL: [Job, number, number][] = [['merchant', 2, 0], ['herder', 2, 0], ['hunter', 1, 0], ['blacksmith', 1, 0], ['innkeeper', 1, 1], ['priest', 1, 0], ['courtesan', 1, 2], ['scholar', 1, 1], ['alchemist', 1, 2], ['engineer', 1, 2], ['doctor', 2, 2], ['watchman', 2, 1], ['judge', 1, 2], ['lawyer', 1, 2]];
 function fillTrades(world: WorldState, rng: Rng): void {
-  for (const [job, need] of ESSENTIAL) {
-    if (living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!)) || ageOf(world) < (AGE_OF_JOB[job] ?? 0)) continue;
+  const rank = world.founded ? rankOf(world) : 3; // a town founded whole wants them all
+  for (const [job, want, from] of ESSENTIAL) {
+    const need = rank < 1 ? Math.min(1, want) : want;
+    if (rank < from || living(world, job).length >= need || (NEEDS[job] && !known(world, NEEDS[job]!)) || ageOf(world) < (AGE_OF_JOB[job] ?? 0)) continue;
     if ((BOOKISH.includes(job) || job === 'watchman') && priceRatio(world, 'grain') >= 1.5) continue; // no farmer is spared for books or the watch while bread is dear
     const merchants = living(world, 'merchant').length;
     const pool = world.npcs.filter(
@@ -350,7 +355,7 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
 export const payrollReserve = (world: WorldState) =>
   living(world, 'soldier').length * SALARY * 3 + world.npcs.filter((n) => n.alive && n.knight).length * KNIGHT_PAY * 3 + living(world, 'scholar').length * SCHOLAR_PAY * 3 + STIPEND * 3;
 
-export const hasSmith = (world: WorldState) => living(world, 'blacksmith').length > 0;
+export const hasSmith = (world: WorldState) => founded(world, 'forge') && living(world, 'blacksmith').length > 0; // a smith needs a forge to work at
 
 // Farmers on a noble's land pay part of each harvest as rent.
 export function payRent(world: WorldState, farmer: Npc, earned: number, rng: Rng): void {

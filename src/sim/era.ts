@@ -1,7 +1,7 @@
 // Eras: when an age has run its course the player may close it. The town is reborn from a
 // new seed, but the god keeps what it earned: legend stars spent on lasting gifts, and the
 // memory of past eras and their heroes, whose statue stands in the new town's square.
-import { createWorld } from './world';
+import { foundWorld } from './world';
 import { balanceOf } from './cult';
 import { perkLevel } from './core';
 import { ageOf } from './ages';
@@ -100,7 +100,7 @@ export function newEra(old: WorldState, seed: number): WorldState {
     perks: { ...(old.legacy?.perks ?? {}) },
     past: [...(old.legacy?.past ?? []), record].slice(-ERAS_KEPT),
   };
-  return createWorld(seed, undefined, legacy);
+  return foundWorld(seed, legacy);
 }
 
 // The latest hero who slew a demon lord in any past era; the new town raises their statue.

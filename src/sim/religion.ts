@@ -13,6 +13,7 @@ import { literate } from './learning';
 import { levelOf, priceRatio } from './market';
 import { PLACES } from './places';
 import { built } from './works';
+import { founded } from './growth';
 import type { Creed, Npc, Plan, Religion, Tenet, WorldState } from './types';
 
 export const HOLY_EVERY = 7; // days from one holy day to the next
@@ -88,6 +89,7 @@ export function pietyPull(world: WorldState, n: Npc, priests: number, adults: nu
   let t = 40;
   t += Math.min(1, (priests * 30) / Math.max(1, adults)) * 12 * reach;
   if (!village && built(world, 'cathedral')) t += 6;
+  if (!village && !founded(world, 'church')) t -= 6; // prayers said in the open, round the camp's fire
   if (village && world.regions?.find((r) => r.id === n.regionId)?.village?.works?.includes('shrine')) t += 8;
   if (world.charter?.stateFaith) t += 8;
   if (world.regime === 'theocracy') t += 6;

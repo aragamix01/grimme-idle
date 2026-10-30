@@ -136,9 +136,15 @@ const COST: Record<Ground, number> = { road: 1, grass: 2, crops: 3, water: 0 };
 // going up). buildRev counts every change to the homes, so a layout is only laid out again then.
 export interface TownView {
   dungeons: readonly { x: number; y: number }[];
-  homes?: readonly { lot: number }[];
+  homes?: readonly { lot: number; tier?: number }[];
+  founded?: Partial<Record<string, number>>; // missing: a town founded whole, walls and all
   buildRev?: number;
 }
+
+// The streets that come with what stands along them; the main road and the south road are there
+// from the first day.
+const HIGH_STREET = new Set(['castle', 'guild', 'inn', 'church']);
+const BACK_LANE = new Set(['forge', 'brothel', 'barracks', 'manor']);
 
 let cache: { ref: unknown; rev: number; key: string; layout: Layout } | null = null;
 
@@ -146,8 +152,11 @@ export function townLayout(view: TownView): Layout {
   const { dungeons } = view;
   const rev = view.buildRev ?? 0;
   if (cache?.ref === dungeons && cache.rev === rev) return cache.layout; // hot path: asked many times a tick
-  const lots = (view.homes ?? []).map((h) => h.lot).sort((a, b) => a - b);
-  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${lots.join(',')}`;
+  const homes = [...(view.homes ?? [])].sort((a, b) => a.lot - b.lot);
+  const lots = homes.map((h) => h.lot);
+  const has = (k: string) => !view.founded || view.founded[k] !== undefined;
+  const standingKeys = BUILDINGS.map(([k]) => k).filter(has);
+  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}`;
   if (cache?.key === key) {
     cache.ref = dungeons;
     cache.rev = rev;
@@ -171,11 +180,15 @@ export function townLayout(view: TownView): Layout {
   // Fields first so the south road runs over them.
   for (let y = FIELDS.y0; y <= FIELDS.y1; y++) hline(FIELDS.x0, FIELDS.x1, y, 'crops');
   for (let y = POND.y0; y <= POND.y1; y++) hline(POND.x0, POND.x1, y, 'water');
-  hline(WALL.x0 + 1, WALL.x1 - 1, 6, 'road'); // high street
+  const inner = lots.filter((i) => !LOTS[i].outside).map((i) => LOTS[i].y);
+  if (inner.includes(4) || standingKeys.some((k) => HIGH_STREET.has(k))) {
+    hline(WALL.x0 + 1, WALL.x1 - 1, 6, 'road'); // high street
+    vline(13, 6, 9, 'road');
+  }
   hline(0, WALL.x1, 9, 'road'); // main road, gate to gate
-  hline(WALL.x0 + 1, WALL.x1 - 1, 12, 'road'); // back lane
-  vline(13, 6, MAP_H - 1, 'road'); // north-south, out the south gate
-  for (let y = 10; y <= 11; y++) hline(11, 15, y, 'road'); // the square
+  if (inner.includes(10) || standingKeys.some((k) => BACK_LANE.has(k))) hline(WALL.x0 + 1, WALL.x1 - 1, 12, 'road'); // back lane
+  vline(13, 9, MAP_H - 1, 'road'); // north-south, out the south gate
+  if (has('church') || has('shop')) for (let y = 10; y <= 11; y++) hline(11, 15, y, 'road'); // the square
 
   // Walls, with towers on the corners and either side of each gate.
   const isGate = (x: number, y: number) => GATES.some((g) => g.x === x && g.y === y);
@@ -188,6 +201,7 @@ export function townLayout(view: TownView): Layout {
   }
   for (let y = WALL.y0; y <= WALL.y1; y++)
     for (let x = WALL.x0; x <= WALL.x1; x++) {
+      if (!has('walls')) break; // a camp or a village has none yet
       const edgeX = x === WALL.x0 || x === WALL.x1;
       const edgeY = y === WALL.y0 || y === WALL.y1;
       if (!edgeX && !edgeY) continue;
@@ -201,15 +215,17 @@ export function townLayout(view: TownView): Layout {
     }
 
   for (const [key, tx, ty] of BUILDINGS) {
+    // Before the castle the chief keeps a timber hall in its place; other buildings not yet founded leave their plot open.
+    if (!has(key) && key !== 'castle') continue;
     const [w, h] = BUILDING_PX[key];
     for (let y = ty; y < ty + Math.ceil(h / 16); y++) for (let x = tx; x < tx + Math.ceil(w / 16); x++) block(x, y);
-    props.push({ key, x: tx, y: ty, anchor: 'top' });
+    props.push({ key: has(key) ? key : 'hall', x: tx, y: ty, anchor: 'top' });
   }
   // Homes on their lots. Out past the east gate a lane is trodden to each one from the road.
-  for (const i of lots) {
+  for (const { lot: i, tier = 1 } of homes) {
     const lot = LOTS[i];
     for (let y = lot.y; y < lot.y + 2; y++) for (let x = lot.x; x < lot.x + 2; x++) block(x, y);
-    props.push({ key: lot.key, x: lot.x, y: lot.y, anchor: 'top' });
+    props.push({ key: tier === 0 ? 'hut' : tier === 2 ? lot.key.replace('house', 'townhouse') : lot.key, x: lot.x, y: lot.y, anchor: 'top' });
     if (!lot.outside) continue;
     const door = { x: lot.x + 1, y: lot.y + 2 };
     if (door.y < 9) {

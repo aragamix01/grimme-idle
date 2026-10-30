@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // The wide layout: nav down the left, map in the middle, sheet on the right, all by mouse.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?start=town');
   await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
   await page.locator('#speed button[data-speed="0"]').click();
 });

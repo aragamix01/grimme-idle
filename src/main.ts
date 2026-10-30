@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { REGIMES, SEASON_TH, regimeOf, seasonOf, weatherOf, type WorldState } from './sim';
+import { REGIMES, SEASON_TH, regimeOf, seasonOf, townRankName, weatherOf, type WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
 import { RegionScene } from './game/scenes/RegionScene';
@@ -328,7 +328,7 @@ function renderMapNotes(w: WorldState): void {
   const weather = weatherOf(w);
   note.hidden = onMap();
   note.classList.toggle('map-note--ask', dreamFor);
-  note.textContent = dreamFor ? 'แตะชาวเมืองที่จะส่งความฝันให้' : `${SEASON_TH[seasonOf(w.day)]} · ${weather ? WEATHER_TH[weather] : 'ฟ้าใส'}`;
+  note.textContent = dreamFor ? 'แตะชาวเมืองที่จะส่งความฝันให้' : `${townRankName(w)} · ${SEASON_TH[seasonOf(w.day)]} · ${weather ? WEATHER_TH[weather] : 'ฟ้าใส'}`;
   chips.hidden = !onMap();
   const ours = (w.regions ?? []).filter((r) => r.owner === 'us').length;
   const text = `ดินแดนของเรา ${ours}/${w.regions?.length ?? 0}${w.war ? '|สงคราม 1' : ''}`;
@@ -499,7 +499,8 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 document.addEventListener('visibilitychange', () => document.hidden && send({ type: 'save' }));
 addEventListener('pagehide', () => send({ type: 'save' }));
 
-send({ type: 'start', tickMs: TICK_MS });
+// On the dev server, ?start=town begins a new world as a whole town (the e2e tests start from one).
+send({ type: 'start', tickMs: TICK_MS, whole: import.meta.env.DEV && new URLSearchParams(location.search).get('start') === 'town' });
 
 showSection();
 

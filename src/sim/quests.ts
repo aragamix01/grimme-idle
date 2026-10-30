@@ -18,7 +18,6 @@ const RECRUIT_CHANCE = 0.3; // per day per recruiting quest
 const RECRUIT_DAYS = 15; // then the party leaves with whoever showed up
 const TRAVEL_DAYS = 40; // stragglers are left behind after this
 const FINISHED_KEPT = 8;
-const LEGENDS_KEPT = 20;
 const THREAT_POWER = 45; // the crown pays to thin out a dungeon past this...
 const RICH_THREAT_POWER = 25; // ...or past this when its coffers are full
 const RICH_TREASURY = 300;
@@ -28,7 +27,8 @@ const ESCORT_CHANCE = 0.002; // per merchant with savings per day
 const GUILD_CUT = 0.1; // share of a claimed quest's reward kept by the guild
 export const DIVINE_QUEST_COST = 10;
 
-export const isAdventurer = (npc: Npc) => (npc.job === 'swordsman' || npc.job === 'mage') && npc.age >= 16;
+import { isAdventurer, legend } from './core';
+export { isAdventurer, legend }; // kept in core so the modules quests leans on can use them too
 export const rankName = (rank = 0) => RANKS[clamp(rank, 0, RANKS.length - 1)];
 export const isActive = (q: Quest) => q.stage === 'recruiting' || q.stage === 'travelling' || q.stage === 'inside';
 
@@ -458,10 +458,6 @@ function rankUp(world: WorldState, n: Npc): void {
   if (rank >= 4) legend(world, `${n.name} ขึ้นสู่แรงก์ ${rankName(rank)}`, n.id);
 }
 
-export function legend(world: WorldState, text: string, npcId?: number): void {
-  world.legends.push({ day: world.day, text, npcId });
-  if (world.legends.length > LEGENDS_KEPT) world.legends.shift();
-}
 
 // ---------- what a signed-up NPC does each day ----------
 

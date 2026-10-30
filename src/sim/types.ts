@@ -424,6 +424,9 @@ export type EventKind =
   | 'cult'
   | 'happening';
 
+// The buildings a town founds as it grows (see growth.ts).
+export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'castle' | 'walls' | 'manor' | 'brothel';
+
 // A home on one of the house lots (town.ts LOTS). Its tier decides how many it houses.
 export interface Home {
   lot: number;
@@ -553,6 +556,9 @@ export interface WorldState {
   embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   religion?: Religion; // missing in saves from before the townsfolk had beliefs of their own
+  founded?: Partial<Record<Civic, number>>; // the buildings the town has founded, by day; missing: a town founded whole
+  raising?: { kind: Civic; until: number }; // the one going up
+  rank?: number; // camp, village, town, city: the last the chronicle announced
   homes?: Home[]; // the town's homes, one per built house lot
   buildRev?: number; // counts changes to the homes, so the town is only laid out again when one comes or goes
   homeless?: number; // townsfolk with no room in any home, as of the last count

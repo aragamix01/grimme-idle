@@ -10,7 +10,8 @@ import { basePrice, ensureMarket, levelOf } from './market';
 import { mastery } from './research';
 import { traveller } from './world';
 import { feed } from './demonlord';
-import type { Good, Npc, Work, WorldState } from './types';
+import { TOWN_RANK, founded, rankOf } from './growth';
+import type { Civic, Good, Npc, Work, WorldState } from './types';
 
 export interface WorkDef {
   name: string;
@@ -51,7 +52,9 @@ const ASK_DAY = 8; // day of the month the king considers a new work
 
 export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefined;
 export const monumentTier = (world: WorldState) => world.monument ?? 0;
-const open = (world: WorldState, k: Work) => k === 'monument' || !built(world, k);
+// What the crown could build: a rebuilt building needs the old one there first.
+const REBUILDS: Partial<Record<Work, Civic>> = { watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
+const open = (world: WorldState, k: Work) => (k === 'monument' || !built(world, k)) && (!REBUILDS[k] || founded(world, REBUILDS[k]!));
 // Architecture makes every work a quarter cheaper and quicker.
 const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1) * Math.max(0.4, 1 - mastery(world, 'engineering'));
 export const workCost = (world: WorldState, k: Work) => Math.round((WORKS[k].cost + (k === 'monument' ? monumentTier(world) * MONUMENT_STEP : 0)) * plans(world));
@@ -153,6 +156,7 @@ export function crownWorks(world: WorldState, rng: Rng): void {
     }
   }
   if (world.building || world.day % 30 !== ASK_DAY) return;
+  if (rankOf(world) < TOWN_RANK) return; // a camp or a village has no crown's works
   const ruler = king(world);
   if (!ruler) return;
   // A greedy king sits on his gold more often than not.

@@ -11,13 +11,14 @@ import { isAvatar } from './avatar';
 import { ensureMarket, levelOf } from './market';
 import { ageOf } from './ages';
 import { payrollReserve } from './society';
+import { rankOf } from './growth';
 import { FIRST_LOTS, LOTS, TOWN_SIZE } from './town';
 import { AWAY, type Home, type Npc, type WorldState } from './types';
 
 export const ROOMS = [4, 8, 11] as const; // by tier: a hut, a house, a townhouse a storey up
 export const TIER_TH = ['กระท่อม', 'บ้าน', 'บ้านสองชั้น'] as const;
-const HOUSE_GOLD = 70; // a new home, at the founding's prices; a storey up costs half again
-const HOUSE_TIMBER = 8; // from the market's stock
+const HOUSE_GOLD = [25, 70, 105] as const; // a home of each tier, at the founding's prices; building one up costs the next tier's
+const HOUSE_TIMBER = [3, 8, 10] as const; // from the market's stock
 const BUILD_DAYS = 60; // with nobody but the family to build it; builders make it quicker
 const MAX_SITES = 1; // homes going up at once
 const SPARE_ROOMS = 2; // the town starts building just before it is quite full
@@ -33,12 +34,13 @@ export const standing = (world: WorldState, h: Home) => (h.until ?? 0) <= world.
 export const homeAt = (world: WorldState, lot: number) => world.homes?.find((h) => h.lot === lot);
 export const sites = (world: WorldState) => (world.homes ?? []).filter((h) => (h.until ?? 0) > world.day);
 // The tallest a home may be built: a storey up once the town has the craft for it.
-export const maxTier = (world: WorldState) => (ageOf(world) >= 2 ? 2 : 1);
+// A camp builds huts; a village and up, proper houses.
+export const maxTier = (world: WorldState) => (ageOf(world) >= 2 ? 2 : rankOf(world) >= 1 ? 1 : 0);
 
-// The homes the town is founded with: the lots along the streets inside the walls.
-export function foundHomes(world: WorldState, lots = FIRST_LOTS, tier: Home['tier'] = 1): void {
+// The homes the town is founded with: a town's along its streets, or a camp's few huts.
+export function foundHomes(world: WorldState, lots: readonly number[] = [...Array(FIRST_LOTS).keys()], tier: Home['tier'] = 1): void {
   world.homes = [];
-  for (let i = 0; i < lots; i++) world.homes.push({ lot: i, tier, built: world.day });
+  for (const lot of lots) world.homes.push({ lot, tier, built: world.day });
   world.buildRev = (world.buildRev ?? 0) + 1;
 }
 
@@ -146,7 +148,7 @@ export function homeDoor(n: Npc): { x: number; y: number } | undefined {
 
 // ---------- building ----------
 
-const homeCost = (world: WorldState, upgrade: boolean) => Math.round(HOUSE_GOLD * (upgrade ? 1.5 : 1) * levelOf(world));
+const homeCost = (world: WorldState, tier: number) => Math.round(HOUSE_GOLD[tier] * levelOf(world));
 
 // Who pays for a new home: the richest townsperson who can spare it, else the crown.
 function payer(world: WorldState, cost: number): Npc | 'crown' | undefined {
@@ -162,17 +164,22 @@ function build(world: WorldState): void {
   const short = homeless(world) + SPARE_ROOMS - Math.max(0, freeRooms(world));
   if (underway >= MAX_SITES || short <= 0) return;
   const m = ensureMarket(world);
-  if (m.stock.timber < HOUSE_TIMBER) return; // no timber to be had
+  // A hut is made a proper house first, once the town knows how; then new lots, inside the walls
+  // before out; then, with every lot taken, homes go up a storey.
+  const raise = (from: number) => (world.homes ?? []).find((h) => standing(world, h) && h.tier === from && h.tier < maxTier(world));
   const inside = LOTS.findIndex((l, i) => !l.outside && lotFree(world, i));
-  const lot = inside >= 0 ? inside : LOTS.findIndex((_, i) => lotFree(world, i));
-  const old = lot < 0 ? (world.homes ?? []).filter((h) => standing(world, h) && h.tier < maxTier(world)).sort((a, b) => a.tier - b.tier)[0] : undefined;
+  const hut = raise(0);
+  const lot = hut ? -1 : inside >= 0 ? inside : LOTS.findIndex((_, i) => lotFree(world, i));
+  const old = hut ?? (lot < 0 ? raise(1) : undefined);
   if (lot < 0 && !old) return; // every lot built up as far as the town knows how
-  const cost = homeCost(world, !!old);
+  const tier = old ? old.tier + 1 : maxTier(world) >= 1 ? 1 : 0;
+  if (m.stock.timber < HOUSE_TIMBER[tier]) return; // no timber to be had
+  const cost = homeCost(world, tier);
   const who = payer(world, cost);
   if (!who) return;
   if (who === 'crown') world.treasury -= cost;
   else who.gold -= cost;
-  m.stock.timber -= HOUSE_TIMBER;
+  m.stock.timber -= HOUSE_TIMBER[tier];
   // The money goes to whoever builds: the builders if there are any, else the market's hands.
   const builders = world.npcs.filter((n) => n.alive && n.job === 'builder' && n.age >= 16);
   if (builders.length) for (const b of builders) b.gold += Math.floor(cost / builders.length);
@@ -185,7 +192,7 @@ function build(world: WorldState): void {
     old.ownerId = who === 'crown' ? undefined : who.id;
     log(world, 'world', `${by}จ้างช่างต่อเติมบ้านหลังหนึ่งเป็น${TIER_TH[old.tier]} ใช้เงิน ${cost} ทอง`, who === 'crown' ? undefined : who.id);
   } else {
-    (world.homes ??= []).push({ lot, tier: maxTier(world) >= 1 ? 1 : 0, built: world.day + days, until: world.day + days, ownerId: who === 'crown' ? undefined : who.id });
+    (world.homes ??= []).push({ lot, tier: tier as Home['tier'], built: world.day + days, until: world.day + days, ownerId: who === 'crown' ? undefined : who.id });
     if (LOTS[lot].outside) world.game = Math.max(0, (world.game ?? 0) - 1); // the forest pushed back a little
     log(world, 'world', `${by}จ้างช่างสร้างบ้านหลังใหม่${LOTS[lot].outside ? 'นอกประตูเมืองตะวันออก' : 'ในเมือง'} ใช้เงิน ${cost} ทอง`, who === 'crown' ? undefined : who.id);
   }

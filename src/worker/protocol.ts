@@ -1,7 +1,7 @@
 import type { ChronicleEntry, Command, EventKind, Legend, WorldState } from '../sim';
 
 export type ToWorker =
-  | { type: 'start'; tickMs: number }
+  | { type: 'start'; tickMs: number; whole?: boolean } // whole: a new world starts as a town founded whole, not a camp (the dev server's ?start=town, for the e2e tests)
   | { type: 'command'; command: Command }
   | { type: 'speed'; tickMs: number } // 0 pauses
   | { type: 'save' }

@@ -986,6 +986,69 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "hut": {
+    "file": "assets/sprites/buildings/hut.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "hall": {
+    "file": "assets/sprites/buildings/hall.png",
+    "group": "buildings",
+    "frameWidth": 64,
+    "frameHeight": 56,
+    "frames": 1
+  },
+  "campfire": {
+    "file": "assets/sprites/props/campfire.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "townhouse": {
+    "file": "assets/sprites/buildings/townhouse.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "townhouse-age3": {
+    "file": "assets/sprites/buildings/townhouse-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "townhouse-red": {
+    "file": "assets/sprites/buildings/townhouse-red.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "townhouse-red-age3": {
+    "file": "assets/sprites/buildings/townhouse-red-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "townhouse-blue": {
+    "file": "assets/sprites/buildings/townhouse-blue.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "townhouse-blue-age3": {
+    "file": "assets/sprites/buildings/townhouse-blue-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
   "house": {
     "file": "assets/sprites/buildings/house.png",
     "group": "buildings",

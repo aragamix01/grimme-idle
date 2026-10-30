@@ -567,8 +567,81 @@ function statue() {
   return g.shade(SHADE).outline('o');
 }
 
+// A pioneer's hut: log walls under a deep thatch, one small window and a low door.
+function hut() {
+  const g = new Grid(32, 32);
+  g.tri(16, 6, 15, 15, 'n'); // the thatch, nearly to the ground
+  for (let j = 9; j < 21; j += 3) g.hline(16 - Math.floor((j - 6) * 0.95), j, Math.floor((j - 6) * 1.9), 'N');
+  g.set(16, 6, 'y').set(15, 7, 'y').set(17, 7, 'y');
+  g.rect(5, 20, 22, 10, 'N'); // log walls
+  for (let j = 22; j < 30; j += 2) g.hline(5, j, 22, 'M');
+  g.vline(5, 20, 10, 'M').vline(26, 20, 10, 'M');
+  door(g, 13, 23, 6, 7);
+  g.rect(7, 23, 4, 3, 'M').rect(8, 24, 2, 1, 'a');
+  g.rect(22, 25, 3, 3, 'h').hline(22, 25, 3, 'M'); // a woodpile
+  g.hline(5, 30, 22, 'X');
+  return finishBuilding(g);
+}
+
+// A townhouse a storey up: two rows of windows under a steep roof, by the age it was raised in.
+function townhouse(roofKind = 'brown', age = 2) {
+  const g = new Grid(32, 32);
+  g.rect(23, 0, 4, 5, age === 3 ? 'R' : 'x').hline(22, 0, 6, 'X'); // the chimney
+  roof(g, 2, 2, 28, 9, age === 3 ? 'slate' : roofKind);
+  if (age === 3) g.hline(2, 2, 28, roofKind === 'red' ? 'r' : roofKind === 'blue' ? 'b' : 'N');
+  if (age === 3) brick(g, 4, 11, 24, 19);
+  else wall(g, 4, 11, 24, 19);
+  if (age !== 3) {
+    g.hline(4, 20, 24, 'M'); // the timber between the storeys
+    for (const x of [10, 21]) g.vline(x, 11, 9, 'M');
+  }
+  windowAt(g, 6, 13, 5, 5);
+  windowAt(g, 13, 13, 5, 5);
+  windowAt(g, 21, 13, 5, 5);
+  door(g, 13, 23, 6, 7);
+  windowAt(g, 6, 23, 5, 5);
+  windowAt(g, 21, 23, 5, 5);
+  g.hline(4, 30, 24, 'X');
+  return finishBuilding(g);
+}
+
+// The chief's hall, before there is a castle: a long timber hall under thatch, the clan's banner.
+function hall() {
+  const g = new Grid(64, 56);
+  g.tri(32, 14, 31, 22, 'n');
+  for (let j = 18; j < 36; j += 3) g.hline(32 - Math.floor((j - 14) * 1.4), j, Math.floor((j - 14) * 2.8), 'N');
+  g.rect(2, 35, 60, 2, 'N');
+  g.rect(5, 37, 54, 17, 'N');
+  for (let j = 39; j < 54; j += 3) g.hline(5, j, 54, 'M');
+  for (const x of [5, 18, 45, 58]) g.vline(x, 37, 17, 'M');
+  g.rect(26, 40, 12, 14, 'M').rect(27, 41, 10, 13, 'h'); // the great doors
+  g.vline(32, 41, 13, 'M');
+  for (const x of [9, 49]) g.rect(x, 42, 6, 4, 'M').rect(x + 1, 43, 4, 2, 'r'); // firelight
+  g.vline(31, 2, 13, 'M').rect(32, 2, 7, 5, 'r').set(38, 6, '.').hline(32, 4, 6, 'y'); // banner
+  g.hline(4, 54, 56, 'X');
+  return finishBuilding(g);
+}
+
+// The camp's fire in the square, before the town has a church or a market around it.
+function campfire() {
+  const g = new Grid(16, 16);
+  for (const [x, y] of [[3, 12], [6, 13], [9, 13], [12, 12]]) g.rect(x, y, 2, 2, 'x');
+  g.hline(4, 14, 8, 'M').hline(5, 13, 6, 'N');
+  g.tri(8, 4, 4, 9, 'r');
+  g.tri(8, 7, 3, 6, 'O');
+  g.tri(8, 9, 2, 4, 'y');
+  return finishBuilding(g);
+}
+
 export function buildings() {
   return [
+    { name: 'hut', group: 'buildings', frames: [hut()] },
+    { name: 'hall', group: 'buildings', frames: [hall()] },
+    { name: 'campfire', group: 'props', frames: [campfire()] },
+    ...['', '-red', '-blue'].flatMap((c) => [
+      { name: `townhouse${c}`, group: 'buildings', frames: [townhouse(c ? c.slice(1) : 'brown', 2)] },
+      { name: `townhouse${c}-age3`, group: 'buildings', frames: [townhouse(c ? c.slice(1) : 'brown', 3)] },
+    ]),
     { name: 'house', group: 'buildings', frames: [house()] },
     { name: 'house-red', group: 'buildings', frames: [house('red')] },
     { name: 'house-blue', group: 'buildings', frames: [house('blue')] },

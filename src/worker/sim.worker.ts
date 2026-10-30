@@ -1,4 +1,4 @@
-import { applyCommands, canEndEra, createWorld, newEra, tick, type Command, type EventKind, type WorldState } from '../sim';
+import { applyCommands, canEndEra, createWorld, foundWorld, newEra, tick, type Command, type EventKind, type WorldState } from '../sim';
 import type { FromWorker, OfflineReport, ToWorker } from './protocol';
 import { clearSave, loadSave, writeSave } from './storage';
 
@@ -68,6 +68,9 @@ function catchUp(w: WorldState, savedAt: number, ms: number): OfflineReport | nu
   return { days, counts, highlights: highlights.reverse(), legends };
 }
 
+let whole = false;
+const fresh = () => (whole ? createWorld(Date.now() >>> 0) : foundWorld(Date.now() >>> 0));
+
 async function start(ms: number): Promise<void> {
   const save = await loadSave();
   if (save) {
@@ -75,7 +78,7 @@ async function start(ms: number): Promise<void> {
     const report = catchUp(world, save.savedAt, ms);
     if (report) post({ type: 'offline', report });
   } else {
-    world = createWorld(Date.now() >>> 0);
+    world = fresh();
   }
   void writeSave(world);
   post({ type: 'state', world });
@@ -85,6 +88,7 @@ async function start(ms: number): Promise<void> {
 self.onmessage = (e: MessageEvent<ToWorker>) => {
   const msg = e.data;
   if (msg.type === 'start') {
+    whole = !!msg.whole;
     void start(msg.tickMs);
   } else if (msg.type === 'command') {
     if (tickMs > 0 && !world?.choice) {
@@ -105,7 +109,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
     void writeSave(world).then(() => post({ type: 'era' }));
   } else if (msg.type === 'reset') {
     void clearSave().then(() => {
-      world = createWorld(Date.now() >>> 0);
+      world = fresh();
       post({ type: 'state', world });
     });
   }

@@ -1,10 +1,12 @@
 // The rule tests run by run.mjs: each sets up a scene in a fresh world, ticks it, and checks.
-import { applyCommands, createWorld, tick, traveller } from '../../src/sim/world';
+import { applyCommands, createWorld, foundWorld, tick, traveller } from '../../src/sim/world';
+import { TOWN_RANK, founded, rankOf } from '../../src/sim/growth';
 import { kill } from '../../src/sim/core';
 import { wed, births, bornTo, homeOf } from '../../src/sim/life';
 import { ROOMS, capacity, townPop } from '../../src/sim/housing';
-import { FIRST_LOTS, LOTS } from '../../src/sim/town';
+import { FIRST_LOTS, LOTS, WALL } from '../../src/sim/town';
 import { walkable } from '../../src/sim/nav';
+import { TECH_ORDER } from '../../src/sim/research';
 import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
 import { tenetOn } from '../../src/sim/core';
@@ -629,9 +631,7 @@ test('a full town: someone who can pay hires builders, and the new home stands a
 
 test('once every lot is built on, homes are built up a storey', () => {
   const w = world();
-  (w.techs ??= {}).plough = 0;
-  w.techs.writing = 0;
-  w.techs.architecture = 0; // three finds: a new age, and its craft
+  for (const t of [...TECH_ORDER.slice(0, 6), 'printing' as const]) (w.techs ??= {})[t] = 0; // the age of townhouses
   w.homes = LOTS.map((_, lot) => ({ lot, tier: 1 as const, built: 0 }));
   w.buildRev = (w.buildRev ?? 0) + 1;
   for (let i = 0; i < 120; i++) traveller(w, rngOf(w));
@@ -663,4 +663,49 @@ test('a home brought down by a disaster takes its rooms with it until it is rebu
   const before = capacity(w);
   ruinHomes(w, rngOf(w), 2);
   ok(capacity(w) === before - 2 * ROOMS[1], `rooms after two homes fell: ${before} -> ${capacity(w)}`);
+});
+
+// ---------- from a camp to a city ----------
+
+test('a new game starts as a pioneers\' camp: huts by the track, a chief\'s hall, no walls, no church', () => {
+  const w = foundWorld(5);
+  tick(w);
+  ok(townPop(w) < 40 && rankOf(w) === 0, `a camp of ${townPop(w)}, rank ${rankOf(w)}`);
+  ok(w.homes!.every((h) => h.tier === 0), 'the pioneers live in something better than huts');
+  ok(!founded(w, 'church') && !founded(w, 'walls') && !founded(w, 'castle'), 'the camp has a church, walls or a castle');
+  ok(walkable(w, WALL.x0, WALL.y0 + 3), 'there is a wall where the town will one day put one');
+  const town = world();
+  ok(founded(town, 'walls') && !walkable(town, WALL.x0, WALL.y0 + 3), 'a town founded whole has no walls');
+  ok(w.npcs.some((n) => n.spouseId !== undefined) && w.npcs.some((n) => n.age < 16), 'no families among the pioneers');
+});
+
+test('the town founds a building once it has the people for it and someone pays', () => {
+  const w = foundWorld(5);
+  tick(w);
+  const priest = w.npcs.find((n) => n.alive && n.job === 'priest')!;
+  priest.gold = 1000;
+  for (let i = 0; i < 10; i++) traveller(w, rngOf(w));
+  while (w.day % 30 !== 9) tick(w);
+  ok(w.raising?.kind === 'church' || founded(w, 'church') || w.raising, `nothing was started: ${JSON.stringify(w.raising)}`);
+  const kind = w.raising!.kind;
+  run(w, 200);
+  ok(founded(w, kind), `the ${kind} never stood`);
+  ok(w.chronicle.some((e) => e.text.includes('สร้างเสร็จแล้ว')), 'the chronicle missed it');
+});
+
+test('a camp grows into a town over the years: proper houses, a castle and walls, the crown\'s works', () => {
+  const w = foundWorld(3);
+  run(w, 365 * 16);
+  ok(rankOf(w) >= TOWN_RANK, `still only rank ${rankOf(w)} with ${townPop(w)} people after sixteen years`);
+  ok(founded(w, 'castle'), 'no castle in a town');
+  ok(w.homes!.filter((h) => h.tier >= 1).length > w.homes!.filter((h) => h.tier === 0).length, 'still mostly huts');
+  ok(w.chronicle.some((e) => e.text.includes('เติบโตขึ้นแล้ว')) || w.legends.some((l) => l.text.includes('ขึ้นเป็น')), 'the town\'s rise was never told');
+});
+
+test('a camp neither titles nobles nor raises an army, and the crown builds no works there', () => {
+  const w = foundWorld(5);
+  w.treasury = 50_000;
+  run(w, 400);
+  ok(rankOf(w) === 0 || w.npcs.every((n) => !n.alive || n.job !== 'noble'), 'a camp has nobles');
+  ok(!w.building && !Object.keys(w.works ?? {}).length, 'the crown built works in a camp');
 });

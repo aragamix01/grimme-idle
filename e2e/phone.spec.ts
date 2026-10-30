@@ -2,7 +2,7 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 
 // Each test gets a fresh browser context, so a fresh world with no save and no offline report.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?start=town');
   await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
   await page.locator('#speed button[data-speed="0"]').tap(); // hold the world still
 });
@@ -779,6 +779,29 @@ test('a happening on the urgent tab: the god whispers, the king decides, the boo
   const done = page.locator('#happenings .happening').filter({ hasText: 'ข้าวล้นยุ้ง' }).first();
   await expect(done.locator('.happening__option--chosen')).toHaveCount(1);
   await expect(done.locator('.happening__whisper')).toContainText('เทพกระซิบ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('a new game starts as a pioneers\' camp; the works tab says what the town will found next', async ({ page }) => {
+  // Throw away the town the other tests start from, and begin as a real new game does.
+  await page.evaluate(async () => {
+    (window as any).__grimm.worker.terminate();
+    await new Promise<void>((done) => {
+      const req = indexedDB.deleteDatabase('grimm-idle');
+      req.onsuccess = req.onerror = req.onblocked = () => done();
+    });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await expect(page.locator('#map-note')).toContainText('ค่ายผู้บุกเบิก');
+  expect(await page.evaluate(() => (window as any).__grimm.scene.world.homes.every((h: any) => h.tier === 0))).toBe(true);
+  await section(page, 'economy');
+  await sub(page, 'works');
+  await expect(page.locator('#kingdom')).toContainText('การก่อตั้งค่ายผู้บุกเบิก');
+  await expect(page.locator('#kingdom')).toContainText('บ้านเรือน');
   await tapNpc(page);
   await closeCard(page);
   await pageStill(page);

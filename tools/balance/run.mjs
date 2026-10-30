@@ -17,7 +17,9 @@ const bundle = join(here, '../../node_modules/.cache/balance/town.mjs');
 // of these fails the check.
 const PER_25 = (years) => years / 25;
 const BOUNDS = [
-  ['ประชากรตอนจบ', (r) => r.pop, 85, 160],
+  // A town starts as a camp of two dozen and grows as its homes do: by the twenty-fifth year anything
+  // from a struggling village to a city. Past the top, the sim's daily cost runs away.
+  ['ประชากรตอนจบ', (r) => r.pop, (y) => (y >= 20 ? 60 : 15), 260],
   ['ความหิว (คน×เดือน)', (r) => r.hunger, 0, (y) => 500 * PER_25(y)], // one town's famine swings a lot from seed to seed
   ['ท้องพระคลัง', (r) => r.treasury, 0, 25000],
   ['คนรวยที่สุด', (r) => r.richest, 0, 8000],
@@ -28,6 +30,7 @@ const BOUNDS = [
 const SPEED_MS = 4000; // one town, five years, on a quiet core: the offline catch-up must stay quick
 const ACROSS = [
   ['เปลี่ยนการปกครองรวม', (rs) => rs.reduce((s, r) => s + r.events.regime, 0), (y) => (y >= 10 ? 1 : 0), Infinity],
+  ['สัดส่วนที่ขึ้นเป็นเมือง (80 คน) แล้ว', (rs) => rs.filter((r) => r.rank >= 2).length / rs.length, (y) => (y >= 25 ? 0.6 : 0), 1],
   ['ยุคสมัยเฉลี่ย', (rs) => rs.reduce((s, r) => s + r.age, 0) / rs.length, (y) => (y >= 25 ? 0.8 : 0), (y) => (y <= 25 ? 2.2 : 3)],
   ['สัดส่วนเมืองที่ถึงยุคอุตสาหกรรมก่อนปีที่ 30', (rs) => rs.filter((r) => (r.ageYears[3] ?? Infinity) < 30).length / rs.length, 0, 0.07],
 ];
@@ -68,7 +71,7 @@ if (isMainThread) {
   const fails = [];
   for (const r of reports) {
     const ages = r.ageYears.map((y, i) => `${i}@${y}`).join(' ');
-    console.log(`seed ${String(r.seed).padStart(3)} | คน ${r.pop} | หิว ${r.hunger} | คลัง ${r.treasury} | รวยสุด ${r.richest} | ยุค ${ages} | วิทยาการ ${r.techs} | ดินแดน ${r.lands} | ราคา ×${r.level} | ชาวบ้าน ${r.villagers} | ${r.regime} | ผู้นำ ${r.leaders} | ศรัทธา ${r.faith} นับถือ ${r.believers}% ศรัทธาเฉลี่ย ${r.piety} | ภัย ${r.events.disaster} | ${Math.round(r.ms / 1000)}s`);
+    console.log(`seed ${String(r.seed).padStart(3)} | คน ${r.pop} ขั้น ${r.rankYears.map((y, i) => `${i}@${y}`).join(" ")} | หิว ${r.hunger} | คลัง ${r.treasury} | รวยสุด ${r.richest} | ยุค ${ages} | วิทยาการ ${r.techs} | ดินแดน ${r.lands} | ราคา ×${r.level} | ชาวบ้าน ${r.villagers} | ${r.regime} | ผู้นำ ${r.leaders} | ศรัทธา ${r.faith} นับถือ ${r.believers}% ศรัทธาเฉลี่ย ${r.piety} | ภัย ${r.events.disaster} | ${Math.round(r.ms / 1000)}s`);
     for (const [name, get, lo, hi] of BOUNDS) {
       const v = get(r);
       if (v < bound(lo, years) || v > bound(hi, years)) fails.push(`seed ${r.seed}: ${name} = ${Math.round(v)} (ควรอยู่ใน ${Math.round(bound(lo, years))}–${Math.round(bound(hi, years))})`);

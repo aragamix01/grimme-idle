@@ -1,4 +1,4 @@
-import { LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -53,6 +53,8 @@ export function renderKingdom(world: WorldState): void {
     world.works,
     world.building,
     world.buildRev,
+    world.raising,
+    world.founded,
     world.homeless,
     townPop(world),
     world.decrees,
@@ -130,6 +132,7 @@ export function renderKingdom(world: WorldState): void {
     g('threat', demonSection(world)),
     ...(world.dragon ? [g('threat', dragonSection(world))] : []),
     g('threat', cultSection(world)),
+    g('works', foundingSection(world)),
     g('works', housingSection(world)),
     g('works', worksSection(world)),
     g('research', researchSection(world)),
@@ -367,6 +370,25 @@ function masteryRows(world: WorldState, have: number): HTMLElement[] {
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.
+// What the town has founded so far, what is going up, and what each of the rest waits for.
+function foundingSection(world: WorldState): HTMLElement {
+  const rank = rankOf(world);
+  const next = TOWN_RANKS[rank + 1];
+  const rows = CIVIC_ORDER.map((k) => {
+    const c = CIVICS[k];
+    const done = founded(world, k);
+    const up = world.raising?.kind === k;
+    const status = done ? 'สร้างแล้ว' : up ? `กำลังสร้าง อีก ${Math.max(0, world.raising!.until - world.day)} วัน` : `รอ: ${c.when}`;
+    return el(
+      'li',
+      { className: `work${done ? ' work--done' : ''}` },
+      el('img', { src: up ? '/assets/sprites/buildings/scaffold.png' : k === 'walls' ? '/assets/sprites/props/gate-tower.png' : `/assets/sprites/buildings/${k}.png`, alt: '', className: 'work__art' }),
+      el('div', {}, el('b', { textContent: c.name }), el('p', { className: 'realm-king__meta', textContent: `${c.text} · ${status}` })),
+    );
+  });
+  return section(`การก่อตั้ง${TOWN_RANKS[rank].name}`, rows, next ? `ขั้นต่อไป: ${next.name} เมื่อมีคน ${next.from} คน` : 'ใหญ่ที่สุดแล้ว');
+}
+
 // The town's homes: rooms against mouths, who is sleeping rough, and what is going up.
 function housingSection(world: WorldState): HTMLElement {
   const homes = world.homes ?? [];

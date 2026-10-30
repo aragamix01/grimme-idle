@@ -2,7 +2,7 @@ import { chance, createRng, int, pick, type Rng } from './rng';
 import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, modOf, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
-import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
+import { birthday, births, bornTo, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES } from './names';
 import { industrial, jobName } from './ages';
@@ -46,6 +46,7 @@ import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDisc
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { happeningsDay, whisper, whisperCost } from './happenings';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
+import { founded, growthDay } from './growth';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -71,7 +72,9 @@ const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods 
 const PURSUIT_DAYS = 30; // a thief gives up the chase after this long
 const PRUNE_EVERY = 30; // days between dropping long-dead NPCs from the save
 
-export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy): WorldState {
+// A world: by default a town founded whole (the tests start from one); a new game starts from a
+// pioneers' camp (see foundWorld) and grows its own town.
+export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy, start: 'town' | 'camp' = 'town'): WorldState {
   const rng = createRng(seed);
   const world: WorldState = {
     version: 1,
@@ -100,8 +103,11 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
     if (!t) break;
     (world.techs ??= {})[t] = 0;
   }
-  for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
-  foundHomes(world);
+  if (start === 'camp') pitchCamp(world, rng);
+  else {
+    for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
+    foundHomes(world);
+  }
   settle(world);
   // The first dungeon is always a gentle one: a cave or a wolf den.
   const kind = pick(rng, ['cave', 'den'] as const);
@@ -121,6 +127,39 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
   const hero = statueHero(world);
   if (hero) log(world, 'world', `รูปปั้นของผู้กล้า${hero}จากยุคก่อนตั้งตระหง่านกลางเมือง`);
   return world;
+}
+
+export const foundWorld = (seed: number, legacy?: Legacy) => createWorld(seed, undefined, legacy, 'camp');
+
+// The pioneers: farmers and hunters mostly, a couple of builders, a priest, a trader, a smith and
+// a few sellswords, some of them married with small children. They have a handful of huts along
+// the track through the clearing; the eldest of them leads (holdCourt picks them on the first day).
+const PIONEER_JOBS: readonly Npc['job'][] = ['farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'hunter', 'hunter', 'herder', 'herder', 'builder', 'builder', 'priest', 'merchant', 'blacksmith', 'swordsman', 'swordsman', 'swordsman', 'mage', 'scholar', 'watchman'];
+const CAMP_LOTS = [3, 4, 5, 6, 7, 8, 9]; // the middle row, along the main road
+const CAMP_COUPLES = 6;
+const CAMP_TREASURY = 150;
+function pitchCamp(world: WorldState, rng: Rng): void {
+  world.founded = {};
+  world.treasury = CAMP_TREASURY;
+  const folk = PIONEER_JOBS.map((job) => {
+    const n = spawnNpc(world, rng);
+    n.age = int(rng, 18, 40);
+    n.job = job;
+    n.rank = n.renown = isAdventurer(n) ? 0 : undefined;
+    world.npcs.push(n);
+    return n;
+  });
+  for (let i = 0; i < CAMP_COUPLES; i++) {
+    const [a, b] = [folk[i * 2], folk[i * 2 + 7]];
+    a.spouseId = b.id;
+    b.spouseId = a.id;
+    if (i < 4) {
+      const child = bornTo(world, a, b, rng);
+      child.age = int(rng, 1, 10);
+      world.npcs.push(child);
+    }
+  }
+  foundHomes(world, CAMP_LOTS, 0);
 }
 
 // A doctor's fee: now and then someone who can pay comes in sick.
@@ -194,12 +233,15 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   pressDay(world, rng);
   decreesDay(world, rng);
   housingDay(world, rng);
+  growthDay(world);
   happeningsDay(world, rng);
   annalsDay(world);
   healBosses(world);
   const warded = 1 - ward(world); // the mages' wards slow the monsters' return
+  // The monsters stir as the town grows: a camp's smell of smoke draws few, a city's many.
+  const drawn = Math.min(1, Math.max(0.35, townPop(world) / 100));
   for (const d of world.dungeons) {
-    if (!calm(world, d)) d.power += 0.2 * warded;
+    if (!calm(world, d)) d.power += 0.2 * warded * drawn;
     // Under the demon lord the monsters are his garrison: they hold their dens instead of
     // breaking out, and the keep's raids and tribute are the town's burden.
     if (occupied(world)) d.power = Math.min(d.power, STAMPEDE_POWER - 1);
@@ -224,7 +266,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const free = capacity(world) - townPop(world);
   const draw = free > 0 ? Math.min(0.1, ARRIVAL_CHANCE + free * ARRIVAL_PER_ROOM) : ARRIVAL_FULL;
   // Word gets around: a town where bread is dear or the people are restless draws fewer.
-  const appeal = (priceRatio(world, 'grain') >= 1.4 ? 0.3 : 1) * (approval(world) < 40 ? 0.5 : 1);
+  const appeal = (priceRatio(world, 'grain') >= 1.4 ? 0.3 : 1) * (approval(world) < 40 ? 0.5 : 1) * (founded(world, 'inn') ? 1 : 0.6); // nowhere to stay, fewer stay
   if (chance(rng, draw * appeal * Math.max(0, 1 + modOf(world, 'arrivals')))) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
   world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + abroadPrayers(world) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
