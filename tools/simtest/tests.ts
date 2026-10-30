@@ -4,6 +4,11 @@ import { kill } from '../../src/sim/core';
 import { wed, births } from '../../src/sim/life';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
 import { tenetOn } from '../../src/sim/core';
+import { churchOf, headOf } from '../../src/sim/church';
+import { faithLaw } from '../../src/sim/charter';
+import { commit } from '../../src/sim/justice';
+import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
+import { endWar } from '../../src/sim/war';
 import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
 import type { Npc, WorldState } from '../../src/sim/types';
@@ -260,4 +265,198 @@ test('holy war makes our army stronger; learning lets readers keep their faith a
   const pull = pietyPull(w, reader, 2, 50);
   proclaim(w, 'learning');
   ok(pietyPull(w, reader, 2, 50) > pull, 'reading still wears faith down under the commandment');
+});
+
+// ---------- phase 3: the church, the law of the faith, and sects ----------
+
+const toMonthDay = (w: WorldState, d: number) => {
+  while ((w.day + 1) % 30 !== d) tick(w);
+};
+
+test('a tenth of the tithe goes to the church purse, and the church picks a head and weighs its standing', () => {
+  const w = world();
+  const { priest } = cast(w);
+  priest.level = 9;
+  for (const n of grown(w)) n.gold = 500;
+  while ((w.day + 1) % 30 !== 0) tick(w);
+  const purse = churchOf(w).purse;
+  tick(w);
+  ok(churchOf(w).purse > purse, 'the tithe left the church purse empty');
+  toMonthDay(w, 5);
+  tick(w);
+  ok(headOf(w)?.id === priest.id, 'the seasoned priest was not made head');
+  ok(churchOf(w).influence > 0, 'the church has no standing');
+});
+
+test('an influential church denounces an impious ruler, and the devout turn against the throne', () => {
+  const w = world();
+  cast(w);
+  const ruler = w.npcs.find((n) => n.id === w.kingId)!;
+  ruler.creed = 'none';
+  for (const n of grown(w)) if (n !== ruler) Object.assign(n, { creed: 'god', piety: 90, loyalty: 60 });
+  (w.works ??= {}).cathedral = 0;
+  toMonthDay(w, 5);
+  tick(w);
+  ok(churchOf(w).stance === 'denounces', `the church's word: ${churchOf(w).stance} (influence ${churchOf(w).influence})`);
+  const devout = grown(w).filter((n) => n !== ruler);
+  ok(devout.reduce((s, n) => s + (n.loyalty ?? 50), 0) / devout.length < 60, 'the devout kept their loyalty');
+});
+
+test('under a hunting law, outsiders convert out of fear or flee, and a sect member is tried', () => {
+  const w = world();
+  cast(w);
+  Object.assign(w.charter!, faithLaw('persecute'));
+  const outsiders = grown(w).filter((n) => n.job !== 'king').slice(0, 30);
+  for (const n of outsiders) n.creed = 'none';
+  const preacher = outsiders[0];
+  preacher.creed = 'sect';
+  religionOf(w).sect = { name: 'นิกายทดสอบ', founded: 0, leaderId: preacher.id, cause: 'reform' };
+  for (let m = 0; m < 12; m++) {
+    toMonthDay(w, 5);
+    tick(w);
+  }
+  const stayed = outsiders.filter((n) => n.alive && n.creed === 'none').length;
+  ok(stayed < 29, `nobody was pressed: ${stayed} still outside`);
+  ok(w.chronicle.some((e) => e.text.includes('ข้อหานอกรีต')) || preacher.creed !== 'sect', 'the sect was never tried');
+});
+
+test('a reading town breeds a sect, led by a lettered believer', () => {
+  const w = world(11);
+  cast(w);
+  for (const n of grown(w)) Object.assign(n, { lettered: true, creed: 'god', piety: 70 });
+  for (let m = 0; m < 240 && !religionOf(w).sect; m++) {
+    toMonthDay(w, 5);
+    tick(w);
+  }
+  const sect = religionOf(w).sect;
+  ok(sect, 'no sect broke away in twenty years');
+  ok(w.npcs.find((n) => n.id === sect!.leaderId)?.creed === 'sect', 'the leader does not follow the sect');
+});
+
+const withSect = () => {
+  const w = world();
+  cast(w);
+  const members = grown(w).filter((n) => n.job !== 'king' && n.job !== 'priest').slice(0, 10);
+  for (const n of members) Object.assign(n, { creed: 'sect', piety: 60 });
+  religionOf(w).sect = { name: 'นิกายทดสอบ', founded: 0, leaderId: members[0].id, cause: 'tenet' };
+  w.faith = 100;
+  return { w, members };
+};
+
+test('the god embraces a sect: its people return to the church, which reforms', () => {
+  const { w, members } = withSect();
+  w.faith = 100;
+  proclaim(w, 'nomeat');
+  applyCommands(w, [{ type: 'sect', act: 'embrace' }]);
+  ok(!religionOf(w).sect, 'the sect is still apart');
+  ok(members.every((n) => n.creed === 'god'), 'not every follower came back');
+  ok(religionOf(w).reformed, 'the church did not reform');
+  ok(!tenetOn(w, 'nomeat'), 'the commandment the sect rejected still stands');
+  ok(w.faith < 100, 'the god paid nothing');
+  const reader = grown(w)[0];
+  reader.lettered = true;
+  const reformed = pietyPull(w, reader, 2, 50);
+  religionOf(w).reformed = false;
+  ok(reformed > pietyPull(w, reader, 2, 50), 'reading wears faith down as much in a reformed church');
+});
+
+test('the god condemns a sect: it scatters, half back to the church and half out of the faith', () => {
+  const { w, members } = withSect();
+  applyCommands(w, [{ type: 'sect', act: 'condemn' }]);
+  ok(!religionOf(w).sect, 'the sect still stands');
+  ok(members.filter((n) => n.creed === 'god').length === 5 && members.filter((n) => n.creed === 'none').length === 5, `creeds after: ${members.map((n) => n.creed)}`);
+});
+
+test("a sect follower before the church's court may recant", () => {
+  let recanted = 0;
+  for (let i = 0; i < 10; i++) {
+    const { w, members } = withSect();
+    commit(w, members[1], 'heresy', { state: i + 1 }, 0, undefined, true);
+    if (members[1].creed === 'god') recanted++;
+  }
+  ok(recanted > 0 && recanted < 10, `recanted ${recanted} of 10`);
+});
+
+// ---------- phase 4: the faiths of the world ----------
+
+// Two priests, so one can be spared for a mission.
+function twoPriests(w: WorldState): [Npc, Npc] {
+  const { priest, a } = cast(w);
+  a.job = 'priest';
+  a.creed = priest.creed = 'god';
+  a.piety = 95;
+  priest.piety = 60;
+  priest.level = 9; // the head of the church stays home
+  return [priest, a];
+}
+
+test('each realm keeps the old god of its land until its people take up ours', () => {
+  const w = world();
+  for (const r of w.realms!) ok(!sharesFaith(r) && realmFaithName(r) === FOREIGN_GODS[r.terrain], `${r.name} starts with ${realmFaithName(r)}`);
+});
+
+test('a missionary leaves town, wins converts, and comes home; the last priest is never sent', () => {
+  const w = world();
+  const [, missionaryPriest] = twoPriests(w);
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.relation = 20;
+  w.faith = 100;
+  applyCommands(w, [{ type: 'mission', realmId: r.id }]);
+  ok(r.mission?.priestId === missionaryPriest.id, 'the devout priest was not sent');
+  ok(missionaryPriest.inside !== undefined, 'the missionary is still in town');
+  run(w, 155); // home at the first month's reckoning after the mission's days are out
+  ok(!r.mission && missionaryPriest.alive && missionaryPriest.inside === undefined, 'the missionary did not come home');
+  ok((r.converts ?? 0) >= 15, `converts: ${r.converts}`);
+  const lone = world();
+  cast(lone);
+  lone.faith = 100;
+  applyCommands(lone, [{ type: 'mission', realmId: lone.realms![0].id }]);
+  ok(!lone.realms![0].mission && lone.faith === 100, 'the only priest was sent away');
+});
+
+test('a hostile realm may martyr the missionary, and the faithful at home are stirred by it', () => {
+  let martyred = 0;
+  for (let i = 0; i < 6 && !martyred; i++) {
+    const w = world(20 + i);
+    const [, m] = twoPriests(w);
+    const r = w.realms!.find((x) => !x.fallen)!;
+    r.relation = -80;
+    sendMission(w, r.id);
+    run(w, 125);
+    if (!m.alive) martyred++;
+  }
+  ok(martyred > 0, 'no missionary in a hateful land was ever martyred');
+});
+
+test('a realm whose people mostly believe takes up our god, warms to us, and prays to it', () => {
+  const w = world();
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.converts = 95;
+  r.relation = 0;
+  for (let m = 0; m < 24 && !sharesFaith(r); m++) {
+    toMonthDay(w, 12);
+    tick(w);
+  }
+  ok(sharesFaith(r), 'the realm never took up our god');
+  ok(r.relation > 0, `relation: ${r.relation}`);
+  ok(abroadPrayers(w) > 0, 'the believers abroad do not pray');
+});
+
+test('under holy war, a won war turns the vanquished; a devout ruler has grievance against other gods', () => {
+  const w = world();
+  devout(w);
+  proclaim(w, 'holywar');
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.relation = -50;
+  const ruler = w.npcs.find((n) => n.id === w.kingId)!;
+  ruler.piety = 90;
+  ok(holyTarget(w, r, ruler), 'a devout ruler under holy war bears no grievance against another god');
+  r.faith = 'god';
+  ok(!holyTarget(w, r, ruler), 'a holy war against the same god');
+  r.faith = undefined;
+  r.converts = 0;
+  w.war = { realmId: r.id, since: w.day, attacker: 'us', nextBattle: w.day + 99, score: 3, battles: 3 };
+  r.war = true;
+  endWar(w, r, 'won');
+  ok((r.converts ?? 0) >= 30, `converts after the war: ${r.converts}`);
 });

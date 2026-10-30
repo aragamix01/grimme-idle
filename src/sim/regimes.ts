@@ -13,13 +13,14 @@ import { proclaimRepublic } from './republic';
 import { writeCharter } from './charter';
 import { guildInCoup } from './adventurers';
 import { deepInDebt } from './tradehouses';
+import { churchOf } from './church';
 import type { Npc, Regime, WorldState } from './types';
 
 const TURN_DAY = 27; // day of the month the town may change how it is ruled
 const REFORM_LITERACY = 0.6; // readers past which a kind ruler may hand power to the people
 const REFORMER_PULL = 0.05; // extra monthly chance of reform for each reformer the god has blessed
 const JUNTA_LOYALTY = 35; // an army this sour on its ruler may take over
-const PIOUS_FAITH = 300;
+const PIOUS_CHURCH = 55; // the church's standing past which a frightened town may hand it power
 
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16 && n.inside === undefined && n.questId === undefined);
 const avgLoyalty = (list: Npc[]) => (list.length ? list.reduce((s, n) => s + loyaltyOf(n), 0) / list.length : 50);
@@ -89,7 +90,7 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   }
   // A frightened, pious town turns from a king who failed it to the church.
   const priest = successor(world, 'theocracy');
-  if (priest && world.faith >= PIOUS_FAITH && world.works?.cathedral !== undefined && approval(world) < 40 && chance(rng, 0.15)) {
+  if (priest && churchOf(world).influence >= PIOUS_CHURCH && world.works?.cathedral !== undefined && approval(world) < 40 && chance(rng, 0.15)) {
     log(world, 'politics', `ชาวเมืองหมดศรัทธาในกษัตริย์${ruler.name} หันไปพึ่งมหาวิหาร ${priest.name}ประกาศปกครองเมืองในนามของเทพเจ้า`, priest.id);
     retire(ruler, rng);
     return seize(world, 'theocracy', priest, 'ได้รับการยกย่องจากชาวเมืองผู้ศรัทธา', `${priest.name} ตั้งเทวาธิปไตย`);

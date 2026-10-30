@@ -123,6 +123,7 @@ function activity(world: WorldState, npc: Npc): string {
     return `กำลังทำเควส: ${quest.title}`;
   }
   if (npc.plan?.kind === 'crusade') return npc.inside !== undefined ? `บุกเข้าปราสาทจอมมาร${world.demon ? world.demon.name : ''}` : 'เดินทัพไปปราสาทจอมมาร';
+  if (npc.plan?.kind === 'mission') return `ไปเผยแผ่ศาสนาที่${world.realms?.find((r) => r.id === npc.plan!.target)?.name ?? 'แคว้นอื่น'}`;
   if (npc.inside !== undefined && npc.trip !== undefined) return `เดินทางกับกองคาราวาน อีกราว ${npc.trip} วันจะกลับ`;
   if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
   const p = npc.plan;
@@ -271,7 +272,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
       }),
       ...(chips.childElementCount ? [chips] : []),
       el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}${schooled(npc)}` }),
-      ...(npc.creed ? [el('p', { className: 'npc__faith', textContent: `ความเชื่อ: ${CREED_TH[npc.creed]} · ศรัทธา ${Math.round(npc.piety ?? 50)}` })] : []),
+      ...(npc.creed ? [el('p', { className: 'npc__faith', textContent: `ความเชื่อ: ${npc.creed === 'sect' ? world.religion?.sect?.name ?? CREED_TH.sect : CREED_TH[npc.creed]} · ศรัทธา ${Math.round(npc.piety ?? 50)}` })] : []),
       el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,

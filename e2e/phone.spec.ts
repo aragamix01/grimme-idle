@@ -585,7 +585,7 @@ test('the religion tab: creeds, the holy day, the rites; a believer opens with t
   ]);
   expect(shown).toBe(grown);
   // A devout believer's row opens their card, which tells their faith once opened in full.
-  const row = view.locator('.guild-sec').nth(1).locator('.chip--button').first();
+  const row = view.locator('.faith-devout .chip--button').first();
   const name = await row.textContent();
   await row.tap();
   await expect(card(page).locator('.npc__name')).toHaveText(name!);
@@ -617,6 +617,77 @@ test('a commandment handed down through a dream shows in force, can be taken bac
   expect(told).toContain('ประทานบัญญัติ');
   await row.locator('.btn').tap();
   await expect(row).not.toHaveClass(/tenet--on/);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('the church and a sect on the religion tab: the god embraces the sect, and the map still answers', async ({ page }) => {
+  // Seed a sect into the save: stop the sim, write the world back with a sect in it, and reload.
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.npcs.some((n: any) => n.creed));
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const members = w.npcs.filter((n: any) => n.alive && n.age >= 16 && n.job !== 'king' && n.job !== 'priest').slice(0, 6);
+    for (const n of members) n.creed = 'sect';
+    w.religion.sect = { name: 'นิกายแสงใหม่', founded: w.day, leaderId: members[0].id, cause: 'reform' };
+    w.faith = 200;
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.religion?.sect);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const church = page.locator('#faith .faith-church');
+  await expect(church).toContainText('อิทธิพล');
+  await expect(church).toContainText('กฎหมาย:');
+  await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toContainText('นิกายแสงใหม่');
+  const sect = page.locator('#faith .faith-sect');
+  await expect(sect).toContainText('นิกายแสงใหม่');
+  const following = await page.evaluate(() => (window as any).__grimm.scene.world.npcs.filter((n: any) => n.alive && n.age >= 16 && n.creed === 'sect').length);
+  await expect(sect).toContainText(`สาวก ${following} คน`); // the town ran a few days before the pause: the sect may have grown
+  await sect.locator('[data-act="embrace"]').tap();
+  await expect(sect).toHaveCount(0);
+  await expect(page.locator('#faith .ballot__row[data-creed="sect"]')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text)).toContain('ปฏิรูป');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('a missionary goes to a neighbouring realm; the realm card tells its faith; the map still answers', async ({ page }) => {
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const realms = page.locator('#faith .faith-world .faith-realm');
+  await expect(realms.first()).toContainText('นับถือเทพเรา');
+  // Two priests are needed: one stays home. Wait for the town to have them and the faith to pay.
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 4 }));
+  await page.waitForFunction(() => {
+    const w = (window as any).__grimm.scene.world;
+    return w.faith >= 30 && w.npcs.filter((n: any) => n.alive && n.age >= 16 && n.job === 'priest' && n.inside === undefined).length >= 2;
+  }, null, { timeout: 90_000 });
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 0 }));
+  await page.locator('#speed button[data-speed="0"]').tap();
+  const open = realms.filter({ has: page.locator('.btn:enabled') }).first();
+  const id = await open.getAttribute('data-realm');
+  await open.locator('.btn').tap();
+  await expect(page.locator(`#faith .faith-realm[data-realm="${id}"]`)).toContainText('กำลังเผยแผ่ศาสนา');
+  await expect(page.locator(`#faith .faith-realm[data-realm="${id}"] .btn`)).toBeDisabled();
+  await section(page, 'world');
+  await expect(page.locator(`#realms .realm-card[data-realm="${id}"]`)).toContainText('มีมิชชันนารีอยู่');
+  await section(page, 'town');
   await tapNpc(page);
   await closeCard(page);
   await pageStill(page);

@@ -6,7 +6,7 @@
 // and the press may print what it finds, how the crown may win land, and what the villages are owed.
 import { log } from './core';
 import { GUILD_LAW_TH } from './adventurers';
-import type { Charter, LandPolicy, Regime, Tax, WorldState } from './types';
+import type { Charter, FaithLaw, LandPolicy, Regime, Tax, WorldState } from './types';
 
 const KEPT = 8; // amendments the record remembers
 
@@ -21,7 +21,7 @@ export const FRANCHISE_TH: Record<Charter['franchise'], string> = {
 function draft(r: Regime): Omit<Charter, 'written' | 'amendments'> {
   switch (r) {
     case 'republic':
-      return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle', provinces: true };
+      return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', auditor: true, freePress: true, landPolicy: 'settle', provinces: true };
     case 'theocracy':
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed', economy: 'guided' };
     case 'oligarchy':
@@ -59,7 +59,7 @@ export function clauses(c: Charter): string[] {
   out.push(FRANCHISE_TH[c.franchise]);
   out.push(c.councilVeto ? 'สภายับยั้งคำสั่งของผู้ปกครองได้' : 'สภาไม่มีอำนาจยับยั้ง');
   out.push(c.taxCap ? `ภาษีเก็บได้ไม่เกินระดับ${TAX_WORD[c.taxCap]}` : 'ผู้ปกครองกำหนดภาษีได้ตามใจ');
-  out.push(c.stateFaith ? 'ศาสนาของเทพเจ้าเป็นศาสนาประจำรัฐ' : 'แยกศาสนาออกจากรัฐ');
+  out.push(FAITH_LAW_TH[faithLawOf(c)]);
   if (c.emergency) out.push(`ประกาศภาวะฉุกเฉิน ผู้ปกครองมีอำนาจเด็ดขาด${c.termYears ? ' งดการเลือกตั้ง' : ''}`);
   out.push(c.auditor ? 'มีองค์กรอิสระตรวจสอบเจ้าหน้าที่รัฐทุกคน รวมถึงผู้ปกครอง' : 'ไม่มีองค์กรอิสระตรวจสอบผู้ปกครอง');
   out.push(c.freePress ? 'สื่อมีเสรีภาพ ตีพิมพ์เรื่องของผู้มีอำนาจได้' : 'สื่อถูกควบคุม');
@@ -70,6 +70,15 @@ export function clauses(c: Charter): string[] {
   return out;
 }
 const TAX_WORD: Record<Tax, string> = { low: 'ต่ำ', normal: 'ปกติ', high: 'สูง' };
+// The faith law, and the clauses that set it: a hunted faith is the state's one too.
+export const faithLawOf = (c: Charter): FaithLaw => c.faith ?? (c.stateFaith ? 'state' : 'tolerant');
+export const faithLaw = (law: FaithLaw): Partial<Charter> => ({ faith: law, stateFaith: law === 'state' || law === 'persecute' });
+export const FAITH_LAW_TH: Record<FaithLaw, string> = {
+  state: 'ศาสนาของเทพเจ้าเป็นศาสนาประจำรัฐ',
+  tolerant: 'เสรีภาพในการนับถือศาสนา',
+  secular: 'แยกศาสนาออกจากรัฐ',
+  persecute: 'ศาสนาประจำรัฐ ผู้นับถือความเชื่ออื่นถูกไล่ล่า',
+};
 export const landPolicyOf = (c: Charter): LandPolicy => c.landPolicy ?? 'settle';
 export const POLICY_TH: Record<LandPolicy, string> = {
   peace: 'นโยบายดินแดน: สันติ ขยายแผ่นดินได้ด้วยการบุกเบิกและเจรจาเท่านั้น ห้ามรบเพื่อแย่งดินแดน',

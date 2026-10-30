@@ -45,6 +45,8 @@ import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
+import { churchDay, judgeSect, sectCost } from './church';
+import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -156,6 +158,8 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   romance(world, rng);
   births(world, rng);
   religionDay(world, rng);
+  churchDay(world, rng);
+  missionsDay(world, rng);
   marketDay(world, rng);
   tradeHousesDay(world, rng);
   commerceDay(world, rng);
@@ -213,7 +217,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + abroadPrayers(world) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
   world.rng = rng.state;
   return world;
 }
@@ -285,6 +289,7 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
     return;
   }
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
+  if (npc.inside === AWAY && npc.plan?.kind === 'mission') return; // preaching abroad
   if (npc.inside === AWAY && npc.trip !== undefined) return caravanDay(world, npc, rng);
   if (npc.inside !== undefined && npc.plan?.kind === 'crusade') return; // in the demon's keep, waiting on the battle
   if (npc.inside !== undefined) return delve(world, npc, rng);
@@ -595,6 +600,16 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'war') {
     const cost = Math.max(1, Math.round(WAR_COST[cmd.act] * (1 - 0.1 * perkLevel(world, 'grace'))));
     if (world.faith >= cost && warAct(world, cmd.act)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'mission') {
+    const cost = missionCost(world);
+    if (world.faith >= cost && sendMission(world, cmd.realmId)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'sect') {
+    const cost = sectCost(world);
+    if (world.faith >= cost && judgeSect(world, cmd.act)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'tenet') {

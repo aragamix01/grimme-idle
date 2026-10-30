@@ -15,6 +15,7 @@ import { realmArms } from './realms';
 import { conquer, frontier, peaksHeld } from './lands';
 import { charterOf, landPolicyOf } from './charter';
 import { ageOf, industrial } from './ages';
+import { holyTarget, sharesFaith, warConverts } from './missions';
 import type { Npc, Realm, War, WarAct, WorldState } from './types';
 
 const BATTLE_EVERY = 20;
@@ -67,12 +68,15 @@ function maybeWar(world: WorldState, rng: Rng): void {
   const strength = ourForces(world).strength;
   for (const r of world.realms ?? []) {
     if (r.fallen || r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
+    if (sharesFaith(r) && chance(rng, 0.5)) continue; // slow to raise a sword against the same god
     const hostile = r.relation <= -30;
     // A hostile hawk attacks when it feels the stronger; a greedy one also preys on any cold neighbour it far outmatches.
     if ((hawk(r.ruler.traits) || r.regime === 'junta') && hostile && theirStrength(r) > strength * 1.1 && chance(rng, 0.25)) return declare(world, r, 'them');
     if (r.ruler.traits.includes('greedy') && theirStrength(r) > strength * 1.6 && chance(rng, 0.06)) return declare(world, r, 'them');
     if (policy === 'peace') continue; // the charter forbids wars for land
     if (k && hostile && hawk(k.traits) && !dove(k.traits) && strength > theirStrength(r) * 1.2 && world.treasury >= 300 && chance(rng, 0.15)) return declare(world, r, 'us');
+    // The god's holy war: a devout ruler marches on a realm of another god.
+    if (holyTarget(world, r, k) && strength > theirStrength(r) && world.treasury >= 200 && chance(rng, 0.1)) return declare(world, r, 'us');
   }
   // Under a charter of conquest a grasping ruler also marches on any cool neighbour far weaker than us.
   if (policy !== 'conquest' || !k || !k.traits.includes('greedy') || world.treasury < 300) return;
@@ -138,6 +142,7 @@ export function endWar(world: WorldState, enemy: Realm, how: 'won' | 'lost' | 'd
     sway(world, 1);
     for (const n of adults(world)) n.loyalty = clamp(loyaltyOf(n) + 12, 0, 100);
     log(world, 'politics', `สงครามจบลง อาณาจักรของเราได้รับชัยชนะ ${enemy.name}ต้องจ่ายค่าปฏิกรรมสงคราม ${spoils} ทอง`);
+    warConverts(world, enemy);
     const land = conquer(world, enemy, 'us');
     if (land) log(world, 'politics', `${enemy.name}ต้องยก${land.name}ให้เราตามสัญญาสงบศึก`);
     legend(world, `กษัตริย์${k?.name ?? ''}ชนะสงครามกับ${enemy.name}`, k?.id);

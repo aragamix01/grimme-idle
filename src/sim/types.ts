@@ -86,7 +86,11 @@ export interface Npc {
 
 // What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
 // or nothing at all.
-export type Creed = 'god' | 'spirits' | 'none';
+// A sect worships the same god, in its own way, apart from the church.
+export type Creed = 'god' | 'spirits' | 'none' | 'sect';
+// What the constitution says of the faith: the state's own, everyone free to believe, church and
+// state apart, or other beliefs hunted down.
+export type FaithLaw = 'state' | 'tolerant' | 'secular' | 'persecute';
 
 // The god's commandments, handed down through a prophet's dream (see religion.ts).
 export type Tenet = 'usury' | 'charity' | 'nomeat' | 'holywar' | 'learning' | 'restday';
@@ -103,12 +107,15 @@ export interface Religion {
   prayer?: number; // faith the believers' prayers bring each day, worked out every few days
   tenets?: { kind: Tenet; day: number; prophetId: number }[]; // the commandments in force, and who proclaimed each
   adherence?: number; // 0..1: how closely the town keeps them, worked out monthly
+  church?: { purse: number; headId?: number; influence: number; stance?: 'blesses' | 'denounces' }; // the church as a power in the land
+  sect?: { name: string; founded: number; leaderId: number; cause: 'reform' | 'tenet' | 'corrupt' }; // a sect broken away from the church
+  reformed?: boolean; // the god embraced a sect's reform: reading wears faith down less
 }
 
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray' | 'mission';
 
 export interface Plan {
   kind: PlanKind;
@@ -128,7 +135,8 @@ export interface Charter {
   franchise: 'none' | 'all' | 'propertied' | 'lettered'; // who may vote
   councilVeto: boolean; // whether the council can block decrees
   taxCap: Tax | null; // the highest tax the ruler may set
-  stateFaith: boolean; // the god's faith is the state's: more prayer, less free inquiry
+  stateFaith: boolean; // the god's faith is the state's: more prayer, less free inquiry (kept in step with faith below)
+  faith?: FaithLaw; // missing means the state's faith or tolerance, as stateFaith says
   emergency?: boolean; // the ruler holds emergency powers; no elections
   auditor?: boolean; // an independent auditor may investigate any official, the ruler included
   freePress?: boolean; // the presses may print what they find, the ruler's doings included
@@ -345,6 +353,9 @@ export interface Realm {
   disaster?: { kind: 'drought' | 'flood' | 'quake'; until: number }; // nature's blow, and the day they've recovered
   fallen?: boolean; // taken by the demon lord
   miracleAt?: number; // day the god last worked a miracle on them
+  faith?: 'god'; // took up our god; missing means the old god of their land (see missions.ts)
+  converts?: number; // 0..100: share of their people who believe in our god
+  mission?: { priestId: number; until: number }; // our missionary preaching there
 }
 
 export type RealmMiracle = 'bless' | 'blight';
@@ -524,4 +535,6 @@ export type Command =
   | { type: 'incarnate'; npcId?: number } // live as this townsperson, or as a newborn
   | { type: 'ascend' } // return to godhood
   | { type: 'choose'; key: string }
-  | { type: 'tenet'; tenet: Tenet }; // a commandment through a prophet's dream, or taken back
+  | { type: 'tenet'; tenet: Tenet }
+  | { type: 'sect'; act: 'embrace' | 'condemn' }
+  | { type: 'mission'; realmId: number }; // a priest sent to preach in a neighbouring realm // the god takes a side in a schism // a commandment through a prophet's dream, or taken back

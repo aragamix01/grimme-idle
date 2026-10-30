@@ -1,4 +1,4 @@
-import { decreeActive, stricken, AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
+import { realmFaithName, sharesFaith, decreeActive, stricken, AGES, REGIMES, realmAge, realmRegime, GOOD_TH, TERRAIN_TH, TRADE, TRAIT_TH, plagued, realmMiracleCost, realmMiracleReady, relationWord, type Realm, type RealmMiracle, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 // While the world map is up, the side panel lists every neighbour in full, so nobody has to
@@ -39,6 +39,7 @@ function card(world: WorldState, r: Realm): HTMLElement {
     { className: `realm-card${r.id === picked ? ' realm-card--picked' : ''}` },
     el('div', { className: 'realm-card__head' }, el('b', { textContent: r.name }), el('span', { className: 'chip', textContent: r.war ? 'สงคราม!' : r.pact ? 'พันธมิตร' : relationWord(r.relation) })),
     el('p', { className: 'realm-king__meta', textContent: `ดินแดน${TERRAIN_TH[r.terrain]} · ประชากร ${r.people}` }),
+    el('p', { className: `realm-king__meta${sharesFaith(r) ? ' realm-card__rel--good' : ''}`, textContent: `ศาสนา: ${realmFaithName(r)} · นับถือเทพของเรา ${Math.round(r.converts ?? 0)}%${r.mission ? ' · มีมิชชันนารีอยู่' : ''}` }),
     el('p', { className: 'realm-king__meta', textContent: `${REGIMES[realmRegime(r)].name} · ${AGES[realmAge(r)].name}` }),
     el('p', { className: 'realm-king__meta', textContent: `${REGIMES[realmRegime(r)].ruler} ${r.ruler.name} (${r.ruler.age} ${realmRegime(r) === 'monarchy' ? 'พรรษา' : 'ปี'}) · ${r.ruler.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
     el('p', { className: 'realm-king__meta', textContent: `กองทัพ ${r.army} · ท้องพระคลัง ${r.gold}` }),

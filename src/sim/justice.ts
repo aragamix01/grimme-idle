@@ -11,6 +11,7 @@ import { king } from './society';
 import { jobName } from './ages';
 import { isAvatar } from './avatar';
 import { seizeHoard } from './tradehouses';
+import { recant } from './church';
 import type { CrimeKind, Npc, WorldState } from './types';
 
 export const CRIME_TH: Record<CrimeKind, string> = { theft: 'ลักทรัพย์', murder: 'ฆาตกรรม', corruption: 'ทุจริต', heresy: 'นอกรีต', hoarding: 'กักตุนสินค้า' };
@@ -150,7 +151,8 @@ function sentence(world: WorldState, n: Npc, crime: NonNullable<Npc['record']>[n
     }
     case 'heresy':
       // The church's court: under the priests a mage may be driven out for good; elsewhere a spell
-      // in the cells, and many come out swearing off the art.
+      // in the cells, and many come out swearing off the art. A sect's follower may recant.
+      if (recant(world, n, rng)) return jail(harsh ? 60 : 20, '');
       if (r === 'theocracy' && chance(rng, 0.4)) {
         n.alive = false;
         n.left = true;
