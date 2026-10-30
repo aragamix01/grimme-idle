@@ -603,8 +603,8 @@ test('a commandment handed down through a dream shows in force, can be taken bac
   await sub(page, 'faith');
   const row = page.locator('#faith .tenet[data-tenet="charity"]');
   await expect(page.locator('#faith .tenet')).toHaveCount(6);
-  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 4 })); // gather the faith the dream costs
-  await page.waitForFunction(() => (window as any).__grimm.scene.world.faith >= 45, null, { timeout: 60_000 });
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 4 })); // gather the faith to hand it down and take it back
+  await page.waitForFunction(() => (window as any).__grimm.scene.world.faith >= 65, null, { timeout: 90_000 });
   await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 0 })); // still the world before reaching for the button
   await page.locator('#speed button[data-speed="0"]').tap();
   await expect(row.locator('.btn')).toBeEnabled();
@@ -615,7 +615,6 @@ test('a commandment handed down through a dream shows in force, can be taken bac
   await expect(row.locator('.btn')).toContainText('ยกเลิก');
   const told = await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text);
   expect(told).toContain('ประทานบัญญัติ');
-  await expect.poll(() => page.evaluate(() => (window as any).__grimm.scene.world.faith >= 20)).toBe(true);
   await row.locator('.btn').tap();
   await expect(row).not.toHaveClass(/tenet--on/);
   await tapNpc(page);
