@@ -280,6 +280,11 @@ test('the townsperson card: half height, full height, dreams, and back to the ma
   await dream.tap();
   await expect(card(page)).toHaveClass(/npc--full/);
   await expect(card(page).locator('.dream-kinds')).toBeInViewport();
+  // The dreams wrap onto new lines: nothing runs off the side of the card, and the last trade is reachable.
+  expect(await card(page).evaluate((c) => c.scrollWidth - c.clientWidth)).toBeLessThanOrEqual(0);
+  const last = card(page).locator('.dream-pick button').last();
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
   await closeCard(page);
   // The next person opens at half height again.
   await tapNpc(page, first);
