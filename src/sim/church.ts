@@ -99,7 +99,7 @@ function spend(world: WorldState, c: Church): void {
   if (c.purse <= keep) return;
   const over = c.purse - keep;
   const head = headOf(world);
-  const skim = head?.traits.includes('greedy') ? Math.floor(over * 0.2) : 0;
+  const skim = head?.traits.includes('greedy') && head.gold < RICH * 2 * levelOf(world) ? Math.floor(over * 0.2) : 0; // a full purse stops reaching
   if (head) head.gold += skim;
   const given = Math.floor((over - skim) / 2);
   world.alms = (world.alms ?? 0) + given;
