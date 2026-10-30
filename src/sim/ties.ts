@@ -8,6 +8,7 @@ export const BEST_FRIEND = 40;
 export const RIVAL = -15;
 export const ENEMY = -40;
 const SOCIAL_CHANCE = 0.08; // per nearby pair per day
+const TILE_ROW = 1024; // a tile's bucket: y * TILE_ROW + x (wider than any map, so x + 1 never wraps a row)
 
 const key = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
@@ -52,22 +53,35 @@ export function topTies(world: WorldState, id: number, n = 3): { id: number; val
 // People who hang around the same spot slowly get to know each other; temperament colours how.
 export function socialize(world: WorldState, rng: Rng): void {
   const here = world.npcs.filter((n) => n.alive && n.inside === undefined && (n.plan?.kind === 'idle' || n.plan?.kind === 'work'));
-  for (let i = 0; i < here.length; i++)
-    for (let j = i + 1; j < here.length; j++) {
-      const a = here[i];
-      const b = here[j];
-      if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 1 || !chance(rng, SOCIAL_CHANCE)) continue;
+  // Bucket everyone by tile, so only neighbours are paired: a city has tens of thousands of pairs.
+  const at = new Map<number, Npc[]>();
+  for (const n of here) {
+    const k = n.y * TILE_ROW + n.x;
+    const list = at.get(k);
+    if (list) list.push(n);
+    else at.set(k, [n]);
+  }
+  const meet = (a: Npc, b: Npc) => {
+    if (!chance(rng, SOCIAL_CHANCE)) return;
       let delta = 3;
       if (a.traits.includes('kind') || b.traits.includes('kind')) delta += 2;
       if (a.traits.includes('greedy') && b.traits.includes('greedy')) delta -= 4; // two misers squabble
       if (Math.sign(a.morality) !== Math.sign(b.morality) && Math.abs(a.morality - b.morality) > 60) delta -= 5;
       addTie(world, a, b, delta);
+  };
+  // Each pair once: on the same tile, or one step east or south of it.
+  for (const [k, list] of at) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) meet(list[i], list[j]);
+      for (const b of at.get(k + 1) ?? []) meet(list[i], b);
+      for (const b of at.get(k + TILE_ROW) ?? []) meet(list[i], b);
     }
+  }
 }
 
 export function pruneTies(world: WorldState, keep: Set<number>): void {
-  for (const k of Object.keys(world.ties)) {
-    const [a, b] = k.split('-').map(Number);
-    if (!keep.has(a) || !keep.has(b)) delete world.ties[k];
+  for (const k in world.ties) {
+    const dash = k.indexOf('-');
+    if (!keep.has(+k.slice(0, dash)) || !keep.has(+k.slice(dash + 1))) delete world.ties[k];
   }
 }

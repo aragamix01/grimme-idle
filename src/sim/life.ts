@@ -28,7 +28,7 @@ export const isElder = (n: Npc) => n.age >= ELDER_AGE;
 // and a long offline catch-up runs thousands of days of that.
 let index: { npcs: Npc[]; day: number; byId: Map<number, Npc>; single: Set<number>; open: Npc[] } | null = null;
 // Crushes change slowly, so they are worked out afresh only every few days.
-const CRUSH_EVERY = 5;
+const CRUSH_EVERY = 10;
 let crushCache: { ties: WorldState['ties']; bucket: number; map: Map<number, Npc> } | null = null;
 function lookup(world: WorldState) {
   if (index?.npcs === world.npcs && index.day === world.day && index.byId.size === world.npcs.length) return index;
