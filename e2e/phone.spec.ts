@@ -666,6 +666,32 @@ test('the church and a sect on the religion tab: the god embraces the sect, and 
   await pageStill(page);
 });
 
+test('a missionary goes to a neighbouring realm; the realm card tells its faith; the map still answers', async ({ page }) => {
+  await section(page, 'power');
+  await sub(page, 'faith');
+  const realms = page.locator('#faith .faith-world .faith-realm');
+  await expect(realms.first()).toContainText('นับถือเทพเรา');
+  // Two priests are needed: one stays home. Wait for the town to have them and the faith to pay.
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 4 }));
+  await page.waitForFunction(() => {
+    const w = (window as any).__grimm.scene.world;
+    return w.faith >= 30 && w.npcs.filter((n: any) => n.alive && n.age >= 16 && n.job === 'priest' && n.inside === undefined).length >= 2;
+  }, null, { timeout: 90_000 });
+  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 0 }));
+  await page.locator('#speed button[data-speed="0"]').tap();
+  const open = realms.filter({ has: page.locator('.btn:enabled') }).first();
+  const id = await open.getAttribute('data-realm');
+  await open.locator('.btn').tap();
+  await expect(page.locator(`#faith .faith-realm[data-realm="${id}"]`)).toContainText('กำลังเผยแผ่ศาสนา');
+  await expect(page.locator(`#faith .faith-realm[data-realm="${id}"] .btn`)).toBeDisabled();
+  await section(page, 'world');
+  await expect(page.locator(`#realms .realm-card[data-realm="${id}"]`)).toContainText('มีมิชชันนารีอยู่');
+  await section(page, 'town');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('the people list filters, and a row opens that person', async ({ page }) => {
   await section(page, 'people');
   const rows = page.locator('#people .people-row');

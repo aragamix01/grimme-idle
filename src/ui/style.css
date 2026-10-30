@@ -736,6 +736,11 @@ html:has(dialog[open]) { overflow: hidden; }
 .faith-sect { display: grid; gap: 4px; padding: 8px; border: 2px solid var(--outline); background: var(--paper-raised); }
 .faith-sect p { margin: 0; }
 .faith-sect__acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.faith-world ul { display: grid; gap: 6px; }
+.faith-realm { display: grid; gap: 4px; padding: 6px 8px; border: 2px solid var(--outline); background: var(--paper-raised); }
+.faith-realm--ours { background: #fff4c7; }
+.faith-realm p { margin: 0; }
+.faith-realm .btn { justify-self: start; min-height: 32px; padding: 0 10px; font-size: 13px; }
 .tenet { display: grid; gap: 2px; padding: 6px 8px; border: 2px solid var(--outline); background: var(--paper-raised); }
 .tenet--on { background: #fff4c7; }
 .tenet__head { display: flex; gap: 6px; align-items: center; justify-content: space-between; }

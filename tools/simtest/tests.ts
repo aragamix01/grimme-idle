@@ -7,6 +7,8 @@ import { tenetOn } from '../../src/sim/core';
 import { churchOf, headOf } from '../../src/sim/church';
 import { faithLaw } from '../../src/sim/charter';
 import { commit } from '../../src/sim/justice';
+import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
+import { endWar } from '../../src/sim/war';
 import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
 import type { Npc, WorldState } from '../../src/sim/types';
@@ -373,4 +375,88 @@ test("a sect follower before the church's court may recant", () => {
     if (members[1].creed === 'god') recanted++;
   }
   ok(recanted > 0 && recanted < 10, `recanted ${recanted} of 10`);
+});
+
+// ---------- phase 4: the faiths of the world ----------
+
+// Two priests, so one can be spared for a mission.
+function twoPriests(w: WorldState): [Npc, Npc] {
+  const { priest, a } = cast(w);
+  a.job = 'priest';
+  a.creed = priest.creed = 'god';
+  a.piety = 95;
+  priest.piety = 60;
+  priest.level = 9; // the head of the church stays home
+  return [priest, a];
+}
+
+test('each realm keeps the old god of its land until its people take up ours', () => {
+  const w = world();
+  for (const r of w.realms!) ok(!sharesFaith(r) && realmFaithName(r) === FOREIGN_GODS[r.terrain], `${r.name} starts with ${realmFaithName(r)}`);
+});
+
+test('a missionary leaves town, wins converts, and comes home; the last priest is never sent', () => {
+  const w = world();
+  const [, missionaryPriest] = twoPriests(w);
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.relation = 20;
+  w.faith = 100;
+  applyCommands(w, [{ type: 'mission', realmId: r.id }]);
+  ok(r.mission?.priestId === missionaryPriest.id, 'the devout priest was not sent');
+  ok(missionaryPriest.inside !== undefined, 'the missionary is still in town');
+  run(w, 155); // home at the first month's reckoning after the mission's days are out
+  ok(!r.mission && missionaryPriest.alive && missionaryPriest.inside === undefined, 'the missionary did not come home');
+  ok((r.converts ?? 0) >= 15, `converts: ${r.converts}`);
+  const lone = world();
+  cast(lone);
+  lone.faith = 100;
+  applyCommands(lone, [{ type: 'mission', realmId: lone.realms![0].id }]);
+  ok(!lone.realms![0].mission && lone.faith === 100, 'the only priest was sent away');
+});
+
+test('a hostile realm may martyr the missionary, and the faithful at home are stirred by it', () => {
+  let martyred = 0;
+  for (let i = 0; i < 6 && !martyred; i++) {
+    const w = world(20 + i);
+    const [, m] = twoPriests(w);
+    const r = w.realms!.find((x) => !x.fallen)!;
+    r.relation = -80;
+    sendMission(w, r.id);
+    run(w, 125);
+    if (!m.alive) martyred++;
+  }
+  ok(martyred > 0, 'no missionary in a hateful land was ever martyred');
+});
+
+test('a realm whose people mostly believe takes up our god, warms to us, and prays to it', () => {
+  const w = world();
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.converts = 95;
+  r.relation = 0;
+  for (let m = 0; m < 24 && !sharesFaith(r); m++) {
+    toMonthDay(w, 12);
+    tick(w);
+  }
+  ok(sharesFaith(r), 'the realm never took up our god');
+  ok(r.relation > 0, `relation: ${r.relation}`);
+  ok(abroadPrayers(w) > 0, 'the believers abroad do not pray');
+});
+
+test('under holy war, a won war turns the vanquished; a devout ruler has grievance against other gods', () => {
+  const w = world();
+  devout(w);
+  proclaim(w, 'holywar');
+  const r = w.realms!.find((x) => !x.fallen)!;
+  r.relation = -50;
+  const ruler = w.npcs.find((n) => n.id === w.kingId)!;
+  ruler.piety = 90;
+  ok(holyTarget(w, r, ruler), 'a devout ruler under holy war bears no grievance against another god');
+  r.faith = 'god';
+  ok(!holyTarget(w, r, ruler), 'a holy war against the same god');
+  r.faith = undefined;
+  r.converts = 0;
+  w.war = { realmId: r.id, since: w.day, attacker: 'us', nextBattle: w.day + 99, score: 3, battles: 3 };
+  r.war = true;
+  endWar(w, r, 'won');
+  ok((r.converts ?? 0) >= 30, `converts after the war: ${r.converts}`);
 });

@@ -123,6 +123,7 @@ function activity(world: WorldState, npc: Npc): string {
     return `กำลังทำเควส: ${quest.title}`;
   }
   if (npc.plan?.kind === 'crusade') return npc.inside !== undefined ? `บุกเข้าปราสาทจอมมาร${world.demon ? world.demon.name : ''}` : 'เดินทัพไปปราสาทจอมมาร';
+  if (npc.plan?.kind === 'mission') return `ไปเผยแผ่ศาสนาที่${world.realms?.find((r) => r.id === npc.plan!.target)?.name ?? 'แคว้นอื่น'}`;
   if (npc.inside !== undefined && npc.trip !== undefined) return `เดินทางกับกองคาราวาน อีกราว ${npc.trip} วันจะกลับ`;
   if (npc.inside !== undefined) return `กำลังสำรวจ${dungeon(npc.inside)}`;
   const p = npc.plan;

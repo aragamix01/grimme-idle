@@ -34,6 +34,7 @@ export { CREED_TH, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, believer, creedC
 export { adherence, tenetOn } from './core';
 export { churchOf, headOf, sectCost, sectMembers, sectOf } from './church';
 export { FAITH_LAW_TH, faithLawOf } from './charter';
+export { FOREIGN_GODS, missionBlocked, missionCost, realmFaithName, sharesFaith } from './missions';
 export { ERA_YEARS, PERKS, PERK_ORDER, canEndEra, eraOf, eraTitle, newEra, perkCost, starsFor, starsOf, starsParts, FAITH_PER_STAR, statueHero } from './era';
 export { cursed, known, perkLevel } from './core';
 export { DUNGEON_KINDS } from './dungeons';

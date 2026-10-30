@@ -1,4 +1,4 @@
-import { CREED_TH, FAITH_LAW_TH, charterOf, churchOf, faithLawOf, headOf, sectCost, sectMembers, sectOf, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, adherence, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, prophetOf, religionOf, support, tenetCost, tenetOn, type Creed, type Npc, type Tenet, type WorldState } from '../sim';
+import { realmFaithName, sharesFaith, missionBlocked, missionCost, CREED_TH, FAITH_LAW_TH, charterOf, churchOf, faithLawOf, headOf, sectCost, sectMembers, sectOf, HOLY_EVERY, MAX_TENETS, TENETS, TENET_ORDER, adherence, creedCounts, daysToHoly, isHolyDay, jobName, pietyOf, prayers, prophetOf, religionOf, support, tenetCost, tenetOn, type Creed, type Npc, type Tenet, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -11,6 +11,7 @@ interface Handlers {
   onSelectNpc: (id: number) => void;
   onTenet: (k: Tenet) => void; // hand a commandment down, or take it back
   onSect: (act: 'embrace' | 'condemn') => void; // the god's word on a schism
+  onMission: (realmId: number) => void; // send a priest to preach abroad
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -28,7 +29,7 @@ export function renderFaith(world: WorldState): void {
   const devout = world.npcs.filter((n) => n.alive && n.age >= 16 && n.creed === 'god' && n.job !== 'priest').sort((a, b) => pietyOf(b) - pietyOf(a)).slice(0, 5);
   const daily = Math.round(prayers(world) * 100) / 100;
   const prophet = prophetOf(world);
-  const key = JSON.stringify([world.charter?.faith, world.charter?.stateFaith, headOf(world)?.id, c, rel, daily, Math.floor(world.faith), prophet?.id, TENET_ORDER.map((k) => Math.round(support(world, k) * 20)), priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
+  const key = JSON.stringify([world.realms?.map((r) => [r.faith, Math.round(r.converts ?? 0), !!r.mission, r.war, r.fallen]), world.charter?.faith, world.charter?.stateFaith, headOf(world)?.id, c, rel, daily, Math.floor(world.faith), prophet?.id, TENET_ORDER.map((k) => Math.round(support(world, k) * 20)), priests.map((n) => [n.id, Math.round(pietyOf(n))]), devout.map((n) => [n.id, Math.round(pietyOf(n))]), daysToHoly(world), Math.floor(world.alms ?? 0)]);
   if (key === lastKey) return;
   lastKey = key;
   const total = c.god + c.sect + c.spirits + c.none || 1;
@@ -40,6 +41,7 @@ export function renderFaith(world: WorldState): void {
     church(world),
     sect(world),
     tenets(world, prophet),
+    abroad(world),
     rites(world),
     section('นักบวช', priests.length ? priests.map((n) => personRow(n, jobName(world, n.job))) : [empty('เมืองไม่มีนักบวช ไม่มีใครประกอบพิธี และคนที่ไม่เชื่อจะไม่มีใครมาชักชวน')], `${priests.length} คน`),
     section('ผู้ศรัทธาแรงกล้า', devout.length ? devout.map((n) => personRow(n, jobName(world, n.job))) : [empty('ยังไม่มีใครนับถือเทพเจ้า')]),
@@ -144,6 +146,32 @@ function sect(world: WorldState): HTMLElement {
     el('p', { className: 'realm-king__meta', textContent: 'รับรอง: สาวกกลับเข้าโบสถ์ ศาสนจักรปฏิรูป คนอ่านหนังสือศรัทธาเสื่อมน้อยลง · ประณาม: นิกายสลาย แต่ครึ่งหนึ่งหมดศรัทธา' }),
   );
   return section('นิกาย', [li], `สาวก ${members.length} คน`);
+}
+
+// The faiths of the neighbouring realms, how far ours has reached into each, and missionaries.
+function abroad(world: WorldState): HTMLElement {
+  const cost = missionCost(world);
+  const rows = (world.realms ?? []).filter((r) => !r.fallen).map((r) => {
+    const fill = el('span', { className: 'realm-meter__fill realm-meter__fill--strong' });
+    fill.style.width = `${Math.round(r.converts ?? 0)}%`;
+    const blocked = missionBlocked(world, r);
+    const btn = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: !!blocked || world.faith < cost, title: blocked ?? '' }, 'ส่งมิชชันนารี', el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    btn.onclick = () => handlers.onMission(r.id);
+    const li = el(
+      'li',
+      { className: `faith-realm${sharesFaith(r) ? ' faith-realm--ours' : ''}` },
+      el('div', { className: 'tenet__head' }, el('b', { textContent: r.name }), el('span', { className: `chip${sharesFaith(r) ? ' chip--gold' : ''}`, textContent: realmFaithName(r) })),
+      el('div', { className: 'realm-meter' }, el('span', { className: 'realm-meter__label', textContent: 'นับถือเทพเรา' }), el('span', { className: 'realm-meter__track' }, fill), el('b', { textContent: `${Math.round(r.converts ?? 0)}%` })),
+      el('p', { className: 'realm-king__meta', textContent: r.mission ? `${world.npcs.find((n) => n.id === r.mission!.priestId)?.name ?? 'มิชชันนารี'}กำลังเผยแผ่ศาสนา อีก ${Math.max(0, r.mission.until - world.day)} วัน` : blocked ?? 'ส่งนักบวชไปเผยแผ่ 120 วัน ถ้าแคว้นนั้นเกลียดเรา อาจถูกประหาร' }),
+      btn,
+    );
+    li.dataset.realm = String(r.id);
+    return li;
+  });
+  const ours = (world.realms ?? []).filter((r) => !r.fallen && sharesFaith(r)).length;
+  const s = section('ศาสนาในโลก', rows, `นับถือเทพเรา ${ours} แคว้น`);
+  s.classList.add('faith-world');
+  return s;
 }
 
 function personChip(n: Npc): HTMLElement {
