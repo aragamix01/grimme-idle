@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
-import { MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { LOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
 import manifest from '../sprite-manifest.json';
@@ -252,6 +252,7 @@ export class WorldScene extends Phaser.Scene {
       w.building?.kind,
       ageOf(w), // a new age rebuilds the houses
       (w.ruins ?? []).map((r) => `${r.x}.${r.y}`).join(','), // homes brought down or rebuilt
+      w.buildRev ?? 0, // a home started, finished or built up
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -352,7 +353,7 @@ export class WorldScene extends Phaser.Scene {
   // A random open tile in the pasture or the forest, as a pixel spot a beast can stand on.
   private beastSpot(area: Beast['area']): { x: number; y: number } {
     const box = area === 'pasture' ? PASTURE : FOREST;
-    const town = this.world ? townLayout(this.world.dungeons) : null;
+    const town = this.world ? townLayout(this.world) : null;
     for (let tries = 0; tries < 30; tries++) {
       const tx = Phaser.Math.Between(box.x0, box.x1);
       const ty = Phaser.Math.Between(box.y0, box.y1);
@@ -449,7 +450,7 @@ export class WorldScene extends Phaser.Scene {
   // The town comes from the same layout the sim walks on, built once the world
   // (and so where its dungeons are) is known.
   private buildTown(w: WorldState): void {
-    const town = townLayout(w.dungeons);
+    const town = townLayout(w);
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let y = 0; y < MAP_H; y++)
@@ -473,15 +474,18 @@ export class WorldScene extends Phaser.Scene {
       else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
       else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
     }
+    // Homes going up stand in scaffolding until they are done.
+    const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${LOTS[h.lot].x},${LOTS[h.lot].y}`));
     for (const p of town.props) {
-      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: ruined(w, p.x, p.y) ? 'rubble' : this.aged(p.key) } : p);
+      const shell = p.key.startsWith('house') && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : p.key.startsWith('house') ? { ...p, key: shell || this.aged(p.key) } : p);
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
         s.setDepth(img.depth + 1);
       }
       if (p.key === 'guild') this.guildBounds = img.getBounds();
-      for (const [x, y, ww, h] of WINDOWS[p.key] ?? []) {
+      for (const [x, y, ww, h] of shell ? [] : (WINDOWS[p.key] ?? [])) {
         this.glow.fillStyle(0xffb347, 0.35).fillRect(img.x + x - 1, img.y + y - 1, ww + 2, h + 2);
         this.glow.fillStyle(0xffe27a, 1).fillRect(img.x + x, img.y + y, ww, h);
       }

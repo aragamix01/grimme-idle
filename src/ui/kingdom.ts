@@ -1,4 +1,4 @@
-import { CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -52,6 +52,9 @@ export function renderKingdom(world: WorldState): void {
     world.golden,
     world.works,
     world.building,
+    world.buildRev,
+    world.homeless,
+    townPop(world),
     world.decrees,
     world.decreeAt,
     world.labour,
@@ -127,6 +130,7 @@ export function renderKingdom(world: WorldState): void {
     g('threat', demonSection(world)),
     ...(world.dragon ? [g('threat', dragonSection(world))] : []),
     g('threat', cultSection(world)),
+    g('works', housingSection(world)),
     g('works', worksSection(world)),
     g('research', researchSection(world)),
     g('war', warSection(world)),
@@ -363,6 +367,37 @@ function masteryRows(world: WorldState, have: number): HTMLElement[] {
 }
 
 // What the crown has built with its gold, what is going up now, and what it might build next.
+// The town's homes: rooms against mouths, who is sleeping rough, and what is going up.
+function housingSection(world: WorldState): HTMLElement {
+  const homes = world.homes ?? [];
+  const up = homes.filter((h) => homeStanding(world, h));
+  const rooms = capacity(world);
+  const people = townPop(world);
+  const tiers = TIER_TH.map((name, t) => [name, up.filter((h) => h.tier === t).length] as const).filter(([, n]) => n);
+  const going = homeSites(world);
+  const outside = up.filter((h) => LOTS[h.lot].outside).length;
+  const rows: HTMLElement[] = [
+    el(
+      'li',
+      { className: 'market-head' },
+      el('span', { className: `chip${people > rooms ? ' chip--danger' : ''}` }, icon('heart', 16), `คน ${people} / ห้อง ${rooms}`),
+      el('span', { className: 'chip' }, `บ้าน ${up.length} หลัง${outside ? ` (นอกกำแพง ${outside})` : ''}`),
+      ...(world.homeless ? [el('span', { className: 'chip chip--danger' }, `ไร้บ้าน ${world.homeless} คน`)] : []),
+      el('span', { className: 'chip' }, `แปลงว่าง ${Math.max(0, LOTS.length - homes.length)}`),
+    ),
+    el('li', { className: 'realm-king__meta', textContent: tiers.map(([n, c]) => `${n} ${c}`).join(' · ') + ` · ห้องต่อหลัง ${ROOMS.join('/')} คน` }),
+    ...going.map((h) =>
+      el(
+        'li',
+        { className: 'work' },
+        el('img', { src: '/assets/sprites/buildings/scaffold.png', alt: '', className: 'work__art' }),
+        el('div', {}, el('b', { textContent: `${TIER_TH[h.tier]}${LOTS[h.lot].outside ? 'นอกกำแพง' : 'ในเมือง'}` }), el('p', { className: 'realm-king__meta', textContent: `${h.ownerId !== undefined ? `${world.npcs.find((n) => n.id === h.ownerId)?.name ?? 'ชาวเมือง'}ออกเงิน` : 'ทางการออกเงิน'} · เสร็จอีก ${Math.max(0, (h.until ?? 0) - world.day)} วัน` })),
+      ),
+    ),
+  ];
+  return section('บ้านเรือน', rows, going.length ? 'กำลังสร้าง' : '');
+}
+
 function worksSection(world: WorldState): HTMLElement {
   const job = world.building;
   return section(

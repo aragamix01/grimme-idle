@@ -1,7 +1,11 @@
 // The rule tests run by run.mjs: each sets up a scene in a fresh world, ticks it, and checks.
-import { applyCommands, createWorld, tick } from '../../src/sim/world';
+import { applyCommands, createWorld, tick, traveller } from '../../src/sim/world';
 import { kill } from '../../src/sim/core';
-import { wed, births } from '../../src/sim/life';
+import { wed, births, bornTo, homeOf } from '../../src/sim/life';
+import { ROOMS, capacity, townPop } from '../../src/sim/housing';
+import { FIRST_LOTS, LOTS } from '../../src/sim/town';
+import { walkable } from '../../src/sim/nav';
+import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
 import { tenetOn } from '../../src/sim/core';
 import { churchOf, headOf } from '../../src/sim/church';
@@ -13,6 +17,7 @@ import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
+import { payrollReserve } from '../../src/sim/society';
 import { TARGET, ensureMarket } from '../../src/sim/market';
 import type { Npc, WorldState } from '../../src/sim/types';
 
@@ -206,10 +211,13 @@ test('no usury: the crown owes the trade house no interest while the town keeps 
     a.job = 'merchant';
     a.guildId = 999;
     w.guilds.push({ id: 999, name: 'บ้านทดสอบ', kind: 'merchants', leaderId: a.id, founded: 0, renown: 0, treasury: 5000 });
-    w.debt = { guildId: 999, owed: 1000, since: 0 };
-    w.treasury = 0;
-    w.treasury = 0;
-    run(w, 31);
+    w.debt = { guildId: 999, owed: 700, since: 0 }; // not so deep the house calls it in and takes the crown
+    w.npcs.find((n) => n.id === w.kingId)!.traits = ['kind']; // nor a greedy king who refuses to pay
+    // Enough for the payroll, so the crown neither repays nor goes bankrupt (and hands the town to the merchants).
+    for (let d = 0; d < 31; d++) {
+      w.treasury = payrollReserve(w) + 150;
+      tick(w);
+    }
     return [w.debt?.owed ?? 0, w.guilds.some((g) => g.id === 999)];
   };
   const [kept, without] = [owed(true), owed(false)];
@@ -575,4 +583,84 @@ test('happenings come up on their own over the years, and each is decided', () =
   const book = w.happenings ?? [];
   ok(book.length >= 3, `only ${book.length} happenings in four years`);
   ok(book.every((h) => h.chosen || h.outcome), 'a happening left undecided');
+});
+
+// ---------- homes: the town holds as many as its homes have room for ----------
+
+const settleNow = (w: WorldState) => {
+  while (w.day % 10 !== 3) tick(w);
+  tick(w); // the day homes are sorted out
+};
+
+test('at the founding everyone has a home with room for them, a child at a parent\'s', () => {
+  const w = world();
+  ok(w.homes!.length === FIRST_LOTS, `homes at the founding: ${w.homes!.length}`);
+  ok(capacity(w) >= townPop(w), `rooms ${capacity(w)} for ${townPop(w)}`);
+  ok(!w.homeless, `homeless at the founding: ${w.homeless}`);
+  const [a, b] = grown(w).filter((n) => n.spouseId === undefined && n.job !== 'noble');
+  wed(w, a, b);
+  const child = bornTo(w, a, b, rngOf(w));
+  w.npcs.push(child);
+  settleNow(w);
+  ok(a.home !== undefined && a.home === b.home && child.home === a.home, `the family is split: ${a.home} ${b.home} ${child.home}`);
+  ok(JSON.stringify(homeOf(child, w)) === JSON.stringify(homeOf(a, w)), 'the child goes home somewhere else');
+});
+
+test('a full town: someone who can pay hires builders, and the new home stands after a while', () => {
+  const w = world();
+  for (let i = 0; i < 20; i++) traveller(w, rngOf(w));
+  ensureMarket(w).stock.timber = 100;
+  const rich = grown(w).find((n) => n.job === 'merchant') ?? grown(w)[0];
+  rich.gold = 2000;
+  const before = capacity(w);
+  const rev = w.buildRev ?? 0;
+  settleNow(w);
+  ok((w.homeless ?? 0) > 0, 'nobody homeless in an overfull town');
+  const site = w.homes!.find((h) => h.until !== undefined);
+  ok(site, 'no home was started');
+  ok((w.buildRev ?? 0) > rev, 'the town was not laid out again for the site');
+  ok(rich.gold < 2000 || w.homes!.some((h) => h.ownerId === undefined && h.until), 'nobody paid for it');
+  const lot = LOTS[site!.lot];
+  ok(!walkable(w, lot.x, lot.y), 'the lot can still be walked through');
+  run(w, 70);
+  ok(site!.until === undefined, 'the home never stood');
+  ok(capacity(w) > before, `rooms did not grow: ${before} -> ${capacity(w)}`);
+});
+
+test('once every lot is built on, homes are built up a storey', () => {
+  const w = world();
+  (w.techs ??= {}).plough = 0;
+  w.techs.writing = 0;
+  w.techs.architecture = 0; // three finds: a new age, and its craft
+  w.homes = LOTS.map((_, lot) => ({ lot, tier: 1 as const, built: 0 }));
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  for (let i = 0; i < 120; i++) traveller(w, rngOf(w));
+  ensureMarket(w).stock.timber = 100;
+  w.treasury = 50_000;
+  settleNow(w);
+  ok(w.homes!.some((h) => h.tier === 2), 'no home was built up');
+});
+
+test('without a roof, households drift away; with rooms to spare, newcomers come', () => {
+  const w = world();
+  w.homes = w.homes!.slice(0, 8); // half the town's homes gone
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  ensureMarket(w).stock.timber = 0; // and nothing to build with
+  const start = townPop(w);
+  run(w, 180);
+  ok(townPop(w) < start - 10, `the homeless did not leave: ${start} -> ${townPop(w)}`);
+  ok(w.chronicle.some((e) => e.text.includes('จึงทิ้งเมืองไปหาที่อยู่ใหม่')), 'nobody was said to leave for want of a home');
+  const full = world(8);
+  full.homes!.push(...LOTS.slice(FIRST_LOTS).map((_, i) => ({ lot: FIRST_LOTS + i, tier: 1 as const, built: 0 })));
+  full.buildRev = (full.buildRev ?? 0) + 1;
+  const before = townPop(full);
+  run(full, 180);
+  ok(townPop(full) > before + 10, `newcomers did not fill the empty homes: ${before} -> ${townPop(full)}`);
+});
+
+test('a home brought down by a disaster takes its rooms with it until it is rebuilt', () => {
+  const w = world();
+  const before = capacity(w);
+  ruinHomes(w, rngOf(w), 2);
+  ok(capacity(w) === before - 2 * ROOMS[1], `rooms after two homes fell: ${before} -> ${capacity(w)}`);
 });

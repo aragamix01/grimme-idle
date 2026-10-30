@@ -14,7 +14,7 @@ import { ensureMarket } from './market';
 import { approval } from './politics';
 import { ageOf } from './ages';
 import { WORK_ORDER } from './works';
-import { TOWN_SIZE } from './town';
+import { builtFor } from './housing';
 import { isAvatar } from './avatar';
 import type { DemonKind, DemonLord, WorldState } from './types';
 
@@ -40,7 +40,7 @@ export function kindFor(world: WorldState, rng: Rng): DemonKind {
   const cult = world.npcs.filter((n) => n.alive && n.cultist).length;
   const open: DemonKind[] = ['flame'];
   if (ageOf(world) >= 3 || world.works?.factory !== undefined) open.push('iron', 'iron');
-  if (recent.filter((e) => e.text.includes('คร่าชีวิตไป')).length >= 2 || world.npcs.filter((n) => n.alive).length >= TOWN_SIZE - 5) open.push('plague', 'plague');
+  if (recent.filter((e) => e.text.includes('คร่าชีวิตไป')).length >= 2 || world.npcs.filter((n) => n.alive).length >= builtFor(world) - 5) open.push('plague', 'plague');
   if (cult >= 4 || approval(world) < 40) open.push('shadow', 'shadow');
   return pick(rng, open);
 }

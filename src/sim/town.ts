@@ -2,7 +2,8 @@
 // and WorldScene (what gets drawn where), so the two can never drift apart.
 import { createRng, next } from './rng';
 
-// How many people the town is built for; the trades, the army and the granary scale from it.
+// How many people the town is founded for. The homes it actually has decide how many it can
+// hold from then on (see housing.ts).
 export const TOWN_SIZE = 120;
 
 export const MAP_W = 40;
@@ -50,31 +51,16 @@ export const GATES = [
   { x: 13, y: 17 }, // south: out to the fields
 ];
 
+// The town's own buildings. Homes are not among them: they stand on the house lots below, as
+// world.homes says.
 export const BUILDINGS: [key: string, tx: number, ty: number][] = [
   // north row, facing the high street (y 6)
   ['castle', 1, 2],
   ['guild', 6, 3],
   ['inn', 10, 3],
   ['church', 14, 2],
-  ['house', 17, 4],
-  ['house-red', 20, 4],
-  ['house-blue', 23, 4],
   // middle row, facing the main road (y 9)
   ['shop', 2, 7],
-  ['house-red', 5, 7],
-  ['house', 8, 7],
-  ['house-blue', 11, 7],
-  ['house', 14, 7],
-  ['house-blue', 17, 7],
-  ['house-red', 20, 7],
-  ['house', 23, 7],
-  // south row, facing the back lane (y 12)
-  ['house-blue', 2, 10],
-  ['house', 5, 10],
-  ['house-red', 8, 10],
-  ['house', 16, 10],
-  ['house-red', 19, 10],
-  ['house-blue', 22, 10],
   // behind the back lane: trades, the garrison and the gentry
   ['forge', 7, 13],
   ['brothel', 9, 13],
@@ -83,6 +69,49 @@ export const BUILDINGS: [key: string, tx: number, ty: number][] = [
   // out past the south gate, by the pasture
   ['barn', 22, 18],
 ];
+
+// House lots (2x2 tiles, top-left). The first twenty lie inside the walls along the three streets;
+// the rest spread out past the east gate into the forest once the town outgrows its walls.
+export interface Lot {
+  key: 'house' | 'house-red' | 'house-blue';
+  x: number;
+  y: number;
+  outside?: boolean;
+}
+export const LOTS: readonly Lot[] = [
+  // north row, facing the high street (y 6)
+  { key: 'house', x: 17, y: 4 },
+  { key: 'house-red', x: 20, y: 4 },
+  { key: 'house-blue', x: 23, y: 4 },
+  // middle row, facing the main road (y 9)
+  { key: 'house-red', x: 5, y: 7 },
+  { key: 'house', x: 8, y: 7 },
+  { key: 'house-blue', x: 11, y: 7 },
+  { key: 'house', x: 14, y: 7 },
+  { key: 'house-blue', x: 17, y: 7 },
+  { key: 'house-red', x: 20, y: 7 },
+  { key: 'house', x: 23, y: 7 },
+  // south row, facing the back lane (y 12)
+  { key: 'house-blue', x: 2, y: 10 },
+  { key: 'house', x: 5, y: 10 },
+  { key: 'house-red', x: 8, y: 10 },
+  { key: 'house', x: 16, y: 10 },
+  { key: 'house-red', x: 19, y: 10 },
+  { key: 'house-blue', x: 22, y: 10 },
+  // past the east gate: along the road out, a lane north of it, and one south of it
+  { key: 'house', x: 28, y: 7, outside: true },
+  { key: 'house-red', x: 31, y: 7, outside: true },
+  { key: 'house-blue', x: 28, y: 4, outside: true },
+  { key: 'house', x: 31, y: 4, outside: true },
+  { key: 'house-red', x: 30, y: 10, outside: true },
+  { key: 'house-blue', x: 34, y: 7, outside: true },
+  { key: 'house', x: 33, y: 10, outside: true },
+  { key: 'house-red', x: 34, y: 4, outside: true },
+  { key: 'house-blue', x: 37, y: 7, outside: true },
+  { key: 'house', x: 36, y: 10, outside: true },
+  { key: 'house-red', x: 37, y: 4, outside: true },
+];
+export const FIRST_LOTS = 16; // the lots built on at the founding
 
 // Where someone stands to use a building: the tile in front of its door.
 export const doorOf = (key: string, tx: number, ty: number) => {
@@ -103,13 +132,25 @@ export const dungeonDoor = (d: { x: number; y: number }) => ({ x: d.x + 1, y: d.
 
 const COST: Record<Ground, number> = { road: 1, grass: 2, crops: 3, water: 0 };
 
-let cache: { ref: unknown; key: string; layout: Layout } | null = null;
+// What the layout is drawn from: the dungeons, and the lots with a home on them (finished or
+// going up). buildRev counts every change to the homes, so a layout is only laid out again then.
+export interface TownView {
+  dungeons: readonly { x: number; y: number }[];
+  homes?: readonly { lot: number }[];
+  buildRev?: number;
+}
 
-export function townLayout(dungeons: readonly { x: number; y: number }[]): Layout {
-  if (cache?.ref === dungeons) return cache.layout; // hot path: asked many times a tick
-  const key = dungeons.map((d) => `${d.x},${d.y}`).join(';');
+let cache: { ref: unknown; rev: number; key: string; layout: Layout } | null = null;
+
+export function townLayout(view: TownView): Layout {
+  const { dungeons } = view;
+  const rev = view.buildRev ?? 0;
+  if (cache?.ref === dungeons && cache.rev === rev) return cache.layout; // hot path: asked many times a tick
+  const lots = (view.homes ?? []).map((h) => h.lot).sort((a, b) => a - b);
+  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${lots.join(',')}`;
   if (cache?.key === key) {
     cache.ref = dungeons;
+    cache.rev = rev;
     return cache.layout;
   }
 
@@ -163,6 +204,21 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
     const [w, h] = BUILDING_PX[key];
     for (let y = ty; y < ty + Math.ceil(h / 16); y++) for (let x = tx; x < tx + Math.ceil(w / 16); x++) block(x, y);
     props.push({ key, x: tx, y: ty, anchor: 'top' });
+  }
+  // Homes on their lots. Out past the east gate a lane is trodden to each one from the road.
+  for (const i of lots) {
+    const lot = LOTS[i];
+    for (let y = lot.y; y < lot.y + 2; y++) for (let x = lot.x; x < lot.x + 2; x++) block(x, y);
+    props.push({ key: lot.key, x: lot.x, y: lot.y, anchor: 'top' });
+    if (!lot.outside) continue;
+    const door = { x: lot.x + 1, y: lot.y + 2 };
+    if (door.y < 9) {
+      hline(WALL.x1 + 1, door.x, 6, 'road');
+      vline(WALL.x1 + 1, 6, 9, 'road');
+    } else if (door.y > 9) {
+      hline(WALL.x1 + 3, door.x, 12, 'road');
+      vline(WALL.x1 + 3, 9, 12, 'road');
+    }
   }
 
   // The royal plots are fenced off whether or not anything stands on them yet.
@@ -230,6 +286,6 @@ export function townLayout(dungeons: readonly { x: number; y: number }[]): Layou
   }
   for (let i = 0; i < cost.length; i++) if (!reached[i]) cost[i] = 0;
   const layout = { ground, cost, props };
-  cache = { ref: dungeons, key, layout };
+  cache = { ref: dungeons, rev, key, layout };
   return layout;
 }

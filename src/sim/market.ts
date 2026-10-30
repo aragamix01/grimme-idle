@@ -17,13 +17,15 @@ import { built } from './works';
 import { jobName } from './ages';
 import { churchOf } from './church';
 import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } from './types';
-import { TOWN_SIZE } from './town';
+import { townPop } from './housing';
 
 export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
 export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ' };
 const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15 };
 export const basePrice = (g: Good) => BASE[g];
-export const TARGET: Record<Good, number> = { grain: Math.round((300 * TOWN_SIZE) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
+// Stock that sells at the base price. Grain follows the town's mouths: enough to carry them through winter.
+export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(40, townPop(world))) / 80) : TARGET[g]);
+export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
@@ -72,7 +74,7 @@ export const levelOf = (world: WorldState) => world.market?.level ?? 1;
 
 function reprice(world: WorldState, m: Market): void {
   for (const g of GOODS) {
-    const t = TARGET[g];
+    const t = target(world, g);
     const factor = Math.min(5, Math.max(0.3, (t / Math.max(m.stock[g], t * 0.05)) ** 0.7));
     m.price[g] = Math.max(1, Math.round(BASE[g] * factor * (m.level ?? 1)));
   }
@@ -122,8 +124,8 @@ const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
-function payOut(m: Market, g: Good, n: number, rng: Rng, hall = false): number {
-  if (m.stock[g] >= TARGET[g] * GLUT[g]) return 0; // the shelves are full; it rots unsold
+function payOut(world: WorldState, m: Market, g: Good, n: number, rng: Rng, hall = false): number {
+  if (m.stock[g] >= target(world, g) * GLUT[g]) return 0; // the shelves are full; it rots unsold
   const each = m.price[g] * (hall ? 0.85 : 0.75); // the market hall's traders bid each other up
   let owed = 0;
   for (let i = 0; i < n; i++) owed += Math.floor(each) + (chance(rng, each % 1) ? 1 : 0);
@@ -147,7 +149,7 @@ export function sell(world: WorldState, npc: Npc, g: Good, n: number, rng: Rng):
     }
   }
   const trade = world.guilds.some((x) => x.id === npc.guildId && x.kind === 'merchants');
-  const paid = payOut(m, g, n, rng, built(world, 'market'));
+  const paid = payOut(world, m, g, n, rng, built(world, 'market'));
   const got = trade ? Math.ceil(paid * 1.1) : paid; // the association haggles for its members
   npc.gold += got;
   return got;
@@ -354,16 +356,16 @@ function caravans(world: WorldState, m: Market): void {
   }
   const merchant = world.npcs.find((n) => n.alive && n.job === 'merchant' && n.age >= 16 && n.questId === undefined && n.inside === undefined && n.plan?.kind !== 'caravan');
   if (!merchant) return;
-  const spare = GOODS.filter((g) => m.stock[g] > TARGET[g] * EXPORT_AT[g]);
-  const short = m.stock.grain < TARGET.grain * 0.15 && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
-  const lacking = IMPORTS.filter((g) => m.stock[g] < TARGET[g] * 0.3);
+  const spare = GOODS.filter((g) => m.stock[g] > target(world, g) * EXPORT_AT[g]);
+  const short = m.stock.grain < target(world, 'grain') * 0.15 && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
+  const lacking = IMPORTS.filter((g) => m.stock[g] < target(world, g) * 0.3);
   if (!spare.length && !short && !lacking.length) return;
   const realm = tradePartner(world, spare, short);
   if (!realm) return; // every neighbour is hostile: the roads are closed
   const trade = TRADE[realm.terrain];
   let gold = 0;
   for (const g of spare) {
-    const n = Math.ceil((m.stock[g] - TARGET[g] * EXPORT_AT[g]) * 0.3);
+    const n = Math.ceil((m.stock[g] - target(world, g) * EXPORT_AT[g]) * 0.3);
     m.stock[g] -= n;
     const wanted = trade.wants === g || (g === 'wool' && WOOL_BUYERS.includes(realm.terrain));
     gold += n * BASE[g] * (wanted ? 0.9 : 0.6) * realmPurse(realm) * (m.level ?? 1); // they pay well for what they lack, and better the further on they are
@@ -372,7 +374,7 @@ function caravans(world: WorldState, m: Market): void {
   const goods: Partial<Record<Good, number>> = {};
   let spent = 0; // on imports, for the crown's duty
   for (const g of lacking) {
-    const want = Math.ceil(TARGET[g] * (g === 'cloth' ? 1 : 0.5));
+    const want = Math.ceil(target(world, g) * (g === 'cloth' ? 1 : 0.5));
     const made = SELLS[realm.terrain] === g || (g === 'spice' && realm.terrain === 'desert'); // spice comes up the desert roads
     const each = BASE[g] * (made ? 1.1 : 1.6) * (m.level ?? 1) * importRate(world, realm);
     if (m.till < want * each + 50) continue;
@@ -380,7 +382,7 @@ function caravans(world: WorldState, m: Market): void {
     spent += want * each;
     goods[g] = want;
   }
-  const n = TARGET.grain * 0.25;
+  const n = target(world, 'grain') * 0.25;
   const cost = n * BASE.grain * (trade.sells === 'grain' ? 1.1 : 1.5) * (m.level ?? 1) * importRate(world, realm, true);
   const buying = short && m.till >= cost;
   if (buying) {

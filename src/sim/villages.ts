@@ -12,13 +12,13 @@ import { isAvatar } from './avatar';
 import { commit, jailed } from './justice';
 import { ADULT_AGE, ELDER_AGE, isBirthday, isChild } from './life';
 import { FIRST_NAMES } from './names';
-import { TOWN_SIZE } from './town';
+import { builtFor } from './housing';
 import { LAND_TH, USES, best, isOurs, levelOf, neighbourLairs, touches } from './lands';
 import { isAdventurer, postLandQuest } from './quests';
 import type { Job, LandUse, Npc, Realm, Region, Trait, Village, VillageWork, WorldState } from './types';
 
 export const WORKERS_PER_LEVEL = 2; // hands each level of a use needs to bring in all it can
-const TOWN_FLOOR = Math.round(TOWN_SIZE * 0.85); // the crown sends nobody while the town is smaller than this
+const TOWN_FLOOR = 0.85; // of what the town is built for: the crown sends nobody while it is smaller than this
 const VILLAGE_DAY = 23; // day of the month the villages hold council (after the harvest on the 17th)
 const KEEP = 0.15; // what a contented village keeps of its harvest for itself
 const GIFT = 150; // what the crown sends a village whose headman is losing faith in it
@@ -163,7 +163,7 @@ function spare(world: WorldState, n: Npc): boolean {
 
 // Whether the town has anyone to send.
 // Under a colonial decree the crown drives people out even from a thinning town.
-const floorOf = (world: WorldState) => (decreeActive(world, 'colonize') ? Math.round(TOWN_SIZE * 0.75) : TOWN_FLOOR);
+const floorOf = (world: WorldState) => Math.round(builtFor(world) * (decreeActive(world, 'colonize') ? 0.75 : TOWN_FLOOR));
 export const canSend = (world: WorldState) => world.npcs.filter((n) => n.alive).length >= floorOf(world) && world.npcs.some((n) => spare(world, n));
 
 // A family from town moves out to a land: the one picked, their spouse and their children.

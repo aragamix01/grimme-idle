@@ -11,8 +11,8 @@ import { PLOTS } from './town';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
 import { TOWN_SIZE, WALL } from './town';
-import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, sell, tendShop, wantsGear, wearGear } from './market';
-import { afterStampede, rule } from './politics';
+import { arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, priceRatio, sell, tendShop, wantsGear, wearGear } from './market';
+import { afterStampede, approval, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
 import { HERO_COST, awakenHero, demonDay } from './demonlord';
 import { buyPerk, statueHero } from './era';
@@ -45,6 +45,7 @@ import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { happeningsDay, whisper, whisperCost } from './happenings';
+import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -60,9 +61,10 @@ export const COMMAND_COST = { bless: 5, curse: 5, dream: 3, divineQuest: DIVINE_
 export const costOf = (world: WorldState, type: keyof typeof COMMAND_COST) =>
   type === 'perk' || type === 'war' || type === 'realm' ? 0 : Math.max(1, Math.round(COMMAND_COST[type] * (1 - 0.1 * perkLevel(world, 'grace'))));
 
-const ARRIVAL_CHANCE = 0.02; // per day while the town is below TOWN_SIZE...
-const ARRIVAL_PER_MISSING = 0.004; // ...plus this per missing resident, so a half-empty town refills in months
-const MIN_ADVENTURERS = Math.round(TOWN_SIZE / 4); // below this, newcomers come as adventurers
+const ARRIVAL_CHANCE = 0.01; // per day while the town has rooms to spare...
+const ARRIVAL_PER_ROOM = 0.003; // ...plus this per free room, so a half-empty town refills in months
+const ARRIVAL_FULL = 0.001; // a full town still draws the odd hopeful, who may end up with nowhere to sleep
+const ADVENTURER_SHARE = 0.25; // of the town: below this, newcomers come as adventurers
 const ADVENTURE_CHANCE = 0.04; // solo dungeon trips are rare and risky; most adventuring goes through quests
 const DANGER_POWER = 60; // past this, adventurers head for the dungeon on their own more often
 const STEAL_CHANCE = 0.12; // when a thief picks their next plan; higher floods the chronicle
@@ -99,6 +101,8 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy)
     (world.techs ??= {})[t] = 0;
   }
   for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
+  foundHomes(world);
+  settle(world);
   // The first dungeon is always a gentle one: a cave or a wolf den.
   const kind = pick(rng, ['cave', 'den'] as const);
   world.dungeons.push({
@@ -189,6 +193,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   researchDay(world, rng);
   pressDay(world, rng);
   decreesDay(world, rng);
+  housingDay(world, rng);
   happeningsDay(world, rng);
   annalsDay(world);
   healBosses(world);
@@ -215,9 +220,12 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
       afterStampede(world, shield);
     }
   }
-  // Travellers walk in through the west gate while the town is below its starting size.
-  const living = world.npcs.filter((n) => n.alive).length;
-  if (living < TOWN_SIZE && chance(rng, (ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING) * Math.max(0, 1 + modOf(world, 'arrivals')))) traveller(world, rng);
+  // Travellers walk in through the west gate while the town has rooms for them.
+  const free = capacity(world) - townPop(world);
+  const draw = free > 0 ? Math.min(0.1, ARRIVAL_CHANCE + free * ARRIVAL_PER_ROOM) : ARRIVAL_FULL;
+  // Word gets around: a town where bread is dear or the people are restless draws fewer.
+  const appeal = (priceRatio(world, 'grain') >= 1.4 ? 0.3 : 1) * (approval(world) < 40 ? 0.5 : 1);
+  if (chance(rng, draw * appeal * Math.max(0, 1 + modOf(world, 'arrivals')))) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
   world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + abroadPrayers(world) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
   world.rng = rng.state;
@@ -232,7 +240,7 @@ export function traveller(world: WorldState, rng: Rng, hired?: Npc['job']): void
   if (hired) {
     npc.job = hired;
     npc.rank = npc.renown = undefined;
-  } else if (adventurers < MIN_ADVENTURERS && !isAdventurer(npc)) {
+  } else if (adventurers < townPop(world) * ADVENTURER_SHARE && !isAdventurer(npc)) {
     npc.job = pick(rng, ['swordsman', 'mage'] as const);
     npc.rank = 0;
     npc.renown = 0;
@@ -393,7 +401,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();
     case 'builder':
       // At a fallen home, else on the crown's site.
-      return chance(rng, 0.75) ? plan('work', ruinSite(world) ?? siteOf(world), int(rng, 6, 12)) : idle();
+      return chance(rng, 0.75) ? plan('work', ruinSite(world) ?? homeSite(world) ?? siteOf(world), int(rng, 6, 12)) : idle();
     case 'noble':
       return chance(rng, 0.5) ? plan('idle', near(pick(rng, [PLACES.manor, PLACES.castle])), int(rng, 3, 8)) : idle();
     case 'king':

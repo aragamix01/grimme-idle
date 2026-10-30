@@ -13,7 +13,7 @@ import { TRAIT_TH } from './names';
 import { king } from './society';
 import { headOf } from './church';
 import { addTie } from './ties';
-import { basePrice, ensureMarket, levelOf, priceRatio, TARGET } from './market';
+import { basePrice, ensureMarket, levelOf, priceRatio, target } from './market';
 import { traveller } from './world';
 import { capacity } from './housing';
 import type { Happening, HappeningKind, Mod, ModKey, Npc, Trait, WorldState } from './types';
@@ -59,14 +59,14 @@ const byId = (world: WorldState, id?: number) => (id === undefined ? undefined :
 const ruler = (world: WorldState) => king(world) ?? ofJob(world, 'noble').sort((a, b) => b.age - a.age)[0];
 const realmOf = (world: WorldState, h: Happening) => world.realms?.find((r) => r.id === h.ctx);
 const nudgeAll = (ns: Npc[], by: number) => ns.forEach((n) => loyaltyNudge(n, by));
-const grainSurplus = (world: WorldState) => ensureMarket(world).stock.grain - TARGET.grain;
+const grainSurplus = (world: WorldState) => ensureMarket(world).stock.grain - target(world, 'grain');
 
 const DEFS: Record<HappeningKind, Def> = {
   bumper: {
     title: 'ข้าวล้นยุ้ง',
     mtth: 360,
     gap: 360,
-    can: (w) => grainSurplus(w) >= TARGET.grain * 0.5,
+    can: (w) => grainSurplus(w) >= target(w, 'grain') * 0.5,
     decider: ruler,
     text: (w) => `ปีนี้ข้าวดีจนล้นยุ้ง เกินกว่าที่เมืองต้องกินถึง ${Math.round(grainSurplus(w))} กระสอบ จะทำอย่างไรกับส่วนที่เหลือ`,
     options: [
@@ -457,7 +457,7 @@ function living(world: WorldState): number {
 const troubled = (world: WorldState) => (world.realms ?? []).filter((r) => !r.fallen && ((r.disaster && r.disaster.until > world.day) || (r.plagueUntil ?? 0) > world.day || r.war));
 const troubledRealm = (world: WorldState) => troubled(world)[0];
 const youths = (world: WorldState) =>
-  adults(world).filter((n) => n.age <= 25 && n.spouseId === undefined && n.questId === undefined && !['king', 'noble', 'priest', 'judge'].includes(n.job));
+  adults(world).filter((n) => n.age <= 25 && n.spouseId === undefined && n.questId === undefined && n.guildId === undefined && !['king', 'noble', 'priest', 'judge'].includes(n.job)); // nobody with a guild or an office to keep them
 const priestOf = (world: WorldState) => headOf(world) ?? ofJob(world, 'priest')[0];
 const lawman = (world: WorldState) => ofJob(world, 'judge')[0] ?? king(world);
 

@@ -9,7 +9,7 @@ import { literate } from './learning';
 import { king, payrollReserve } from './society';
 import { traveller } from './world';
 import { putToCouncil } from './government';
-import { TOWN_SIZE } from './town';
+import { builtFor } from './housing';
 import { charterOf, landPolicyOf } from './charter';
 import { frontier } from './lands';
 import { canSend, folkOf, labour } from './villages';
@@ -46,7 +46,6 @@ const REVIEW_DAY = 3; // day of the month the king looks over his decrees
 const COOLDOWN = 180; // days before the same decree may be issued again
 const VETO_WAIT = 60; // days before a decree the council blocked may be put to it again
 const SPARE = 200; // gold kept back beyond the soldiers' pay
-const FULL_TOWN = TOWN_SIZE;
 const SHORT = 6; // residents missing before the king sends for labour
 const WAGE = 35; // gold per worker: the crier, the road, and a purse to settle in
 const recent = (world: WorldState, days: number, re: RegExp) => world.chronicle.filter((e) => e.day > world.day - days && re.test(e.text)).length;
@@ -60,7 +59,7 @@ const ready = (world: WorldState, k: Decree) => world.day - (world.decreeAt?.[k]
 // Workers to send for, and what it would cost; none if the town is near full or the crown can't pay.
 function labourNeed(world: WorldState): number {
   const living = world.npcs.filter((n) => n.alive).length;
-  const missing = FULL_TOWN - living;
+  const missing = builtFor(world) - living;
   if (missing < SHORT) return 0;
   return Math.min(missing, Math.floor(budget(world) / WAGE), 10);
 }

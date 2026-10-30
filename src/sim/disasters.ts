@@ -13,7 +13,8 @@ import { plagueStrike } from './worldevents';
 import { traveller } from './world';
 import { clamp } from './core';
 import { king, payrollReserve } from './society';
-import { BUILDINGS } from './town';
+import { LOTS } from './town';
+import { sites, standing, workOnHome } from './housing';
 import { WORKS, WORK_ORDER } from './works';
 import { isAvatar, offer } from './avatar';
 import type { Realm, Terrain, Work, WorldState } from './types';
@@ -38,7 +39,6 @@ const REALM_KINDS: Record<Terrain, NonNullable<Realm['disaster']>['kind'][]> = {
 const REALM_TH = { drought: 'ภัยแล้ง', flood: 'น้ำท่วมใหญ่', quake: 'แผ่นดินไหว' } as const;
 export const stricken = (world: WorldState, r: Realm) => (r.disaster?.until ?? 0) > world.day;
 
-const HOMES = BUILDINGS.filter(([k]) => k.startsWith('house')).map(([, x, y]) => ({ x, y }));
 // Low ground that floods; high ground and stone that shakes.
 const FLOODS: readonly Work[] = ['granary', 'market', 'yard'];
 
@@ -61,10 +61,10 @@ function toll(world: WorldState, rng: Rng, odds: number, how: string): number {
 // Homes come down; rubble stands where they were until the town rebuilds.
 export function ruinHomes(world: WorldState, rng: Rng, count: number): number {
   const ruins = (world.ruins ??= []);
-  const standing = HOMES.filter((h) => !ruins.some((r) => r.x === h.x && r.y === h.y));
+  const up = (world.homes ?? []).filter((h) => standing(world, h)).map((h) => ({ x: LOTS[h.lot].x, y: LOTS[h.lot].y }));
   let fell = 0;
-  for (let i = 0; i < count && standing.length; i++) {
-    const h = standing.splice(int(rng, 0, standing.length - 1), 1)[0];
+  for (let i = 0; i < count && up.length; i++) {
+    const h = up.splice(int(rng, 0, up.length - 1), 1)[0];
     ruins.push({ ...h, until: world.day + int(rng, ...RUBBLE_DAYS) });
     fell++;
   }
@@ -121,7 +121,7 @@ function homeless(world: WorldState, rng: Rng): void {
 function hireBuilders(world: WorldState, rng: Rng): void {
   const builders = living(world).filter((n) => n.job === 'builder');
   // Bread comes first: while grain is dear the builders go back to the fields.
-  const want = priceRatio(world, 'grain') >= 1.6 ? 0 : Math.min(MAX_BUILDERS, Math.ceil((world.ruins?.length ?? 0) * BUILDERS_PER_RUIN));
+  const want = priceRatio(world, 'grain') >= 1.6 ? 0 : Math.min(MAX_BUILDERS, Math.ceil((world.ruins?.length ?? 0) * BUILDERS_PER_RUIN + sites(world).length));
   if (builders.length < want && world.treasury > 100) {
     const farmers = living(world).filter((n) => n.job === 'farmer' && n.age >= 16 && n.questId === undefined);
     for (let i = builders.length; i < want && farmers.length > 6; i++) {
@@ -129,7 +129,7 @@ function hireBuilders(world: WorldState, rng: Rng): void {
       n.formerJob = 'farmer';
       n.job = 'builder';
       n.plan = undefined;
-      log(world, 'world', `${n.name}รับจ้างเป็นช่างก่อสร้าง ช่วยสร้างบ้านที่พังขึ้นใหม่`, n.id);
+      log(world, 'world', `${n.name}รับจ้างเป็นช่างก่อสร้าง ช่วย${world.ruins?.length ? 'สร้างบ้านที่พังขึ้นใหม่' : 'สร้างบ้านหลังใหม่'}`, n.id);
     }
   } else if (!want && (!world.building || priceRatio(world, 'grain') >= 1.6)) {
     for (const n of builders) {
@@ -149,7 +149,8 @@ export function rebuild(world: WorldState, n: { gold: number }, rng: Rng): void 
       world.treasury -= BUILDER_WAGE;
       n.gold += BUILDER_WAGE;
     }
-  } else if (world.building && world.building.done > world.day + 1 && chance(rng, 0.15)) world.building.done--;
+  } else if (workOnHome(world, rng)) return; // a new home going up
+  else if (world.building && world.building.done > world.day + 1 && chance(rng, 0.15)) world.building.done--;
 }
 
 // Where builders stand: in front of a fallen home, else on the crown's site.

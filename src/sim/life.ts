@@ -4,7 +4,7 @@ import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { jobName } from './ages';
 import { isAvatar, offer, offerCalling } from './avatar';
 import { PLACES } from './places';
-import { TOWN_SIZE } from './town';
+import { capacity, homeDoor, townPop } from './housing';
 import { inheritedJob } from './society';
 import { priceRatio } from './market';
 import { graduate, lesson, schoolAge } from './learning';
@@ -20,7 +20,7 @@ const COURT_TIE = 40; // close enough to seek each other out
 const MARRY_CHANCE = 0.02; // per eligible couple per day
 const BIRTH_CHANCE = 0.0015; // per couple per day
 const MAX_CHILDREN = 3;
-const POPULATION_CAP = TOWN_SIZE + 10; // families stop growing when the town is this full
+const CROWDED_BY = 4; // families stop growing once the town holds this many more than its homes have room for
 
 export const isChild = (n: Npc) => n.age < ADULT_AGE;
 export const isElder = (n: Npc) => n.age >= ELDER_AGE;
@@ -146,13 +146,14 @@ export function wed(world: WorldState, a: Npc, b: Npc): void {
 
 // Couples in their child-raising years sometimes welcome a child.
 export function births(world: WorldState, rng: Rng): void {
-  const living = world.npcs.filter((n) => n.alive).length;
-  if (living >= POPULATION_CAP) return;
+  const room = capacity(world) - townPop(world);
+  if (room <= -CROWDED_BY) return;
+  const cramped = room < 3 ? 0.4 : 1; // a family squeezed into too few rooms waits for another child
   for (const a of world.npcs) {
     const b = byId(world, a.spouseId);
     if (!a.alive || !b?.alive || a.id > b.id || a.age > 45 || b.age > 45) continue;
     const kids = world.npcs.filter((n) => n.alive && n.parentIds?.includes(a.id) && n.parentIds.includes(b.id)).length;
-    if (kids >= MAX_CHILDREN || !chance(rng, BIRTH_CHANCE)) continue;
+    if (kids >= MAX_CHILDREN || !chance(rng, BIRTH_CHANCE * cramped)) continue;
     const child = bornTo(world, a, b, rng);
     world.npcs.push(child);
     log(world, 'bond', `${a.name} และ${b.name} ต้อนรับลูกคนใหม่ ชื่อ${child.name}${naming(world, child, a, b, rng)}`, child.id);
@@ -163,7 +164,7 @@ export function bornTo(world: WorldState, a: Npc, b: Npc, rng: Rng): Npc {
   // One trait from each parent, with a chance of something all their own.
   const traits = new Set<Trait>([pick(rng, a.traits), pick(rng, b.traits)]);
   if (chance(rng, 0.2)) traits.add(pick(rng, ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'] as const));
-  const home = homeOf(a);
+  const home = homeOf(a, world);
   const child: Npc = {
     id: world.nextId++,
     name: freshName(world, rng),
@@ -203,11 +204,13 @@ function freshName(world: WorldState, rng: Rng): string {
 }
 
 // A married couple shares the home of whichever of them settled first.
+// Home: their own home's door; a child not yet given one goes home with a parent, a spouse with
+// the other. With no roof at all, they sleep in a corner by the inn.
 export function homeOf(n: Npc, world?: WorldState): { x: number; y: number } {
-  const spouse = world && byId(world, n.spouseId);
-  const anchor = spouse && spouse.id < n.id ? spouse.id : n.id;
-  const parent = n.parentIds?.[0];
-  return PLACES.homes[(n.age < ADULT_AGE && parent !== undefined ? parent : anchor) % PLACES.homes.length];
+  const own = homeDoor(n);
+  if (own || !world) return own ?? PLACES.inn;
+  const kin = [...(n.age < ADULT_AGE ? (n.parentIds ?? []) : []), n.spouseId].map((id) => byId(world, id)).find((k) => k?.alive && k.home !== undefined);
+  return (kin && homeDoor(kin)) ?? PLACES.inn;
 }
 
 // Children tag along after a parent or play in the square.

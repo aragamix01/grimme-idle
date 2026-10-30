@@ -7,7 +7,7 @@ import { writeCharter } from './charter';
 import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell, levelOf } from './market';
 import { PLACES, type Spot } from './places';
-import { TOWN_SIZE } from './town';
+import { builtFor, townPop } from './housing';
 import { successor } from './regimes';
 import { ageOf, industrial, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
@@ -54,7 +54,8 @@ const TRIBUTE_FLOOR = 100;
 const STIPEND = 5; // the king's own pay, each payday
 const KNIGHT_PAY = 8;
 const SCHOLAR_PAY = 3; // the crown keeps its scholars in ink and bread
-const ARMY_TARGET = Math.round(TOWN_SIZE / 10); // the crown recruits up to this many while it can pay them
+const ARMY_SHARE = 0.1; // of the town: the crown recruits up to this many while it can pay them
+const armyTarget = (world: WorldState) => Math.round(Math.max(townPop(world), builtFor(world)) * ARMY_SHARE);
 const DESERT_AFTER = 3; // missed paydays before a soldier walks away
 const LEISURE_EVERY = 5; // days between evenings out
 const ALE = 2;
@@ -65,7 +66,7 @@ const PATROL_REACH = 4; // tiles a soldier on duty can see
 // With a world given, soldiers are only picked while the crown can afford their pay.
 export function pickJob(rng: Rng, world?: WorldState): Job {
   const army = world ? living(world, 'soldier').length : 0;
-  const affordable = !world || (!occupied(world) && army < ARMY_TARGET && world.treasury >= SALARY * 3 * (army + 1));
+  const affordable = !world || (!occupied(world) && army < armyTarget(world) && world.treasury >= SALARY * 3 * (army + 1));
   const weights = JOB_WEIGHTS.filter(([j]) => (affordable || j !== 'soldier') && (!NEEDS[j] || (world && known(world, NEEDS[j]!))));
   let r = next(rng) * weights.reduce((s, [, w]) => s + w, 0);
   for (const [job, w] of weights) if ((r -= w) < 0) return job;
@@ -262,7 +263,7 @@ export function payroll(world: WorldState): void {
 function recruit(world: WorldState): void {
   const army = living(world, 'soldier').length;
   // In wartime the crown raises more men while it can pay them; a junta always wants more.
-  if (occupied(world) || army >= ARMY_TARGET * (world.regime === 'junta' ? 1.5 : 1) + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
+  if (occupied(world) || army >= armyTarget(world) * (world.regime === 'junta' ? 1.5 : 1) + (world.war ? 4 : 0) || world.treasury < payrollReserve(world) + SALARY * 6 + 50) return;
   const keen = (n: Npc) => (n.traits.includes('loyal') ? 2 : 0) + (n.traits.includes('brave') ? 1 : 0) - (n.traits.includes('coward') ? 3 : 0);
   // Only honest trades with hands to spare: the crown won't enlist outlaws, and never takes a trade's last two.
   const spare = (job: Job) => ['farmer', 'herder', 'hunter', 'merchant', 'blacksmith', 'innkeeper'].includes(job) && living(world, job).length > 2;

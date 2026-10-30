@@ -9,7 +9,7 @@ import { plagueStrike } from './worldevents';
 import { dragonArrives } from './dragon';
 import { assassination, deadlock, decadence, rulerScandal, strike } from './crises';
 import type { WorldState } from './types';
-import { TOWN_SIZE } from './town';
+import { builtFor } from './housing';
 import { modOf } from './core';
 
 const GOLDEN_TREASURY = 900;
@@ -17,8 +17,8 @@ const GOLDEN_APPROVAL = 52;
 const CALM_MONTHS = 6; // a golden age runs this long before it starts to strain
 const STRAIN = 0.04; // added to the monthly chance of trouble for each month past CALM_MONTHS
 const MAX_CHANCE = 0.35;
-const CROWDED = TOWN_SIZE - 10; // townsfolk past which sickness spreads street to street
-const PACKED = TOWN_SIZE + 8; // so many that it may break out in any month, golden or not
+const CROWDED = -10; // townsfolk over what the town is built for, past which sickness spreads street to street
+const PACKED = 8; // so many over that it may break out in any month, golden or not
 const HATED = 30; // approval under which a ruler may be struck down in any month
 const HATED_CHANCE = 0.05;
 
@@ -35,8 +35,9 @@ const townsfolk = (world: WorldState) => world.npcs.filter((n) => n.alive && n.i
 // Sickness in streets grown too full. The town's own plague: the priests are all that slow it.
 function crowdPlague(world: WorldState, rng: Rng): boolean {
   const people = townsfolk(world);
-  if (people < CROWDED) return false;
-  plagueStrike(world, rng, (0.4 + (people - CROWDED) * 0.02) * Math.max(0.3, 1 + modOf(world, 'sickness')), `ชาวเมือง ${people} คนอยู่กันแออัด โรคระบาดในเมือง`);
+  const crowded = builtFor(world) + CROWDED;
+  if (people < crowded) return false;
+  plagueStrike(world, rng, (0.4 + (people - crowded) * 0.02) * Math.max(0.3, 1 + modOf(world, 'sickness')), `ชาวเมือง ${people} คนอยู่กันแออัด โรคระบาดในเมือง`);
   return true;
 }
 
@@ -44,7 +45,7 @@ function crowdPlague(world: WorldState, rng: Rng): boolean {
 export function troubles(world: WorldState, rng: Rng): void {
   if (world.day % 30 !== 22) return;
   // A town packed past bursting falls sick whatever the times.
-  if (townsfolk(world) >= PACKED && chance(rng, 0.08)) crowdPlague(world, rng);
+  if (townsfolk(world) >= builtFor(world) + PACKED && chance(rng, 0.08)) crowdPlague(world, rng);
   // Foul water spreads sickness whatever the crowding (see happenings.ts).
   const foul = modOf(world, 'sickness');
   if (foul > 0 && chance(rng, 0.06 * foul)) plagueStrike(world, rng, 0.25 * foul, 'น้ำเน่าเสียทำให้ผู้คนล้มป่วย โรคระบาดในเมือง');

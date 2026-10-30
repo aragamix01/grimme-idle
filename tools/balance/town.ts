@@ -81,6 +81,9 @@ const EVENTS: Record<string, RegExp> = {
   guided: /ประกาศให้รัฐกำกับตลาด/,
   strike: /นัดหยุดงาน|หยุดงานประท้วง/,
   happening: /เลือก「/, // a happening decided
+  homeBuilt: /จ้างช่างสร้างบ้านหลังใหม่/,
+  homeRaised: /จ้างช่างต่อเติมบ้าน/,
+  homelessLeft: /จึงทิ้งเมืองไปหาที่อยู่ใหม่/,
 };
 
 export interface TownReport {

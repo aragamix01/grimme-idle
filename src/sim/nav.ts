@@ -9,7 +9,7 @@ import type { Spot } from './places';
 const UNREACHED = 0xffff;
 const fields = new WeakMap<Uint8Array, Map<number, Uint16Array>>();
 
-const costs = (world: WorldState) => townLayout(world.dungeons).cost;
+const costs = (world: WorldState) => townLayout(world).cost;
 
 export function walkable(world: WorldState, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && costs(world)[y * MAP_W + x] > 0;

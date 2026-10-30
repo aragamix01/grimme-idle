@@ -27,7 +27,6 @@ export const PLACES = {
   barn: door('barn'),
   castle: door('castle'),
   school: { x: PLOTS.school.x + 1, y: PLOTS.school.y + 2 },
-  homes: BUILDINGS.filter(([k]) => k.startsWith('house')).map((b) => doorOf(...b)),
   square: { x: 13, y: 10 },
   // Open-air spots so a crowd of sixty spreads out instead of piling onto a few doorsteps.
   hangouts: [

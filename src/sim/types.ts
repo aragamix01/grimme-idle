@@ -67,6 +67,7 @@ export interface Npc {
   unpaid?: number; // soldiers: paydays missed in a row
   ales?: number; // innkeepers: mugs sold since they last bought grain to brew
   loyalty?: number; // 0..100 to the throne; missing means 50
+  home?: number; // the house lot they live on (see housing.ts); missing: the castle, the manor, or nowhere
   knight?: boolean; // sworn to the crown, paid each payday
   cultist?: boolean; // a secret member of the demon cult
   trip?: number; // merchants: days left on the road with a caravan
@@ -423,6 +424,15 @@ export type EventKind =
   | 'cult'
   | 'happening';
 
+// A home on one of the house lots (town.ts LOTS). Its tier decides how many it houses.
+export interface Home {
+  lot: number;
+  tier: 0 | 1 | 2;
+  built: number; // day it stood, or will
+  until?: number; // while it is going up (or a storey higher): the day it is done
+  ownerId?: number; // who paid for it; missing: the crown
+}
+
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
 // and the god may whisper to tip the scale.
 export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe';
@@ -543,6 +553,9 @@ export interface WorldState {
   embargo?: number; // the realm our trade is barred from while the embargo decree stands
   lairsSeeded?: boolean; // monster lairs placed in the open country (older saves get theirs once)
   religion?: Religion; // missing in saves from before the townsfolk had beliefs of their own
+  homes?: Home[]; // the town's homes, one per built house lot
+  buildRev?: number; // counts changes to the homes, so the town is only laid out again when one comes or goes
+  homeless?: number; // townsfolk with no room in any home, as of the last count
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last
   happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up
