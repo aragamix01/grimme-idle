@@ -1,6 +1,6 @@
 // Small helpers shared by the world loop and the guild.
 import { chance, type Rng } from './rng';
-import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Tech, WorldState } from './types';
+import type { Decree, EventKind, Npc, Perk, Plan, PlanKind, Tech, Tenet, WorldState } from './types';
 import { COUNCIL_TH, say } from './lexicon';
 import type { Spot } from './places';
 import { walk } from './nav';
@@ -50,6 +50,10 @@ export const occupied = (world: WorldState) => world.demon?.stage === 'occupied'
 
 // The hero the god (or the prophecy) has woken, while still training for the demon lord.
 export const inTraining = (world: WorldState, n: Npc) => world.demon?.hero?.id === n.id && world.demon.hero.stage === 'training';
+
+// A commandment of the god in force, and how closely the town keeps its commandments (0..1).
+export const tenetOn = (world: WorldState, k: Tenet) => !!world.religion?.tenets?.some((t) => t.kind === k);
+export const adherence = (world: WorldState) => world.religion?.adherence ?? 0;
 
 export const decreeActive = (world: WorldState, k: Decree) => (world.decrees ?? []).some((d) => d.kind === k && d.until > world.day);
 

@@ -1,5 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
-import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward } from './core';
+import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
 import { birthday, births, childDay, crushOf, homeOf, isBirthday, isChild, romance } from './life';
@@ -44,6 +44,7 @@ import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
+import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { garrison, guardNear, hasSmith, holdCourt, leisure, levy, patrolPost, payRent, payroll, pickJob, smith } from './society';
 import { AWAY, type Command, type Dungeon, type Legacy, type Npc, type Plan, type Trait, type WorldState } from './types';
 
@@ -154,6 +155,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   socialize(world, rng);
   romance(world, rng);
   births(world, rng);
+  religionDay(world, rng);
   marketDay(world, rng);
   tradeHousesDay(world, rng);
   commerceDay(world, rng);
@@ -211,7 +213,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const living = world.npcs.filter((n) => n.alive).length;
   if (living < TOWN_SIZE && chance(rng, ARRIVAL_CHANCE + (TOWN_SIZE - living) * ARRIVAL_PER_MISSING)) traveller(world, rng);
   if (world.day % PRUNE_EVERY === 0) prune(world);
-  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (world.charter?.stateFaith ? 0.3 : 0.1) + Math.min(5, world.monument ?? 0) * 0.02; // a state faith prays all day; pilgrims visit the monument
+  world.faith += world.npcs.filter((n) => n.alive && n.blessed).length * 0.1 + (religionOf(world).prayer ?? 0) + Math.min(5, world.monument ?? 0) * 0.02; // the believers' prayers; pilgrims visit the monument
   world.rng = rng.state;
   return world;
 }
@@ -428,6 +430,9 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       buyGear(world, npc);
       npc.plan = undefined;
       return;
+    case 'pray':
+      worship(world, npc, p);
+      return;
     case 'ritual':
       performRitual(world, npc);
       npc.plan = undefined;
@@ -439,6 +444,11 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       npc.inside = p.target; // through the dungeon to the keep behind it
       return;
     case 'work':
+      // The god's day of rest: the devout lay down their tools.
+      if (tenetOn(world, 'restday') && isHolyDay(world) && npc.creed === 'god' && (npc.piety ?? 50) >= 40) {
+        if (--p.days <= 0) npc.plan = undefined;
+        return;
+      }
       if (npc.job === 'farmer') {
         payRent(world, npc, harvest(world, npc, rng), rng);
         maybePestQuest(world, npc, rng);
@@ -585,6 +595,11 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'war') {
     const cost = Math.max(1, Math.round(WAR_COST[cmd.act] * (1 - 0.1 * perkLevel(world, 'grace'))));
     if (world.faith >= cost && warAct(world, cmd.act)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'tenet') {
+    const cost = tenetCost(world, cmd.tenet);
+    if (world.faith >= cost && proclaim(world, cmd.tenet)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'miracle') {

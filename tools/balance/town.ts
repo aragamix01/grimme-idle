@@ -3,6 +3,7 @@
 import { createWorld, tick } from '../../src/sim/world';
 import { ageOf } from '../../src/sim/ages';
 import type { WorldState } from '../../src/sim/types';
+import { creedCounts } from '../../src/sim/religion';
 
 // Chronicle lines worth counting, by what they say.
 const EVENTS: Record<string, RegExp> = {
@@ -97,6 +98,9 @@ export interface TownReport {
   level: number; // the price level at the end
   villagers: number; // folk living out on our lands
   faith: number;
+  believers: number; // share of grown townsfolk who keep the god's faith at the end
+  piety: number; // their average piety
+  weddings: number; // church weddings in the last year
   knowledge: number;
   regime: string;
   leaders: number; // different people who held power
@@ -125,6 +129,7 @@ export function runTown(seed: number, years: number): TownReport {
     seq = w.chronicleSeq;
   }
   const alive = w.npcs.filter((n) => n.alive);
+  const creeds = creedCounts(w);
   return {
     seed,
     years,
@@ -141,6 +146,9 @@ export function runTown(seed: number, years: number): TownReport {
     level: Math.round((w.market?.level ?? 1) * 100) / 100,
     villagers: (w.villagers ?? []).filter((n) => n.alive && w.regions?.find((r) => r.id === n.regionId)?.owner === 'us').length,
     faith: Math.round(w.faith),
+    believers: Math.round((creeds.god / Math.max(1, creeds.god + creeds.spirits + creeds.none)) * 100),
+    piety: creeds.piety,
+    weddings: w.religion?.weddings ?? 0,
     knowledge: Math.round(w.knowledge ?? 0),
     regime: w.regime ?? 'monarchy',
     leaders: leaders.size,

@@ -1,4 +1,4 @@
-import { isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -141,6 +141,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'เพิ่งมาถึงเมือง';
     case 'buy':
       return 'ไปซื้ออาวุธที่ร้านค้า';
+    case 'pray':
+      return 'ไปไหว้เทพเจ้าที่โบสถ์ในวันพระ';
     case 'ritual':
       return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
     case 'caravan':
@@ -238,6 +240,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.relic ? [el('span', { className: 'chip chip--gold', textContent: npc.relic })] : []),
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
+    ...(npc.prophet ? [el('span', { className: 'chip chip--gold', textContent: 'ศาสดา' })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
     ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),
@@ -268,6 +271,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
       }),
       ...(chips.childElementCount ? [chips] : []),
       el('p', { className: 'npc__traits', textContent: `นิสัย: ${npc.traits.map((t) => TRAIT_TH[t]).join(' · ')}${schooled(npc)}` }),
+      ...(npc.creed ? [el('p', { className: 'npc__faith', textContent: `ความเชื่อ: ${CREED_TH[npc.creed]} · ศรัทธา ${Math.round(npc.piety ?? 50)}` })] : []),
       el('p', { className: 'npc__doing', textContent: doing }),
     ),
     close,

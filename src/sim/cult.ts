@@ -102,6 +102,8 @@ function recruit(world: WorldState, rng: Rng): void {
         (n.traits.includes('greedy') || n.traits.includes('vengeful') ? 1 : 0) +
         (getTie(world, c.id, n.id) >= FRIEND ? 1 : 0) -
         (n.blessed ? 3 : 0) -
+        ((n.piety ?? 50) >= 75 ? 1 : 0) + // the devout won't listen; the faithless might
+        (n.creed === 'none' || (n.piety ?? 50) < 25 ? 1 : 0) -
         (n.traits.includes('kind') ? 1 : 0);
       if (pull > 1 && chance(rng, 0.1 * pull)) {
         if (isAvatar(world, n)) {

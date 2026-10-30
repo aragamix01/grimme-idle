@@ -3,7 +3,7 @@
 // Prices follow stock: scarce goods get dear, gluts go cheap, and the chronicle
 // notices when it gets extreme.
 import { chance, int, type Rng } from './rng';
-import { cursed, decreeActive, log, perkLevel, known } from './core';
+import { cursed, decreeActive, log, perkLevel, known, adherence, tenetOn } from './core';
 import { weatherYield } from './divine';
 import { mastery } from './research';
 import { realmPurse } from './realms';
@@ -243,7 +243,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
   const byId = new Map(world.npcs.map((n) => [n.id, n]));
   for (const n of world.npcs) {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
-    const food = mealOf(m);
+    const food = tenetOn(world, 'nomeat') && n.creed === 'god' && (n.piety ?? 50) >= 50 && m.stock.grain >= 1 ? 'grain' : mealOf(m); // the devout keep the god's word
     const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
     if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || charity(world, m) || dole(world, m)) {
       n.hunger = 0;
@@ -312,7 +312,8 @@ function tithe(world: WorldState): void {
   let collected = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.gold <= TITHE_FLOOR) continue;
-    const gift = Math.floor((n.gold - TITHE_FLOOR) * TITHE * (n.traits.includes('kind') ? 2 : 1));
+    const devotion = n.creed === 'none' ? 0.5 : 0.5 + (n.piety ?? 50) / 100; // the devout give more, the faithless less
+    const gift = Math.floor((n.gold - TITHE_FLOOR) * TITHE * (n.traits.includes('kind') ? 2 : 1) * devotion * (tenetOn(world, 'charity') && n.creed === 'god' ? 1 + adherence(world) : 1));
     n.gold -= gift;
     collected += gift;
   }

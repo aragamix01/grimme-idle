@@ -68,7 +68,7 @@ if (isMainThread) {
   const fails = [];
   for (const r of reports) {
     const ages = r.ageYears.map((y, i) => `${i}@${y}`).join(' ');
-    console.log(`seed ${String(r.seed).padStart(3)} | คน ${r.pop} | หิว ${r.hunger} | คลัง ${r.treasury} | รวยสุด ${r.richest} | ยุค ${ages} | วิทยาการ ${r.techs} | ดินแดน ${r.lands} | ราคา ×${r.level} | ชาวบ้าน ${r.villagers} | ${r.regime} | ผู้นำ ${r.leaders} | ภัย ${r.events.disaster} | ${Math.round(r.ms / 1000)}s`);
+    console.log(`seed ${String(r.seed).padStart(3)} | คน ${r.pop} | หิว ${r.hunger} | คลัง ${r.treasury} | รวยสุด ${r.richest} | ยุค ${ages} | วิทยาการ ${r.techs} | ดินแดน ${r.lands} | ราคา ×${r.level} | ชาวบ้าน ${r.villagers} | ${r.regime} | ผู้นำ ${r.leaders} | ศรัทธา ${r.faith} นับถือ ${r.believers}% ศรัทธาเฉลี่ย ${r.piety} | ภัย ${r.events.disaster} | ${Math.round(r.ms / 1000)}s`);
     for (const [name, get, lo, hi] of BOUNDS) {
       const v = get(r);
       if (v < bound(lo, years) || v > bound(hi, years)) fails.push(`seed ${r.seed}: ${name} = ${Math.round(v)} (ควรอยู่ใน ${Math.round(bound(lo, years))}–${Math.round(bound(hi, years))})`);

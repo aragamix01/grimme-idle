@@ -17,17 +17,30 @@ function post(msg: FromWorker): void {
   self.postMessage(msg);
 }
 
+// The page can't take a whole world many times a frame: at a fast-forward pace, days go by
+// between snapshots. On pausing, the page gets the world as it stands.
+const POST_GAP = 50; // ms
+let posted = 0;
+
 function run(ms: number): void {
   clearInterval(timer);
+  const was = tickMs;
   tickMs = ms;
-  if (ms <= 0) return;
+  if (ms <= 0) {
+    if (was > 0 && world) post({ type: 'state', world });
+    return;
+  }
   timer = setInterval(() => {
     if (!world) return;
     if (world.choice) return; // the player's life waits on their answer, and so does the town
     tick(world, pending);
     pending = [];
     if (world.day % AUTOSAVE_EVERY === 0) void writeSave(world);
-    post({ type: 'state', world });
+    const now = Date.now();
+    if (ms >= POST_GAP || now - posted >= POST_GAP) {
+      posted = now;
+      post({ type: 'state', world });
+    }
   }, ms);
 }
 

@@ -11,6 +11,7 @@ import { renderFeed, renderStats } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
+import { initFaith, renderFaith } from './ui/faith';
 import { initPeople, renderPeople } from './ui/people';
 import { initNpcCard, renderNpcCard, startDream } from './ui/npcCard';
 import { renderAnnals } from './ui/annals';
@@ -58,11 +59,11 @@ let selected: number | null = null;
 // Five sections along the bottom, each with its own tabs over the sheet under the map. The world
 // section swaps the town on the canvas for the world map.
 type Section = 'town' | 'people' | 'power' | 'economy' | 'world';
-type Sub = 'urgent' | 'all' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
+type Sub = 'urgent' | 'all' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'faith' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
 const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
   town: { title: 'เมือง', subs: [['urgent', 'ด่วน'], ['all', 'พงศาวดาร'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
   people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์'], ['quests', 'เควส']] },
-  power: { title: 'อำนาจ', subs: [['overview', 'ภาพรวม'], ['council', 'สภา'], ['law', 'กฎหมาย'], ['court', 'ศาล'], ['threat', 'ภัย']] },
+  power: { title: 'อำนาจ', subs: [['overview', 'ภาพรวม'], ['council', 'สภา'], ['law', 'กฎหมาย'], ['court', 'ศาล'], ['faith', 'ศาสนา'], ['threat', 'ภัย']] },
   economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาด'], ['houses', 'บ้านการค้า'], ['works', 'ก่อสร้าง'], ['research', 'วิจัย']] },
   world: { title: 'โลก', subs: [['realms', 'อาณาจักร'], ['lands', 'ดินแดน'], ['war', 'สงคราม']] },
 };
@@ -70,7 +71,7 @@ const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
 const PANEL: Record<Sub, [string, string?]> = {
   urgent: ['urgent'], all: ['feed'], years: ['annals'], npc: ['feed'],
   people: ['people'], guild: ['guild', 'guilds'], quests: ['guild', 'quests'],
-  overview: ['kingdom', 'overview'], council: ['kingdom', 'council'], law: ['kingdom', 'law'], court: ['kingdom', 'court'], threat: ['kingdom', 'threat'],
+  overview: ['kingdom', 'overview'], council: ['kingdom', 'council'], law: ['kingdom', 'law'], court: ['kingdom', 'court'], faith: ['faith'], threat: ['kingdom', 'threat'],
   market: ['market', 'prices'], houses: ['market', 'houses'], works: ['kingdom', 'works'], research: ['kingdom', 'research'],
   realms: ['realms'], lands: ['lands'], war: ['kingdom', 'war'],
 };
@@ -125,6 +126,7 @@ function render(): void {
   else if (panel === 'market') renderMarket(world);
   else if (panel === 'kingdom') renderKingdom(world);
   else if (panel === 'people') renderPeople(world);
+  else if (panel === 'faith') renderFaith(world);
   showPart(panel, PANEL[s][1]);
 }
 
@@ -236,6 +238,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#nav [data-section
   b.onclick = () => setSection(b.dataset.section as Section);
 }
 initMarket({ onSelectNpc: select });
+initFaith({ onSelectNpc: select, onTenet: (tenet) => send({ type: 'command', command: { type: 'tenet', tenet } }) });
 initKingdom({ onSelectNpc: select, onLaw: () => setSub('law'), onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
   onWar: (act) => send({ type: 'command', command: { type: 'war', act } }),
