@@ -1328,3 +1328,17 @@ test('the merchants\' council weighs a trade house\'s chest, not only its head\'
   }
   ok(w.kingId === head.id, 'the head of the rich trade house did not take the chair');
 });
+
+test('a party does not hoard: a chest past what a campaign needs flows back into the market', () => {
+  const w = world();
+  republic(w);
+  twoParties(w);
+  w.parties![1].treasury = 5000;
+  const till = ensureMarket(w).till;
+  for (let i = 0; i < 12; i++) {
+    toPartyDay(w);
+    partiesDay(w, { state: i * 7919 + 3 });
+  }
+  ok(w.parties![1].treasury < 1500, `the chest still holds ${w.parties![1].treasury}`);
+  ok(ensureMarket(w).till > till, 'the spending did not reach the market');
+});
