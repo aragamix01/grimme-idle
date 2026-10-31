@@ -151,7 +151,7 @@ function coup(world: WorldState, r: Realm, rng: Rng): void {
 function learn(world: WorldState, r: Realm, rng: Rng): void {
   const ours = ageOf(world);
   const friend = r.relation >= 15 && !r.war;
-  if (realmAge(r) < AGES.length - 1 && chance(rng, AGE_UP + (friend && ours > realmAge(r) ? TAUGHT : 0) + (r.tutored ? 0.2 : 0) + (r.gold > 800 ? 0.03 : 0))) {
+  if (realmAge(r) < Math.min(AGES.length - 1, Math.max(3, ours)) && chance(rng, AGE_UP + (friend && ours > realmAge(r) ? TAUGHT : 0) + (r.tutored ? 0.2 : 0) + (r.gold > 800 ? 0.03 : 0))) {
     r.age = realmAge(r) + 1;
     r.tutored = undefined;
     log(world, 'world', `${r.name}ก้าวเข้าสู่${AGES[r.age].name}`);

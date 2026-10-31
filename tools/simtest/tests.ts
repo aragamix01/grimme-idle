@@ -9,6 +9,9 @@ import { FIRST_LOTS, LOTS, MAP_W, MILL_PLOTS, SHACK_SPOTS, WALL, millDoor, townL
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
 import { found as foundMill, handsOf, industryDay, wageOf } from '../../src/sim/industry';
+import { crownWorks } from '../../src/sim/works';
+import { realmsDay } from '../../src/sim/realms';
+import { ageOf, jobName } from '../../src/sim/ages';
 import { goodsOf, harvest } from '../../src/sim/market';
 import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';

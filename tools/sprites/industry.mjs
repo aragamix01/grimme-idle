@@ -201,6 +201,49 @@ function coalHeap() {
   return finish(g);
 }
 
+// The age of electricity: the crystal power station, an electric street lamp, a tram, and the
+// icons for its discoveries and its appliances.
+function powerplant() {
+  const g = new Grid(32, 32);
+  g.rect(3, 4, 6, 14, 'X').hline(2, 4, 8, 'k'); // a stack
+  g.tri(22.5, 1, 4, 9, 'a').tri(22.5, 3, 2, 5, 'v').set(22, 3, 'w'); // the crystal in its coil
+  for (let y = 10; y < 16; y += 2) g.hline(19, y, 8, 'Y');
+  roof(g, 1, 14, 30, 6, 'slate');
+  brick(g, 2, 20, 28, 10);
+  g.rect(5, 22, 6, 5, 'M').rect(6, 23, 4, 3, 'y');
+  door(g, 15, 22, 6, 8);
+  g.set(25, 22, 'y').set(26, 23, 'y').set(25, 24, 'y').set(26, 25, 'y'); // a lightning sign
+  g.hline(2, 30, 28, 'X');
+  return finish(g);
+}
+function elamp() {
+  const g = new Grid(16, 24);
+  g.vline(7, 6, 18, 'X').vline(8, 6, 18, 'k');
+  g.hline(5, 23, 6, 'X');
+  g.hline(7, 4, 6, 'X').vline(12, 4, 3, 'X');
+  g.disc(12, 8, 2, 'w').set(12, 8, 'c');
+  return finish(g);
+}
+function tram() {
+  const g = new Grid(32, 20);
+  g.vline(16, 0, 5, 'X').hline(12, 0, 9, 'X'); // the pole to the wire
+  g.rect(1, 5, 30, 11, 'G').hline(1, 5, 30, 'F').hline(1, 12, 30, 'c');
+  for (const x of [3, 9, 15, 21, 26]) g.rect(x, 7, 4, 4, 'a').set(x, 7, 'w');
+  for (const x of [6, 25]) g.disc(x, 17, 2, 'X');
+  g.hline(0, 19, 32, 'X');
+  return finish(g);
+}
+const icon16 = (draw) => {
+  const g = new Grid(16, 16);
+  draw(g);
+  return finish(g);
+};
+const electricityIcon = () => icon16((g) => g.tri(7.5, 1, 4, 13, 'a').tri(7.5, 4, 2, 7, 'v').set(7, 4, 'w').hline(3, 14, 10, 'Y'));
+const telegraphIcon = () => icon16((g) => { g.vline(7, 1, 14, 'M').hline(2, 3, 12, 'M'); g.set(2, 2, 'x').set(13, 2, 'x'); g.hline(0, 6, 16, 'k'); g.rect(3, 11, 9, 4, 'N').set(6, 10, 'X'); });
+const lightbulbIcon = () => icon16((g) => { g.disc(7.5, 6, 5, 'y').disc(6, 4.5, 1.5, 'w'); g.rect(5, 11, 6, 3, 'x').hline(5, 12, 6, 'X').hline(6, 14, 4, 'X'); });
+const tramIcon = () => icon16((g) => { g.rect(1, 5, 14, 7, 'G').hline(1, 5, 14, 'F'); for (const x of [3, 7, 11]) g.rect(x, 7, 2, 2, 'a'); g.vline(8, 1, 4, 'X'); g.disc(4, 13, 1.5, 'X').disc(11, 13, 1.5, 'X'); });
+const applianceIcon = () => icon16((g) => { g.rect(2, 4, 12, 9, 'x').rect(3, 5, 10, 7, 'z'); g.disc(7.5, 8.5, 2.5, 'v').set(7, 8, 'w'); g.hline(4, 13, 8, 'X').set(4, 14, 'X').set(11, 14, 'X'); g.vline(13, 1, 3, 'X'); });
+
 export function industry() {
   return [
     { name: 'mill-textile', group: 'buildings', frames: [textileMill()] },
@@ -218,6 +261,14 @@ export function industry() {
     { name: 'smoke', group: 'props', frames: [smoke()] },
     { name: 'spark', group: 'props', frames: [spark()] },
     { name: 'rm-headframe', group: 'worldmap', frames: [headframe()] },
+    { name: 'powerplant', group: 'buildings', frames: [powerplant()] },
+    { name: 'elamp', group: 'props', frames: [elamp()] },
+    { name: 'tram', group: 'props', frames: [tram()] },
+    { name: 'electricity', group: 'icons', frames: [electricityIcon()] },
+    { name: 'telegraph', group: 'icons', frames: [telegraphIcon()] },
+    { name: 'lightbulb', group: 'icons', frames: [lightbulbIcon()] },
+    { name: 'tram-icon', group: 'icons', frames: [tramIcon()] },
+    { name: 'appliance', group: 'icons', frames: [applianceIcon()] },
     { name: 'rm-coal', group: 'worldmap', frames: [coalHeap()] },
   ];
 }

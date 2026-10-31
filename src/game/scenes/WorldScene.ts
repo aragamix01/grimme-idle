@@ -258,6 +258,7 @@ export class WorldScene extends Phaser.Scene {
       (w.mills ?? []).map((m) => `${m.plot}:${m.kind}:${w.day >= m.ready}`).join(','), // mills going up and opening
       w.techs?.steam !== undefined,
       Math.round((w.smog ?? 0) * 4), // how thick the smoke rises
+      !!w.power && w.techs?.tram !== undefined, // the trams run while the power station does
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -486,6 +487,7 @@ export class WorldScene extends Phaser.Scene {
       const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
       const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : { ...p, key: this.aged(p.key) });
       if (p.key === 'lamp') this.glow.fillStyle(0xffd27a, 0.28).fillCircle(img.x + 8, img.y - 18, 14).fillStyle(0xfff2b0, 1).fillRect(img.x + 6, img.y - 21, 4, 4);
+      if (p.key === 'elamp') this.glow.fillStyle(0xeaf6ff, 0.32).fillCircle(img.x + 12, img.y - 14, 20).fillStyle(0xffffff, 1).fillRect(img.x + 10, img.y - 17, 4, 4); // electric light: whiter and wider
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
@@ -559,6 +561,11 @@ export class WorldScene extends Phaser.Scene {
           frequency: coal ? Math.round(900 - 600 * smog) : 500,
         })
         .setDepth(img.depth + 1);
+    }
+    // A tram runs the main road while the power station has fuel.
+    if (w.power && w.techs?.tram !== undefined) {
+      const tram = this.add.image(2 * TILE, 10 * TILE - 1, 'tram').setOrigin(0.5, 1).setDepth(10 * TILE + 2);
+      this.tweens.add({ targets: tram, x: 24 * TILE, duration: 16000, ease: 'Sine.easeInOut', yoyo: true, hold: 3000, repeat: -1, repeatDelay: 3000 });
     }
     if (w.works?.station === undefined) return;
     const train = this.add.image(MAP_W * TILE + 48, (RAIL_Y + 1) * TILE - 2, 'train').setOrigin(0.5, 1).setDepth((RAIL_Y + 1) * TILE + 1);

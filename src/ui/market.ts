@@ -18,7 +18,7 @@ export function renderMarket(world: WorldState): void {
   const m = world.market;
   const hungry = world.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2);
   const news = world.chronicle.filter((e) => e.kind === 'trade').slice(-6).reverse();
-  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt, world.mills, world.mech, world.techs?.steam, world.union, world.smog, world.charter?.labour, millsOf(world).map((x) => handsOf(world, x).length)]);
+  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt, world.mills, world.mech, world.techs?.steam, world.union, world.smog, world.charter?.labour, world.power, millsOf(world).map((x) => handsOf(world, x).length)]);
   if (key === lastKey) return;
   lastKey = key;
   if (!m) {
@@ -92,6 +92,7 @@ function industry(world: WorldState): HTMLElement[] {
       tile('โรงงาน', String(mills.length), `กรรมกร ${hands} คน`),
       tile('เครื่องจักรในไร่นา', `${Math.round((world.mech ?? 0) * 100)}%`, `${Math.floor(world.machinery ?? 0)} เครื่อง · ข้าวเพิ่มสูงสุด 30%`),
       tile('เชื้อเพลิง', `${Math.floor(m.stock.coal)}`, `ถ่านหิน · ผลึกมานา ${Math.floor(m.stock.crystal)}`),
+      ...(world.techs?.electricity !== undefined ? [tile('ไฟฟ้า', world.power ? 'มีไฟ' : 'ดับ', world.works?.powerplant !== undefined ? (world.power ? 'โรงไฟฟ้าผลึกจ่ายไฟ โรงงานผลิตเพิ่ม 25%' : 'โรงไฟฟ้าขาดเชื้อเพลิง') : 'ยังไม่มีโรงไฟฟ้า')] : []),
     ),
     section('โรงงานในเมือง', mills.length ? mills.map((x) => millRow(world, x)) : [empty('ยังไม่มีโรงงาน บ้านการค้าที่มีทุนพอจะสร้างเมื่อสินค้าที่ทำได้ขายมีกำไร')]),
     section('กรรมกรและควันโรงงาน', [
