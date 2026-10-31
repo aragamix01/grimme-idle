@@ -164,6 +164,7 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
     ['power', 'threat', '#kingdom'],
     ['power', 'overview', '#kingdom'],
     ['economy', 'houses', '#market'],
+    ['economy', 'industry', '#market'],
     ['economy', 'works', '#kingdom'],
     ['economy', 'research', '#kingdom'],
     ['economy', 'market', '#market'],
@@ -933,6 +934,35 @@ test('the town chronicle folds its routine away and a headline crosses the map w
   await expect(page.locator('#feed')).toContainText('พ่อค้าทดสอบ');
   await page.locator('#feed .feed-fold').tap();
   await expect(page.locator('#feed')).not.toContainText('พ่อค้าทดสอบ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('the steam age on the economy tab: mills with their owners and hands, the new goods, the map still answers', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
+     const house = w.guilds.find((g) => g.kind === 'merchants');
+     w.mills = [{ id: 9701, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: house ? house.id : 'crown', since: w.day - 90, ready: w.day - 30, made: 15 },
+                { id: 9702, kind: 'cannery', name: 'โรงงานอาหารกระป๋อง', plot: 1, owner: 'crown', since: w.day - 10, ready: w.day + 50 }];
+     const hand = w.npcs.find((n) => n.alive && n.age >= 20 && n.job === 'herder');
+     if (hand) { hand.job = 'worker'; hand.millId = 9701; }
+     w.machinery = 3; w.mech = 0.5;
+     Object.assign(w.market.stock, { coal: 40, crystal: 5, steel: 3, engine: 1, tins: 20 });
+     Object.assign(w.market.price, { coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5 });`,
+  );
+  await section(page, 'economy');
+  await sub(page, 'industry');
+  const panel = page.locator('#market');
+  await expect(panel.locator('[data-group="industry"]').first()).toBeVisible();
+  await expect(panel).toContainText('โรงทอผ้า');
+  await expect(panel).toContainText('กำลังก่อสร้าง');
+  await expect(panel).toContainText('กรรมกร 1 คน');
+  await expect(panel).toContainText('50%');
+  await sub(page, 'market');
+  await expect(panel.locator('.good__name').filter({ hasText: 'ถ่านหิน' })).toBeVisible();
+  await expect(panel.locator('.good__name').filter({ hasText: 'เครื่องจักรเวท' })).toBeVisible();
   await tapNpc(page);
   await closeCard(page);
   await pageStill(page);

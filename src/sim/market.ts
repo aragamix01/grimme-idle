@@ -20,13 +20,19 @@ import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } f
 import { townPop } from './housing';
 
 export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ' };
-const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15 };
+// The steam age's goods: coal and mana crystal to fire the mills, steel, arcane engines, tinned food.
+export const INDUSTRIAL_GOODS: readonly Good[] = ['coal', 'crystal', 'steel', 'engine', 'tins'];
+export const ALL_GOODS: readonly Good[] = [...GOODS, ...INDUSTRIAL_GOODS];
+// The goods the town trades in: the steam age's only once its scholars have found steam.
+export const goodsOf = (world: WorldState): readonly Good[] => (known(world, 'steam') ? ALL_GOODS : GOODS);
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ', coal: 'ถ่านหิน', crystal: 'ผลึกมานา', steel: 'เหล็กกล้า', engine: 'เครื่องจักรเวท', tins: 'อาหารกระป๋อง' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15, coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5 };
 export const basePrice = (g: Good) => BASE[g];
 // Stock that sells at the base price. Grain follows the town's mouths: enough to carry them through winter.
 export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(12, townPop(world))) / 80) : TARGET[g]); // a floor of a dozen mouths: higher, and a camp's bread is priced as if it were starving
-export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12, coal: 30, crystal: 6, steel: 12, engine: 4, tins: 40 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
+const MACHINE_YIELD = 0.3; // more grain from a field worked with an arcane engine (see industry.ts)
 const MEAL_EVERY = 10; // days between each resident's sack of grain
 const LEAVE_HUNGER = 8; // missed meals before someone may give up on the town
 const TAX = 0.1; // of every purchase, to the crown
@@ -51,14 +57,17 @@ export const seasonOf = (day: number): Season => SEASONS[Math.floor((day % 365) 
 
 export function ensureMarket(world: WorldState): Market {
   const m = (world.market ??= {
-    stock: { grain: 250, meat: 40, wool: 0, loot: 4, gear: 4, timber: 30, ore: 10, cloth: 20, spice: 4 },
+    stock: { grain: 250, meat: 40, wool: 0, loot: 4, gear: 4, timber: 30, ore: 10, cloth: 20, spice: 4 } as Record<Good, number>,
     price: { ...BASE },
     till: 60,
-    history: { grain: [], meat: [], wool: [], loot: [], gear: [], timber: [], ore: [], cloth: [], spice: [] },
-    alert: { grain: 0, meat: 0, wool: 0, loot: 0, gear: 0, timber: 0, ore: 0, cloth: 0, spice: 0 },
+    history: {} as Record<Good, number[]>,
+    alert: {} as Record<Good, -1 | 0 | 1>,
   });
-  // Saves from before a good existed: its shelf starts (nearly) empty at the base price.
-  for (const g of GOODS) {
+  // Saves from before a good existed (and every new market, for the steam age's goods): its shelf
+  // starts (nearly) empty at the base price.
+  for (const g of ALL_GOODS) {
+    m.history[g] ??= [];
+    m.alert[g] ??= 0;
     if (m.stock[g] !== undefined) continue;
     m.stock[g] = { meat: 20, timber: 30, ore: 10, cloth: 20, spice: 4 }[g as string] ?? 0;
     m.price[g] = BASE[g];
@@ -73,7 +82,7 @@ export const priceRatio = (world: WorldState, g: Good) => ensureMarket(world).pr
 export const levelOf = (world: WorldState) => world.market?.level ?? 1;
 
 function reprice(world: WorldState, m: Market): void {
-  for (const g of GOODS) {
+  for (const g of goodsOf(world)) {
     const t = target(world, g);
     const factor = Math.min(5, Math.max(0.3, (t / Math.max(m.stock[g], t * 0.05)) ** 0.7));
     m.price[g] = Math.max(1, Math.round(BASE[g] * factor * (m.level ?? 1)));
@@ -119,8 +128,8 @@ function inflate(world: WorldState, m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2 };
-const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2, coal: 3, crystal: 2, steel: 1.5, engine: 1.5, tins: 2 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3, coal: 4, crystal: 3, steel: 3, engine: 3, tins: 4 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
@@ -195,7 +204,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1) * Math.max(0.2, 1 + modOf(world, 'harvest')); // half the hands are out on strike; new fields or blights
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + MACHINE_YIELD * (world.mech ?? 0)) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1) * Math.max(0.2, 1 + modOf(world, 'harvest')); // half the hands are out on strike; new fields or blights
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }
@@ -248,7 +257,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
     const food = tenetOn(world, 'nomeat') && n.creed === 'god' && (n.piety ?? 50) >= 50 && m.stock.grain >= 1 ? 'grain' : mealOf(m); // the devout keep the god's word
     const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
-    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || charity(world, m) || dole(world, m)) {
+    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || (m.stock.tins >= 1 && buy(world, payer, 'tins', true)) || charity(world, m) || dole(world, m)) { // tinned food sees a town through a dearth
       n.hunger = 0;
       continue;
     }
@@ -263,11 +272,11 @@ export function marketDay(world: WorldState, rng: Rng): void {
 
   reprice(world, m);
   if (world.day % HISTORY_EVERY === 0)
-    for (const g of GOODS) {
+    for (const g of goodsOf(world)) {
       m.history[g].push(m.price[g]);
       if (m.history[g].length > HISTORY_KEPT) m.history[g].shift();
     }
-  for (const g of GOODS) watchPrice(world, m, g);
+  for (const g of goodsOf(world)) watchPrice(world, m, g);
 }
 
 // Winter coats: in the weeks before winter whoever's coat is worn out buys a length of cloth,
@@ -356,9 +365,9 @@ function caravans(world: WorldState, m: Market): void {
   }
   const merchant = world.npcs.find((n) => n.alive && n.job === 'merchant' && n.age >= 16 && n.questId === undefined && n.inside === undefined && n.plan?.kind !== 'caravan');
   if (!merchant) return;
-  const spare = GOODS.filter((g) => m.stock[g] > target(world, g) * EXPORT_AT[g]);
+  const spare = goodsOf(world).filter((g) => m.stock[g] > target(world, g) * EXPORT_AT[g]);
   const short = m.stock.grain < target(world, 'grain') * 0.15 && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
-  const lacking = IMPORTS.filter((g) => m.stock[g] < target(world, g) * 0.3);
+  const lacking = (known(world, 'steam') ? [...IMPORTS, 'coal' as Good] : IMPORTS).filter((g) => m.stock[g] < target(world, g) * 0.3); // the mills' coal, once there are mills
   if (!spare.length && !short && !lacking.length) return;
   if ((world.sealed ?? 0) > world.day && !short) return; // a town sealed against the plague lets in only grain for the hungry
   const realm = tradePartner(world, spare, short);
@@ -376,7 +385,7 @@ function caravans(world: WorldState, m: Market): void {
   let spent = 0; // on imports, for the crown's duty
   for (const g of lacking) {
     const want = Math.ceil(target(world, g) * (g === 'cloth' ? 1 : 0.5));
-    const made = SELLS[realm.terrain] === g || (g === 'spice' && realm.terrain === 'desert'); // spice comes up the desert roads
+    const made = SELLS[realm.terrain] === g || (g === 'spice' && realm.terrain === 'desert') || (g === 'coal' && realm.terrain === 'mountain'); // spice comes up the desert roads, coal down from the mountains
     const each = BASE[g] * (made ? 1.1 : 1.6) * (m.level ?? 1) * importRate(world, realm);
     if (m.till < want * each + 50) continue;
     m.till -= want * each;

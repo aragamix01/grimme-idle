@@ -60,12 +60,12 @@ let selected: number | null = null;
 // Five sections along the bottom, each with its own tabs over the sheet under the map. The world
 // section swaps the town on the canvas for the world map.
 type Section = 'town' | 'people' | 'power' | 'economy' | 'world';
-type Sub = 'urgent' | 'all' | 'events' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'faith' | 'market' | 'houses' | 'works' | 'research' | 'realms' | 'lands' | 'war';
+type Sub = 'urgent' | 'all' | 'events' | 'years' | 'npc' | 'people' | 'guild' | 'quests' | 'overview' | 'council' | 'law' | 'court' | 'threat' | 'faith' | 'market' | 'houses' | 'industry' | 'works' | 'research' | 'realms' | 'lands' | 'war';
 const SECTIONS: Record<Section, { title: string; subs: [Sub, string][] }> = {
   town: { title: 'เมือง', subs: [['urgent', 'ด่วน'], ['all', 'พงศาวดาร'], ['events', 'เหตุการณ์'], ['years', 'รายปี'], ['npc', 'คนนี้']] },
   people: { title: 'ผู้คน', subs: [['people', 'ประชาชน'], ['guild', 'กิลด์'], ['quests', 'เควส']] },
   power: { title: 'อำนาจ', subs: [['overview', 'ภาพรวม'], ['council', 'สภา'], ['law', 'กฎหมาย'], ['court', 'ศาล'], ['faith', 'ศาสนา'], ['threat', 'ภัย']] },
-  economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาด'], ['houses', 'บ้านการค้า'], ['works', 'ก่อสร้าง'], ['research', 'วิจัย']] },
+  economy: { title: 'เศรษฐกิจ', subs: [['market', 'ตลาด'], ['houses', 'บ้านการค้า'], ['industry', 'โรงงาน'], ['works', 'ก่อสร้าง'], ['research', 'วิจัย']] },
   world: { title: 'โลก', subs: [['realms', 'อาณาจักร'], ['lands', 'ดินแดน'], ['war', 'สงคราม']] },
 };
 // Each tab's panel, and for panels shared by several tabs, which of its parts to show.
@@ -73,7 +73,7 @@ const PANEL: Record<Sub, [string, string?]> = {
   urgent: ['urgent'], all: ['feed'], events: ['happenings'], years: ['annals'], npc: ['feed'],
   people: ['people'], guild: ['guild', 'guilds'], quests: ['guild', 'quests'],
   overview: ['kingdom', 'overview'], council: ['kingdom', 'council'], law: ['kingdom', 'law'], court: ['kingdom', 'court'], faith: ['faith'], threat: ['kingdom', 'threat'],
-  market: ['market', 'prices'], houses: ['market', 'houses'], works: ['kingdom', 'works'], research: ['kingdom', 'research'],
+  market: ['market', 'prices'], houses: ['market', 'houses'], industry: ['market', 'industry'], works: ['kingdom', 'works'], research: ['kingdom', 'research'],
   realms: ['realms'], lands: ['lands'], war: ['kingdom', 'war'],
 };
 const PANELS = [...new Set(Object.values(PANEL).map(([id]) => id))];
@@ -501,8 +501,10 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 document.addEventListener('visibilitychange', () => document.hidden && send({ type: 'save' }));
 addEventListener('pagehide', () => send({ type: 'save' }));
 
-// On the dev server, ?start=town begins a new world as a whole town (the e2e tests start from one).
-send({ type: 'start', tickMs: TICK_MS, whole: import.meta.env.DEV && new URLSearchParams(location.search).get('start') === 'town' });
+// On the dev server, ?start=town begins a new world as a whole town (the e2e tests start from one),
+// and ?start=industry as one that already knows every discovery up to the railway.
+const startAs = import.meta.env.DEV ? new URLSearchParams(location.search).get('start') : null;
+send({ type: 'start', tickMs: TICK_MS, whole: startAs === 'town', industry: startAs === 'industry' });
 
 showSection();
 

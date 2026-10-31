@@ -8,6 +8,8 @@ import { fire, shantyCrime } from '../../src/sim/slums';
 import { FIRST_LOTS, LOTS, SHACK_SPOTS, WALL } from '../../src/sim/town';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
+import { found as foundMill, handsOf, industryDay } from '../../src/sim/industry';
+import { goodsOf, harvest } from '../../src/sim/market';
 import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
 import { tenetOn } from '../../src/sim/core';
@@ -1532,4 +1534,110 @@ test('a neighbour whose tribute we refused comes for it: a raid on a village, a 
   raidRealm(v, r, { state: 9 });
   ok(v.chronicle.some((e) => e.major && e.text.includes('กองโจรม้า')), 'the raid was not a headline');
   ok(!v.war, 'a raid should not start a war');
+});
+
+// ---------- the steam age: mills, hands, engines on the farms ----------
+
+const steamTown = (seed = 7) => {
+  const w = world(seed);
+  for (const t of TECH_ORDER) (w.techs ??= {})[t] = 0;
+  return w;
+};
+const toMillDay = (w: WorldState) => {
+  w.day += ((18 - (w.day % 30)) + 30) % 30 || 30;
+};
+
+test('before steam the market knows nothing of the steam age, and nobody builds a mill', () => {
+  const w = world();
+  ok(!goodsOf(w).includes('coal'), 'coal is on the shelves before steam');
+  w.guilds.push({ id: 8201, name: 'บ้านการค้ารวย', kind: 'merchants', leaderId: grown(w)[0].id, founded: 0, renown: 0, treasury: 9000 });
+  for (let i = 0; i < 3; i++) {
+    toMillDay(w);
+    industryDay(w, { state: i + 1 });
+  }
+  ok(!(w.mills ?? []).length, 'a mill went up before anyone knew steam');
+});
+
+test('a rich trade house builds a mill once steam is known; it hires spare hands, never the farms the town needs, and turns inputs into goods', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.meat = 200;
+  m.stock.coal = 100;
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8202, name: 'บริษัททดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 9000 });
+  const mill = foundMill(w, 8202, 'cannery')!;
+  ok(mill && mill.owner === 8202, 'the house built no mill');
+  const farmers = () => grown(w).filter((n) => n.job === 'farmer').length;
+  const before = farmers();
+  const lean = before <= grown(w).length * 0.3 + 1; // a town with no farmers to spare
+  for (let i = 0; i < 6; i++) {
+    toMillDay(w);
+    industryDay(w, { state: 50 + i });
+  }
+  const hands = handsOf(w, mill);
+  ok(hands.length >= 2, `only ${hands.length} hands at the mill`);
+  ok(!lean || farmers() >= before, `the mills took farmers from a town with none to spare (${before} → ${farmers()})`);
+  ok((mill.made ?? 0) > 0 && m.stock.tins > 0, 'the cannery made no tins');
+  ok(hands.every((n) => n.gold >= 10), 'the hands were not paid');
+});
+
+test('a mill that cannot pay its hands sends them back to the fields', () => {
+  const w = steamTown();
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8203, name: 'บริษัทจน', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 0 });
+  const mill = foundMill(w, 8203, 'textile')!;
+  mill.ready = w.day;
+  const hand = grown(w).find((n) => n.job === 'herder')!;
+  Object.assign(hand, { job: 'worker', millId: mill.id });
+  toMillDay(w);
+  industryDay(w, { state: 9 });
+  ok(hand.job === 'farmer' && hand.millId === undefined, 'the unpaid hand stayed at the mill');
+});
+
+test('engines go out to the farms and a mechanised field yields more grain', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.engine = 40;
+  for (const n of grown(w).filter((x) => x.job === 'farmer')) n.gold = 5000;
+  toMillDay(w);
+  industryDay(w, { state: 3 });
+  ok((w.mech ?? 0) >= 0.99, `the farms are ${Math.round((w.mech ?? 0) * 100)}% mechanised`);
+  const yieldOn = (mech: number) => {
+    const x = structuredClone(w);
+    x.mech = mech;
+    const farmer = x.npcs.find((n) => n.alive && n.job === 'farmer')!;
+    const before = ensureMarket(x).stock.grain;
+    for (let i = 0; i < 200; i++) harvest(x, farmer, { state: 1000 + i });
+    return ensureMarket(x).stock.grain - before;
+  };
+  ok(yieldOn(1) > yieldOn(0) * 1.15, 'engines did not raise the harvest');
+});
+
+test('in a dearth the town eats from the cannery tins', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.grain = 0;
+  m.stock.meat = 0;
+  m.stock.tins = 500;
+  for (const n of w.npcs) n.gold = 100;
+  run(w, 12);
+  ok(m.stock.tins < 500, 'nobody ate the tins');
+  ok(!w.npcs.some((n) => n.alive && (n.hunger ?? 0) >= 2), 'people went hungry beside a store of tins');
+});
+
+test('our mines out on the lands send coal (hills) and mana crystal (peaks) to the mills', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  const hills = (w.regions ?? []).find((r) => r.kind === 'hills' || r.kind === 'peaks')!;
+  ok(hills, 'no hills or peaks on the map');
+  hills.owner = 'us';
+  hills.dev = { mine: 2 };
+  const chief = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: hills.id, job: 'farmer' as const };
+  (w.villagers ??= []).push(chief, { ...chief, id: w.nextId++ }, { ...chief, id: w.nextId++ });
+  hills.village = { chiefId: chief.id, loyalty: 80, purse: 0 };
+  const coal = m.stock.coal;
+  const crystal = m.stock.crystal;
+  toMillDay(w);
+  industryDay(w, { state: 4 });
+  ok(m.stock.coal > coal || m.stock.crystal > crystal, 'the mine sent nothing');
 });

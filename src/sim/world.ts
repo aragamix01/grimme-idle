@@ -44,6 +44,7 @@ import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
 import { amendmentsDay } from './amend';
 import { partiesDay } from './parties';
+import { industryDay, millSpot } from './industry';
 import { communeDay } from './commune';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
@@ -204,6 +205,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   reignDay(world, rng);
   regimeEventsDay(world, rng);
   partiesDay(world, rng);
+  industryDay(world, rng);
   communeDay(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
@@ -457,6 +459,11 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'alchemist':
       // Brewing in the back of the shop, where the dungeon finds are kept.
       return chance(rng, 0.7) ? plan('work', near(PLACES.shop), int(rng, 5, 10)) : idle();
+    case 'worker': {
+      // At the mill's gate for the shift, else wherever a tired hand goes.
+      const at = millSpot(world, npc);
+      return at && chance(rng, 0.8) ? plan('work', at, int(rng, 5, 10)) : idle();
+    }
     case 'engineer':
       // On the crown's building site if there is one, else drawing plans at the castle.
       return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();

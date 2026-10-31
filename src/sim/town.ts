@@ -132,6 +132,18 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 // Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
 export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 } } as const;
 
+// The steam age's mill plots on the pasture south of the walls (3x2 tiles each, top-left), taken
+// in order as companies and the crown build (see industry.ts).
+export const MILL_PLOTS: readonly { x: number; y: number }[] = [
+  { x: 14, y: 20 },
+  { x: 18, y: 20 },
+  { x: 22, y: 20 },
+  { x: 14, y: 22 },
+  { x: 18, y: 22 },
+  { x: 22, y: 22 },
+];
+export const millDoor = (i: number) => ({ x: MILL_PLOTS[i].x + 1, y: MILL_PLOTS[i].y + 2 > 23 ? MILL_PLOTS[i].y - 1 : MILL_PLOTS[i].y + 2 });
+
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
 export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
 export const PASTURE = { x0: 14, y0: 20, x1: 24, y1: 23 }; // grazing, east of it (the factory and station plots are at its north edge)
