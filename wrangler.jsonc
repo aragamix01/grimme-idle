@@ -8,6 +8,9 @@
   // Serve on grimme-idle.<account>.workers.dev; each deploy re-applies this.
   "workers_dev": true,
   "preview_urls": true,
+  // Branch builds run `wrangler preview`, which refuses to start without this block (it may be empty:
+  // the assets and compatibility settings above carry over to the preview).
+  "previews": {},
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
