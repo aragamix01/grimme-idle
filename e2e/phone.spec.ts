@@ -960,6 +960,8 @@ test('the steam age on the economy tab: mills with their owners and hands, the n
   await expect(panel).toContainText('กำลังก่อสร้าง');
   await expect(panel).toContainText('กรรมกร 1 คน');
   await expect(panel).toContainText('50%');
+  await expect(panel).toContainText('ยังไม่มีสหภาพ');
+  await expect(panel).toContainText('ควันถ่านหิน');
   await sub(page, 'market');
   await expect(panel.locator('.good__name').filter({ hasText: 'ถ่านหิน' })).toBeVisible();
   await expect(panel.locator('.good__name').filter({ hasText: 'เครื่องจักรเวท' })).toBeVisible();

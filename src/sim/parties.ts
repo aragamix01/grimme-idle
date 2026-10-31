@@ -150,7 +150,7 @@ export function interest(world: WorldState, v: Npc, ideo: Ideology): number {
     case 'nation':
       return (job === 'soldier' || v.knight ? 2.5 : 0) + (job === 'swordsman' || job === 'mage' ? 1.5 : 0) + (has(v, 'brave') ? 0.5 : 0) + (world.war || world.demon || world.dungeons.some((d) => d.power >= 60) ? 1 : 0);
     case 'labour':
-      return (v.gold < 20 * lvl ? 1.5 : 0) + ((v.hunger ?? 0) >= 1 ? 1.5 : 0) + (['farmer', 'herder', 'hunter', 'builder', 'courtesan'].includes(job) ? 0.8 : 0) + (v.marcher ? 1.5 : 0) + (priceRatio(world, 'grain') >= 1.5 ? 0.5 : 0);
+      return (v.gold < 20 * lvl ? 1.5 : 0) + ((v.hunger ?? 0) >= 1 ? 1.5 : 0) + (['farmer', 'herder', 'hunter', 'builder', 'courtesan'].includes(job) ? 0.8 : 0) + (job === 'worker' ? (world.union ? 2.5 : 1.5) : 0) + (v.marcher ? 1.5 : 0) + (priceRatio(world, 'grain') >= 1.5 ? 0.5 : 0);
     case 'faith':
       return (job === 'priest' ? 3 : 0) + (v.creed === 'god' ? Math.max(0, ((v.piety ?? 50) - 55) / 12) : v.creed === 'sect' ? 0.5 : -1);
     case 'old':
@@ -460,7 +460,7 @@ function sweep(world: WorldState, top: Party, rng: Rng): void {
   house.sweep = top.seats * 3 >= house.seats * 2 ? (house.sweep ?? 0) + 1 : 0;
   const leader = leaderOf(world, top);
   if ((house.sweep ?? 0) < 2 || !leader || !ambitious(leader) || !inGovernment(world, top)) return;
-  if (top.ideology === 'labour' && world.regime === 'republic' && (industrial(world) || world.works?.factory !== undefined) && chance(rng, 0.5)) {
+  if (top.ideology === 'labour' && world.regime === 'republic' && (industrial(world) || world.works?.factory !== undefined || (world.mills?.length ?? 0) > 0) && chance(rng, 0.5)) {
     return proclaimCommune(world, leader, rng, `${top.name}ครองสภาเบ็ดเสร็จ ${leader.name}ประกาศยกเลิกกรรมสิทธิ์ส่วนบุคคล สถาปนาสาธารณรัฐประชาชน`);
   }
   const c = charterOf(world);

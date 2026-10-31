@@ -6,7 +6,7 @@
 // month as the town chose. One saga at a time, a good while apart; the gold rush and the comet
 // can come to a village.
 import { chance, int, pick, type Rng } from './rng';
-import { addMod, clamp, headline, kill, legend, log, loyaltyNudge, occupied, isAdventurer } from './core';
+import { addMod, clamp, headline, kill, known, legend, log, loyaltyNudge, occupied, isAdventurer } from './core';
 import { king, payrollReserve } from './society';
 import { ensureCrown } from './politics';
 import { levelOf } from './market';
@@ -43,7 +43,9 @@ const stealable = (w: WorldState) => {
 };
 const captive = (w: WorldState) => w.npcs.find((n) => n.id === w.saga?.ctx && n.alive);
 
-export const SAGA_TH: Record<SagaKind, string> = { goldrush: 'ตื่นทอง', comet: 'ดาวหาง', ransom: 'ราชบุตรถูกลักพาตัว', pestilence: 'กาฬโรค' };
+export const SAGA_TH: Record<SagaKind, string> = { goldrush: 'ตื่นทอง', comet: 'ดาวหาง', ransom: 'ราชบุตรถูกลักพาตัว', pestilence: 'กาฬโรค', luddites: 'ขบวนการค้อนเหล็ก' };
+const BREAK_MONTHS = 3; // nights of machine-breaking a town that lets them be sees
+const BROKEN = 0.25; // of the farms' engines smashed each month they go on
 
 // When each may begin.
 const CAN: Record<SagaKind, (w: WorldState) => boolean> = {
@@ -51,6 +53,7 @@ const CAN: Record<SagaKind, (w: WorldState) => boolean> = {
   comet: (w) => living(w) >= 20,
   ransom: (w) => rankOf(w) >= 1 && !!stealable(w),
   pestilence: (w) => rankOf(w) >= 1 && living(w) >= 50 && (w.realms ?? []).filter((r) => !r.fallen).length >= 2,
+  luddites: (w) => known(w, 'steam') && (w.mech ?? 0) >= 0.5 && (w.machinery ?? 0) >= 4 && !!ruler(w),
 };
 
 // Once a day: on the saga day, move the one under way along, or perhaps begin one.
@@ -108,7 +111,14 @@ const START: Record<SagaKind, (w: WorldState, rng: Rng) => void> = {
     headline(w, 'disaster', 'กาฬโรคระบาดไปทั่วแผ่นดิน! แคว้นข้างเคียงหลายแห่งศพกองเต็มถนน พ่อค้าเล่าว่าโรคกำลังมาตามเส้นทางการค้า');
     if (!raise(w, 'quarantine', rng)) choose(w, 'pestilence', 'open');
   },
+  luddites: (w, rng) => {
+    smash(w);
+    headline(w, 'politics', 'ชาวไร่ที่ตกงานเพราะเครื่องจักรเวทรวมตัวกันกลางดึก เรียกตัวเองว่าขบวนการค้อนเหล็ก ทุบเครื่องจักรในไร่นาพังไปหลายเครื่อง!');
+    if (!raise(w, 'breakers', rng)) choose(w, 'luddites', 'ignore');
+  },
 };
+// A night's work for the machine-breakers.
+const smash = (w: WorldState) => (w.machinery = (w.machinery ?? 0) * (1 - BROKEN));
 
 // A month on; true when it is over.
 const STEP: Record<SagaKind, (w: WorldState, s: Saga, rng: Rng) => boolean> = {
@@ -225,6 +235,27 @@ const STEP: Record<SagaKind, (w: WorldState, s: Saga, rng: Rng) => boolean> = {
     w.sealed = undefined;
     headline(w, 'disaster', `กาฬโรคสงบลงแล้ว${c === 'close' ? ' ประตูเมืองเปิดอีกครั้ง พ่อค้ากลับมาค้าขาย' : ''} ผู้รอดชีวิตจุดเทียนรำลึกถึงคนที่จากไป`);
     legend(w, 'ปีกาฬโรค');
+    return true;
+  },
+  luddites: (w, s, rng) => {
+    const c = s.choice ?? 'ignore';
+    if (c === 'hang') {
+      headline(w, 'politics', 'ศาลสั่งแขวนคอแกนนำขบวนการค้อนเหล็กกลางลานเมือง ไม่มีใครกล้าแตะเครื่องจักรอีก แต่ชาวไร่ไม่มีวันลืม');
+      return true;
+    }
+    if (c === 'relief') {
+      log(w, 'politics', 'ชาวไร่ที่ได้ค่าชดเชยกลับบ้าน บางคนไปสมัครเป็นกรรมกรโรงงาน ขบวนการค้อนเหล็กสลายตัวไปเงียบๆ');
+      return true;
+    }
+    if (s.stage <= BREAK_MONTHS) {
+      smash(w);
+      const mill = (w.mills ?? []).filter((m) => w.day >= m.ready)[0];
+      if (mill && chance(rng, 0.4)) mill.ready = w.day + 30; // a mill's gears jammed with a clog
+      log(w, 'politics', `ขบวนการค้อนเหล็กออกทุบเครื่องจักรอีกคืน${mill ? ` และลอบพัง${mill.name}` : ''} เครื่องจักรในไร่นาเหลือ ${Math.floor(w.machinery ?? 0)} เครื่อง`);
+      return false;
+    }
+    headline(w, 'politics', 'ขบวนการค้อนเหล็กหมดแรงไปเอง เครื่องจักรที่เหลือกลับมาไถนาอีกครั้ง');
+    legend(w, 'ยุคขบวนการค้อนเหล็ก');
     return true;
   },
 };
@@ -409,6 +440,52 @@ export const SAGA_DEFS = {
           if (c) c.purse = Math.max(0, c.purse - Math.round(30 * lvl(w)));
           addMod(w, 'piety', 4, 180, 'นักบวชดูแลคนป่วย');
           return 'วัดเปิดศาลาเป็นที่พักคนป่วย หมอและนักบวชผลัดกันดูแลทั้งวันทั้งคืน';
+        },
+      },
+    ],
+  },
+  breakers: {
+    title: 'ขบวนการค้อนเหล็ก',
+    mtth: 1,
+    gap: 0,
+    can: () => false,
+    decider: ruler,
+    text: () => 'ชาวไร่ที่ตกงานเพราะเครื่องจักรเวทออกทุบเครื่องจักรทุกคืน ต้องเลือกว่าจะทำอย่างไรกับพวกเขา',
+    options: [
+      {
+        key: 'hang',
+        label: 'จับแกนนำแขวนคอ',
+        likes: { vengeful: 3, greedy: 1.3, kind: 0.2 },
+        act: (w) => {
+          choose(w, 'luddites', 'hang');
+          nudgeAll(ofJob(w, 'farmer'), -10);
+          ensureCrown(w).unrest += 3;
+          return 'ทหารตามล่าแกนนำทุกหมู่บ้าน เจ้าของเครื่องจักรโล่งใจ ชาวไร่เกลียดผู้ปกครองเข้ากระดูก';
+        },
+      },
+      {
+        key: 'relief',
+        label: 'จ่ายค่าชดเชยให้ชาวไร่ที่ตกงาน',
+        likes: { kind: 3, loyal: 1.2, greedy: 0.3 },
+        can: (w) => spare(w) >= 80 * lvl(w),
+        act: (w) => {
+          choose(w, 'luddites', 'relief');
+          const poor = ofJob(w, 'farmer').filter((n) => n.gold < 20 * lvl(w));
+          const each = Math.round(5 * lvl(w));
+          const paid = Math.min(poor.length * each, Math.round(80 * lvl(w)));
+          w.treasury -= paid;
+          for (const n of poor.slice(0, Math.floor(paid / Math.max(1, each)))) n.gold += each;
+          nudgeAll(ofJob(w, 'farmer'), 6);
+          return `คลังหลวงจ่ายค่าชดเชย ${paid} ทอง ชาวไร่วางค้อนลง เจ้าของโรงงานบ่นว่าใช้ภาษีไปเลี้ยงคนขี้เกียจ`;
+        },
+      },
+      {
+        key: 'ignore',
+        label: 'ปล่อยให้เจ้าของเครื่องจักรจัดการกันเอง',
+        likes: { coward: 2.5, greedy: 1.3 },
+        act: (w) => {
+          choose(w, 'luddites', 'ignore');
+          return 'ทางการไม่ยื่นมือเข้าไป การทุบเครื่องจักรลามไปทุกหมู่บ้าน';
         },
       },
     ],

@@ -8,7 +8,7 @@ import { fire, shantyCrime } from '../../src/sim/slums';
 import { FIRST_LOTS, LOTS, SHACK_SPOTS, WALL } from '../../src/sim/town';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
-import { found as foundMill, handsOf, industryDay } from '../../src/sim/industry';
+import { found as foundMill, handsOf, industryDay, wageOf } from '../../src/sim/industry';
 import { goodsOf, harvest } from '../../src/sim/market';
 import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
@@ -1640,4 +1640,93 @@ test('our mines out on the lands send coal (hills) and mana crystal (peaks) to t
   toMillDay(w);
   industryDay(w, { state: 4 });
   ok(m.stock.coal > coal || m.stock.crystal > crystal, 'the mine sent nothing');
+});
+
+// ---------- the steam age's troubles: unions, the factory acts, smog, machine-breakers ----------
+
+// A steam town with a running mill full of hands, owned by a rich house.
+function millTown(seed = 7) {
+  const w = steamTown(seed);
+  const m = ensureMarket(w);
+  Object.assign(m.stock, { meat: 400, coal: 300, wool: 200, ore: 200, steel: 50, crystal: 30 });
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8301, name: 'บริษัทไอน้ำ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 20000 });
+  const mills = [foundMill(w, 8301, 'cannery')!, foundMill(w, 8301, 'textile')!];
+  for (const mill of mills) mill.ready = w.day;
+  const hands = grown(w).filter((n) => n.job !== 'king' && n.job !== 'merchant' && n.questId === undefined && n.partyId === undefined).slice(0, 8);
+  hands.forEach((n, i) => Object.assign(n, { job: 'worker', millId: mills[i % 2].id, guildId: undefined }));
+  return { w, mills, hands, head };
+}
+
+test('enough mill hands form a union, and the coal smoke makes the town sicker', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  ok(w.union, 'eight hands formed no union');
+  ok((w.smog ?? 0) > 0 && modOf(w, 'sickness') > 0, `no smog (${w.smog}) or no sickness from it`);
+});
+
+test('a strike won raises every hand wage; the factory acts raise it again for a shorter shift', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  const base = wageOf(w);
+  w.market!.level = 1.5;
+  ok(raise(w, 'millstrike', rngOf(w)), 'the strike did not come up');
+  decide(w, rngOf(w), 'raise');
+  ok(wageOf(w) > base, 'the strike won no raise');
+  const raised = wageOf(w);
+  ok(raise(w, 'factoryact', rngOf(w)), 'the factory act was not put forward');
+  decide(w, rngOf(w), 'pass');
+  ok(w.charter!.labour === 'protected' && wageOf(w) > raised, 'the factory act changed nothing');
+});
+
+test('every steam-age trouble comes up in its scene and every choice plays out', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  w.market!.level = 1.5;
+  const hill = (w.regions ?? []).find((r) => r.kind === 'hills' || r.kind === 'peaks')!;
+  hill.owner = 'us';
+  hill.dev = { mine: 2 };
+  const v = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: hill.id, job: 'farmer' as const };
+  (w.villagers ??= []).push(v, { ...v, id: w.nextId++ }, { ...v, id: w.nextId++ });
+  hill.village = { chiefId: v.id, loyalty: 60, purse: 0 };
+  w.treasury = 5000;
+  const noble = grown(w).find((n) => n.job === 'noble') ?? grown(w).find((n) => n.job === 'farmer')!;
+  Object.assign(noble, { job: 'noble', gold: 5 });
+  for (let i = 0; i < 6; i++) grown(w).filter((n) => n.job === 'farmer')[i] && (grown(w).filter((n) => n.job === 'farmer')[i].job = 'soldier');
+  for (const k of ['millfire', 'millstrike', 'factoryact', 'minecollapse', 'estatesale'] as const) {
+    const probe = structuredClone(w);
+    const h = raise(probe, k, rngOf(probe));
+    ok(h, `${k} did not come up in its scene`);
+    for (const o of h!.options) {
+      const x = structuredClone(w);
+      raise(x, k, rngOf(x));
+      decide(x, rngOf(x), o.key);
+      ok(x.happenings!.at(-1)!.outcome, `${k}/${o.key} did not play out`);
+    }
+  }
+});
+
+test('when engines take the farmhands work, the machine-breakers smash them until the crown answers', () => {
+  const w = steamTown();
+  w.day = Math.max(w.day, 400);
+  w.machinery = 20;
+  w.mech = 1;
+  ok(beginSaga(w, 'luddites', rngOf(w)), 'the machine-breakers never rose');
+  ok(w.machinery < 20, 'the first night broke nothing');
+  decide(w, rngOf(w), 'ignore');
+  const after = w.machinery;
+  w.day += 30 - (w.day % 30) + 14;
+  sagasDay(w, { state: 3 });
+  ok(w.machinery < after, 'left alone they stopped breaking machines');
+  const x = steamTown();
+  x.day = Math.max(x.day, 400);
+  Object.assign(x, { machinery: 20, mech: 1 });
+  beginSaga(x, 'luddites', rngOf(x));
+  decide(x, rngOf(x), 'hang');
+  x.day += 30 - (x.day % 30) + 14;
+  sagasDay(x, { state: 3 });
+  ok(!x.saga, 'hanging the ringleaders did not end it');
 });

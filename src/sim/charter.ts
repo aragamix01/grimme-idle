@@ -29,7 +29,7 @@ function draft(r: Regime): Omit<Charter, 'written' | 'amendments'> {
     case 'junta':
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed', economy: 'guided', parties: 'banned' };
     case 'commune':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', freePress: false, landPolicy: 'settle', guilds: 'banned', economy: 'guided', parties: 'one', property: 'common' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', freePress: false, landPolicy: 'settle', guilds: 'banned', economy: 'guided', parties: 'one', property: 'common', labour: 'protected' };
     default:
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, landPolicy: 'settle' };
   }
@@ -72,6 +72,7 @@ export function clauses(c: Charter, crowned = false): string[] {
   if (c.parliament) out.push(crowned ? 'ราชาธิปไตยภายใต้รัฐธรรมนูญ: รัฐสภาจากการเลือกตั้งตั้งนายกรัฐมนตรี กษัตริย์ทรงเป็นประมุขแต่ไม่บริหาร' : 'รัฐสภามาจากการเลือกตั้งตามพรรคการเมือง พรรคที่ได้เสียงข้างมากตั้งรัฐบาล');
   out.push(PARTIES_TH[c.parties ?? 'free']);
   if (c.property === 'common') out.push('ทรัพย์สินเป็นของส่วนรวม ใครมีเกินส่วนแบ่งต้องคืนให้ประชาชน');
+  if (c.labour === 'protected') out.push('พระราชบัญญัติโรงงาน: กรรมกรทำงานกะสั้นลง ได้ค่าแรงเป็นธรรม โรงงานต้องมีประตูหนีไฟ');
   out.push(c.provinces ? 'กฎบัตรหัวเมือง: หมู่บ้านเก็บส่วนแบ่งได้อย่างน้อยหนึ่งในสี่ และเลือกผู้ใหญ่บ้านเอง' : 'หัวเมืองขึ้นตรงต่อเมืองหลวง ส่วยเรียกเก็บได้ตามใจผู้ปกครอง');
   return out;
 }
