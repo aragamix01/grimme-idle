@@ -33,7 +33,8 @@ const DUES = 1; // gold a member pays each month, if they have it
 const TERM = 4; // years between general elections in a constitutional monarchy
 const NO_CONFIDENCE = 0.12; // monthly chance the opposition moves against a weak government
 const BRIBE = 40; // gold a government pays an opposition member to cross the floor
-const SCANDAL = 2.5; // pull a party loses when its vote-buying is exposed
+const SCANDAL = 2.5;
+const CHEST = 200; // gold a party keeps for its next campaign; past this it spends // pull a party loses when its vote-buying is exposed
 
 export const IDEOLOGIES: readonly Ideology[] = ['labour', 'faith', 'nation', 'trade', 'old'];
 
@@ -313,6 +314,13 @@ function dues(world: WorldState, p: Party): void {
     const gift = Math.floor(leader.gold * 0.02);
     leader.gold -= gift;
     p.treasury += gift;
+  }
+  // A chest past what a campaign needs goes on rallies, broadsheets and ale, back into the town.
+  const keep = CHEST * levelOf(world);
+  if (p.treasury > keep) {
+    const spent = Math.ceil((p.treasury - keep) * 0.25);
+    p.treasury -= spent;
+    ensureMarket(world).till += spent;
   }
 }
 
