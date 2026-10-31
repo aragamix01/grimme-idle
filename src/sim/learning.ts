@@ -91,7 +91,7 @@ function crowdedStudy(world: WorldState): number {
 
 export function study(world: WorldState, npc: Npc, rng: Rng): void {
   const rate =
-    KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (world.charter?.stateFaith ? 0.8 : world.charter?.faith === 'secular' ? 1.1 : 1) * (world.demon?.stage === 'occupied' ? 0.3 : 1) * (tenetOn(world, 'learning') ? 1 + 0.15 * adherence(world) : 1); // the god bids them study; a state church frowns on some questions; under the demon books are hidden
+    KNOW_PER_DAY * (1 + Math.min(5, npc.level) * 0.1) * (built(world, 'school') ? 2 : 1) * (npc.blessed ? 1.5 : 1) * (built(world, 'press') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (world.charter?.stateFaith ? 0.8 : world.charter?.faith === 'secular' ? 1.1 : 1) * (world.demon?.stage === 'occupied' ? 0.3 : 1) * (tenetOn(world, 'learning') ? 1 + 0.15 * adherence(world) : 1) * (world.power && known(world, 'lightbulb') ? 1.2 : 1); // and electric light lets them read late // the god bids them study; a state church frowns on some questions; under the demon books are hidden
   world.knowledge = knowledgeOf(world) + rate * crowdedStudy(world);
   if (chance(rng, 0.004)) npc.level++; // years of reading tell, slowly
 }

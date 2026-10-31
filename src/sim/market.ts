@@ -21,16 +21,18 @@ import { townPop } from './housing';
 
 export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
 // The steam age's goods: coal and mana crystal to fire the mills, steel, arcane engines, tinned food.
-export const INDUSTRIAL_GOODS: readonly Good[] = ['coal', 'crystal', 'steel', 'engine', 'tins'];
+export const INDUSTRIAL_GOODS: readonly Good[] = ['coal', 'crystal', 'steel', 'engine', 'tins', 'appliance'];
 export const ALL_GOODS: readonly Good[] = [...GOODS, ...INDUSTRIAL_GOODS];
-// The goods the town trades in: the steam age's only once its scholars have found steam.
-export const goodsOf = (world: WorldState): readonly Good[] => (known(world, 'steam') ? ALL_GOODS : GOODS);
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ', coal: 'ถ่านหิน', crystal: 'ผลึกมานา', steel: 'เหล็กกล้า', engine: 'เครื่องจักรเวท', tins: 'อาหารกระป๋อง' };
-const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15, coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5 };
+const STEAM_GOODS: readonly Good[] = ALL_GOODS.filter((g) => g !== 'appliance');
+// The goods the town trades in: the steam age's only once its scholars have found steam, and the
+// electric appliances only once they have found electricity.
+export const goodsOf = (world: WorldState): readonly Good[] => (known(world, 'electricity') ? ALL_GOODS : known(world, 'steam') ? STEAM_GOODS : GOODS);
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ', coal: 'ถ่านหิน', crystal: 'ผลึกมานา', steel: 'เหล็กกล้า', engine: 'เครื่องจักรเวท', tins: 'อาหารกระป๋อง', appliance: 'เครื่องใช้ไฟฟ้าเวท' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15, coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5, appliance: 30 };
 export const basePrice = (g: Good) => BASE[g];
 // Stock that sells at the base price. Grain follows the town's mouths: enough to carry them through winter.
 export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(12, townPop(world))) / 80) : TARGET[g]); // a floor of a dozen mouths: higher, and a camp's bread is priced as if it were starving
-export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12, coal: 30, crystal: 6, steel: 12, engine: 4, tins: 40 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12, coal: 30, crystal: 6, steel: 12, engine: 4, tins: 40, appliance: 6 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MACHINE_YIELD = 0.3; // more grain from a field worked with an arcane engine (see industry.ts)
 const MEAL_EVERY = 10; // days between each resident's sack of grain
@@ -128,8 +130,8 @@ function inflate(world: WorldState, m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2, coal: 3, crystal: 2, steel: 1.5, engine: 1.5, tins: 2 };
-const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3, coal: 4, crystal: 3, steel: 3, engine: 3, tins: 4 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2, coal: 3, crystal: 2, steel: 1.5, engine: 1.5, tins: 2, appliance: 1.5 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3, coal: 4, crystal: 3, steel: 3, engine: 3, tins: 4, appliance: 3 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.

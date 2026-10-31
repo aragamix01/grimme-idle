@@ -1504,6 +1504,62 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "powerplant": {
+    "file": "assets/sprites/buildings/powerplant.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "elamp": {
+    "file": "assets/sprites/props/elamp.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "tram": {
+    "file": "assets/sprites/props/tram.png",
+    "group": "props",
+    "frameWidth": 32,
+    "frameHeight": 20,
+    "frames": 1
+  },
+  "electricity": {
+    "file": "assets/sprites/icons/electricity.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "telegraph": {
+    "file": "assets/sprites/icons/telegraph.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "lightbulb": {
+    "file": "assets/sprites/icons/lightbulb.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "tram-icon": {
+    "file": "assets/sprites/icons/tram-icon.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "appliance": {
+    "file": "assets/sprites/icons/appliance.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "rm-coal": {
     "file": "assets/sprites/worldmap/rm-coal.png",
     "group": "worldmap",

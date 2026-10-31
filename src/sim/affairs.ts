@@ -18,6 +18,9 @@ import { conquestWar } from './war';
 import type { Def } from './happenings';
 import type { Good, Guild, Happening, Npc, Party, Realm, WorldState } from './types';
 
+// What a matter comes to when what it was about is gone by the time it is decided (a house
+// closed, a realm fallen, the adventurer dead in the dungeon).
+const GONE = 'เรื่องนี้จบไปเองก่อนจะได้ตัดสิน เพราะสิ่งที่เป็นต้นเรื่องไม่อยู่แล้ว';
 const adults = (w: WorldState) => w.npcs.filter((n) => n.alive && n.age >= 16 && n.inside === undefined);
 const ofJob = (w: WorldState, job: Npc['job']) => adults(w).filter((n) => n.job === job);
 const ruler = (w: WorldState) => king(w) ?? ofJob(w, 'noble').sort((a, b) => b.age - a.age)[0];
@@ -108,7 +111,8 @@ export const AFFAIRS = {
         likes: { greedy: 2.5, coward: 1.3, kind: 0.5 },
         can: (w, h) => (partyOfCtx(w, h)?.treasury ?? 0) >= 60 * lvl(w),
         act: (w, rng, h) => {
-          const p = partyOfCtx(w, h)!;
+          const p = partyOfCtx(w, h);
+          if (!p) return GONE;
           const paid = Math.round(60 * lvl(w));
           p.treasury -= paid;
           ensureMarket(w).till += paid;
@@ -259,7 +263,8 @@ export const AFFAIRS = {
         label: 'ขายสิทธิ์ผูกขาด',
         likes: { greedy: 3, kind: 0.5 },
         act: (w, _rng, h) => {
-          const g = houseOf(w, h)!;
+          const g = houseOf(w, h);
+          if (!g) return GONE;
           const fee = Math.floor(g.treasury * 0.4);
           g.treasury -= fee;
           w.treasury += fee;
@@ -273,7 +278,8 @@ export const AFFAIRS = {
         label: 'ปฏิเสธ ให้แข่งขันกันอย่างเสรี',
         likes: { kind: 1.6, loyal: 1.3, brave: 1.1 },
         act: (w, _rng, h) => {
-          const g = houseOf(w, h)!;
+          const g = houseOf(w, h);
+          if (!g) return GONE;
           const head = byId(w, g.leaderId);
           if (head) loyaltyNudge(head, -10);
           nudgeAll(ofJob(w, 'merchant').filter((n) => n.guildId !== g.id), 4);
@@ -297,7 +303,8 @@ export const AFFAIRS = {
         likes: { kind: 2, loyal: 1.5, greedy: 0.5 },
         can: (w) => spare(w) >= 100 * lvl(w),
         act: (w, _rng, h) => {
-          const g = houseOf(w, h)!;
+          const g = houseOf(w, h);
+          if (!g) return GONE;
           const aid = Math.round(100 * lvl(w));
           w.treasury -= aid;
           g.treasury += aid;
@@ -311,7 +318,8 @@ export const AFFAIRS = {
         label: 'ปล่อยให้ล้ม',
         likes: { brave: 1.5, greedy: 1.5, vengeful: 1.2 },
         act: (w, _rng, h) => {
-          const g = houseOf(w, h)!;
+          const g = houseOf(w, h);
+          if (!g) return GONE;
           const ms = houseMembers(w, g);
           nudgeAll(ms, -8);
           closeHouse(w, g);
@@ -323,7 +331,8 @@ export const AFFAIRS = {
         label: 'ยึดเป็นของหลวง',
         likes: { vengeful: 2, greedy: 2, kind: 0.5 },
         act: (w, _rng, h) => {
-          const g = houseOf(w, h)!;
+          const g = houseOf(w, h);
+          if (!g) return GONE;
           const ms = houseMembers(w, g);
           w.treasury += Math.max(0, Math.floor(g.treasury));
           nudgeAll(ms, -15);
@@ -397,7 +406,8 @@ export const AFFAIRS = {
         label: 'ให้ที่พักพิง',
         likes: { kind: 2.5, brave: 1.5, coward: 0.4 },
         act: (w, rng, h) => {
-          const r = realmOf(w, h)!;
+          const r = realmOf(w, h);
+          if (!r) return GONE;
           nudgeRealm(r, -18);
           w.treasury -= Math.min(Math.max(0, spare(w)), Math.round(20 * lvl(w)));
           nudgeAll(adults(w).filter((n) => n.traits.includes('kind')), 3);
@@ -412,7 +422,8 @@ export const AFFAIRS = {
         label: 'ส่งตัวกลับ รับรางวัล',
         likes: { coward: 2, greedy: 2, kind: 0.3 },
         act: (w, _rng, h) => {
-          const r = realmOf(w, h)!;
+          const r = realmOf(w, h);
+          if (!r) return GONE;
           const prize = Math.round(30 * lvl(w));
           nudgeRealm(r, 15);
           w.treasury += prize;
@@ -444,7 +455,8 @@ export const AFFAIRS = {
           return !!r && !!foeOf(w, r);
         },
         act: (w, _rng, h) => {
-          const r = realmOf(w, h)!;
+          const r = realmOf(w, h);
+          if (!r) return GONE;
           const foe = foeOf(w, r)!;
           nudgeRealm(r, 15);
           conquestWar(w, foe);
@@ -458,7 +470,8 @@ export const AFFAIRS = {
         likes: { loyal: 2, kind: 1.2, greedy: 0.6 },
         can: (w) => spare(w) >= 60 * lvl(w),
         act: (w, _rng, h) => {
-          const r = realmOf(w, h)!;
+          const r = realmOf(w, h);
+          if (!r) return GONE;
           const foe = foeOf(w, r);
           w.treasury -= Math.round(60 * lvl(w));
           nudgeRealm(r, 8);
@@ -471,7 +484,8 @@ export const AFFAIRS = {
         label: 'วางตัวเป็นกลาง',
         likes: { coward: 2, kind: 1.5 },
         act: (w, _rng, h) => {
-          const r = realmOf(w, h)!;
+          const r = realmOf(w, h);
+          if (!r) return GONE;
           nudgeRealm(r, -10);
           return `${r.name}ผิดหวังที่เราไม่ยอมช่วย`;
         },
@@ -495,7 +509,8 @@ export const AFFAIRS = {
         label: 'ให้ปกครองตนเองภายใต้ธงของเรา',
         likes: { kind: 2.5, loyal: 1.2, vengeful: 0.5 },
         act: (w, _rng, h) => {
-          const v = regionOf(w, h)!.village!;
+          const v = regionOf(w, h)?.village;
+          if (!v) return GONE;
           v.loyalty = clamp(v.loyalty + 25, 0, 100);
           v.grudge = 0;
           v.purse += Math.round(15 * lvl(w));
@@ -507,7 +522,8 @@ export const AFFAIRS = {
         label: 'ปฏิเสธ',
         likes: { vengeful: 1.5, greedy: 1.5, brave: 1.1 },
         act: (w, _rng, h) => {
-          const v = regionOf(w, h)!.village!;
+          const v = regionOf(w, h)?.village;
+          if (!v) return GONE;
           v.loyalty = clamp(v.loyalty - 15, 0, 100);
           v.grudge = (v.grudge ?? 0) + 1;
           return 'ผู้ใหญ่บ้านกลับไปมือเปล่า ชาวบ้านเริ่มพูดกันเรื่องแยกตัว';
@@ -519,7 +535,8 @@ export const AFFAIRS = {
         likes: { brave: 2, vengeful: 1.8, kind: 0.5 },
         can: (w) => ofJob(w, 'soldier').length >= 2 && spare(w) >= 20 * lvl(w),
         act: (w, _rng, h) => {
-          const v = regionOf(w, h)!.village!;
+          const v = regionOf(w, h)?.village;
+          if (!v) return GONE;
           w.treasury -= Math.round(20 * lvl(w));
           v.garrison = Math.max(v.garrison ?? 0, w.day + 180);
           v.loyalty = clamp(v.loyalty - 5, 0, 100);
@@ -546,7 +563,8 @@ export const AFFAIRS = {
         likes: { brave: 2.5, vengeful: 1.5, coward: 0.4 },
         can: (w) => ofJob(w, 'soldier').length >= 1,
         act: (w, rng, h) => {
-          const r = regionOf(w, h)!;
+          const r = regionOf(w, h);
+          if (!r) return GONE;
           const v = r.village!;
           const troop = ofJob(w, 'soldier');
           if (chance(rng, Math.min(0.9, 0.45 + troop.length * 0.08))) {
@@ -565,7 +583,8 @@ export const AFFAIRS = {
         likes: { kind: 1.3, coward: 1.5, greedy: 0.7 },
         can: (w) => adults(w).some(isAdventurer) && spare(w) >= 40 * lvl(w),
         act: (w, _rng, h) => {
-          const r = regionOf(w, h)!;
+          const r = regionOf(w, h);
+          if (!r) return GONE;
           const fee = Math.round(40 * lvl(w));
           const best = adults(w).filter(isAdventurer).sort((a, b) => b.level - a.level)[0];
           w.treasury -= fee;
@@ -580,7 +599,8 @@ export const AFFAIRS = {
         label: 'ให้หมู่บ้านจ่ายส่วย',
         likes: { coward: 2.5, greedy: 1.5, brave: 0.3 },
         act: (w, _rng, h) => {
-          const v = regionOf(w, h)!.village!;
+          const v = regionOf(w, h)?.village;
+          if (!v) return GONE;
           v.purse = Math.floor(v.purse / 2);
           v.loyalty = clamp(v.loyalty - 12, 0, 100);
           v.grudge = (v.grudge ?? 0) + 1;
@@ -604,7 +624,8 @@ export const AFFAIRS = {
         label: 'แต่งตั้งเป็นขุนนาง',
         likes: { brave: 2, kind: 1.5, loyal: 1.2 },
         act: (w, _rng, h) => {
-          const n = byId(w, h.ctx)!;
+          const n = byId(w, h.ctx);
+          if (!n) return GONE;
           if (n.questId !== undefined || n.inside !== undefined) return `${n.name}ออกไปทำเควสเสียก่อน ราชโองการแต่งตั้งต้องรอจนกว่าจะกลับมาทูลขอใหม่`; // out on a quest by the time the word came
           leaveTrade(n);
           n.job = 'noble';
@@ -622,7 +643,8 @@ export const AFFAIRS = {
         likes: { coward: 1.5, kind: 1.2, loyal: 1.3, greedy: 0.6 },
         can: (w) => spare(w) >= 50 * lvl(w),
         act: (w, _rng, h) => {
-          const n = byId(w, h.ctx)!;
+          const n = byId(w, h.ctx);
+          if (!n) return GONE;
           const gift = Math.round(50 * lvl(w));
           w.treasury -= gift;
           n.gold += gift;
@@ -635,7 +657,8 @@ export const AFFAIRS = {
         label: 'ปฏิเสธ',
         likes: { vengeful: 1.5, greedy: 2, kind: 0.5 },
         act: (w, rng, h) => {
-          const n = byId(w, h.ctx)!;
+          const n = byId(w, h.ctx);
+          if (!n) return GONE;
           loyaltyNudge(n, -15);
           nudgeAll(adults(w).filter(isAdventurer), -5);
           if (!chance(rng, 0.3)) return `${n.name}กลับไปที่กิลด์อย่างขุ่นเคือง`;

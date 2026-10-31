@@ -990,3 +990,22 @@ test('an industrial town on the map: mills with smoke, the railway and its train
   await closeCard(page);
   await pageStill(page);
 });
+
+test('the age of electricity on the map: the power station, electric street lamps and a tram; the map still answers', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway','electricity','telegraph','lightbulb','tram']) (w.techs ??= {})[t] = 0;
+     w.works = { ...(w.works ?? {}), powerplant: 0 };
+     w.power = true;
+     w.market.stock.crystal = 50;`,
+  );
+  const kinds = await page.evaluate(() => (window as any).__grimm.scene.children.list.map((o: any) => o.texture?.key).filter(Boolean));
+  for (const k of ['powerplant', 'elamp', 'tram']) expect(kinds).toContain(k);
+  expect(kinds).not.toContain('lamp');
+  await section(page, 'economy');
+  await sub(page, 'industry');
+  await expect(page.locator('#market')).toContainText('มีไฟ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});

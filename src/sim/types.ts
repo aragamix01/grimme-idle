@@ -184,9 +184,9 @@ export interface Parliament {
   sweep?: number; // elections in a row one party has held two thirds of the house
   last?: { day: number; results: { partyId: number; name: string; votes: number; seats: number }[]; runoff?: boolean };
 }
-export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
+export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe' | 'electricity' | 'telegraph' | 'lightbulb' | 'tram';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant';
 
 export interface Dragon {
   name: string;
@@ -267,9 +267,9 @@ export interface Guild {
 
 export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | IndustrialGood;
 // Goods of the steam age: on the shelves only once the town knows steam (see goodsOf in market.ts).
-export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal';
+export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal' | 'appliance';
 // A mill of the steam age (see industry.ts): a company's or the crown's, on one of the plots by the pasture.
-export type MillKind = 'textile' | 'steel' | 'engines' | 'cannery';
+export type MillKind = 'textile' | 'steel' | 'engines' | 'cannery' | 'appliances';
 export interface Mill {
   id: number;
   kind: MillKind;
@@ -666,6 +666,7 @@ export interface WorldState {
   mills?: Mill[]; // the steam age's mills (see industry.ts)
   machinery?: number; // engines at work on the farms, wearing out
   mech?: number; // 0..1: the share of the farms they work, worked out monthly
+  power?: boolean; // the crystal power station had fuel this month: the town has electric light and power
   smog?: number; // 0..1: how thick the mills' coal smoke hangs over the town, worked out monthly
   union?: { name: string; leaderId: number; since: number; raises: number }; // the mill hands' union, and the wage rises it has won
   saga?: Saga; // a great matter running over months (see sagas.ts)

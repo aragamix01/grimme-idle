@@ -52,7 +52,11 @@ export const MILLS: Record<MillKind, MillDef> = {
   steel: { name: 'โรงถลุงเหล็ก', cost: 700, input: { ore: 3, coal: 3 }, output: 'steel', makes: 3, fuel: 0, text: 'หลอมแร่เหล็กกับถ่านหินเป็นเหล็กกล้า' },
   engines: { name: 'โรงจักรกลเวท', cost: 900, input: { steel: 3, crystal: 1 }, output: 'engine', makes: 1, fuel: 1, text: 'ประกอบเครื่องจักรเวทจากเหล็กกล้าและผลึกมานา จอมเวทในเมืองช่วยผนึกพลัง' },
   cannery: { name: 'โรงงานอาหารกระป๋อง', cost: 500, input: { meat: 4 }, output: 'tins', makes: 6, fuel: 1, text: 'บรรจุเนื้อ (หรือข้าวที่ล้นยุ้ง) ลงกระป๋อง เก็บได้นานจนถึงยามอดอยาก' },
+  appliances: { name: 'โรงงานเครื่องใช้ไฟฟ้า', cost: 1000, input: { steel: 2, crystal: 1 }, output: 'appliance', makes: 2, fuel: 0, text: 'ประกอบเตารีด พัดลม และโคมไฟเวทจากเหล็กกล้าและผลึกมานา ต้องมีไฟจากโรงไฟฟ้า' },
 };
+const POWERED = 1.25; // a mill's output with electric motors, while the power station has fuel
+const COMFORT = 3; // loyalty an appliance in the home is worth
+const BUY_ODDS = 0.15; // monthly chance a well-off household buys one
 export const MILL_ORDER = Object.keys(MILLS) as MillKind[];
 
 export const millsOf = (world: WorldState) => world.mills ?? [];
@@ -82,6 +86,7 @@ export function industryDay(world: WorldState, rng: Rng): void {
     work(world, mill);
   }
   mechanise(world);
+  comforts(world, rng);
   smog(world);
   unionise(world);
 }
@@ -161,7 +166,7 @@ export function found(world: WorldState, owner?: Mill['owner'], forced?: MillKin
   const plot = MILL_PLOTS.findIndex((_, i) => !millsOf(world).some((m) => m.plot === i));
   if (plot < 0) return undefined;
   const lvl = levelOf(world);
-  const open = MILL_ORDER.filter((k) => millsOf(world).filter((m) => m.kind === k).length < PER_KIND);
+  const open = MILL_ORDER.filter((k) => millsOf(world).filter((m) => m.kind === k).length < PER_KIND && (k !== 'appliances' || world.power)); // appliances need the power station's current
   const kind = forced ?? open.sort((a, b) => margin(world, b) - margin(world, a)).find((k) => margin(world, k) > 0);
   if (!kind) return undefined;
   const price = Math.round(MILLS[kind].cost * lvl);
@@ -251,7 +256,7 @@ function work(world: WorldState, mill: Mill): void {
     m.till += cost;
     runs++;
   }
-  let made = Math.round(runs * makes * (protectedLabour(world) ? PROTECTED_SHIFT : 1));
+  let made = Math.round(runs * makes * (protectedLabour(world) ? PROTECTED_SHIFT : 1) * (world.power ? POWERED : 1));
   if (mill.kind === 'engines' && runs) made += Math.floor(Math.min(3, adults(world).filter((n) => n.job === 'mage').length) * MAGE_BONUS);
   if (!made) {
     mill.made = 0;
@@ -275,6 +280,20 @@ function quit(n: Npc): void {
 export function orphanedHands(world: WorldState): void {
   const ids = new Set(millsOf(world).map((m) => m.id));
   for (const n of world.npcs) if (n.alive && n.millId !== undefined && !ids.has(n.millId)) quit(n);
+}
+
+// The well-off buy electric comforts for their homes once there are any on the shelves.
+function comforts(world: WorldState, rng: Rng): void {
+  const m = ensureMarket(world);
+  if (!world.power || m.stock.appliance < 1) return;
+  for (const n of adults(world)) {
+    if (m.stock.appliance < 1) break;
+    if (n.gold < m.price.appliance * 3 || !chance(rng, BUY_ODDS)) continue;
+    n.gold -= m.price.appliance;
+    m.till += m.price.appliance;
+    m.stock.appliance -= 1;
+    loyaltyNudge(n, COMFORT);
+  }
 }
 
 // Engines go out to the farms: the better-off farmers buy one each while the farms want them.

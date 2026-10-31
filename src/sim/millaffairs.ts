@@ -15,6 +15,9 @@ import { folkOf } from './villages';
 import type { Def } from './happenings';
 import type { Happening, Mill, Npc, WorldState } from './types';
 
+// What a matter comes to when what it was about is gone by the time it is decided (a house
+// closed, a realm fallen, the adventurer dead in the dungeon).
+const GONE = 'เรื่องนี้จบไปเองก่อนจะได้ตัดสิน เพราะสิ่งที่เป็นต้นเรื่องไม่อยู่แล้ว';
 const adults = (w: WorldState) => w.npcs.filter((n) => n.alive && n.age >= 16 && n.inside === undefined);
 const ofJob = (w: WorldState, job: Npc['job']) => adults(w).filter((n) => n.job === job);
 const ruler = (w: WorldState) => king(w) ?? ofJob(w, 'noble').sort((a, b) => b.age - a.age)[0];
@@ -176,7 +179,8 @@ export const MILL_AFFAIRS = {
         likes: { kind: 2.5, brave: 2, coward: 0.5 },
         can: (w) => spare(w) >= 40 * lvl(w),
         act: (w, rng, h) => {
-          const r = w.regions!.find((x) => x.id === h.ctx)!;
+          const r = w.regions!.find((x) => x.id === h.ctx);
+          if (!r) return GONE;
           w.treasury -= Math.round(40 * lvl(w));
           if (r.village) r.village.loyalty = clamp(r.village.loyalty + 15, 0, 100);
           const lost = chance(rng, 0.6) ? 0 : 1;
@@ -189,7 +193,8 @@ export const MILL_AFFAIRS = {
         label: 'ปิดเหมือง ขุดใหม่ที่อื่น',
         likes: { greedy: 2, coward: 2, kind: 0.3 },
         act: (w, rng, h) => {
-          const r = w.regions!.find((x) => x.id === h.ctx)!;
+          const r = w.regions!.find((x) => x.id === h.ctx);
+          if (!r) return GONE;
           const lost = dieUnder(w, r, int(rng, 1, 3));
           if (r.dev?.mine) r.dev.mine = Math.max(0, r.dev.mine - 1);
           if (r.village) r.village.loyalty = clamp(r.village.loyalty - 20, 0, 100);

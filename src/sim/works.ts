@@ -41,9 +41,10 @@ export const WORKS: Record<Work, WorkDef> = {
   factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น หากจอมมารยึดเมืองจะผลิตอาวุธให้ทัพปีศาจแทน', art: 'factory', plot: PLOTS.factory },
   station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: PLOTS.station },
   boulevard: { name: 'ถนนวงแหวนแทนกำแพงเมือง', cost: 900, days: 120, text: 'รื้อกำแพงเก่าสร้างถนนกว้างรอบเมือง คนย้ายเข้าเมืองมากขึ้นและชาวเมืองภูมิใจ แต่หอธนูที่ประตูเมืองหายไปด้วย', art: 'rubble' },
+  powerplant: { name: 'โรงไฟฟ้าผลึก', cost: 1400, days: 120, text: 'เผาผลึกมานา (หรือถ่านหิน) เป็นกระแสไฟ โรงงานมีไฟเดินเครื่องได้มากขึ้น 25% ไฟถนนสว่างทั้งคืน และเปิดทางให้หลอดไฟกับรถราง', art: 'powerplant', plot: PLOTS.powerplant },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'boulevard', 'palace', 'monument'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'boulevard', 'powerplant', 'palace', 'monument'];
 const FACTORY_GEAR = 4; // arms the factory turns out each month
 const FACTORY_GOLD = 80; // and what its other goods fetch for the crown
 const STATION_VISITORS = 0.3; // monthly chance a train brings a newcomer
@@ -96,6 +97,8 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
     case 'boulevard':
       // A town of mills and railways outgrows its walls; a brave ruler is slow to pull down the defences.
       return known(world, 'steam') && founded(world, 'walls') && (world.mills?.length ?? 0) >= 2 ? 1 + (ruler.traits.includes('brave') ? 0 : 1) : 0;
+    case 'powerplant':
+      return known(world, 'electricity') ? 3 : 0;
     case 'monument':
       return 0.5; // after everything the town needs; a vain ruler is the same as anyone here
     case 'palace':
@@ -121,6 +124,31 @@ function industry(world: WorldState, rng: Rng): void {
   }
   if (built(world, 'station') && !lord && chance(rng, STATION_VISITORS)) traveller(world, rng);
   if (built(world, 'boulevard') && !lord && chance(rng, STATION_VISITORS)) traveller(world, rng); // an open town draws people in
+  power(world);
+  if (world.power && known(world, 'tram') && !lord && chance(rng, STATION_VISITORS)) traveller(world, rng); // the trams make the town a place to live
+  // The telegraph keeps the courts talking: cool neighbours we are at peace with warm a little each month.
+  if (known(world, 'telegraph')) for (const r of world.realms ?? []) if (!r.fallen && !r.war && r.relation < 40) r.relation = Math.min(100, r.relation + 1);
+}
+
+// The crystal power station burns its fuel for the month, or falls dark.
+const PLANT_CRYSTAL = 2; // crystal a month it burns...
+const PLANT_COAL = 6; // ...or coal, if the crystal runs out
+function power(world: WorldState): void {
+  if (!built(world, 'powerplant') || world.demon?.stage === 'occupied') {
+    world.power = false;
+    return;
+  }
+  const m = ensureMarket(world);
+  const was = !!world.power;
+  if (m.stock.crystal >= PLANT_CRYSTAL) m.stock.crystal -= PLANT_CRYSTAL;
+  else if (m.stock.coal >= PLANT_COAL) m.stock.coal -= PLANT_COAL;
+  else {
+    world.power = false;
+    if (was) log(world, 'world', 'โรงไฟฟ้าผลึกเชื้อเพลิงหมด ไฟดับทั้งเมือง โรงงานกลับไปใช้แรงคน');
+    return;
+  }
+  world.power = true;
+  if (!was) log(world, 'world', 'โรงไฟฟ้าผลึกจ่ายไฟแล้ว! ไฟฟ้าสว่างไปทั่วเมือง โรงงานเปลี่ยนไปใช้มอเตอร์ไฟฟ้า');
 }
 
 // A work is built of timber and iron as well as gold: bought off the market's shelves at today's

@@ -502,7 +502,7 @@ document.addEventListener('visibilitychange', () => document.hidden && send({ ty
 addEventListener('pagehide', () => send({ type: 'save' }));
 
 // On the dev server, ?start=town begins a new world as a whole town (the e2e tests start from one),
-// and ?start=industry as one that already knows every discovery up to the railway.
+// and ?start=industry as one that already knows every discovery (the age of electricity).
 const startAs = import.meta.env.DEV ? new URLSearchParams(location.search).get('start') : null;
 send({ type: 'start', tickMs: TICK_MS, whole: startAs === 'town', industry: startAs === 'industry' });
 

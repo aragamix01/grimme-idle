@@ -130,7 +130,7 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 };
 
 // Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
-export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 } } as const;
+export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 }, powerplant: { x: 22, y: 13 } } as const;
 
 // The steam age's mill plots on the pasture south of the walls (3x2 tiles each, top-left), taken
 // in order as companies and the crown build (see industry.ts). The railway runs along row
@@ -185,7 +185,7 @@ export function townLayout(view: TownView): Layout {
   const { dungeons } = view;
   const rev = view.buildRev ?? 0;
   // The steam age changes the town without touching its homes: mills, the railway, the lamps, the boulevard.
-  const era = `${view.mills?.length ?? 0}|${view.works?.station !== undefined}|${view.techs?.steam !== undefined}|${view.works?.boulevard !== undefined}`;
+  const era = `${view.mills?.length ?? 0}|${view.works?.station !== undefined}|${view.techs?.steam !== undefined}|${view.works?.boulevard !== undefined}|${view.works?.powerplant !== undefined}|${view.techs?.electricity !== undefined}`;
   if (cache?.ref === dungeons && cache.rev === rev && cache.era === era) return cache.layout; // hot path: asked many times a tick
   const homes = [...(view.homes ?? [])].sort((a, b) => a.lot - b.lot);
   const lots = homes.map((h) => h.lot);
@@ -194,8 +194,9 @@ export function townLayout(view: TownView): Layout {
   const mills = (view.mills ?? []).map((m) => m.plot);
   const rail = view.works?.station !== undefined;
   const lamps = view.techs?.steam !== undefined;
+  const electric = view.works?.powerplant !== undefined && view.techs?.electricity !== undefined;
   const boulevard = view.works?.boulevard !== undefined;
-  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}|${mills.join(',')}|${rail}|${lamps}|${boulevard}`;
+  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}|${mills.join(',')}|${rail}|${lamps}|${boulevard}|${electric}|${view.techs?.electricity !== undefined}`;
   if (cache?.key === key) {
     cache.ref = dungeons;
     cache.rev = rev;
@@ -294,10 +295,15 @@ export function townLayout(view: TownView): Layout {
       setGround(x, RAIL_Y, 'road');
       props.push({ key: 'rail', x, y: RAIL_Y, anchor: 'top' });
     }
-  if (lamps) for (const l of LAMPS) if (!isBlocked(l.x, l.y) && ground[l.y * MAP_W + l.x] === 'road') props.push({ key: 'lamp', x: l.x, y: l.y, anchor: 'bottom' }); // on the street's edge, nobody's way
+  if (lamps) for (const l of LAMPS) if (!isBlocked(l.x, l.y) && ground[l.y * MAP_W + l.x] === 'road') props.push({ key: electric ? 'elamp' : 'lamp', x: l.x, y: l.y, anchor: 'bottom' }); // on the street's edge, nobody's way; electric once the power station runs
 
   // The royal plots are fenced off whether or not anything stands on them yet.
-  for (const p of Object.values(PLOTS)) for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 1; x++) block(x, y);
+  // (The power station's plot is only marked out once the town knows electricity: before that it is
+  // the manor's orchard.)
+  for (const [k, p] of Object.entries(PLOTS)) {
+    if (k === 'powerplant' && view.techs?.electricity === undefined) continue;
+    for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 1; x++) block(x, y);
+  }
 
   // Dungeons: their mound blocks, and a trail leads from the east gate to each door.
   const clearing = new Set<string>();
