@@ -11,10 +11,27 @@ const CHRONICLE_LIMIT = 500;
 export { RULER_TH } from './lexicon';
 export const councilName = (world: WorldState) => ((world.regime ?? 'monarchy') === 'monarchy' && world.charter?.parliament ? 'รัฐสภา' : COUNCIL_TH[world.regime ?? 'monarchy']);
 
-export function log(world: WorldState, kind: EventKind, text: string, npcId?: number): void {
-  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text: say(world, text, true), npcId });
-  if (world.chronicle.length > CHRONICLE_LIMIT) world.chronicle.shift();
+// How loud a line is. The town's daily round (a caravan out, two friends, a wolf in the fields)
+// is folded away in the town's chronicle and kept for the market, the guild and each life's own
+// story; a headline (a war, a new regime, a dragon) is marked and announced over the map.
+const MINOR =
+  /นำกองคาราวานไปค้าขาย|กลายเป็นเพื่อนสนิท|ล้นตลาด ราคาตก|ราคา.+พุ่งเป็น|ส่งทูตพร้อมบรรณาการ|ประกาศจ้าง|เลื่อนเป็นนักผจญภัยแรงก์ [FED]|มาถึงเมือง|ฤดูเก็บเกี่ยวมาถึง|ฤดูหนาวมาเยือน|พ้นโทษออกจากคุก|สร้างเสร็จ มีห้องให้|จ้างช่าง(ต่อเติม|สร้างบ้าน)|ต้อนรับลูกคนใหม่|\) ออกเดินทาง:|ทำเควสแรงก์ [FE] สำเร็จ|ล้มเหลวในเควส|ขึ้นเลเวล|แจกผ้าห่ม|แต่งงานกันที่โบสถ์|ขโมยทอง|ตั้งค่าหัว|ถูกจับตัวขึ้นศาล|มีความผิดฐานลักทรัพย์|ส่งของขวัญมาถวาย|เจอหมาป่า/;
+const MAJOR =
+  /สาธารณรัฐ(ประชาชน)?ถือกำเนิด|สถาปนาสาธารณรัฐประชาชน|ตั้งคณะทหาร|ปกครองเมืองในนามของเทพเจ้า|รวมกันขึ้นปกครองเมือง|สละราชสมบัติ|ล้มการปกครองเดิม|ก้าวเข้าสู่สมัย|ลุกฮือ|บุกวัง|ปราบจอมมาร|ยึดครองอาณาจักร|เมืองแตก|ตื่นจากนิทรา|สังหารมังกร|มังกร.+บินมาเกาะ|ประกาศสงคราม|สงครามจบลง|ขึ้นครองบัลลังก์|ศึกชิงบัลลังก์|ปลงพระชนม์|ตื่นขึ้นเป็นผู้กล้า|แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่!|ภัยแล้งแผ่ไป|การเลือกตั้งทั่วไปครั้งที่|รัฐบาลแพ้มติ|พระราชทานรัฐธรรมนูญ|นำทหารยึดกองบัญชาการซ้อน|ประกาศภาวะฉุกเฉิน/;
+export type Loudness = 'minor' | 'plain' | 'major';
+export const loudness = (text: string): Loudness | undefined => (MAJOR.test(text) ? 'major' : MINOR.test(text) ? 'minor' : undefined);
+
+export function log(world: WorldState, kind: EventKind, text: string, npcId?: number, loud?: Loudness): void {
+  const said = say(world, text, true);
+  const tier = loud === 'plain' ? undefined : (loud ?? loudness(said));
+  world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text: said, npcId, ...(tier ? { [tier]: true } : {}) });
+  if (world.chronicle.length <= CHRONICLE_LIMIT) return;
+  // Routine news makes room first, so a year's headlines outlast its caravans.
+  const i = world.chronicle.findIndex((e, j) => e.minor || j > CHRONICLE_LIMIT / 5);
+  world.chronicle.splice(world.chronicle[i]?.minor ? i : 0, 1);
 }
+// A headline: shorthand for log(..., 'major').
+export const headline = (world: WorldState, kind: EventKind, text: string, npcId?: number) => log(world, kind, text, npcId, 'major');
 
 const ESTATE_FREE = 200; // an estate this small passes whole
 const ESTATE_DUTY = 0.3; // of the rest

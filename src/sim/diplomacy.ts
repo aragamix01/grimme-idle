@@ -73,7 +73,8 @@ function theirMove(world: WorldState, k: Npc, r: Realm, rng: Rng): void {
       log(world, 'politics', `${r.name}เรียกเครื่องบรรณาการ กษัตริย์${k.name}ยอมจ่าย ${amount} ทองเพื่อรักษาสันติ`);
     } else {
       nudge(r, -20);
-      log(world, 'politics', `${r.name}เรียกเครื่องบรรณาการ แต่กษัตริย์${k.name}ปฏิเสธอย่างไม่ไยดี`);
+      r.spurned = world.day; // they will come for it (see maybeWar in war.ts)
+      log(world, 'politics', `${r.name}เรียกเครื่องบรรณาการ แต่กษัตริย์${k.name}ปฏิเสธอย่างไม่ไยดี ${r.ruler.name}ประกาศว่าจะมาเอาเอง`);
     }
   }
 }
@@ -112,6 +113,7 @@ function ourMove(world: WorldState, k: Npc, realms: Realm[], rng: Rng): void {
   if ((t.includes('vengeful') || t.includes('greedy')) && disliked.length && chance(rng, 0.1)) {
     const r = pick(rng, disliked);
     nudge(r, -10);
+    if (r.ruler.traits.includes('vengeful') || r.ruler.traits.includes('brave')) r.spurned = world.day; // a proud court does not forget an insult
     log(world, 'politics', `กษัตริย์${k.name}ดูหมิ่นทูตแห่ง${r.name}ต่อหน้าราชสำนัก`);
     return;
   }

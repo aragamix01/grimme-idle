@@ -243,6 +243,18 @@ html, body { overflow: hidden; overflow: clip; } /* clip: not even a script's sc
 .entry p { margin: 4px 0 0; min-width: 0; font-size: 14px; line-height: 22px; }
 .entry time { margin-top: 6px; font: 500 13px var(--font-num); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .entry--danger time { color: var(--danger); }
+.entry--major { background: #fff1c2; box-shadow: inset 4px 0 0 var(--gold); }
+.entry__tag, .headline b { display: inline-block; margin-right: 6px; padding: 0 6px; background: var(--ink); color: var(--paper); font-size: 12px; line-height: 18px; vertical-align: 1px; }
+.entry--fold { display: block; padding: 6px 0; }
+.feed-fold { width: 100%; min-height: 36px; padding: 4px 10px; border: 2px dashed var(--outline); background: transparent; color: var(--ink-muted); font-size: 13px; cursor: pointer; }
+.urgent-log__row--major { background: #fff1c2; }
+/* A headline, over the top of the map for a few seconds: it never takes a tap. */
+.headline {
+  position: absolute; left: 8px; right: 60px; top: 8px; z-index: 4; margin: 0; pointer-events: none;
+  padding: 4px 10px; background: var(--paper); border: 2px solid var(--outline); box-shadow: 3px 3px 0 rgb(59 36 22 / 0.35);
+  font-size: 13px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.headline--in { animation: pop 160ms steps(3) both; }
 
 /* ---- shared controls ---- */
 button { font: inherit; color: inherit; }

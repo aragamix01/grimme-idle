@@ -28,9 +28,13 @@ export function addTie(world: WorldState, a: Npc, b: Npc, delta: number): void {
   const before = world.ties[k] ?? 0;
   const after = clamp(before + delta, -100, 100);
   world.ties[k] = after;
-  if (before < BEST_FRIEND && after >= BEST_FRIEND) log(world, 'bond', `${a.name} กับ${b.name} กลายเป็นเพื่อนสนิท`, a.id);
+  // Every pair of friends is the town's daily round; the friendships of the great are news.
+  if (before < BEST_FRIEND && after >= BEST_FRIEND) log(world, 'bond', `${a.name} กับ${b.name} กลายเป็นเพื่อนสนิท`, a.id, notable(world, a) || notable(world, b) ? 'plain' : 'minor');
   if (before > ENEMY && after <= ENEMY) log(world, 'bond', `${a.name} กับ${b.name} กลายเป็นศัตรูกัน`, a.id);
 }
+
+// Someone whose friends and feuds the town talks about.
+const notable = (world: WorldState, n: Npc) => n.id === world.kingId || n.hero || ['king', 'noble', 'priest', 'judge'].includes(n.job) || (world.parties ?? []).some((p) => p.leaderId === n.id) || world.movement?.leaderId === n.id;
 
 export function tieLabel(v: number): string {
   if (v >= BEST_FRIEND) return 'เพื่อนสนิท';
