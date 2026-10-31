@@ -244,6 +244,7 @@ initFaith({ onSelectNpc: select, onTenet: (tenet) => send({ type: 'command', com
 initKingdom({ onSelectNpc: select, onLaw: () => setSub('law'), onReveal: () => send({ type: 'command', command: { type: 'reveal' } }),
   onHero: () => send({ type: 'command', command: { type: 'hero' } }),
   onWar: (act) => send({ type: 'command', command: { type: 'war', act } }),
+  onMovement: (act) => send({ type: 'command', command: { type: 'movement', act } }),
 });
 initPeople({
   onSelectNpc: select,

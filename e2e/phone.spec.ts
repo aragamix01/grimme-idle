@@ -673,6 +673,55 @@ test('the church and a sect on the religion tab: the god embraces the sect, and 
   await pageStill(page);
 });
 
+test('a movement on the power tab: its ladder, the god hearten the crowd, a member\'s card names it; the map still answers', async ({ page }) => {
+  // Seed a movement already out on the street: stop the sim, write it into the save, and reload.
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const folk = w.npcs.filter((n: any) => n.alive && n.age >= 16 && !['king', 'noble', 'soldier'].includes(n.job) && !n.knight).slice(0, 14);
+    for (const n of folk) n.marcher = true;
+    w.movement = { name: 'กลุ่มต้านภาษี', cause: 'tax', founded: w.day, leaderId: folk[0].id, stage: 2, anger: 50, martyrs: 0, members: folk.length, defectors: 0, rally: w.day + 30 };
+    w.faith = 200;
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.movement);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  // The urgent tab carries it, and takes us to it.
+  await section(page, 'town');
+  await sub(page, 'urgent');
+  const urgent = page.locator('#urgent').getByText('กลุ่มต้านภาษี · เดินขบวน');
+  await expect(urgent).toBeVisible();
+  await section(page, 'power');
+  await sub(page, 'overview');
+  const mv = page.locator('#kingdom .movement__card');
+  await expect(mv).toContainText('กลุ่มต้านภาษี');
+  await expect(mv).toContainText('เรียกร้องลดภาษี');
+  await expect(mv.locator('.movement__step--now')).toHaveText('เดินขบวน');
+  const anger = await page.evaluate(() => (window as any).__grimm.scene.world.movement.anger);
+  await mv.locator('[data-act="stir"]').tap();
+  await page.waitForFunction((a) => (window as any).__grimm.scene.world.movement?.anger > a, anger);
+  expect(await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text)).toContain('แสงศักดิ์สิทธิ์');
+  // The leader's chip opens their card, which names the movement.
+  await mv.locator('.quest__party .chip--button').first().tap();
+  await expect(card(page).locator('.chip--danger')).toContainText('แกนนำกลุ่มต้านภาษี');
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('a missionary goes to a neighbouring realm; the realm card tells its faith; the map still answers', async ({ page }) => {
   await section(page, 'power');
   await sub(page, 'faith');

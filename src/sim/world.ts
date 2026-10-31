@@ -37,6 +37,9 @@ import { brew, draughts, engineer, pressDay, study } from './learning';
 import { TECHS, TECH_ORDER, researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
+import { reignDay } from './succession';
+import { regimeEventsDay } from './regimeEvents';
+import { movementCost, movementsDay, rallying, sway as swayCrowd } from './movements';
 import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
 import { amendmentsDay } from './amend';
@@ -194,6 +197,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   regimeDay(world, rng);
   amendmentsDay(world, rng);
   rule(world, rng);
+  movementsDay(world, rng);
+  reignDay(world, rng);
+  regimeEventsDay(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
   for (const npc of world.npcs) {
@@ -386,8 +392,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     x: clamp(s.x + int(rng, -3, 3), 0, world.width - 1),
     y: clamp(s.y + int(rng, -1, 3), 0, world.height - 1),
   });
+  // A member of a movement out on the street spends their free days in the crowd before the palace.
   const idle = () =>
-    plan('idle', near(pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild, ...PLACES.hangouts])), int(rng, 3, 8));
+    rallying(world) && npc.marcher && chance(rng, 0.6) ? plan('protest', near(PLACES.castle), int(rng, 3, 6)) : plan('idle', near(pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild, ...PLACES.hangouts])), int(rng, 3, 8));
   considerTrade(world, npc, rng);
   // An empty belly loosens morals; thieves get bolder, and the shady start pilfering.
   const hungry = (npc.hunger ?? 0) >= 2;
@@ -532,6 +539,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
       if (--p.days <= 0) npc.plan = undefined;
       return;
+    case 'protest':
     case 'idle':
       // Mill about near the spot, then pick something new.
       if (--p.days <= 0) npc.plan = undefined;
@@ -669,6 +677,11 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'mission') {
     const cost = missionCost(world);
     if (world.faith >= cost && sendMission(world, cmd.realmId)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'movement') {
+    const cost = movementCost(world);
+    if (world.faith >= cost && swayCrowd(world, cmd.act)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'sect') {

@@ -15,6 +15,7 @@ import { frontier } from './lands';
 import { canSend, folkOf, labour } from './villages';
 import { conquestWar, weakest } from './war';
 import { CEILING, TARIFF, TARIFF_ON_IMPORTS, breadIsDear, embargo, embargoTarget } from './commerce';
+import { restless as streetRestless } from './movements';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -81,7 +82,7 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
   // Dear bread: a kind king, or one losing the people, has the treasury pay half of every meal.
   subsidy: {
     wants: (world, k, rng) =>
-      !has(k, 'greedy') && budget(world) >= 300 && (priceRatio(world, 'grain') >= 1.8 || world.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2).length >= 5) && (has(k, 'kind') || (world.crown?.unrest ?? 0) > 0 || chance(rng, 0.5)),
+      !has(k, 'greedy') && budget(world) >= 300 && (priceRatio(world, 'grain') >= 1.8 || world.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2).length >= 5) && (has(k, 'kind') || streetRestless(world) || chance(rng, 0.5)),
     issue: () => 'ท้องพระคลังจะช่วยออกค่าอาหารครึ่งหนึ่ง 60 วัน',
   },
   // A dungeon close to spilling over: gold for every adventurer who goes down and comes back.
@@ -96,7 +97,7 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
   },
   // Grumbling streets and a full treasury: let them keep their coin for a while.
   taxfree: {
-    wants: (world, k) => budget(world) >= 800 && approvalOf(world) < 40 && (has(k, 'kind') || (world.crown?.unrest ?? 0) > 0),
+    wants: (world, k) => budget(world) >= 800 && approvalOf(world) < 40 && (has(k, 'kind') || streetRestless(world)),
     issue: () => 'ชาวเมืองไม่ต้องจ่ายภาษี 60 วัน',
   },
   // War at the gates or the demon lord awake, and too few under arms: press commoners into service.
@@ -155,7 +156,7 @@ const RULES: Record<Decree, { wants: (world: WorldState, k: Npc, rng: Rng) => bo
   },
   // Bread too dear for the poor: a kind ruler, or one afraid of the street, caps its price.
   ceiling: {
-    wants: (world, k) => charterOf(world).economy !== 'free' && breadIsDear(world) && (has(k, 'kind') || world.regime === 'junta' || (world.crown?.unrest ?? 0) > 0),
+    wants: (world, k) => charterOf(world).economy !== 'free' && breadIsDear(world) && (has(k, 'kind') || world.regime === 'junta' || streetRestless(world)),
     issue: () => `ราคาข้าวต้องไม่เกิน ${CEILING} เท่าของราคาปกติ 60 วัน`,
   },
   // A greedy ruler with an empty vault thins the coin rather than tighten the belt.
@@ -232,4 +233,14 @@ export function decreesDay(world: WorldState, rng: Rng): void {
   (world.decrees ??= []).push({ kind: next, since: world.day, until: world.day + DECREES[next].days });
   (world.decreeAt ??= {})[next] = world.day;
   log(world, 'politics', `กษัตริย์${k.name}ออกพระราชโองการ${DECREES[next].name}: ${what}`, k.id);
+}
+
+// A decree the street forced on the ruler: issued at once, past the council, since the crowd is at the gate.
+export function grant(world: WorldState, d: Decree, k: Npc, rng: Rng, by: string): string | undefined {
+  if (decreeActive(world, d)) return undefined;
+  if (d === 'ceiling' && charterOf(world).economy === 'free') return undefined;
+  const what = RULES[d].issue(world, k, rng);
+  (world.decrees ??= []).push({ kind: d, since: world.day, until: world.day + DECREES[d].days });
+  (world.decreeAt ??= {})[d] = world.day;
+  return `ออกพระราชโองการ${DECREES[d].name}ตามที่${by}เรียกร้อง (${what})`;
 }

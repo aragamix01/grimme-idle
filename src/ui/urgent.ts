@@ -1,4 +1,4 @@
-import { approval, isAvatar, weatherOf, whisperCost, type WorldState } from '../sim';
+import { CAUSE_TH, STAGE_TH, approval, isAvatar, weatherOf, whisperCost, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -62,6 +62,16 @@ function items(world: WorldState): Item[] {
           : h.options.map((o) => ({ label: `กระซิบ: ${o.label} (${cost})`, gold: world.faith >= cost, run: () => handlers.onWhisper(o.key) })),
     });
   }
+  const mv = world.movement;
+  if (mv && mv.stage >= 1)
+    out.push({
+      key: `movement:${mv.founded}`,
+      tone: mv.stage >= 3 ? 'danger' : 'plain',
+      icon: 'crown',
+      title: `${mv.name} · ${STAGE_TH[mv.stage]}`,
+      text: `ชาวเมือง ${mv.members} คนเรียกร้อง${CAUSE_TH[mv.cause].demand} · ความโกรธ ${Math.round(mv.anger)}`,
+      acts: [{ label: 'ไปดู', run: () => handlers.onGo('overview') }],
+    });
   const war = world.war;
   const foe = war && world.realms?.find((r) => r.id === war.realmId);
   if (war && foe)

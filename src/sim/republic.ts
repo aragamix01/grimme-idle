@@ -136,6 +136,7 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
     votes.set(best.id, votes.get(best.id)! + 1);
     backers.get(best.id)!.push(v);
   }
+  rig(world, field, votes, rng);
   const ranked = [...field].sort((a, b) => votes.get(b.id)! - votes.get(a.id)! || standing(world, b) - standing(world, a));
   const winner = ranked[0];
   const kept = winner.id === world.kingId;
@@ -152,9 +153,23 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
   return winner;
 }
 
+// A grasping incumbent losing the count has the ballot boxes stuffed. Where there is a press, the
+// broadsheets may find out, and the street hears of it.
+function rig(world: WorldState, field: Npc[], votes: Map<number, number>, rng: Rng): void {
+  const sitting = field.find((c) => c.id === world.kingId);
+  if (!sitting || sitting.morality >= 0 || !(sitting.traits.includes('greedy') || sitting.traits.includes('vengeful'))) return;
+  const best = Math.max(...field.filter((c) => c !== sitting).map((c) => votes.get(c.id)!), 0);
+  if (votes.get(sitting.id)! > best || !chance(rng, 0.4)) return;
+  votes.set(sitting.id, best + 1 + Math.floor(next(rng) * 4));
+  if (!known(world, 'printing') || !chance(rng, charterOf(world).freePress ? 0.8 : 0.4)) return;
+  ensureCrown(world).unrest += 3;
+  for (const v of world.npcs) if (v.alive && v.age >= 16 && literate(v)) loyaltyNudge(v, -8);
+  log(world, 'politics', `ใบปลิวทั่วเมืองเปิดโปงว่า${sitting.name}สั่งยัดหีบบัตรเลือกตั้ง ชาวเมืองโกรธแค้น`, sitting.id);
+}
+
 // The crown falls to a town that reads: instead of a new king, the people proclaim a republic.
-export function proclaimRepublic(world: WorldState, leader: Npc, rng: Rng): void {
-  log(world, 'politics', `${leader.name}ประกาศว่าเมืองนี้จะไม่มีกษัตริย์อีกต่อไป ชาวเมืองจะเลือกผู้นำของตนเอง สาธารณรัฐถือกำเนิดขึ้น!`, leader.id);
+export function proclaimRepublic(world: WorldState, leader: Npc, rng: Rng, text = `${leader.name}ประกาศว่าเมืองนี้จะไม่มีกษัตริย์อีกต่อไป ชาวเมืองจะเลือกผู้นำของตนเอง สาธารณรัฐถือกำเนิดขึ้น!`): void {
+  log(world, 'politics', text, leader.id);
   world.regime = 'republic';
   world.republic = { since: world.day, elections: 0, nextVote: 0 };
   writeCharter(world, 'สาธารณรัฐถือกำเนิด');
@@ -176,9 +191,5 @@ export function republicDay(world: WorldState, rng: Rng): void {
   const leader = world.npcs.find((n) => n.id === world.kingId && n.alive && n.job === 'king');
   if (!leader) election(world, rng, 'ผู้นำคนเดิมจากไป');
   else if (charterOf(world).emergency) r.nextVote = Math.max(r.nextVote, world.day + 1); // no votes under emergency powers
-  else if (world.day >= r.nextVote) election(world, rng, 'ครบวาระ');
-  else if ((world.crown?.unrest ?? 0) >= 2 && chance(rng, 0.5)) {
-    world.crown!.unrest = 0;
-    election(world, rng, 'ชาวเมืองไม่พอใจ เรียกร้องให้เลือกตั้งใหม่');
-  }
+  else if (world.day >= r.nextVote) election(world, rng, 'ครบวาระ'); // an angry street calls early votes through its movement (movements.ts)
 }

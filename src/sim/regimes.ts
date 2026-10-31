@@ -65,7 +65,7 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   const general = successor(world, 'junta');
   const ambitious = !!general && general.traits.some((t) => t === 'greedy' || t === 'vengeful' || t === 'brave');
   const grievance = soldiers.some((n) => (n.unpaid ?? 0) > 0) || approval(world) < 35;
-  const settled = world.day - (world.crown?.since ?? 0) > 365;
+  const settled = world.day - (world.crown?.since ?? 0) > 365 && adults(world).length >= 25; // a camp's chief has no army to fear
   const sour = grievance && soldiers.length >= 6 && avgLoyalty(soldiers) < JUNTA_LOYALTY && crownPower(world).total < 60 && chance(rng, 0.2);
   const bold = shamed && ambitious && soldiers.length >= 4 && chance(rng, 0.15);
   if (general && r !== 'junta' && settled && (sour || bold)) {
@@ -134,7 +134,7 @@ export function ambition(world: WorldState, n: Npc, rng: Rng): boolean {
       : (n.job === 'merchant' || n.job === 'noble') && n.gold >= 150
         ? ['oligarchy', n.gold / 1500, `${n.name}ตื่นจากฝันแล้วทุ่มทองซื้อตัวขุนนางและทหาร หมายชิงอำนาจ`, 'ซื้ออำนาจด้วยทองคำ']
         : n.job === 'priest'
-          ? ['theocracy', world.faith / 2000, `${n.name}ตื่นจากฝันแล้วประกาศว่าเทพเจ้าเลือกตนให้ปกครอง เรียกผู้ศรัทธาลุกขึ้น`, 'ได้รับเลือกจากเทพเจ้า']
+          ? ['theocracy', churchOf(world).influence / 200, `${n.name}ตื่นจากฝันแล้วประกาศว่าเทพเจ้าเลือกตนให้ปกครอง เรียกผู้ศรัทธาลุกขึ้น`, 'ได้รับเลือกจากเทพเจ้า']
           : literate(n) && n.morality > 0
             ? ['republic', literacy(world) * 0.3, `${n.name}ตื่นจากฝันแล้วเขียนใบปลิวปลุกระดมให้โค่นผู้ปกครอง ตั้งสาธารณรัฐ`, 'ปฏิวัติ']
             : ['monarchy', 0, `${n.name}ตื่นจากฝันว่าตนเกิดมาเพื่อครองบัลลังก์ ปลุกคนยากจนลุกฮือ`, 'ลุกฮือโค่นราชบัลลังก์'];

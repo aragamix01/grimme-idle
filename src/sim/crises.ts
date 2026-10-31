@@ -9,9 +9,9 @@ import { loyaltyOf } from './politics';
 import { king } from './society';
 import { inequality } from './commerce';
 import { levelOf } from './market';
+import { rally } from './movements';
 import type { WorldState } from './types';
 
-const STRIKE_DAYS = 30;
 const DEADLOCK_DAYS = 120;
 const WORKERS = ['farmer', 'herder', 'hunter', 'blacksmith'] as const;
 const STRIKE_HOME = 0.7; // an assassin's chance against an unguarded ruler
@@ -33,30 +33,16 @@ export function rulerScandal(world: WorldState): boolean {
   return true;
 }
 
-// The workers down tools over high taxes or a few growing fat: the fields half-tended for a month.
+// The workers down tools over high taxes or a few growing fat: a union forms already on strike,
+// and the ruler must answer it like any other movement (see movements.ts).
 export function strike(world: WorldState, rng: Rng): boolean {
   const ruler = king(world);
   const rich = adults(world).sort((a, b) => b.gold - a.gold)[0];
-  const grievance = world.crown?.tax === 'high' || (rich?.gold ?? 0) >= 500 * levelOf(world) || inequality(world) > 0.75; // a few holding nearly everything
-  const workers = adults(world).filter((n) => (WORKERS as readonly string[]).includes(n.job));
-  if (!ruler || !grievance || workers.length < 8) return false;
-  world.strike = world.day + STRIKE_DAYS;
-  const leader = pick(rng, workers);
-  log(world, 'politics', `${leader.name}นำคนงาน ${workers.length} คนนัดหยุดงานประท้วง${world.crown?.tax === 'high' ? 'ภาษีที่สูงเกินไป' : 'ความเหลื่อมล้ำ'} ทุ่งนาถูกทิ้งร้างครึ่งหนึ่ง`, leader.id);
-  // A kind ruler pays up; a hard one sends the soldiers.
-  if (ruler.traits.includes('kind') && world.treasury >= workers.length * 5) {
-    world.treasury -= workers.length * 5;
-    for (const n of workers) {
-      n.gold += 5;
-      loyaltyNudge(n, 8);
-    }
-    world.strike = world.day + 7;
-    log(world, 'politics', `กษัตริย์${ruler.name}ยอมเจรจา แจกค่าแรงชดเชยคนละ 5 ทอง คนงานกลับไปทำงาน`, ruler.id);
-  } else if (ruler.traits.includes('greedy') || ruler.traits.includes('vengeful')) {
-    for (const n of workers) loyaltyNudge(n, -12);
-    if (living(world, 'soldier').length && chance(rng, 0.5)) kill(world, leader, 'ถูกทหารจับกุมระหว่างสลายการชุมนุม และไม่ได้กลับมาอีกเลย');
-  }
-  return true;
+  const taxed = world.crown?.tax === 'high';
+  const grievance = taxed || (rich?.gold ?? 0) >= 500 * levelOf(world) || inequality(world) > 0.75; // a few holding nearly everything
+  const workers = adults(world).filter((n) => (WORKERS as readonly string[]).includes(n.job) && n.job !== 'king' && n.inside === undefined);
+  if (!ruler || !grievance || workers.length < 8 || world.movement) return false;
+  return rally(world, taxed ? 'tax' : 'wealth', workers, pick(rng, workers), 3, rng);
 }
 
 // Someone who hates the ruler tries for their life; the guard is not always there.

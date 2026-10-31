@@ -1,4 +1,4 @@
-import { CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -10,6 +10,7 @@ interface Handlers {
   onHero: () => void;
   onWar: (act: 'bless' | 'storm' | 'peace') => void;
   onLaw: () => void; // to the full list of decrees
+  onMovement: (act: 'stir' | 'calm') => void;
 }
 let handlers: Handlers;
 let lastKey = '';
@@ -75,6 +76,8 @@ export function renderKingdom(world: WorldState): void {
     Math.floor((world.knowledge ?? 0) / 5),
     world.dragon && [world.dragon.hp, world.dragon.hoard, world.dragon.nextStrike],
     bestHero(world)?.id,
+    world.movement && { ...world.movement, anger: Math.round(world.movement.anger / 5) },
+    Math.floor(world.faith) >= movementCost(world),
   ]);
   if (key === lastKey) return;
   lastKey = key;
@@ -104,6 +107,7 @@ export function renderKingdom(world: WorldState): void {
         ...(world.golden ? [el('span', { className: 'chip chip--gold', title: 'ยุครุ่งเรืองที่ยาวนานมักจบด้วยปัญหา: ราชสำนักโลภ โรคระบาด หรือมังกร' }, icon('star', 16), `ยุครุ่งเรือง ${world.golden} เดือน · เสี่ยงเกิดเรื่อง ${Math.round(troubleChance(world.golden) * 100)}%`)] : []),
       ),
     ),
+    g('overview', movementSection(world)),
     g('overview', activeDecrees(world)),
     g('overview', charterGrid(world)),
     g('council', councilSection(world)),
@@ -565,6 +569,53 @@ function personChipPlain(n: Npc): HTMLElement {
 }
 
 // The god sees what the town can't: the cult and every one of its members.
+// The people banded against the ruler: what they want, how far they have gone, and the god's two
+// ways to touch the crowd. With no movement, what the discontented grumble about most.
+function movementSection(world: WorldState): HTMLElement {
+  const mv = world.movement;
+  if (!mv) {
+    const angry = world.npcs.filter((n) => n.alive && n.age >= 16 && n.job !== 'king' && loyaltyOf(n) < 40);
+    const tally = new Map<keyof typeof CAUSE_TH, number>();
+    for (const n of angry) for (const [c, v] of Object.entries(grievances(world, n)) as [keyof typeof CAUSE_TH, number][]) if (v >= 1) tally.set(c, (tally.get(c) ?? 0) + 1);
+    const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
+    const note = top ? `คนไม่พอใจ ${angry.length} คน ส่วนใหญ่อยากได้${CAUSE_TH[top[0]].demand} (${top[1]} คน) ถ้าคนที่รู้จักกันไม่พอใจเรื่องเดียวกันมากพอ จะรวมตัวกันตั้งขบวนการ` : 'ชาวเมืองยังไม่มีเรื่องให้รวมตัวกันประท้วง';
+    const s = section('ขบวนการของประชาชน', [empty(note)], 'ยังไม่มี');
+    s.classList.add('movement');
+    return s;
+  }
+  const leader = world.npcs.find((n) => n.id === mv.leaderId && n.alive);
+  const list = movementMembers(world);
+  const ladder = el(
+    'ol',
+    { className: 'movement__ladder' },
+    ...STAGE_TH.map((name, i) => el('li', { className: i < mv.stage ? 'movement__step movement__step--done' : i === mv.stage ? 'movement__step movement__step--now' : 'movement__step', textContent: name })),
+  );
+  const cost = movementCost(world);
+  const act = (a: 'stir' | 'calm', label: string, iconName: string) => {
+    const b = el('button', { type: 'button', className: 'btn btn--gold divine', disabled: world.faith < cost }, icon(iconName, 16), label, el('span', { className: 'divine__cost' }, icon('faith', 16), String(cost)));
+    b.dataset.act = a;
+    b.onclick = () => handlers.onMovement(a);
+    return b;
+  };
+  const last = mv.last && { concede: 'ยอมตามข้อเรียกร้อง', crackdown: 'สั่งทหารปราบ', ignore: 'เพิกเฉย' }[mv.last.act];
+  const s = section('ขบวนการของประชาชน', [
+    el(
+      'li',
+      { className: 'movement__card' },
+      el('p', { className: 'realm-cult__name' }, icon('crown', 16), mv.name),
+      el('p', { className: 'realm-king__meta', textContent: `เรียกร้อง${CAUSE_TH[mv.cause].demand} · ตั้งแต่ D${mv.founded} · สมาชิก ${list.length} คน${mv.martyrs ? ` · ผู้พลีชีพ ${mv.martyrs}` : ''}${mv.defectors ? ` · ทหารแปรพักตร์ ${mv.defectors}` : ''}` }),
+      ladder,
+      meter('ความโกรธ', Math.round(mv.anger), 'weak'),
+      ...(last ? [el('p', { className: 'realm-king__meta', textContent: `ผู้ปกครองตอบครั้งล่าสุด: ${last} (D${mv.last!.day})` })] : []),
+      el('div', { className: 'quest__party' }, ...(leader ? [el('span', { className: 'realm-king__meta', textContent: 'แกนนำ' }), marcherChip(leader)] : []), ...list.filter((n) => n !== leader).slice(0, 11).map(marcherChip)),
+      el('div', { className: 'movement__acts' }, act('stir', 'ปลุกใจผู้ชุมนุม', 'bless'), act('calm', 'นิมิตแห่งความสงบ', 'dream')),
+      el('p', { className: 'realm-king__meta', textContent: 'เทพตอบข้อเรียกร้องแทนผู้ปกครองไม่ได้ ทำได้เพียงปลุกใจให้ผู้ชุมนุมกล้าขึ้น หรือส่งนิมิตให้ความโกรธเย็นลง' }),
+    ),
+  ], STAGE_TH[mv.stage]);
+  s.classList.add('movement');
+  return s;
+}
+
 function cultSection(world: WorldState): HTMLElement {
   const members = cultists(world);
   const cost = costOf(world, 'reveal');
@@ -634,6 +685,12 @@ function neighbours(world: WorldState): HTMLElement {
   return s;
 }
 
+function marcherChip(n: Npc): HTMLElement {
+  const b = el('button', { type: 'button', className: 'chip chip--button chip--marcher', textContent: n.name });
+  b.onclick = () => handlers.onSelectNpc(n.id);
+  return b;
+}
+
 function personChip(n: Npc): HTMLElement {
   const b = el('button', { type: 'button', className: 'chip chip--button chip--cult', textContent: n.name });
   b.onclick = () => handlers.onSelectNpc(n.id);
@@ -664,9 +721,23 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
           : `อายุ ${k.age} ปี · ปกครองตั้งแต่ D${world.crown?.since ?? 0}` }),
       ...(r?.last ? [ballot(r.last.results, r.elections, r.last.day)] : []),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
+      ...reignNotes(world, k).map((t) => el('p', { className: 'realm-king__meta realm-king__note', textContent: t })),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),
     ),
   );
+}
+
+// What weighs on a reign: a regent ruling for a child, illness, madness, and the years themselves.
+function reignNotes(world: WorldState, k: Npc): string[] {
+  const c = world.crown;
+  const out: string[] = [];
+  const regent = c?.regentId !== undefined && world.npcs.find((n) => n.id === c.regentId && n.alive);
+  if (regent) out.push(`ผู้สำเร็จราชการ: ${regent.name} จนกว่าจะทรงบรรลุนิติภาวะ (อีก ${Math.max(0, 16 - k.age)} ปี)`);
+  if (c?.ailing !== undefined) out.push(`ประชวรหนักตั้งแต่ D${c.ailing} ราชสำนักซุบซิบเรื่องรัชทายาท`);
+  if (c?.mad !== undefined) out.push(`เสียสติตั้งแต่ D${c.mad} ชาวเมืองหวาดกลัว ขุนนางอาจเชิญให้พ้นจากบัลลังก์`);
+  const years = Math.floor(reignYears(world));
+  if (regimeOf(world) !== 'republic' && years >= 10) out.push(`ปกครองมา ${years} ปี ชาวเมืองเริ่มเบื่อหน้าผู้ปกครองคนเดิม`);
+  return out;
 }
 
 // The last election's count: one bar per candidate, the winner first.
