@@ -1,4 +1,4 @@
-import { GOODS, GOOD_TH, houses, seasonOf, type Good, type Guild, type Npc, type WorldState } from '../sim';
+import { GOOD_TH, MILLS, goodsOf, handsOf, houses, millsOf, ownerName, seasonOf, type Good, type Guild, type Mill, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -18,7 +18,7 @@ export function renderMarket(world: WorldState): void {
   const m = world.market;
   const hungry = world.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2);
   const news = world.chronicle.filter((e) => e.kind === 'trade').slice(-6).reverse();
-  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt]);
+  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt, world.mills, world.mech, world.techs?.steam, millsOf(world).map((x) => handsOf(world, x).length)]);
   if (key === lastKey) return;
   lastKey = key;
   if (!m) {
@@ -44,7 +44,7 @@ export function renderMarket(world: WorldState): void {
         tile('หนี้หลวง', world.debt ? String(world.debt.owed) : '0', world.debt ? 'ติดบ้านการค้าอยู่' : 'ไม่มีหนี้', !!world.debt),
       ),
     ),
-    g('prices', el('ul', { className: 'goods' }, ...GOODS.map((k) => goodRow(k, m.price[k], m.stock[k], m.history[k], m.alert[k])))),
+    g('prices', el('ul', { className: 'goods' }, ...goodsOf(world).map((k) => goodRow(k, m.price[k], m.stock[k], m.history[k], m.alert[k])))),
     g('prices', el('p', { className: 'goods-note', textContent: 'กราฟคือราคาย้อนหลัง 6 เดือน · ลูกศรเทียบกับเดือนก่อน' })),
     g(
       'houses',
@@ -60,6 +60,7 @@ export function renderMarket(world: WorldState): void {
         hungry.length ? [el('li', { className: 'quest__party' }, ...hungry.map(npcChip))] : [empty('ทุกคนยังมีข้าวกิน')],
       ),
     ),
+    ...industry(world).map((node) => g('industry', node)),
     g(
       'houses',
       section('นักผจญภัย', [
@@ -74,6 +75,36 @@ export function renderMarket(world: WorldState): void {
     )),
   );
   localize(view, world);
+}
+
+// The steam age's mills: who owns each, its hands, what it made last month; the engines on the farms.
+function industry(world: WorldState): HTMLElement[] {
+  if (world.techs?.steam === undefined)
+    return [section('โรงงาน', [empty('ยังไม่มีโรงงาน นักปราชญ์ต้องค้นพบเครื่องจักรไอน้ำก่อน แล้วบ้านการค้าและราชสำนักจะเริ่มสร้างโรงงานบนทุ่งใต้กำแพงเมือง')])];
+  const m = world.market!;
+  const mills = millsOf(world);
+  const hands = mills.reduce((s, x) => s + handsOf(world, x).length, 0);
+  const tile = (label: string, value: string, note: string) => el('div', { className: 'k-tile' }, el('span', { textContent: label }), el('b', { textContent: value }), el('small', { textContent: note }));
+  return [
+    el(
+      'div',
+      { className: 'k-tiles' },
+      tile('โรงงาน', String(mills.length), `กรรมกร ${hands} คน`),
+      tile('เครื่องจักรในไร่นา', `${Math.round((world.mech ?? 0) * 100)}%`, `${Math.floor(world.machinery ?? 0)} เครื่อง · ข้าวเพิ่มสูงสุด 30%`),
+      tile('เชื้อเพลิง', `${Math.floor(m.stock.coal)}`, `ถ่านหิน · ผลึกมานา ${Math.floor(m.stock.crystal)}`),
+    ),
+    section('โรงงานในเมือง', mills.length ? mills.map((x) => millRow(world, x)) : [empty('ยังไม่มีโรงงาน บ้านการค้าที่มีทุนพอจะสร้างเมื่อสินค้าที่ทำได้ขายมีกำไร')]),
+  ];
+}
+
+function millRow(world: WorldState, mill: Mill): HTMLElement {
+  const d = MILLS[mill.kind];
+  const inputs = Object.entries(d.input).map(([k, n]) => `${GOOD_TH[k as Good]} ${n}`).join(' + ');
+  const notes =
+    world.day < mill.ready
+      ? [`กำลังก่อสร้าง อีก ${mill.ready - world.day} วันเสร็จ`, `ของ${ownerName(world, mill)}`]
+      : [`ของ${ownerName(world, mill)}`, `กรรมกร ${handsOf(world, mill).length} คน`, `เดือนก่อนผลิต${GOOD_TH[d.output]} ${mill.made ?? 0}`, `ต่อคน: ${inputs}${d.fuel ? ` + ถ่านหิน ${d.fuel}` : ''} → ${GOOD_TH[d.output]} ${d.makes}`];
+  return el('li', { className: 'council' }, el('b', {}, icon(d.output, 20), ` ${mill.name}`), el('p', { className: 'realm-king__meta', textContent: notes.join(' · ') }));
 }
 
 // A trade house: its coffers, what sits in its warehouse, and whether it is hoarding or owed by the crown.

@@ -7,7 +7,7 @@
 // to its merchants is one they may buy outright (see regimes.ts).
 import { chance, type Rng } from './rng';
 import { adherence, clamp, log, loyaltyNudge, occupied, tenetOn } from './core';
-import { GOODS, GOOD_TH, SELLS, basePrice, ensureMarket, levelOf, priceRatio } from './market';
+import { GOOD_TH, SELLS, basePrice, ensureMarket, goodsOf, levelOf, priceRatio } from './market';
 import { commit } from './justice';
 import { payrollReserve, king } from './society';
 import { TRADE } from './diplomacy';
@@ -54,7 +54,7 @@ function business(world: WorldState, g: Guild, rng: Rng): void {
     if (n > 0) move(world, g, 'grain', n, true);
   } else if (g.hoarding !== undefined && grain < 1.1) g.hoarding = undefined;
 
-  for (const good of GOODS) {
+  for (const good of goodsOf(world)) {
     if (good === 'grain' && g.hoarding !== undefined) continue;
     const r = priceRatio(world, good);
     const held = stock[good] ?? 0;

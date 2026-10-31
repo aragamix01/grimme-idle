@@ -566,6 +566,34 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "worker": {
+    "file": "assets/sprites/characters/worker.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age0": {
+    "file": "assets/sprites/characters/worker-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age2": {
+    "file": "assets/sprites/characters/worker-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age3": {
+    "file": "assets/sprites/characters/worker-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "consul": {
     "file": "assets/sprites/characters/consul.png",
     "group": "characters",
@@ -1709,6 +1737,41 @@
   },
   "spice": {
     "file": "assets/sprites/icons/spice.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "coal": {
+    "file": "assets/sprites/icons/coal.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "crystal": {
+    "file": "assets/sprites/icons/crystal.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "steel": {
+    "file": "assets/sprites/icons/steel.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "engine": {
+    "file": "assets/sprites/icons/engine.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "tins": {
+    "file": "assets/sprites/icons/tins.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

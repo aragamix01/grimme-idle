@@ -1,4 +1,4 @@
-import { applyCommands, canEndEra, createWorld, foundWorld, newEra, tick, type Command, type EventKind, type WorldState } from '../sim';
+import { TECH_ORDER, applyCommands, canEndEra, createWorld, foundWorld, newEra, tick, type Command, type EventKind, type WorldState } from '../sim';
 import type { FromWorker, OfflineReport, ToWorker } from './protocol';
 import { clearSave, loadSave, writeSave } from './storage';
 
@@ -69,7 +69,14 @@ function catchUp(w: WorldState, savedAt: number, ms: number): OfflineReport | nu
 }
 
 let whole = false;
-const fresh = () => (whole ? createWorld(Date.now() >>> 0) : foundWorld(Date.now() >>> 0));
+let industry = false;
+// A new world: a camp; or, on the dev server, a whole town, or one that already knows steam (the
+// industry e2e test, and anyone wanting a look at the mills without playing to them).
+function fresh(): WorldState {
+  const w = whole || industry ? createWorld(Date.now() >>> 0) : foundWorld(Date.now() >>> 0);
+  if (industry) for (const t of TECH_ORDER) (w.techs ??= {})[t] ??= 0;
+  return w;
+}
 
 async function start(ms: number): Promise<void> {
   const save = await loadSave();
@@ -89,6 +96,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
   const msg = e.data;
   if (msg.type === 'start') {
     whole = !!msg.whole;
+    industry = !!msg.industry;
     void start(msg.tickMs);
   } else if (msg.type === 'command') {
     if (tickMs > 0 && !world?.choice) {

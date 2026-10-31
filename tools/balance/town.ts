@@ -56,6 +56,8 @@ const EVENTS: Record<string, RegExp> = {
   kidnap: /ถูกชุมโจรลักพาตัว/,
   pestilence: /กาฬโรคระบาดไปทั่วแผ่นดิน/,
   raid: /กองโจรม้าของ.+บุกปล้นชายแดน/,
+  mill: /ลงทุนสร้าง(โรง)/,
+  millBroke: /จ่ายค่าแรงไม่ไหว/,
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,
   disaster: /แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่!|ภัยแล้งแผ่ไป|ฝนตกไม่หยุดทั้งวัน/,

@@ -15,6 +15,7 @@ export type Job =
   | 'scholar'
   | 'alchemist'
   | 'engineer'
+  | 'worker'
   | 'builder'
   | 'doctor'
   | 'watchman'
@@ -58,6 +59,7 @@ export interface Npc {
   renown?: number; // earned from finished quests; drives rank-ups
   questId?: number; // quest this NPC is signed up for
   guildId?: number; // guild this NPC belongs to
+  millId?: number; // workers: the mill they work at (see industry.ts)
   spouseId?: number; // kept after the spouse dies, so the card can remember them
   parentIds?: number[]; // set for NPCs born in town
   retired?: boolean; // elders who have hung up their sword
@@ -262,7 +264,21 @@ export interface Guild {
   hoarding?: number; // day a greedy house began sitting on grain in a dearth
 }
 
-export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice';
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | IndustrialGood;
+// Goods of the steam age: on the shelves only once the town knows steam (see goodsOf in market.ts).
+export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal';
+// A mill of the steam age (see industry.ts): a company's or the crown's, on one of the plots by the pasture.
+export type MillKind = 'textile' | 'steel' | 'engines' | 'cannery';
+export interface Mill {
+  id: number;
+  kind: MillKind;
+  name: string;
+  plot: number; // index into MILL_PLOTS
+  owner: number | 'crown'; // the trade house (guild id) that built it, or the crown
+  since: number; // day work began on it
+  ready: number; // day it opens
+  made?: number; // what it turned out last month, for the panel
+}
 
 export interface Market {
   stock: Record<Good, number>;
@@ -644,6 +660,9 @@ export interface WorldState {
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last
   happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up
+  mills?: Mill[]; // the steam age's mills (see industry.ts)
+  machinery?: number; // engines at work on the farms, wearing out
+  mech?: number; // 0..1: the share of the farms they work, worked out monthly
   saga?: Saga; // a great matter running over months (see sagas.ts)
   sagaAt?: number; // day the last saga ended
   sagaLast?: Partial<Record<SagaKind, number>>; // day each kind last began
