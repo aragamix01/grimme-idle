@@ -133,16 +133,24 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 } } as const;
 
 // The steam age's mill plots on the pasture south of the walls (3x2 tiles each, top-left), taken
-// in order as companies and the crown build (see industry.ts).
+// in order as companies and the crown build (see industry.ts). The railway runs along row
+// RAIL_Y between the station and the mills.
 export const MILL_PLOTS: readonly { x: number; y: number }[] = [
-  { x: 14, y: 20 },
-  { x: 18, y: 20 },
-  { x: 22, y: 20 },
-  { x: 14, y: 22 },
-  { x: 18, y: 22 },
-  { x: 22, y: 22 },
+  { x: 14, y: 21 },
+  { x: 18, y: 21 },
+  { x: 22, y: 21 },
+  { x: 14, y: 23 },
+  { x: 18, y: 23 },
+  { x: 22, y: 23 },
 ];
-export const millDoor = (i: number) => ({ x: MILL_PLOTS[i].x + 1, y: MILL_PLOTS[i].y + 2 > 23 ? MILL_PLOTS[i].y - 1 : MILL_PLOTS[i].y + 2 });
+export const RAIL_Y = 20;
+// The yard gate: the upper row opens onto the railway, the lower row onto the lane beside it.
+export const millDoor = (i: number) => {
+  const p = MILL_PLOTS[i];
+  return p.y === MILL_PLOTS[0].y ? { x: p.x + 1, y: RAIL_Y } : { x: p.x + 3, y: p.y + 1 };
+};
+// Gas lamps along the main road and the high street once the town knows steam.
+export const LAMPS: readonly { x: number; y: number }[] = [...[2, 6, 10, 16, 20, 24].map((x) => ({ x, y: 9 })), ...[4, 12, 18, 22].map((x) => ({ x, y: 6 }))];
 
 export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
 export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
@@ -158,6 +166,9 @@ const COST: Record<Ground, number> = { road: 1, grass: 2, crops: 3, water: 0 };
 // going up). buildRev counts every change to the homes, so a layout is only laid out again then.
 export interface TownView {
   dungeons: readonly { x: number; y: number }[];
+  mills?: readonly { plot: number }[]; // the steam age's mills: their plots are built on
+  works?: Partial<Record<string, number>>; // the station brings the railway; the boulevard takes the walls down
+  techs?: Partial<Record<string, number>>; // steam lights the gas lamps
   homes?: readonly { lot: number; tier?: number }[];
   founded?: Partial<Record<string, number>>; // missing: a town founded whole, walls and all
   buildRev?: number;
@@ -168,20 +179,27 @@ export interface TownView {
 const HIGH_STREET = new Set(['castle', 'guild', 'inn', 'church']);
 const BACK_LANE = new Set(['forge', 'brothel', 'barracks', 'manor']);
 
-let cache: { ref: unknown; rev: number; key: string; layout: Layout } | null = null;
+let cache: { ref: unknown; rev: number; era: string; key: string; layout: Layout } | null = null;
 
 export function townLayout(view: TownView): Layout {
   const { dungeons } = view;
   const rev = view.buildRev ?? 0;
-  if (cache?.ref === dungeons && cache.rev === rev) return cache.layout; // hot path: asked many times a tick
+  // The steam age changes the town without touching its homes: mills, the railway, the lamps, the boulevard.
+  const era = `${view.mills?.length ?? 0}|${view.works?.station !== undefined}|${view.techs?.steam !== undefined}|${view.works?.boulevard !== undefined}`;
+  if (cache?.ref === dungeons && cache.rev === rev && cache.era === era) return cache.layout; // hot path: asked many times a tick
   const homes = [...(view.homes ?? [])].sort((a, b) => a.lot - b.lot);
   const lots = homes.map((h) => h.lot);
   const has = (k: string) => !view.founded || view.founded[k] !== undefined;
   const standingKeys = BUILDINGS.map(([k]) => k).filter(has);
-  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}`;
+  const mills = (view.mills ?? []).map((m) => m.plot);
+  const rail = view.works?.station !== undefined;
+  const lamps = view.techs?.steam !== undefined;
+  const boulevard = view.works?.boulevard !== undefined;
+  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}|${mills.join(',')}|${rail}|${lamps}|${boulevard}`;
   if (cache?.key === key) {
     cache.ref = dungeons;
     cache.rev = rev;
+    cache.era = era;
     return cache.layout;
   }
 
@@ -227,6 +245,10 @@ export function townLayout(view: TownView): Layout {
       const edgeX = x === WALL.x0 || x === WALL.x1;
       const edgeY = y === WALL.y0 || y === WALL.y1;
       if (!edgeX && !edgeY) continue;
+      if (boulevard) {
+        setGround(x, y, 'road'); // the walls pulled down for a boulevard round the town
+        continue;
+      }
       if (isGate(x, y)) {
         setGround(x, y, 'road');
         continue;
@@ -259,6 +281,21 @@ export function townLayout(view: TownView): Layout {
     }
   }
 
+  // The mills stand on their plots; the railway runs from the forest's edge past the station.
+  for (const i of mills) {
+    const p = MILL_PLOTS[i];
+    for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 2; x++) block(x, y);
+    const gate = millDoor(i);
+    setGround(gate.x, gate.y, 'road'); // a trodden yard at the gate, so no tree grows in the way
+  }
+  if (rail)
+    for (let x = PASTURE.x0; x < MAP_W; x++) {
+      if (isBlocked(x, RAIL_Y)) continue;
+      setGround(x, RAIL_Y, 'road');
+      props.push({ key: 'rail', x, y: RAIL_Y, anchor: 'top' });
+    }
+  if (lamps) for (const l of LAMPS) if (!isBlocked(l.x, l.y) && ground[l.y * MAP_W + l.x] === 'road') props.push({ key: 'lamp', x: l.x, y: l.y, anchor: 'bottom' }); // on the street's edge, nobody's way
+
   // The royal plots are fenced off whether or not anything stands on them yet.
   for (const p of Object.values(PLOTS)) for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 1; x++) block(x, y);
 
@@ -288,24 +325,28 @@ export function townLayout(view: TownView): Layout {
   deco('bush', 12, 14);
   deco('rock', 6, 16);
   // The eastern forest, thick but never on the road.
+  // The mills' appetite for timber thins the forest south of the road, more with every mill.
+  const felled = Math.max(0.25, 1 - 0.15 * mills.length);
   for (let x = WALL.x1 + 1; x < MAP_W; x++)
     for (let y = 0; y < MAP_H; y++) {
       if (y >= 8 && y <= 10) continue;
       const r = rand();
-      if (r < 0.34) tree(x, y);
+      if (r < 0.34 * (y > 12 ? felled : 1)) tree(x, y);
       else if (r < 0.42) deco('bush', x, y);
     }
   // Woods along the west and south edges, outside the fields.
   for (let y = WALL.y1 + 1; y < MAP_H; y++) for (const x of [0, 1, 25, 26]) if (rand() < 0.6) tree(x, y);
   for (let x = 0; x < MAP_W; x += 2) if (rand() < 0.5) deco('bush', x, 0);
   // A fence keeps the crows out of the fields and the beasts in the pasture.
-  for (let x = FIELDS.x0; x <= PASTURE.x1; x++) if (x !== 13) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
+  for (let x = FIELDS.x0; x <= PASTURE.x1; x++) if (x !== 13 && !isBlocked(x, FIELDS.y1 + 1)) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
   // Along the pasture's north edge the factory and station plots (fenced off themselves) stand in for the fence.
   const onPlot = (x: number) => [PLOTS.factory, PLOTS.station].some((p) => x >= p.x && x <= p.x + 1);
   for (let x = PASTURE.x0; x < 22; x++) if (!onPlot(x)) props.push({ key: 'fence', x, y: PASTURE.y0 - 1, anchor: 'bottom' });
-  deco('haystack', 15, 20);
-  deco('haystack', 20, 23);
-  deco('trough', 18, 21);
+  if (!mills.length) {
+    deco('haystack', 15, 20);
+    deco('haystack', 20, 23);
+    deco('trough', 18, 21);
+  }
 
   const cost = new Uint8Array(MAP_W * MAP_H);
   for (let i = 0; i < cost.length; i++) cost[i] = blocked[i] ? 0 : COST[ground[i]];
@@ -324,6 +365,6 @@ export function townLayout(view: TownView): Layout {
   }
   for (let i = 0; i < cost.length; i++) if (!reached[i]) cost[i] = 0;
   const layout = { ground, cost, props };
-  cache = { ref: dungeons, rev, key, layout };
+  cache = { ref: dungeons, rev, era, key, layout };
   return layout;
 }

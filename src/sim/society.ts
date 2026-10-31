@@ -388,7 +388,7 @@ export function garrison(world: WorldState): { soldiers: Npc[]; hunters: Npc[]; 
   const hunters = living(world, 'hunter').filter((s) => s.inside === undefined);
   const strength = soldiers.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0) + hunters.reduce((s, n) => s + 0.5 + Math.min(3, n.level) * 0.15, 0);
   // Archers in the gate towers hold the gates however few the garrison.
-  const towers = world.works?.watchtowers !== undefined ? 0.15 : 0;
+  const towers = world.works?.watchtowers !== undefined && world.works?.boulevard === undefined ? 0.15 : 0; // the boulevard took the towers down with the walls
   return { soldiers, hunters, shield: Math.min(0.7 + towers, strength * 0.05 + towers) };
 }
 

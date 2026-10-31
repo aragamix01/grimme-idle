@@ -186,7 +186,7 @@ export interface Parliament {
 }
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
+export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard';
 
 export interface Dragon {
   name: string;

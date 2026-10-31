@@ -1399,6 +1399,118 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "mill-textile": {
+    "file": "assets/sprites/buildings/mill-textile.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-steel": {
+    "file": "assets/sprites/buildings/mill-steel.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-engines": {
+    "file": "assets/sprites/buildings/mill-engines.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-cannery": {
+    "file": "assets/sprites/buildings/mill-cannery.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "forge-age3": {
+    "file": "assets/sprites/buildings/forge-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "inn-age3": {
+    "file": "assets/sprites/buildings/inn-age3.png",
+    "group": "buildings",
+    "frameWidth": 40,
+    "frameHeight": 36,
+    "frames": 1
+  },
+  "shop-age3": {
+    "file": "assets/sprites/buildings/shop-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "brothel-age3": {
+    "file": "assets/sprites/buildings/brothel-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "shack-age3": {
+    "file": "assets/sprites/props/shack-age3.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "lamp": {
+    "file": "assets/sprites/props/lamp.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "rail": {
+    "file": "assets/sprites/tiles/rail.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "train": {
+    "file": "assets/sprites/props/train.png",
+    "group": "props",
+    "frameWidth": 48,
+    "frameHeight": 20,
+    "frames": 1
+  },
+  "smoke": {
+    "file": "assets/sprites/props/smoke.png",
+    "group": "props",
+    "frameWidth": 8,
+    "frameHeight": 8,
+    "frames": 1
+  },
+  "spark": {
+    "file": "assets/sprites/props/spark.png",
+    "group": "props",
+    "frameWidth": 6,
+    "frameHeight": 6,
+    "frames": 1
+  },
+  "rm-headframe": {
+    "file": "assets/sprites/worldmap/rm-headframe.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "rm-coal": {
+    "file": "assets/sprites/worldmap/rm-coal.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",
