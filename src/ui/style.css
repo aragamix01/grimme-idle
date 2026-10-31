@@ -883,3 +883,15 @@ html:has(dialog[open]) { overflow: hidden; }
 .happening-mods__row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin: 0; font-size: 13px; line-height: 20px; }
 .happening-mods__row .up { color: var(--meadow-deep); }
 .happening-mods__row .down { color: var(--danger); }
+
+/* The people's movement: its ladder from grumbling to revolution, and the god's two touches. */
+.movement__card { display: grid; gap: 4px; padding: 8px 6px 10px; background: #fbe9e4; border-bottom: 2px solid var(--paper-edge); }
+.movement__card .realm-cult__name { color: #8a2a2a; }
+.movement__ladder { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; padding: 0; list-style: none; }
+.movement__step { padding: 1px 8px; font-size: 12px; border: 2px solid var(--paper-edge); border-radius: 999px; color: var(--ink-muted); background: var(--paper-raised); }
+.movement__step--done { color: var(--paper); background: #b0625a; border-color: var(--outline); }
+.movement__step--now { color: var(--paper); background: var(--danger); border-color: var(--outline); font-weight: 600; }
+.movement__acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-top: 4px; }
+.movement__acts .divine { width: 100%; }
+.chip--marcher { background: #8a2a2a; color: var(--paper); border-color: var(--outline); }
+button.chip--marcher:hover { background: #a83a3a; }

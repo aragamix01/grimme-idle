@@ -140,6 +140,30 @@ export function movementsDay(world: WorldState, rng: Rng): void {
   grow(world, mv, m, rng);
   if (!world.movement) return;
   climb(world, mv, rng);
+  if (world.movement && world.movement.stage >= 2) world.movement.rally = world.day + RALLY;
+}
+
+// The crowd is out: its members gather before the palace on their free days.
+export const rallying = (world: WorldState) => (world.movement?.stage ?? 0) >= 2 && (world.movement!.rally ?? 0) > world.day;
+
+export const movementCost = (world: WorldState) => Math.max(1, Math.round(MOVE_COST * (1 - 0.1 * (world.legacy?.perks.grace ?? 0))));
+
+// The god's hand on the crowd: a sign in the sky that hardens their resolve (and brings the
+// wavering in), or a dream of peace that cools their anger. Neither answers the grievance.
+export function sway(world: WorldState, act: 'stir' | 'calm'): boolean {
+  const mv = world.movement;
+  if (!mv) return false;
+  const list = members(world);
+  if (act === 'stir') {
+    mv.anger = clamp(mv.anger + 25, 0, 100);
+    for (const n of list) n.loyalty = clamp(loyaltyOf(n) - 5, 0, 100);
+    log(world, 'bless', `แสงศักดิ์สิทธิ์ส่องลงกลาง${mv.name} ผู้ชุมนุมเชื่อว่าเทพเจ้าอยู่ข้างพวกเขา`, mv.leaderId);
+  } else {
+    mv.anger = clamp(mv.anger - 30, 0, 100);
+    for (const n of list) n.loyalty = clamp(loyaltyOf(n) + 8, 0, 100);
+    log(world, 'bless', `ผู้ชุมนุมของ${mv.name}ฝันเห็นนิมิตแห่งความสงบ ความโกรธในใจค่อย ๆ จางลง`, mv.leaderId);
+  }
+  return true;
 }
 
 // A grievance shared by enough people who know each other becomes a movement.
@@ -259,6 +283,8 @@ function climb(world: WorldState, mv: Movement, rng: Rng): void {
 // crowd is big enough to storm a palace.
 const reach = (world: WorldState) => [0, 1, 4, 5][rankOf(world)] ?? 5;
 const STORM = 12; // members it takes to storm the palace
+const RALLY = 10; // days the crowd gathers before the palace after each meeting out on the street
+const MOVE_COST = 25; // faith to hearten or soothe a crowd
 
 // Half the hands out of the fields while the workers among the members down tools.
 // One month's strike for each time the movement climbs to it; a hungry town does not leave its own

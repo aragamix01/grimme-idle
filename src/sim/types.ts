@@ -117,7 +117,7 @@ export interface Religion {
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray' | 'mission';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray' | 'mission' | 'protest';
 
 export interface Plan {
   kind: PlanKind;
@@ -272,6 +272,7 @@ export interface Movement {
   members: number; // counted at the last meeting, for the panel
   defectors: number; // soldiers who refused to march on it and joined
   last?: { day: number; act: 'concede' | 'crackdown' | 'ignore' };
+  rally?: number; // day until which its members gather before the palace when they have nothing else to do
 }
 
 export interface Cult {
@@ -611,4 +612,5 @@ export type Command =
   | { type: 'tenet'; tenet: Tenet }
   | { type: 'sect'; act: 'embrace' | 'condemn' }
   | { type: 'mission'; realmId: number }
+  | { type: 'movement'; act: 'stir' | 'calm' } // the god heartens the crowd, or soothes it
   | { type: 'whisper'; key: string } // the god tips a pending happening; a life the player lives decides it outright // a priest sent to preach in a neighbouring realm // the god takes a side in a schism // a commandment through a prophet's dream, or taken back

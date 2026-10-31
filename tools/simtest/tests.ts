@@ -929,3 +929,40 @@ test('a republic\'s march on the hall calls an early election instead of a fight
   ok(w.republic!.elections > before, 'no early election');
   ok(!w.chronicle.some((e) => /บุกวัง หมายโค่น/.test(e.text)), 'a republic\'s crowd stormed the hall');
 });
+
+test('a movement out on the street gathers its idle members before the palace, never its workers', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.stage = 2;
+  mv.rally = w.day + 30;
+  const farmers = members(w).filter((n) => n.job === 'farmer');
+  let gathered = 0;
+  let pulled = 0;
+  for (let i = 0; i < 20; i++) {
+    tick(w);
+    gathered = Math.max(gathered, members(w).filter((n) => n.plan?.kind === 'protest').length);
+    for (const f of farmers) if (f.plan?.kind === 'protest' && f.plan.days > 6) pulled++;
+  }
+  ok(gathered >= 2, `only ${gathered} gathered before the palace`);
+  ok(!pulled, 'a protest plan longer than a free spell');
+  ok(!w.npcs.some((n) => !n.marcher && n.plan?.kind === 'protest'), 'someone outside the movement joined the crowd');
+});
+
+test('the god can harden a crowd\'s resolve or cool its anger, for faith', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.anger = 50;
+  w.faith = 100;
+  applyCommands(w, [{ type: 'movement', act: 'stir' }], rngOf(w));
+  ok(mv.anger > 50 && w.faith < 100, `stir: anger ${mv.anger}, faith ${w.faith}`);
+  const before = mv.anger;
+  applyCommands(w, [{ type: 'movement', act: 'calm' }], rngOf(w));
+  ok(mv.anger < before, 'calm did not cool the crowd');
+  w.faith = 0;
+  applyCommands(w, [{ type: 'movement', act: 'stir' }], rngOf(w));
+  ok(mv.anger < before, 'a god without faith still stirred the crowd');
+});

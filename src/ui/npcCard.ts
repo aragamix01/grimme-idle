@@ -144,6 +144,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'ไปซื้ออาวุธที่ร้านค้า';
     case 'pray':
       return 'ไปไหว้เทพเจ้าที่โบสถ์ในวันพระ';
+    case 'protest':
+      return 'ไปชุมนุมหน้าวัง';
     case 'ritual':
       return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
     case 'caravan':
@@ -242,6 +244,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.prophet ? [el('span', { className: 'chip chip--gold', textContent: 'ศาสดา' })] : []),
+    ...(npc.marcher && world.movement ? [el('span', { className: 'chip chip--danger', textContent: world.movement.leaderId === npc.id ? `แกนนำ${world.movement.name}` : world.movement.name })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
     ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),

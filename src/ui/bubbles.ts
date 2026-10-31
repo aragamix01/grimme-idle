@@ -1,4 +1,4 @@
-import { ADULT_AGE, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
+import { ADULT_AGE, CAUSE_TH, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
 
 // Short reactions that pop over an NPC's head when something happens to them.
 const LINES: Partial<Record<EventKind, string[]>> = {
@@ -122,6 +122,7 @@ const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)]
 function lineFor(world: WorldState, n: Npc): string | undefined {
   if (n.age < ADULT_AGE) return any(KIDS);
   const p = n.plan?.kind;
+  if (p === 'protest' && world.movement) return any([`${CAUSE_TH[world.movement.cause].demand}!`, 'ประชาชนต้องมีเสียง!', 'ไม่ฟังเรา เราไม่กลับ!', 'สู้ ๆ พี่น้อง!']);
   if (p === 'pray') return any(['วันนี้วันพระ ไปโบสถ์กัน', 'ขอเทพเจ้าคุ้มครอง', 'ทำบุญสักหน่อย']);
   if (p === 'ritual') return any(['(กระซิบ) ไปที่ดันเจี้ยน…', 'อย่าให้ใครเห็น…']);
   if (p === 'steal') return any(['เป้าหมายอยู่ตรงนั้น…', 'ค่อยๆ ย่องไป…']);
