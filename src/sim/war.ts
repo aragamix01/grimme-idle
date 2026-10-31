@@ -4,10 +4,10 @@
 // victories ahead (or the better side after six battles) dictates the peace. A town that
 // loses is sacked, never destroyed. The god may only help: bless our ranks, send a storm
 // against theirs, or send both kings a vision of peace.
-import { chance, type Rng } from './rng';
+import { chance, pick, type Rng } from './rng';
 import { clamp, kill, log, occupied, adherence, tenetOn } from './core';
 import { legend, isAdventurer } from './quests';
-import { king } from './society';
+import { king, payrollReserve } from './society';
 import { loyaltyOf } from './politics';
 import { might } from './market';
 import { sway } from './cult';
@@ -22,6 +22,8 @@ import type { Npc, Realm, War, WarAct, WorldState } from './types';
 const BATTLE_EVERY = 20;
 const WIN_BY = 3;
 const MAX_BATTLES = 6;
+const RAID_GAP = 3 * 365; // a realm that has raided us has had its revenge for a while
+const SPURN_DAYS = 365; // how long a neighbour nurses a refused demand for tribute
 const TRUCE_DAYS = 3 * 365; // no new war with the same realm this soon after a peace
 const ENEMY_MIGHT = 10; // strength per enemy soldier; ours are worth 20 to 40 but they come in numbers
 export const WAR_COST: Record<WarAct, number> = { bless: 15, storm: 15, peace: 25 };
@@ -67,6 +69,21 @@ function maybeWar(world: WorldState, rng: Rng): void {
   const k = king(world);
   const policy = landPolicyOf(charterOf(world));
   const strength = ourForces(world).strength;
+  // A neighbour whose demand for tribute we threw back comes for it: with an army against a
+  // town, with a raiding party against a village too small to make war on.
+  for (const r of world.realms ?? []) {
+    if (r.fallen || r.pact || r.spurned === undefined || (r.truceUntil ?? 0) > world.day) continue;
+    if (world.day - r.spurned > SPURN_DAYS || world.day - (r.raided ?? -RAID_GAP) < RAID_GAP) {
+      r.spurned = undefined;
+      continue;
+    }
+    if (!chance(rng, 0.05)) continue; // about an even chance they come within the year
+    r.spurned = undefined;
+    if (world.founded && rankOf(world) < 1) continue; // a camp has nothing worth riding out for
+    if (world.founded && rankOf(world) < TOWN_RANK) return raid(world, r, rng);
+    if (theirStrength(r) > strength * 0.9) return declare(world, r, 'them', `${r.ruler.name}แห่ง${r.name}ยกทัพมาทวงเครื่องบรรณาการที่ถูกปฏิเสธ! ประกาศสงครามกับอาณาจักรของเรา`);
+    return raid(world, r, rng);
+  }
   for (const r of world.realms ?? []) {
     if (r.fallen || r.pact || r.relation >= 0 || (r.truceUntil ?? 0) > world.day) continue;
     if (sharesFaith(r) && chance(rng, 0.5)) continue; // slow to raise a sword against the same god
@@ -95,15 +112,42 @@ export function weakest(world: WorldState, strength = ourForces(world).strength)
 // A war of conquest, declared by decree.
 export const conquestWar = (world: WorldState, r: Realm) => declare(world, r, 'us');
 
-function declare(world: WorldState, r: Realm, attacker: War['attacker']): void {
+function declare(world: WorldState, r: Realm, attacker: War['attacker'], why?: string): void {
   if (world.founded && rankOf(world) < TOWN_RANK) return; // nobody makes war on a camp or a village, nor can it make one
   const k = king(world);
   r.war = true;
   world.war = { realmId: r.id, since: world.day, attacker, nextBattle: world.day + BATTLE_EVERY, score: 0, battles: 0 };
   sway(world, -2);
-  if (attacker === 'them') log(world, 'politics', `${r.ruler.name}แห่ง${r.name}ประกาศสงครามกับอาณาจักรของเรา! กองทัพกำลังเดินทัพมา`);
+  if (why) log(world, 'politics', why);
+  else if (attacker === 'them') log(world, 'politics', `${r.ruler.name}แห่ง${r.name}ประกาศสงครามกับอาณาจักรของเรา! กองทัพกำลังเดินทัพมา`);
   else log(world, 'politics', `กษัตริย์${k?.name ?? ''}ประกาศสงครามกับ${r.name} ทหารเตรียมเดินทัพ`);
   legend(world, `สงครามกับ${r.name}เริ่มขึ้น`);
+}
+
+// A raid on the border: smaller than a war, and it can fall on a village. Their horsemen burn
+// what they can reach and ride home; our soldiers, if there are any, may drive them off first.
+export function raid(world: WorldState, r: Realm, rng: Rng): void {
+  r.relation = clamp(r.relation - 5, -100, 100);
+  r.raided = world.day;
+  const guards = adults(world).filter((n) => n.job === 'soldier' || n.knight);
+  if (guards.length >= 2 && chance(rng, Math.min(0.75, 0.25 + guards.length * 0.08))) {
+    for (const n of adults(world)) n.loyalty = clamp(loyaltyOf(n) + 2, 0, 100);
+    log(world, 'battle', `กองโจรม้าของ${r.name}บุกปล้นชายแดน แต่ทหารของเรา ${guards.length} นายตีกลับไปได้ ชาวเมืองโล่งใจ`, undefined, 'major');
+    return;
+  }
+  const villages = (world.regions ?? []).filter((x) => x.owner === 'us' && x.village && !x.village.free);
+  const hit = villages.length ? pick(rng, villages) : undefined;
+  if (hit) {
+    const v = hit.village!;
+    v.purse = Math.floor(v.purse / 2);
+    v.loyalty = clamp(v.loyalty - 10, 0, 100);
+    v.grudge = (v.grudge ?? 0) + 1;
+  }
+  // They carry off part of what the crown can spare, never the wages it owes.
+  const loot = Math.max(0, Math.floor(Math.min((world.treasury - payrollReserve(world)) * 0.15, 100 * (world.market?.level ?? 1))));
+  world.treasury -= loot;
+  for (const n of adults(world)) n.loyalty = clamp(loyaltyOf(n) - 2, 0, 100);
+  log(world, 'battle', `กองโจรม้าของ${r.name}บุกปล้นชายแดนเพื่อแก้แค้นที่เราปฏิเสธเครื่องบรรณาการ!${hit ? ` เผายุ้งข้าวของ${hit.name}` : ''}${loot ? ` ขนทองหลวงไป ${loot} ทอง` : ''}`, undefined, 'major');
 }
 
 function battle(world: WorldState, w: War, enemy: Realm, rng: Rng): void {

@@ -16,6 +16,8 @@ import { addTie } from './ties';
 import { basePrice, ensureMarket, levelOf, priceRatio, target } from './market';
 import { traveller } from './world';
 import { capacity, inShack } from './housing';
+import { AFFAIRS } from './affairs';
+import { SAGA_DEFS } from './sagas';
 import type { Happening, HappeningKind, Mod, ModKey, Npc, Trait, WorldState } from './types';
 
 export const WHISPER_COST = 8; // faith to whisper for one option
@@ -24,7 +26,7 @@ const PENDING_DAYS = 5; // a matter waits this long for the decider (and the god
 const KEPT = 30; // happenings kept in the book
 const MONTH = 30;
 
-interface Option {
+export interface Option {
   key: string;
   label: string;
   base?: number; // weight before the decider's traits; 1 if missing
@@ -33,7 +35,7 @@ interface Option {
   act: (world: WorldState, rng: Rng, h: Happening, decider: Npc) => string; // what comes of it, for the log
 }
 
-interface Def {
+export interface Def {
   title: string;
   mtth: number; // mean days before it comes up, while it can
   gap: number; // days at least between two of a kind
@@ -346,8 +348,8 @@ const DEFS: Record<HappeningKind, Def> = {
   },
   wanderlust: {
     title: 'ความฝันถึงเมืองใหญ่',
-    mtth: 240,
-    gap: 120,
+    mtth: 480,
+    gap: 360,
     can: (w) => living(w) >= 30 && youths(w).length > 0,
     sooner: (w) => (living(w) > capacity(w) ? 2 : 1), // a crowded town pushes its young out
     decider: (w, rng) => {
@@ -531,6 +533,8 @@ const DEFS: Record<HappeningKind, Def> = {
       },
     ],
   },
+  ...AFFAIRS,
+  ...SAGA_DEFS,
 };
 export const HAPPENING_ORDER = Object.keys(DEFS) as HappeningKind[];
 export const happeningTitle = (k: HappeningKind) => DEFS[k].title;

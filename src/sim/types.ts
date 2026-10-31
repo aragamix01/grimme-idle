@@ -404,6 +404,8 @@ export interface Realm {
   treaty?: boolean; // a trade treaty: better prices both ways while relations hold
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
+  raided?: number; // day they last raided our border
+  spurned?: number; // day we threw back their demand for tribute (or insulted their envoy): they will come for it
   plagueUntil?: number;
   tutored?: boolean; // our scholars are teaching there: their next age comes sooner
   disaster?: { kind: 'drought' | 'flood' | 'quake'; until: number }; // nature's blow, and the day they've recovered
@@ -493,7 +495,21 @@ export interface Home {
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
 // and the god may whisper to tip the scale.
-export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode';
+export type HappeningKind =
+  | 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode'
+  // affairs of state (affairs.ts)
+  | 'scandal' | 'dissolution' | 'templeland' | 'chapel' | 'monopoly' | 'failing' | 'match' | 'exile' | 'warpact' | 'homerule' | 'bandits' | 'knighthood'
+  // decisions within a saga (sagas.ts)
+  | 'goldrush' | 'comet' | 'ransom' | 'quarantine';
+// A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
+export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence';
+export interface Saga {
+  kind: SagaKind;
+  stage: number; // months it has run
+  since: number;
+  choice?: string; // what the town decided when it came to it
+  ctx?: number; // who or what it is about
+}
 export interface Happening {
   kind: HappeningKind;
   title: string;
@@ -540,6 +556,8 @@ export interface ChronicleEntry {
   kind: EventKind;
   text: string;
   npcId?: number;
+  minor?: boolean; // the town's daily round, folded away in its chronicle (see log in core.ts)
+  major?: boolean; // a headline, announced over the map
 }
 
 export interface WorldState {
@@ -626,6 +644,10 @@ export interface WorldState {
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last
   happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up
+  saga?: Saga; // a great matter running over months (see sagas.ts)
+  sagaAt?: number; // day the last saga ended
+  sagaLast?: Partial<Record<SagaKind, number>>; // day each kind last began
+  sealed?: number; // day until which the gates are shut against the plague: no caravans but grain
   mods?: Mod[]; // happenings' effects still in force
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];

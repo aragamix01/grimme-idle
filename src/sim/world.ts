@@ -50,6 +50,7 @@ import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { happeningsDay, whisper, whisperCost } from './happenings';
+import { sagasDay } from './sagas';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
 import { founded, growthDay } from './growth';
 import { shantyCrime, slumsDay } from './slums';
@@ -250,6 +251,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   growthDay(world);
   slumsDay(world, rng);
   happeningsDay(world, rng);
+  sagasDay(world, rng);
   annalsDay(world);
   healBosses(world);
   const warded = 1 - ward(world); // the mages' wards slow the monsters' return
@@ -349,6 +351,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
 // ---------- daily life: walk to where the plan is, then act there ----------
 
 function live(world: WorldState, npc: Npc, rng: Rng): void {
+  if (npc.inside === AWAY && world.saga?.kind === 'ransom' && world.saga.ctx === npc.id) return; // held in a bandit camp (sagas.ts)
   if (isChild(npc)) return childDay(world, npc, rng);
   if (jailed(world, npc)) {
     // In the cells under the castle: walked there, then kept.

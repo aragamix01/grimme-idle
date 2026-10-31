@@ -7,7 +7,7 @@ import { initLands, pickLand, pickVillager, renderLands, viewLand } from './ui/l
 import { initRealms, pickRealm, renderRealms } from './ui/realm';
 import { initBubbles, pushBubbles } from './ui/bubbles';
 import { click, playEvents, setSound, soundOn, start as startSound, updateMood } from './audio/sound';
-import { renderFeed, renderStats } from './ui/feed';
+import { renderFeed, renderHeadline, renderStats } from './ui/feed';
 import { initGuild, renderGuild } from './ui/guild';
 import { initMarket, renderMarket } from './ui/market';
 import { initKingdom, renderKingdom } from './ui/kingdom';
@@ -118,6 +118,7 @@ function render(): void {
   const [panel] = PANEL[s];
   renderUrgent(world, panel === 'urgent');
   renderMapNotes(world);
+  renderHeadline(world);
   refreshTabs(world);
   if (panel === 'lands') renderLands(world);
   else if (panel === 'realms') renderRealms(world);

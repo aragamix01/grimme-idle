@@ -145,7 +145,7 @@ export const urgentCount = (world: WorldState) => items(world).length;
 
 export function renderUrgent(world: WorldState, full: boolean): void {
   const list = items(world);
-  const recent = world.chronicle.slice(-6).reverse();
+  const recent = world.chronicle.filter((e) => !e.minor).slice(-6).reverse();
   const key = JSON.stringify([full, list.map((i) => [i.key, i.title, i.text]), recent.map((e) => e.seq)]);
   badge.hidden = !list.length;
   badge.textContent = String(list.length);
@@ -167,7 +167,7 @@ export function renderUrgent(world: WorldState, full: boolean): void {
       el(
         'ol',
         { className: 'urgent-log' },
-        ...recent.map((e) => el('li', { className: DANGER_KINDS.has(e.kind) ? 'urgent-log__row urgent-log__row--danger' : 'urgent-log__row' }, icon(EVENT_ICON[e.kind], 20), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` }))),
+        ...recent.map((e) => el('li', { className: `urgent-log__row${DANGER_KINDS.has(e.kind) ? ' urgent-log__row--danger' : ''}${e.major ? ' urgent-log__row--major' : ''}` }, icon(EVENT_ICON[e.kind], 20), el('span', { textContent: e.text }), el('time', { textContent: `D${e.day}` }))),
       ),
     );
   localize(panel, world);

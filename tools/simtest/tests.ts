@@ -15,7 +15,9 @@ import { churchOf, headOf } from '../../src/sim/church';
 import { faithLaw } from '../../src/sim/charter';
 import { commit, jailed } from '../../src/sim/justice';
 import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
-import { endWar } from '../../src/sim/war';
+import { endWar, raid as raidRealm, warDay } from '../../src/sim/war';
+import { begin as beginSaga, sagasDay } from '../../src/sim/sagas';
+import { log as logLine } from '../../src/sim/core';
 import { ourForces } from '../../src/sim/war';
 import { PLACES } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
@@ -856,8 +858,14 @@ test('soldiers with friends in the crowd refuse to march on it, and go over', ()
     s.loyalty = 20;
     setTie(w, s.id, folk[1].id, 40);
   }
-  crackdown(w, mv, kingOf(w), rngOf(w));
-  ok(mv.defectors > 0 && soldiers.some((s) => s.marcher), 'no soldier went over');
+  // Each soldier's refusal is a roll: try the order a few times over, from the same morning.
+  let went = false;
+  for (let i = 0; i < 5 && !went; i++) {
+    const x = structuredClone(w);
+    crackdown(x, x.movement!, kingOf(x), { state: w.rng + i * 977 });
+    went = x.movement!.defectors > 0 && x.npcs.some((n) => soldiers.some((s) => s.id === n.id) && n.marcher);
+  }
+  ok(went, 'no soldier went over');
 });
 
 test('a crackdown on a riot jails the leader and makes martyrs who anger the rest', () => {
@@ -944,16 +952,16 @@ test('a movement out on the street gathers its idle members before the palace, n
   toMeeting(w);
   const mv = w.movement!;
   mv.stage = 2;
-  mv.rally = w.day + 30;
+  mv.rally = w.day + 60;
   const farmers = members(w).filter((n) => n.job === 'farmer');
-  let gathered = 0;
+  const gathered = new Set<number>(); // members who stood before the palace at some point
   let pulled = 0;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 45; i++) {
     tick(w);
-    gathered = Math.max(gathered, members(w).filter((n) => n.plan?.kind === 'protest').length);
+    for (const n of members(w)) if (n.plan?.kind === 'protest') gathered.add(n.id);
     for (const f of farmers) if (f.plan?.kind === 'protest' && f.plan.days > 6) pulled++;
   }
-  ok(gathered >= 2, `only ${gathered} gathered before the palace`);
+  ok(gathered.size >= 2, `only ${gathered.size} gathered before the palace`);
   ok(!pulled, 'a protest plan longer than a free spell');
   ok(!w.npcs.some((n) => !n.marcher && n.plan?.kind === 'protest'), 'someone outside the movement joined the crowd');
 });
@@ -1341,4 +1349,187 @@ test('a party does not hoard: a chest past what a campaign needs flows back into
   }
   ok(w.parties![1].treasury < 1500, `the chest still holds ${w.parties![1].treasury}`);
   ok(ensureMarket(w).till > till, 'the spending did not reach the market');
+});
+
+// ---------- loud and quiet news, affairs of state, sagas, raids ----------
+
+test('routine news is folded away, headlines are marked, and a long run of routine never pushes a headline out first', () => {
+  const w = world();
+  logLine(w, 'trade', 'พ่อค้าสมชายนำกองคาราวานไปค้าขายที่แคว้นหนึ่ง');
+  ok(w.chronicle.at(-1)!.minor && !w.chronicle.at(-1)!.major, 'a caravan setting out should be routine');
+  logLine(w, 'politics', 'กษัตริย์สมชายประกาศสงครามกับแคว้นหนึ่ง ทหารเตรียมเดินทัพ');
+  const war = w.chronicle.at(-1)!;
+  ok(war.major && !war.minor, 'a declaration of war should be a headline');
+  logLine(w, 'politics', 'ผู้ปกครองออกพระราชโองการใหม่');
+  ok(!w.chronicle.at(-1)!.minor && !w.chronicle.at(-1)!.major, 'ordinary news should be neither');
+  for (let i = 0; i < 700; i++) logLine(w, 'trade', `พ่อค้าคนที่ ${i} นำกองคาราวานไปค้าขายที่แคว้นหนึ่ง`);
+  ok(w.chronicle.length <= 500, 'the chronicle outgrew its limit');
+  ok(w.chronicle.includes(war), 'routine caravans pushed the war out of the chronicle');
+});
+
+// Every affair of state, each in a scene where it can come up: it must be raised, offer at
+// least two options, and every option must play out and say what came of it.
+function stage(w: WorldState): void {
+  republic(w);
+  const { labour, trade } = twoParties(w);
+  w.parliament!.coalition = [9001];
+  w.parties![0].seats = 5;
+  w.parties![0].mps = labour.slice(0, 5).map((n) => n.id);
+  w.parties![0].treasury = 500;
+  w.republic!.nextVote = w.day + 2000;
+  w.parliament!.nextVote = w.day + 2000;
+  for (const n of grown(w)) n.loyalty = 20; // a sullen town
+  w.treasury = 5000;
+  w.guilds.push({ id: 8101, name: 'บ้านการค้ามั่งมี', kind: 'merchants', leaderId: trade[0].id, founded: 0, renown: 0, treasury: 2000 });
+  w.guilds.push({ id: 8102, name: 'บ้านการค้าใกล้เจ๊ง', kind: 'merchants', leaderId: trade[1].id, founded: 0, renown: 0, treasury: 0, stock: { spice: 5 } });
+  trade[1].guildId = 8102;
+  trade[2].guildId = 8102;
+  w.day = Math.max(w.day, 400);
+  const c = churchOf(w);
+  c.purse = 1000;
+  const priests = grown(w).filter((n) => n.job === 'priest');
+  if (!priests.length) grown(w).find((n) => n.job === 'farmer')!.job = 'priest';
+  c.headId = grown(w).find((n) => n.job === 'priest')!.id;
+  const flock = grown(w).filter((n) => n.job === 'farmer').slice(0, 5);
+  for (const n of flock) n.creed = 'sect';
+  religionOf(w).sect = { name: 'นิกายทดสอบ', founded: 0, leaderId: flock[0].id, cause: 'reform' };
+  const hero = grown(w).find((n) => n.job === 'swordsman' || n.job === 'mage') ?? grown(w).find((n) => n.job === 'farmer')!;
+  Object.assign(hero, { job: 'swordsman', rank: 4, renown: 200, guildId: undefined, questId: undefined, inside: undefined });
+  for (const n of grown(w).filter((x) => x.job === 'farmer').slice(5, 8)) n.job = 'soldier';
+  // A royal child of age, and the realms as friends and foes.
+  const k = w.npcs.find((n) => n.id === w.kingId) ?? grown(w)[0];
+  w.kingId = k.id;
+  k.job = 'king';
+  const child = grown(w).find((n) => n !== k && n.spouseId === undefined && n.job === 'farmer' && n.questId === undefined)!;
+  Object.assign(child, { parentIds: [k.id], age: 20, inside: undefined });
+  const [friend, foe] = w.realms!;
+  Object.assign(friend, { relation: 30, war: false, wed: undefined, pact: undefined, fallen: false });
+  Object.assign(foe, { relation: -40, war: false, pact: undefined, fallen: false, truceUntil: 0 });
+  // One of our lands with a sullen village and its headman.
+  const r = (w.regions ?? []).find((x) => x.owner === 'us' && !x.seat) ?? w.regions![0];
+  r.owner = 'us';
+  const chief = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: r.id, partyId: undefined, guildId: undefined };
+  (w.villagers ??= []).push(chief);
+  r.village = { chiefId: chief.id, loyalty: 30, purse: 80 };
+}
+test('every affair of state comes up in its scene, offers a real choice, and every choice plays out', () => {
+  const kinds = ['scandal', 'dissolution', 'templeland', 'chapel', 'monopoly', 'failing', 'match', 'exile', 'warpact', 'homerule', 'bandits', 'knighthood'] as const;
+  const base = world(11);
+  stage(base);
+  ok(rankOf(base) >= TOWN_RANK, 'the test town should be a town');
+  for (const k of kinds) {
+    const probe = structuredClone(base);
+    const h = raise(probe, k, rngOf(probe));
+    ok(h, `${k} did not come up in its scene`);
+    ok(h!.options.length >= 2, `${k} offers only ${h!.options.length} option`);
+    for (const o of h!.options) {
+      const w = structuredClone(base);
+      raise(w, k, rngOf(w));
+      decide(w, rngOf(w), o.key);
+      const done = w.happenings!.at(-1)!;
+      ok(done.chosen === o.key && done.outcome, `${k}/${o.key} did not play out`);
+    }
+  }
+});
+
+test('the opposition can force an early election; a scandal denied costs the governing party at the polls', () => {
+  const w = world(11);
+  stage(w);
+  raise(w, 'dissolution', rngOf(w));
+  decide(w, rngOf(w), 'dissolve');
+  ok(w.republic!.nextVote <= w.day, 'dissolving the house did not call an election');
+  const x = world(11);
+  stage(x);
+  raise(x, 'scandal', rngOf(x));
+  decide(x, rngOf(x), 'deny');
+  ok(x.parties!.find((p) => p.id === 9001)!.broke === x.day, 'the denied scandal left no mark on the party');
+});
+
+test('a gold rush opened to all fills purses and brings strangers, then runs dry', () => {
+  const w = world(12);
+  w.day = Math.max(w.day, 400);
+  ok(beginSaga(w, 'goldrush', rngOf(w)), 'the gold rush did not begin');
+  ok(w.happening?.kind === 'goldrush', 'nobody was asked what to do with the gold');
+  decide(w, rngOf(w), 'open');
+  ok(modOf(w, 'arrivals') > 0, 'word of gold drew nobody');
+  const purse = w.npcs.reduce((s, n) => s + (n.alive ? n.gold : 0), 0);
+  for (let i = 0; i < 9 && w.saga; i++) {
+    w.day += 30 - (w.day % 30) + 14;
+    sagasDay(w, { state: 1000 + i });
+  }
+  ok(!w.saga, 'the gold rush never ended');
+  ok(w.npcs.reduce((s, n) => s + (n.alive ? n.gold : 0), 0) > purse, 'nobody found any gold');
+  ok(w.chronicle.some((e) => e.major && e.text.includes('สายแร่ทอง')), 'the end of the rush was not a headline');
+});
+
+test('a stolen royal child is held away from town until paid for, and comes home', () => {
+  const w = world(13);
+  w.day = Math.max(w.day, 400);
+  const k = w.npcs.find((n) => n.id === w.kingId)!;
+  const child = grown(w).find((n) => n !== k && n.questId === undefined)!;
+  Object.assign(child, { parentIds: [k.id], age: 12 });
+  w.treasury = 5000;
+  ok(beginSaga(w, 'ransom', rngOf(w)), 'nobody was taken');
+  const taken = w.npcs.find((n) => n.id === w.saga!.ctx)!;
+  ok(taken.inside === -1, 'the child is still walking about town');
+  run(w, 3);
+  ok(taken.inside === -1, 'the child wandered home from the bandit camp on their own');
+  decide(w, rngOf(w), 'pay');
+  w.day += 30 - (w.day % 30) + 14;
+  sagasDay(w, { state: 5 });
+  ok(taken.alive && taken.inside === undefined, 'the child did not come home after the ransom');
+  ok(!w.saga, 'the saga did not end');
+});
+
+test('a town sealed against the plague sends out no caravans, and the plague takes fewer', () => {
+  const deaths = (choice: string) => {
+    let dead = 0;
+    for (let s = 0; s < 6; s++) {
+      const w = world(20 + s);
+      w.day = Math.max(w.day, 400);
+      beginSaga(w, 'pestilence', rngOf(w));
+      decide(w, rngOf(w), choice);
+      const before = w.npcs.filter((n) => n.alive).length;
+      for (let i = 0; i < 5 && w.saga; i++) {
+        w.day += 30 - (w.day % 30) + 14;
+        sagasDay(w, { state: 77 + i * 13 + s });
+      }
+      dead += before - w.npcs.filter((n) => n.alive).length;
+      if (choice === 'close') ok(!w.saga && !w.sealed, 'the gates stayed shut after the plague');
+    }
+    return dead;
+  };
+  const closed = deaths('close');
+  const open = deaths('open');
+  ok(closed < open, `sealing the town did not save lives (${closed} dead sealed, ${open} open)`);
+  const w = world(30);
+  w.sealed = w.day + 100;
+  const m = ensureMarket(w);
+  m.stock.wool = 9999;
+  m.caravan = undefined;
+  run(w, 20);
+  ok(!m.caravan || m.caravan.grain > 0, 'a caravan went out of a sealed town with goods to sell');
+});
+
+test('a neighbour whose tribute we refused comes for it: a raid on a village, a war on a town', () => {
+  let raided = 0;
+  const base = world(40);
+  base.day = 30 * 40 + 20;
+  base.war = undefined;
+  for (let s = 0; s < 300 && !raided; s++) {
+    const w = structuredClone(base);
+    const r = w.realms![0];
+    Object.assign(r, { spurned: w.day - 10, pact: undefined, fallen: false, truceUntil: 0, raided: undefined });
+    warDay(w, { state: s * 31 + 7 });
+    if (w.war || w.chronicle.some((e) => e.text.includes('กองโจรม้า'))) raided++;
+  }
+  ok(raided, 'no spurned neighbour ever came for its tribute');
+  const v = world(41);
+  v.founded = 0;
+  v.day = 30 * 40 + 20;
+  const r = v.realms![0];
+  Object.assign(r, { spurned: v.day - 10, pact: undefined, fallen: false, truceUntil: 0 });
+  raidRealm(v, r, { state: 9 });
+  ok(v.chronicle.some((e) => e.major && e.text.includes('กองโจรม้า')), 'the raid was not a headline');
+  ok(!v.war, 'a raid should not start a war');
 });

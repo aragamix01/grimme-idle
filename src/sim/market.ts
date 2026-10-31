@@ -360,6 +360,7 @@ function caravans(world: WorldState, m: Market): void {
   const short = m.stock.grain < target(world, 'grain') * 0.15 && world.day - (m.lastImport ?? -IMPORT_GAP) >= IMPORT_GAP;
   const lacking = IMPORTS.filter((g) => m.stock[g] < target(world, g) * 0.3);
   if (!spare.length && !short && !lacking.length) return;
+  if ((world.sealed ?? 0) > world.day && !short) return; // a town sealed against the plague lets in only grain for the hungry
   const realm = tradePartner(world, spare, short);
   if (!realm) return; // every neighbour is hostile: the roads are closed
   const trade = TRADE[realm.terrain];

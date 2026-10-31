@@ -908,3 +908,46 @@ test('a new game starts as a pioneers\' camp; the works tab says what the town w
   await closeCard(page);
   await pageStill(page);
 });
+
+test('the town chronicle folds its routine away and a headline crosses the map without taking taps', async ({ page }) => {
+  // A comet about to pass: the saga's last month falls tomorrow, and its end is a headline.
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    w.day = Math.max(400, w.day) - (Math.max(400, w.day) % 30) + 13;
+    w.saga = { kind: 'comet', stage: 3, since: w.day - 90, choice: 'good' };
+    w.happening = undefined;
+    w.chronicle.push({ seq: ++w.chronicleSeq, day: w.day, kind: 'trade', text: 'พ่อค้าทดสอบนำกองคาราวานไปค้าขายที่แคว้นทดสอบ', minor: true });
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.saga);
+  const banner = page.locator('#headline');
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+  await expect(banner).toContainText('ดาวหาง');
+  await expect(banner).toHaveCSS('pointer-events', 'none');
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await sub(page, 'all');
+  const fold = page.locator('#feed .feed-fold');
+  await expect(fold).toContainText('แสดงเรื่องทั่วไป');
+  await expect(page.locator('#feed')).not.toContainText('พ่อค้าทดสอบ');
+  await expect(page.locator('#feed .entry--major').first()).toContainText('ดาวหาง');
+  await fold.tap();
+  await expect(page.locator('#feed')).toContainText('พ่อค้าทดสอบ');
+  await page.locator('#feed .feed-fold').tap();
+  await expect(page.locator('#feed')).not.toContainText('พ่อค้าทดสอบ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
