@@ -568,7 +568,11 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
 
 // Time passes inside the dungeon; the outcome is decided as the adventurer comes out.
 function delve(world: WorldState, npc: Npc, rng: Rng): void {
-  const p = npc.plan!;
+  const p = npc.plan;
+  if (!p) {
+    npc.inside = undefined; // nothing left to do down there: come back up
+    return;
+  }
   if (--p.days > 0) return;
   const d = world.dungeons.find((x) => x.id === npc.inside) as Dungeon;
   npc.inside = undefined;

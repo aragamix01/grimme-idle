@@ -605,6 +605,7 @@ export const AFFAIRS = {
         likes: { brave: 2, kind: 1.5, loyal: 1.2 },
         act: (w, _rng, h) => {
           const n = byId(w, h.ctx)!;
+          if (n.questId !== undefined || n.inside !== undefined) return `${n.name}ออกไปทำเควสเสียก่อน ราชโองการแต่งตั้งต้องรอจนกว่าจะกลับมาทูลขอใหม่`; // out on a quest by the time the word came
           leaveTrade(n);
           n.job = 'noble';
           n.plan = undefined;
