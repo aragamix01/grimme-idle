@@ -895,3 +895,4 @@ html:has(dialog[open]) { overflow: hidden; }
 .movement__acts .divine { width: 100%; }
 .chip--marcher { background: #8a2a2a; color: var(--paper); border-color: var(--outline); }
 button.chip--marcher:hover { background: #a83a3a; }
+.realm-king__note { color: var(--danger); }

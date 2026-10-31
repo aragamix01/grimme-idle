@@ -17,6 +17,13 @@ const EVENTS: Record<string, RegExp> = {
   conceded: /ยอมตามข้อเรียกร้องของ/,
   crackdown: /สั่งทหารสลาย/,
   refused: /ไม่ยอมทำร้ายประชาชน/,
+  ailing: /ประชวรหนัก ราชสำนัก/,
+  mad: /เริ่มเสียสติ/,
+  setAside: /ไม่อาจปกครองได้อีกต่อไป/,
+  abdicated: /สละราชสมบัติให้/,
+  regency: /เป็นผู้สำเร็จราชการแทน/,
+  regentSeized: /^ผู้สำเร็จราชการ.+ไม่ยอมคืนอำนาจ/,
+  succession: /^ศึกชิงบัลลังก์!/,
   starvedOut: /ทิ้งเมืองไปเพราะความหิวโหย/,
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,

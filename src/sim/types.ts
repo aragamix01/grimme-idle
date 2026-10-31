@@ -257,6 +257,9 @@ export interface Crown {
   pledge?: { cause: Cause; until: number }; // a promise the ruler made the street, and how long it binds
   conceded?: number; // times this town's rulers have given in to the street
   fear?: number; // day until which a crushed rising keeps the streets quiet
+  ailing?: number; // day the ruler fell gravely ill
+  mad?: number; // day the ruler lost their mind
+  regentId?: number; // who rules for a king still a child
 }
 
 // The discontented banded together behind a leader (see movements.ts).

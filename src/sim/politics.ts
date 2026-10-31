@@ -10,6 +10,7 @@ import { RULER_TH } from './lexicon';
 import { charterOf } from './charter';
 import { literate } from './learning';
 import { rankOf } from './growth';
+import { weariness } from './succession';
 import { sway } from './cult';
 import { ensureMarket, levelOf } from './market';
 import type { Crown, Npc, Tax, WorldState } from './types';
@@ -80,6 +81,7 @@ function drift(world: WorldState, k: Npc): void {
     if (curfew && !['noble', 'soldier'].includes(n.job)) by -= 0.8;
     if (n.job === 'noble' && ambitious(n)) by -= 1;
     if (n.marcher) by -= 0.6; // the movement keeps its grievance warm
+    by += weariness(world, n); // a long reign wears on the town
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
     by += regimeFeeling(world, n) + Math.min(5, world.monument ?? 0) * 0.2; // pride in the monument

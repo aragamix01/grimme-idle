@@ -25,6 +25,7 @@ import { TARGET, ensureMarket, target } from '../../src/sim/market';
 import { canSend } from '../../src/sim/villages';
 import { concede, crackdown, members, revolution } from '../../src/sim/movements';
 import { setTie } from '../../src/sim/ties';
+import { reignDay } from '../../src/sim/succession';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -965,4 +966,67 @@ test('the god can harden a crowd\'s resolve or cool its anger, for faith', () =>
   w.faith = 0;
   applyCommands(w, [{ type: 'movement', act: 'stir' }], rngOf(w));
   ok(mv.anger < before, 'a god without faith still stirred the crowd');
+});
+
+// ---------- politics: reigns and succession ----------
+
+test('a long reign wears on the town: the same ruler after twenty years has a sourer people', () => {
+  const fresh = world();
+  const old = world();
+  old.crown!.since = old.day - 365 * 25;
+  run(fresh, 120);
+  run(old, 120);
+  const avg = (w: WorldState) => grown(w).reduce((s, n) => s + (n.loyalty ?? 50), 0) / grown(w).length;
+  ok(avg(old) < avg(fresh) - 3, `twenty-five years in, loyalty ${avg(old).toFixed(1)} vs a new reign's ${avg(fresh).toFixed(1)}`);
+});
+
+test('a dead king\'s child heir takes the throne with a regent, and is handed it back at sixteen', () => {
+  const w = world();
+  const k = kingOf(w);
+  k.traits = ['kind'];
+  const child = grown(w).find((n) => n.job !== 'noble')!;
+  child.age = 10;
+  child.parentIds = [k.id];
+  const lord = grown(w).find((n) => n !== child && n.job === 'noble') ?? grown(w).find((n) => n !== child)!;
+  lord.job = 'noble';
+  lord.traits = ['loyal'];
+  kill(w, k, 'สิ้นพระชนม์');
+  tick(w);
+  ok(w.kingId === child.id, 'the child was not crowned');
+  ok(w.crown!.regentId !== undefined, 'no regent for a child king');
+  child.age = 16;
+  for (let i = 0; i < 40 && w.crown!.regentId !== undefined; i++) tick(w);
+  ok(w.crown!.regentId === undefined && w.kingId === child.id, 'the regency did not end with the king still crowned');
+});
+
+test('an ambitious lord may contest a grown heir\'s right: one of them is crowned, the other gone', () => {
+  let contested = 0;
+  for (let seed = 1; seed <= 12 && !contested; seed++) {
+    const w = world(seed);
+    const k = kingOf(w);
+    const heir = grown(w).find((n) => n.job !== 'noble' && n.job !== 'soldier')!;
+    heir.parentIds = [k.id];
+    heir.age = 30;
+    const rival = grown(w).find((n) => n !== heir && n.job === 'noble') ?? grown(w).find((n) => n !== heir && n.job !== 'soldier')!;
+    Object.assign(rival, { job: 'noble', traits: ['greedy'], gold: 900, loyalty: 10 });
+    kill(w, k, 'สิ้นพระชนม์');
+    tick(w);
+    if (!w.chronicle.some((e) => /^ศึกชิงบัลลังก์!/.test(e.text))) continue;
+    contested++;
+    ok(w.kingId === heir.id || w.kingId === rival.id, 'someone else took the throne');
+    const loser = w.kingId === heir.id ? rival : heir;
+    ok(!loser.alive, 'the loser of the war of succession is still in town');
+  }
+  ok(contested, 'no lord ever contested a grown heir');
+});
+
+test('an old ruler falls ill, and the illness ends in recovery or death', () => {
+  const w = world();
+  const k = kingOf(w);
+  k.age = 70;
+  w.day += (38 - (w.day % 30)) % 30; // the court's day of the month
+  for (let i = 0; i < 200 && w.crown!.ailing === undefined; i++) reignDay(w, { state: i * 7919 });
+  ok(w.crown!.ailing !== undefined, 'a king of seventy never fell ill');
+  for (let i = 0; i < 200 && w.crown!.ailing !== undefined && k.alive; i++) reignDay(w, { state: i * 104729 });
+  ok(w.crown!.ailing === undefined || !k.alive, 'the illness never ended');
 });

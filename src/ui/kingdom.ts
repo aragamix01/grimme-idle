@@ -1,4 +1,4 @@
-import { CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -721,9 +721,23 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
           : `อายุ ${k.age} ปี · ปกครองตั้งแต่ D${world.crown?.since ?? 0}` }),
       ...(r?.last ? [ballot(r.last.results, r.elections, r.last.day)] : []),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
+      ...reignNotes(world, k).map((t) => el('p', { className: 'realm-king__meta realm-king__note', textContent: t })),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),
     ),
   );
+}
+
+// What weighs on a reign: a regent ruling for a child, illness, madness, and the years themselves.
+function reignNotes(world: WorldState, k: Npc): string[] {
+  const c = world.crown;
+  const out: string[] = [];
+  const regent = c?.regentId !== undefined && world.npcs.find((n) => n.id === c.regentId && n.alive);
+  if (regent) out.push(`ผู้สำเร็จราชการ: ${regent.name} จนกว่าจะทรงบรรลุนิติภาวะ (อีก ${Math.max(0, 16 - k.age)} ปี)`);
+  if (c?.ailing !== undefined) out.push(`ประชวรหนักตั้งแต่ D${c.ailing} ราชสำนักซุบซิบเรื่องรัชทายาท`);
+  if (c?.mad !== undefined) out.push(`เสียสติตั้งแต่ D${c.mad} ชาวเมืองหวาดกลัว ขุนนางอาจเชิญให้พ้นจากบัลลังก์`);
+  const years = Math.floor(reignYears(world));
+  if (regimeOf(world) !== 'republic' && years >= 10) out.push(`ปกครองมา ${years} ปี ชาวเมืองเริ่มเบื่อหน้าผู้ปกครองคนเดิม`);
+  return out;
 }
 
 // The last election's count: one bar per candidate, the winner first.
