@@ -37,6 +37,7 @@ import { brew, draughts, engineer, pressDay, study } from './learning';
 import { TECHS, TECH_ORDER, researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
+import { movementsDay } from './movements';
 import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
 import { amendmentsDay } from './amend';
@@ -194,6 +195,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   regimeDay(world, rng);
   amendmentsDay(world, rng);
   rule(world, rng);
+  movementsDay(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
   for (const npc of world.npcs) {

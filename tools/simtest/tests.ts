@@ -23,6 +23,8 @@ import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
 import { TARGET, ensureMarket, target } from '../../src/sim/market';
 import { canSend } from '../../src/sim/villages';
+import { concede, crackdown, members, revolution } from '../../src/sim/movements';
+import { setTie } from '../../src/sim/ties';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -339,6 +341,7 @@ test('a reading town breeds a sect, led by a lettered believer', () => {
   const w = world(11);
   cast(w);
   for (const n of grown(w)) Object.assign(n, { lettered: true, creed: 'god', piety: 70 });
+  w.crown!.fear = Infinity; // a crown that keeps its streets quiet, so the town stays as it is
   for (let m = 0; m < 240 && !religionOf(w).sect; m++) {
     toMonthDay(w, 5);
     tick(w);
@@ -784,4 +787,145 @@ test('a camp\'s bread is priced for its own few mouths, not a town\'s', () => {
   const w = foundWorld(5);
   tick(w);
   ok(target(w, 'grain') < target(world(), 'grain') / 3, `a camp of ${townPop(w)} wants ${target(w, 'grain')} sacks in store`);
+});
+
+// ---------- politics: movements ----------
+
+// A town angry about one thing: high taxes, empty purses, sour on the ruler, and all friends of one bold soul.
+function angryTown(w: WorldState): Npc[] {
+  w.crown!.tax = 'high';
+  const folk = grown(w).filter((n) => !['noble', 'soldier'].includes(n.job) && !n.knight && n.inside === undefined && n.questId === undefined).slice(0, 14);
+  for (const n of folk) {
+    n.loyalty = 15;
+    n.gold = 0;
+    n.cultist = undefined;
+  }
+  for (const a of folk) for (const b of folk) if (a.id < b.id) setTie(w, a.id, b.id, 30); // one circle of friends
+  folk[0].traits = ['brave'];
+  return folk;
+}
+// Tick up to the movement's monthly meeting, the king kept from lowering the tax meanwhile.
+const toMeeting = (w: WorldState) => {
+  const taxed = w.crown!.tax === 'high';
+  do {
+    if (taxed) w.crown!.tax = 'high';
+    tick(w);
+  } while (w.day % 30 !== 22);
+};
+
+test('townsfolk sharing a grievance band together behind the boldest, through their friends', () => {
+  const w = world();
+  const folk = angryTown(w);
+  toMeeting(w);
+  ok(w.movement, 'no movement formed');
+  ok(w.movement!.cause === 'tax', `formed over ${w.movement!.cause}, not the tax`);
+  ok(members(w).length >= 3, `only ${members(w).length} members`);
+  ok(folk.filter((n) => n.marcher).length >= 3, 'the angry friends did not join');
+  ok(members(w).every((n) => n.job !== 'soldier' && n.job !== 'noble'), 'a soldier or noble joined on their own');
+});
+
+test('a ruler who gives in on the tax lowers it and keeps it down for a year', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const k = kingOf(w);
+  const said = concede(w, w.movement!, k, rngOf(w));
+  ok(said && w.crown!.tax === 'normal', `tax is ${w.crown!.tax} after giving in`);
+  w.treasury = 0; // a broke crown would raise it again, but for the promise
+  run(w, 60);
+  ok(w.crown!.tax !== 'high', 'the tax went back up inside the year');
+});
+
+test('soldiers with friends in the crowd refuse to march on it, and go over', () => {
+  const w = world();
+  const folk = angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.stage = 2;
+  const soldiers = w.npcs.filter((n) => n.alive && n.inside === undefined && (n.job === 'soldier' || n.knight));
+  ok(soldiers.length >= 2, 'too few soldiers to test');
+  for (const s of soldiers) {
+    s.loyalty = 20;
+    setTie(w, s.id, folk[1].id, 40);
+  }
+  crackdown(w, mv, kingOf(w), rngOf(w));
+  ok(mv.defectors > 0 && soldiers.some((s) => s.marcher), 'no soldier went over');
+});
+
+test('a crackdown on a riot jails the leader and makes martyrs who anger the rest', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'soldier' && !x.knight && x.job !== 'noble').slice(0, 40)) n.marcher = true;
+  for (const s of w.npcs.filter((n) => n.job === 'soldier')) s.loyalty = 90;
+  mv.stage = 4;
+  mv.anger = 50;
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  let held = false;
+  for (let i = 0; i < 8 && (!mv.martyrs || !held) && w.movement; i++) {
+    mv.stage = 4;
+    crackdown(w, mv, kingOf(w), { state: w.rng + i * 977 });
+    held ||= jailed(w, leader);
+  }
+  ok(mv.martyrs > 0, 'nobody fell in a riot put down by soldiers');
+  ok(held, 'the leader was never taken');
+});
+
+test('a crowd that wins in a town that cannot read sets up a people\'s council, not a new king', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight)) {
+    n.marcher = true;
+    n.lettered = false;
+  }
+  for (const s of w.npcs.filter((n) => n.job === 'soldier' || n.knight)) s.loyalty = 0; // nobody stands for the crown
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  leader.traits = ['kind'];
+  leader.morality = 60;
+  mv.cause = 'tax';
+  delete w.techs?.printing;
+  const old = kingOf(w);
+  revolution(w, mv, old, leader, rngOf(w));
+  ok(w.kingId !== old.id, 'the ruler held on against everyone');
+  ok(w.regime === 'republic', `the town became a ${w.regime ?? 'monarchy'}`);
+  ok(!w.movement, 'the movement stayed out after winning');
+});
+
+test('a camp has no court to plot in, and a ruler never flees a famine', () => {
+  const w = foundWorld(5);
+  tick(w);
+  const k = kingOf(w);
+  const lord = grown(w).find((n) => n !== k)!;
+  lord.job = 'noble';
+  lord.traits = ['greedy'];
+  lord.gold = 900;
+  for (const n of grown(w)) n.loyalty = 0;
+  for (let i = 0; i < 300; i++) {
+    k.hunger = 9;
+    tick(w);
+  }
+  ok(!w.chronicle.some((e) => /บุกวังหมายชิง/.test(e.text)), 'a noble stormed a camp\'s hut for its chief\'s seat');
+  ok(k.alive || !k.left, 'the ruler walked out of town hungry');
+});
+
+test('a republic\'s march on the hall calls an early election instead of a fight', () => {
+  const w = world();
+  w.regime = 'republic';
+  w.republic = { since: 0, elections: 1, nextVote: w.day + 3000 };
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight).slice(0, 30)) n.marcher = true;
+  mv.anger = 90;
+  mv.stage = 1;
+  const before = w.republic.elections;
+  for (let i = 0; i < 4 && w.republic!.elections === before; i++) {
+    if (w.movement) w.movement.stage = 1;
+    toMeeting(w);
+  }
+  ok(w.republic!.elections > before, 'no early election');
+  ok(!w.chronicle.some((e) => /บุกวัง หมายโค่น/.test(e.text)), 'a republic\'s crowd stormed the hall');
 });

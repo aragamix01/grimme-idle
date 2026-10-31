@@ -83,6 +83,7 @@ export interface Npc {
   creed?: Creed; // what they believe in; missing until the religion first counts them (see religion.ts)
   piety?: number; // 0..100: how much their belief rules their days
   prophet?: boolean; // proclaimed a commandment the god sent them in a dream
+  marcher?: boolean; // a member of the town's movement against the ruler (see movements.ts)
 }
 
 // What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
@@ -252,7 +253,25 @@ export interface Crown {
   since: number; // day the current king took the throne
   tax: Tax;
   lastFestival?: number;
-  unrest: number; // months in a row the people have been this unhappy
+  unrest: number; // fresh outrage (scandals, cruelty) since the movement last met; spent monthly
+  pledge?: { cause: Cause; until: number }; // a promise the ruler made the street, and how long it binds
+  conceded?: number; // times this town's rulers have given in to the street
+  fear?: number; // day until which a crushed rising keeps the streets quiet
+}
+
+// The discontented banded together behind a leader (see movements.ts).
+export type Cause = 'tax' | 'bread' | 'war' | 'graft' | 'faith' | 'tyranny' | 'wealth' | 'voice';
+export interface Movement {
+  name: string;
+  cause: Cause;
+  founded: number;
+  leaderId: number;
+  stage: number; // 0 grumbling, 1 petition, 2 march, 3 strike, 4 riot, 5 revolution
+  anger: number; // 0..100
+  martyrs: number;
+  members: number; // counted at the last meeting, for the panel
+  defectors: number; // soldiers who refused to march on it and joined
+  last?: { day: number; act: 'concede' | 'crackdown' | 'ignore' };
 }
 
 export interface Cult {
@@ -505,6 +524,7 @@ export interface WorldState {
   market?: Market; // missing in saves from before the economy
   kingId?: number; // the reigning king, or the last one if the throne is empty
   crown?: Crown; // missing in saves from before politics
+  movement?: Movement; // the townsfolk banded against the ruler, while they are
   balance?: number; // -100 (darkness) .. 100 (light); missing means 0
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;

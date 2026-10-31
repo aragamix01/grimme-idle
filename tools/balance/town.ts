@@ -9,6 +9,14 @@ import { creedCounts } from '../../src/sim/religion';
 // Chronicle lines worth counting, by what they say.
 const EVENTS: Record<string, RegExp> = {
   famine: /ข้าวหมดตลาด/,
+  movement: /รวมตัวกันตั้ง|คนตั้ง(กลุ่ม|ขบวนการ|สหภาพ)/,
+  march: /เดินขบวนไปหน้าวัง/,
+  riot: /ก่อจลาจล!/,
+  revolution: /บุกวัง หมายโค่น/,
+  overthrown: /นำ.+โค่นกษัตริย์|ตั้งสภาประชาชน/,
+  conceded: /ยอมตามข้อเรียกร้องของ/,
+  crackdown: /สั่งทหารสลาย/,
+  refused: /ไม่ยอมทำร้ายประชาชน/,
   starvedOut: /ทิ้งเมืองไปเพราะความหิวโหย/,
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,
@@ -124,11 +132,19 @@ export function runTown(seed: number, years: number): TownReport {
   const ageYears: number[] = [0];
   const rankYears: number[] = [0];
   const leaders = new Set<number>();
+  let reignFrom = 0;
+  let longestReign = 0;
+  let ruler = w.kingId;
   let hunger = 0;
   let seq = w.chronicleSeq;
   for (let d = 1; d <= years * 365; d++) {
     tick(w);
     if (w.kingId !== undefined) leaders.add(w.kingId);
+    if (w.kingId !== ruler) {
+      longestReign = Math.max(longestReign, d - reignFrom);
+      reignFrom = d;
+      ruler = w.kingId;
+    }
     if (d % 30 === 0) hunger += w.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2).length;
     const a = ageOf(w);
     while (ageYears.length <= a) ageYears.push(Math.round(d / 365));
@@ -168,6 +184,7 @@ export function runTown(seed: number, years: number): TownReport {
     knowledge: Math.round(w.knowledge ?? 0),
     regime: w.regime ?? 'monarchy',
     leaders: leaders.size,
+    longestReign: Math.round((Math.max(longestReign, years * 365 - reignFrom) / 365) * 10) / 10,
     jobs: alive.filter((n) => n.age >= 16).reduce((m, n) => ((m[n.job] = (m[n.job] ?? 0) + 1), m), {} as Record<string, number>),
     events,
   };

@@ -253,7 +253,7 @@ export function marketDay(world: WorldState, rng: Rng): void {
       continue;
     }
     n.hunger = (n.hunger ?? 0) + 1;
-    if (n.hunger >= LEAVE_HUNGER && n.age >= 16 && n.questId === undefined && chance(rng, 0.25)) leave(world, n);
+    if (n.hunger >= LEAVE_HUNGER && n.age >= 16 && n.questId === undefined && n.job !== 'king' && chance(rng, 0.25)) leave(world, n); // the ruler sits it out in the palace
   }
   if (world.day % TITHE_EVERY === 0) tithe(world);
   if (world.day % CARAVAN_EVERY === 0) {

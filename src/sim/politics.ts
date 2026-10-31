@@ -6,11 +6,10 @@ import { clamp, decreeActive, kill, log } from './core';
 import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
 import { enthrone, king, payrollReserve } from './society';
-import { known } from './core';
 import { RULER_TH } from './lexicon';
 import { charterOf } from './charter';
-import { literacy, literate } from './learning';
-import { isRepublic, proclaimRepublic } from './republic';
+import { literate } from './learning';
+import { rankOf } from './growth';
 import { sway } from './cult';
 import { ensureMarket, levelOf } from './market';
 import type { Crown, Npc, Tax, WorldState } from './types';
@@ -22,8 +21,7 @@ const KNIGHT_RANK = 3; // C or better
 const FESTIVAL_COST = 250;
 const FESTIVAL_GAP = 240; // days between festivals at the most
 const PLOT_POWER = 45; // nobles only plot against a crown weaker than this
-const UNREST_APPROVAL = 25; // two months below this and the streets rise
-const REFORM_LITERACY = 0.45; // share of readers past which a revolution ends the monarchy
+const COURT = 25; // grown townsfolk before there is a court to scheme in: a camp's chief is not plotted against
 
 export const loyaltyOf = (n: Npc) => n.loyalty ?? 50;
 const adults = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16 && n.job !== 'king');
@@ -63,7 +61,6 @@ export function rule(world: WorldState, rng: Rng): void {
   if (day === 12) festival(world, crown, k);
   if (day === 18) knight(world, k);
   if (day === 20) plot(world, k, rng);
-  if (day === 25) unrest(world, crown, k, rng);
 }
 
 // Every ten days loyalty settles toward the middle and moves with how life is going.
@@ -82,6 +79,7 @@ function drift(world: WorldState, k: Npc): void {
     if (taxfree) by += 2;
     if (curfew && !['noble', 'soldier'].includes(n.job)) by -= 0.8;
     if (n.job === 'noble' && ambitious(n)) by -= 1;
+    if (n.marcher) by -= 0.6; // the movement keeps its grievance warm
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
     by += regimeFeeling(world, n) + Math.min(5, world.monument ?? 0) * 0.2; // pride in the monument
@@ -124,6 +122,7 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
   if (k.traits.includes('kind') && world.treasury > reserve * 3) i = Math.max(0, i - 1);
   if (world.regime === 'oligarchy') i = Math.max(0, i - 1); // the rich govern, and tax themselves lightly
   if (world.regime === 'junta') i = Math.min(2, i + 1); // the army must be fed
+  if (crown.pledge?.cause === 'tax' && crown.pledge.until > world.day) i = Math.min(i, 1); // promised the street
   const cap = charterOf(world).taxCap;
   if (cap) i = Math.min(i, levels.indexOf(cap)); // the charter's ceiling
   const next = levels[i];
@@ -195,7 +194,7 @@ function exile(world: WorldState, n: Npc, why: string): void {
 // An ambitious noble with gold and a weak king gathers the disloyal and strikes, unless
 // a courtesan who heard too much tells the palace first.
 function plot(world: WorldState, k: Npc, rng: Rng): void {
-  if (crownPower(world).total >= PLOT_POWER) return;
+  if (crownPower(world).total >= PLOT_POWER || adults(world).length < COURT || rankOf(world) < 1) return; // a camp has no court to scheme in
   const schemer = adults(world)
     .filter((n) => n.job === 'noble' && (ambitious(n) || loyaltyOf(n) < 30) && n.gold >= 120 && n.inside === undefined)
     .sort((a, b) => loyaltyOf(a) - loyaltyOf(b))[0];
@@ -279,37 +278,9 @@ export function intrigue(world: WorldState, k: Npc, rng: Rng): boolean {
 }
 
 // A cruel usurper kills the old king; a gentler one sends him away.
-function depose(world: WorldState, old: Npc, usurper: Npc, rng: Rng): void {
+export function depose(world: WorldState, old: Npc, usurper: Npc, rng: Rng): void {
   if (usurper.morality < 0 || chance(rng, 0.2)) kill(world, old, 'ถูกปลงพระชนม์ระหว่างการชิงบัลลังก์');
   else exile(world, old, 'ถูกถอดจากบัลลังก์และเนรเทศออกจากเมือง');
-}
-
-// Two bad months in a row and the poorest, angriest commoner leads the town against the palace.
-function unrest(world: WorldState, crown: Crown, k: Npc, rng: Rng): void {
-  crown.unrest = approval(world) < UNREST_APPROVAL ? crown.unrest + 1 : Math.max(0, crown.unrest - 1);
-  if (crown.unrest < 2 || isRepublic(world)) return; // a republic answers anger at the ballot box
-  crown.unrest = 0;
-  const commoners = adults(world).filter((n) => !['noble', 'soldier'].includes(n.job) && !n.knight && n.questId === undefined && n.inside === undefined);
-  const angry = commoners.filter((n) => loyaltyOf(n) < 30);
-  const fiery = (n: Npc) => (n.traits.includes('brave') ? 10 : 0) + (n.traits.includes('vengeful') ? 10 : 0) - loyaltyOf(n);
-  const leader = angry.sort((a, b) => fiery(b) - fiery(a))[0];
-  if (!leader || angry.length < 5) return;
-  const guard = armed(world).filter((n) => loyaltyOf(n) >= 40).reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0);
-  log(world, 'politics', `ชาวเมือง ${angry.length} คนนำโดย${leader.name}ลุกฮือขึ้นต่อต้านกษัตริย์${k.name}!`, leader.id);
-  if (chance(rng, (angry.length * 0.5) / (angry.length * 0.5 + guard * 2 + 1))) {
-    depose(world, k, leader, rng);
-    const loot = Math.floor(world.treasury / 2);
-    world.treasury -= loot;
-    for (const n of angry) n.gold += Math.floor(loot / angry.length);
-    legend(world, `${leader.name} นำชาวเมืองโค่นกษัตริย์${k.name}`, leader.id);
-    // A town that reads has heard of other ways to be ruled: it does without a king.
-    if (known(world, 'printing') || literacy(world) >= REFORM_LITERACY) proclaimRepublic(world, leader, rng);
-    else enthrone(world, leader, 'นำการปฏิวัติของชาวเมือง');
-    return;
-  }
-  kill(world, leader, 'ถูกทหารปราบระหว่างการลุกฮือ');
-  for (const n of angry) if (n !== leader && chance(rng, 0.08)) kill(world, n, 'ล้มลงระหว่างการลุกฮือ');
-  for (const n of angry) nudge(n, -5);
 }
 
 // After monsters break in: the garrison that held earns thanks, a crown that left the

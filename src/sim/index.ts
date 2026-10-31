@@ -24,6 +24,7 @@ export { councilName } from './core';
 export { say } from './lexicon';
 export { charterOf, clauses } from './charter';
 export { reformers } from './regimes';
+export { CAUSE_TH, STAGE_TH, grievances, members, movementOf } from './movements';
 export { AGES, AGE_SUFFIX, ageOf, jobName } from './ages';
 export { literacy, literate, schoolAge } from './learning';
 export const PLACES_SCHOOL = PLACES.school;
