@@ -73,6 +73,14 @@ export const members = (world: WorldState) => (world.movement ? world.npcs.filte
 // The streets are restless: a movement out in the open, or fresh outrage not yet spent.
 export const restless = (world: WorldState) => (world.movement?.stage ?? 0) >= 1 || (world.crown?.unrest ?? 0) > 0;
 
+// A movement's name, as the regime it stands against shapes it.
+function nameOf(world: WorldState, cause: Cause): string {
+  if (cause === 'voice' && world.regime === 'junta') return 'ขบวนการนักศึกษาและปัญญาชน';
+  if (cause === 'wealth' && world.regime === 'oligarchy') return 'สหภาพแรงงานทั่วเมือง';
+  if (cause === 'faith' && world.religion?.sect && world.regime === 'theocracy') return `ผู้ศรัทธา${world.religion.sect.name}`;
+  return CAUSE_TH[cause].name;
+}
+
 // What the town is angry about this month, worked out once for everyone.
 interface Mood {
   tax: boolean;
@@ -98,7 +106,7 @@ function mood(world: WorldState): Mood {
     persecute: faithLawOf(c) === 'persecute',
     theocracy: r === 'theocracy',
     tyranny: (decreeActive(world, 'curfew') ? 1 : 0) + (c.emergency ? 1.5 : 0) + (r === 'junta' ? 1 : 0),
-    unequal: inequality(world) > 0.7,
+    unequal: inequality(world) > (r === 'oligarchy' ? 0.6 : 0.7), // the merchants' rule widens the gap, and the poor feel it sooner
     voice: r === 'republic' ? 0 : (literacy(world) >= 0.35 ? 1 : 0) + (known(world, 'printing') ? 0.5 : 0),
     level: levelOf(world),
   };
@@ -186,7 +194,7 @@ function form(world: WorldState, m: Mood, outrage: number): void {
   const first = folk.filter((n) => n === leader || close(world, n, leader));
   if (first.length < 3 && !(outrage && first.length >= 2)) return;
   for (const n of first) n.marcher = true;
-  world.movement = { name: CAUSE_TH[cause].name, cause, founded: world.day, leaderId: leader.id, stage: 0, anger: 20 + outrage * 8, martyrs: 0, members: first.length, defectors: 0 };
+  world.movement = { name: nameOf(world, cause), cause, founded: world.day, leaderId: leader.id, stage: 0, anger: 20 + outrage * 8, martyrs: 0, members: first.length, defectors: 0 };
   log(world, 'politics', `${leader.name}กับเพื่อนอีก ${first.length - 1} คนรวมตัวกันตั้ง${CAUSE_TH[cause].name} บ่นกันในโรงเตี๊ยมว่าต้องการ${CAUSE_TH[cause].demand}`, leader.id);
 }
 
@@ -194,7 +202,7 @@ function form(world: WorldState, m: Mood, outrage: number): void {
 export function rally(world: WorldState, cause: Cause, folk: Npc[], leader: Npc, stage: number, rng: Rng): boolean {
   if (world.movement || !king(world)) return false;
   for (const n of folk) n.marcher = true;
-  world.movement = { name: CAUSE_TH[cause].name, cause, founded: world.day, leaderId: leader.id, stage, anger: STEP[stage][1] + 5, martyrs: 0, members: folk.length, defectors: 0 };
+  world.movement = { name: nameOf(world, cause), cause, founded: world.day, leaderId: leader.id, stage, anger: STEP[stage][1] + 5, martyrs: 0, members: folk.length, defectors: 0 };
   if (stage === 3) strike(world, world.movement);
   else log(world, 'politics', `${leader.name}นำชาวเมือง ${folk.length} คนตั้ง${CAUSE_TH[cause].name} เรียกร้อง${CAUSE_TH[cause].demand}`, leader.id);
   if (stage >= 1) answer(world, world.movement, king(world)!, rng);

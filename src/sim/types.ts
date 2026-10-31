@@ -260,6 +260,7 @@ export interface Crown {
   ailing?: number; // day the ruler fell gravely ill
   mad?: number; // day the ruler lost their mind
   regentId?: number; // who rules for a king still a child
+  promise?: number; // day a junta promised to hand power back by
 }
 
 // The discontented banded together behind a leader (see movements.ts).

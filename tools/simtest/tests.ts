@@ -26,6 +26,8 @@ import { canSend } from '../../src/sim/villages';
 import { concede, crackdown, members, revolution } from '../../src/sim/movements';
 import { setTie } from '../../src/sim/ties';
 import { reignDay } from '../../src/sim/succession';
+import { regimeEventsDay } from '../../src/sim/regimeEvents';
+import { election } from '../../src/sim/republic';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -1029,4 +1031,76 @@ test('an old ruler falls ill, and the illness ends in recovery or death', () => 
   ok(w.crown!.ailing !== undefined, 'a king of seventy never fell ill');
   for (let i = 0; i < 200 && w.crown!.ailing !== undefined && k.alive; i++) reignDay(w, { state: i * 104729 });
   ok(w.crown!.ailing === undefined || !k.alive, 'the illness never ended');
+});
+
+// ---------- politics: each regime's own troubles ----------
+
+const toEventDay = (w: WorldState) => {
+  w.day += (46 - (w.day % 30)) % 30 || 30; // the regimes' day of the month
+};
+
+test('a junta under pressure promises elections, and when they fall due it keeps or breaks the promise', () => {
+  const w = world();
+  w.regime = 'junta';
+  const k = kingOf(w);
+  k.traits = ['kind'];
+  for (const n of grown(w)) n.loyalty = 25; // a sour town
+  for (let i = 0; i < 40 && w.crown!.promise === undefined; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.crown!.promise !== undefined, 'the general never promised to hand power back');
+  w.day = w.crown!.promise! - 1;
+  toEventDay(w);
+  regimeEventsDay(w, rngOf(w));
+  ok(w.regime === 'republic', `a kind general's promise came due and the town is a ${w.regime}`);
+});
+
+test('a vengeful general jails the readers who speak against them', () => {
+  const w = world();
+  w.regime = 'junta';
+  const k = kingOf(w);
+  k.traits = ['vengeful'];
+  w.crown!.promise = w.day + 9999; // already promised, so the month goes to the purge
+  for (const n of grown(w).filter((x) => x.job !== 'soldier' && !x.knight).slice(0, 8)) Object.assign(n, { lettered: true, loyalty: 10 });
+  for (const s of grown(w).filter((x) => x.job === 'soldier' || x.knight)) s.loyalty = 90; // no colonel stirs
+  let jailedNow = 0;
+  for (let i = 0; i < 60 && !jailedNow; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 104729 });
+    jailedNow = grown(w).filter((n) => jailed(w, n)).length;
+  }
+  ok(jailedNow >= 3, `${jailedNow} critics jailed`);
+});
+
+test('a losing, grasping republic leader may stuff the ballot boxes and keep the office', () => {
+  let rigged = false;
+  for (let seed = 1; seed <= 20 && !rigged; seed++) {
+    const w = world(seed);
+    w.regime = 'republic';
+    w.republic = { since: 0, elections: 1, nextVote: w.day + 3000 };
+    const k = kingOf(w);
+    Object.assign(k, { traits: ['greedy'], morality: -40, age: 40 });
+    for (const n of grown(w)) n.loyalty = 5; // everyone wants them out
+    w.techs = { ...(w.techs ?? {}), printing: 0 };
+    const won = election(w, rngOf(w), 'ทดสอบ');
+    rigged = won === k; // only stuffed boxes keep a leader everyone wants gone
+  }
+  ok(rigged, 'a hated, grasping leader never once kept the office');
+});
+
+test('the merchants\' council throws out a chairman a richer member outweighs', () => {
+  const w = world();
+  w.regime = 'oligarchy';
+  const k = kingOf(w);
+  k.gold = 100;
+  w.crown!.since = w.day - 800;
+  const rich = grown(w).find((n) => n.job === 'merchant') ?? grown(w)[0];
+  rich.job = 'merchant';
+  rich.gold = 2000;
+  for (let i = 0; i < 80 && w.kingId === k.id; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.kingId === rich.id && w.regime === 'oligarchy', 'the richer merchant did not take the chair');
 });
