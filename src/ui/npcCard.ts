@@ -1,4 +1,4 @@
-import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { partyOf, IDEOLOGY_TH, CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -244,6 +244,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.prophet ? [el('span', { className: 'chip chip--gold', textContent: 'ศาสดา' })] : []),
+    ...(partyOf(world, npc) ? [partyChip(world, npc)] : []),
     ...(npc.marcher && world.movement ? [el('span', { className: 'chip chip--danger', textContent: world.movement.leaderId === npc.id ? `แกนนำ${world.movement.name}` : world.movement.name })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
@@ -398,4 +399,11 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     wrap.append(el('div', { className: 'dream-pick' }, el('span', { textContent: 'ให้ฝันว่าเป็น' }), ...jobs));
   }
   return wrap;
+}
+
+// The party they belong to, and whether they lead it or sit for it.
+function partyChip(world: WorldState, n: Npc): HTMLElement {
+  const p = partyOf(world, n)!;
+  const role = p.leaderId === n.id ? 'หัวหน้า' : p.mps.includes(n.id) ? 'ส.ส. ' : 'สมาชิก';
+  return el('span', { className: `chip party-chip party--${p.ideology}`, title: IDEOLOGY_TH[p.ideology].text, textContent: `${role}${p.name}` });
 }

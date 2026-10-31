@@ -21,13 +21,15 @@ export const FRANCHISE_TH: Record<Charter['franchise'], string> = {
 function draft(r: Regime): Omit<Charter, 'written' | 'amendments'> {
   switch (r) {
     case 'republic':
-      return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', auditor: true, freePress: true, landPolicy: 'settle', provinces: true };
+      return { termYears: 3, termLimit: 2, franchise: 'all', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', auditor: true, freePress: true, landPolicy: 'settle', provinces: true, parliament: true, parties: 'free' };
     case 'theocracy':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed', economy: 'guided' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: true, landPolicy: 'peace', guilds: 'taxed', economy: 'guided', parties: 'banned' };
     case 'oligarchy':
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: 'normal', stateFaith: false, auditor: true, freePress: true, landPolicy: 'settle', economy: 'free' };
     case 'junta':
-      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed', economy: 'guided' };
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: false, taxCap: null, stateFaith: false, emergency: true, landPolicy: 'conquest', guilds: 'taxed', economy: 'guided', parties: 'banned' };
+    case 'commune':
+      return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, faith: 'secular', freePress: false, landPolicy: 'settle', guilds: 'banned', economy: 'guided', parties: 'one', property: 'common' };
     default:
       return { termYears: 0, termLimit: null, franchise: 'none', councilVeto: true, taxCap: null, stateFaith: false, landPolicy: 'settle' };
   }
@@ -53,9 +55,10 @@ export function amend(world: WorldState, change: Partial<Charter>, text: string)
 }
 
 // The clauses as the kingdom tab lists them.
-export function clauses(c: Charter): string[] {
+export function clauses(c: Charter, crowned = false): string[] {
   const out: string[] = [];
-  if (c.termYears) out.push(`วาระผู้นำ ${c.termYears} ปี · ${c.termLimit ? `ดำรงตำแหน่งได้ไม่เกิน ${c.termLimit} สมัยติดต่อกัน` : 'ไม่จำกัดจำนวนสมัย'}`);
+  if (c.termYears && crowned) out.push(`รัฐสภามีวาระ ${c.termYears} ปี`);
+  else if (c.termYears) out.push(`วาระผู้นำ ${c.termYears} ปี · ${c.termLimit ? `ดำรงตำแหน่งได้ไม่เกิน ${c.termLimit} สมัยติดต่อกัน` : 'ไม่จำกัดจำนวนสมัย'}`);
   out.push(FRANCHISE_TH[c.franchise]);
   out.push(c.councilVeto ? 'สภายับยั้งคำสั่งของผู้ปกครองได้' : 'สภาไม่มีอำนาจยับยั้ง');
   out.push(c.taxCap ? `ภาษีเก็บได้ไม่เกินระดับ${TAX_WORD[c.taxCap]}` : 'ผู้ปกครองกำหนดภาษีได้ตามใจ');
@@ -66,9 +69,13 @@ export function clauses(c: Charter): string[] {
   out.push(POLICY_TH[landPolicyOf(c)]);
   out.push(GUILD_LAW_TH[c.guilds ?? 'free']);
   out.push(c.economy === 'free' ? 'การค้าเสรี ห้ามเก็บภาษีศุลกากรและห้ามคุมราคา' : c.economy === 'guided' ? 'รัฐกำกับตลาด เก็บภาษีศุลกากรและคุมราคาได้' : 'ผู้ปกครองกำหนดนโยบายการค้าได้ตามสถานการณ์');
+  if (c.parliament) out.push(crowned ? 'ราชาธิปไตยภายใต้รัฐธรรมนูญ: รัฐสภาจากการเลือกตั้งตั้งนายกรัฐมนตรี กษัตริย์ทรงเป็นประมุขแต่ไม่บริหาร' : 'รัฐสภามาจากการเลือกตั้งตามพรรคการเมือง พรรคที่ได้เสียงข้างมากตั้งรัฐบาล');
+  out.push(PARTIES_TH[c.parties ?? 'free']);
+  if (c.property === 'common') out.push('ทรัพย์สินเป็นของส่วนรวม ใครมีเกินส่วนแบ่งต้องคืนให้ประชาชน');
   out.push(c.provinces ? 'กฎบัตรหัวเมือง: หมู่บ้านเก็บส่วนแบ่งได้อย่างน้อยหนึ่งในสี่ และเลือกผู้ใหญ่บ้านเอง' : 'หัวเมืองขึ้นตรงต่อเมืองหลวง ส่วยเรียกเก็บได้ตามใจผู้ปกครอง');
   return out;
 }
+export const PARTIES_TH = { free: 'เสรีภาพในการตั้งพรรคการเมือง', one: 'มีพรรคการเมืองได้พรรคเดียว คือพรรคที่ปกครอง', banned: 'ห้ามตั้งพรรคการเมือง' } as const;
 const TAX_WORD: Record<Tax, string> = { low: 'ต่ำ', normal: 'ปกติ', high: 'สูง' };
 // The faith law, and the clauses that set it: a hunted faith is the state's one too.
 export const faithLawOf = (c: Charter): FaithLaw => c.faith ?? (c.stateFaith ? 'state' : 'tolerant');

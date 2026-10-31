@@ -84,6 +84,7 @@ export interface Npc {
   piety?: number; // 0..100: how much their belief rules their days
   prophet?: boolean; // proclaimed a commandment the god sent them in a dream
   marcher?: boolean; // a member of the town's movement against the ruler (see movements.ts)
+  partyId?: number; // the political party they belong to (see parties.ts)
 }
 
 // What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
@@ -146,10 +147,40 @@ export interface Charter {
   provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
   guilds?: 'free' | 'taxed' | 'banned'; // whether people may band together in guilds; missing means free
   economy?: 'free' | 'guided'; // free trade (no tariffs or price caps) or a guided market; missing means the ruler decides
+  parliament?: boolean; // an elected house of parties: the republic's legislature, or a crown made constitutional
+  parties?: 'free' | 'one' | 'banned'; // whether people may found parties; missing means free
+  property?: 'private' | 'common'; // whether fortunes are one's own or the commune's; missing means private
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
-export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
+export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta' | 'commune';
+// What a party stands for (see parties.ts): the merchants' free market, the nation's arms, the
+// workers' bread, the faith's law, the old order's crown and estates.
+export type Ideology = 'trade' | 'nation' | 'labour' | 'faith' | 'old';
+export interface Party {
+  id: number;
+  name: string;
+  ideology: Ideology;
+  leaderId: number;
+  founded: number; // day
+  treasury: number; // dues and donations: spent on campaigns, and on bribes
+  from?: string; // what it grew out of, for the record
+  seats: number; // seats it holds in the parliament
+  mps: number[]; // who sits in them
+  broke?: number; // day its government last broke a promise of its platform
+}
+// The elected legislature (see parties.ts): under a republic its majority makes the leader; under
+// a constitutional monarchy it makes the prime minister and the king reigns without ruling.
+export interface Parliament {
+  seats: number; // seats in the house
+  coalition: number[]; // the parties in government
+  nextVote: number; // day of the next general election
+  elections: number;
+  pmId?: number; // the prime minister (a constitutional monarchy's head of government)
+  independents?: number[]; // members who sit for no party, elected while the town has fewer than two
+  sweep?: number; // elections in a row one party has held two thirds of the house
+  last?: { day: number; results: { partyId: number; name: string; votes: number; seats: number }[]; runoff?: boolean };
+}
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
 export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
@@ -563,6 +594,9 @@ export interface WorldState {
   regime?: Regime; // how the town is governed; missing means a king
   charter?: Charter; // missing in saves from before constitutions: written from the regime
   strike?: number; // day a workers' strike ends
+  parties?: Party[]; // the political parties (see parties.ts)
+  parliament?: Parliament; // the elected house, where there is one
+  commune?: { since: number; seized: number; plan?: number }; // the people's republic: what was collectivized, and the plan in force
   republic?: { since: number; elections: number; nextVote: number; streak?: number; inOffice?: number; impeached?: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
   auditor?: { id?: number; independence: number; cases: number; caught: number; since: number }; // the independent auditor's office (see auditor.ts)
   council?: { vetoes: number; overrides: number; deadlock?: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };

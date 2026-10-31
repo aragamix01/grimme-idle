@@ -1,4 +1,4 @@
-import { ADULT_AGE, CAUSE_TH, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
+import { ADULT_AGE, CAUSE_TH, partyOf, type Ideology, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
 
 // Short reactions that pop over an NPC's head when something happens to them.
 const LINES: Partial<Record<EventKind, string[]>> = {
@@ -114,6 +114,16 @@ const RULER_LINES: Record<Exclude<Regime, 'monarchy'>, string[]> = {
   theocracy: ['เทพเจ้าทรงนำทางเรา', 'จงสวดภาวนาทุกเช้า', 'ศรัทธาคือกฎหมาย'],
   oligarchy: ['ทองคือพลัง', 'การค้าต้องไม่หยุด', 'กำไรปีนี้สวยมาก'],
   junta: ['ระเบียบต้องมาก่อน!', 'ทหาร ตรงไป!', 'ห้ามใครขัดคำสั่ง'],
+  commune: ['ทุกคนเท่าเทียมกัน', 'แผนห้าปีต้องสำเร็จ!', 'เพื่อชนชั้นแรงงาน'],
+};
+
+// What a party member says about their cause.
+const SLOGANS: Record<Ideology, string[]> = {
+  trade: ['ภาษีต่ำ ตลาดเสรี!', 'รัฐอย่ามายุ่งกับการค้า', 'เลือกพรรคการค้านะ'],
+  nation: ['บ้านเมืองต้องเข้มแข็ง!', 'กองทัพคือหัวใจ', 'ปราบมอนสเตอร์ให้หมด!'],
+  labour: ['ข้าวต้องถูก ค่าแรงต้องขึ้น!', 'คนจนก็คือคน', 'สามัคคีคือพลัง!'],
+  faith: ['ขอให้บ้านเมืองมีศีลธรรม', 'เทพเจ้าเลือกเรา', 'เลือกคนดีเข้าสภา'],
+  old: ['ของเดิมดีอยู่แล้ว', 'อย่าเปลี่ยนแปลงเร็วนัก', 'เคารพผู้ใหญ่บ้าง'],
 };
 
 const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)];
@@ -147,6 +157,8 @@ function lineFor(world: WorldState, n: Npc): string | undefined {
   if (n.cultist && r < 0.15) return '(กระซิบ) คืนนี้ที่ดันเจี้ยน…';
   if ((n.loyalty ?? 50) < 30 && n.job !== 'king' && r < 0.4) return any(['ภาษีแพงจัง', 'กษัตริย์ไม่เคยสนเราเลย', 'สักวันจะลุกฮือ!']);
   if (seasonOf(world.day) === 'winter' && r < 0.2) return any(['หนาวจัง…', 'อยากนั่งข้างเตาผิง']);
+  const party = partyOf(world, n);
+  if (party && r < 0.12) return any(SLOGANS[party.ideology]);
   const friend = friendNear(world, n);
   if (friend && r < 0.25) return `สวัสดี ${friend.name}!`;
   if (n.job === 'king' && world.regime && world.regime !== 'monarchy') return any(RULER_LINES[world.regime]);

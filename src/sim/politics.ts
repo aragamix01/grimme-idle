@@ -13,6 +13,7 @@ import { rankOf } from './growth';
 import { weariness } from './succession';
 import { sway } from './cult';
 import { ensureMarket, levelOf } from './market';
+import { brokePromise, constitutional, governor, hasParliament, mind, rulingIdeology } from './parties';
 import type { Crown, Npc, Tax, WorldState } from './types';
 
 export const TAX_RATE: Record<Tax, number> = { low: 0.04, normal: 0.08, high: 0.14 };
@@ -56,8 +57,10 @@ export function rule(world: WorldState, rng: Rng): void {
   if (world.day % 10 === 0) drift(world, k);
   const day = world.day % 30;
   if (day === 5) {
-    setTaxes(world, crown, k);
-    embezzle(world, k);
+    // Under a constitutional crown the prime minister sets the tax and holds the purse strings.
+    const gov = governor(world) ?? k;
+    setTaxes(world, crown, gov);
+    embezzle(world, gov);
   }
   if (day === 12) festival(world, crown, k);
   if (day === 18) knight(world, k);
@@ -101,6 +104,9 @@ function regimeFeeling(world: WorldState, n: Npc): number {
       return n.job === 'priest' ? 1 : n.creed === 'none' ? -1 : (n.piety ?? 50) >= 60 ? 0.6 : n.morality > 0 ? 0.3 : -0.8;
     case 'oligarchy':
       return n.gold >= 60 ? 1 : n.gold < 15 ? -0.8 : 0;
+    case 'commune':
+      // The Party's own and the poor it feeds, against those it stripped of their fortunes.
+      return n.partyId !== undefined ? 1 : n.gold < 20 * levelOf(world) ? 0.6 : n.gold >= 60 * levelOf(world) || n.job === 'merchant' ? -1 : 0;
     default:
       return 0;
   }
@@ -120,8 +126,11 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
     low: t < 700 ? 'normal' : 'low',
   };
   let i = levels.indexOf(want[crown.tax]);
-  if (k.traits.includes('greedy')) i = Math.min(2, i + 1);
-  if (k.traits.includes('kind') && world.treasury > reserve * 3) i = Math.max(0, i - 1);
+  const traits = mind(world, k);
+  if (traits.includes('greedy') && rulingIdeology(world) !== 'trade') i = Math.min(2, i + 1);
+  if (traits.includes('kind') && world.treasury > reserve * 3) i = Math.max(0, i - 1);
+  const platform = hasParliament(world) ? rulingIdeology(world) : undefined;
+  if (platform === 'trade') i = Math.max(0, i - 1); // the merchants' government promised low taxes
   if (world.regime === 'oligarchy') i = Math.max(0, i - 1); // the rich govern, and tax themselves lightly
   if (world.regime === 'junta') i = Math.min(2, i + 1); // the army must be fed
   if (crown.pledge?.cause === 'tax' && crown.pledge.until > world.day) i = Math.min(i, 1); // promised the street
@@ -131,7 +140,8 @@ function setTaxes(world: WorldState, crown: Crown, k: Npc): void {
   if (next === crown.tax) return;
   const up = levels.indexOf(next) > levels.indexOf(crown.tax);
   crown.tax = next;
-  log(world, 'politics', `กษัตริย์${k.name}${up ? 'ขึ้นภาษี' : 'ลดภาษี'} ตอนนี้เป็น${TAX_TH[next]}`, k.id);
+  log(world, 'politics', `${constitutional(world) ? `รัฐบาลของนายกรัฐมนตรี${k.name}` : `กษัตริย์${k.name}`}${up ? 'ขึ้นภาษี' : 'ลดภาษี'} ตอนนี้เป็น${TAX_TH[next]}`, k.id);
+  if (platform === 'trade' && next === 'high') brokePromise(world, 'ขึ้นภาษีสูง');
 }
 
 // A greedy king helps himself to the treasury; the court notices.

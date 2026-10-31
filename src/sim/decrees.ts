@@ -6,7 +6,7 @@ import { decreeActive, known, log, loyaltyNudge } from './core';
 import { leaveTrade } from './society';
 import { ensureMarket, priceRatio } from './market';
 import { literate } from './learning';
-import { king, payrollReserve } from './society';
+import { payrollReserve } from './society';
 import { traveller } from './world';
 import { putToCouncil } from './government';
 import { builtFor } from './housing';
@@ -16,6 +16,7 @@ import { canSend, folkOf, labour } from './villages';
 import { conquestWar, weakest } from './war';
 import { CEILING, TARIFF, TARIFF_ON_IMPORTS, breadIsDear, embargo, embargoTarget } from './commerce';
 import { restless as streetRestless } from './movements';
+import { brokePromise, constitutional, favours, forbids, governor, mind } from './parties';
 import type { Decree, Job, Npc, WorldState } from './types';
 
 export interface DecreeDef {
@@ -221,9 +222,14 @@ export function decreesDay(world: WorldState, rng: Rng): void {
   }
   if (world.decrees?.length) world.decrees = world.decrees.filter((d) => d.until > world.day);
   if (world.day % 30 !== REVIEW_DAY) return;
-  const k = king(world);
+  // Whoever governs decides, with the temper of the platform they govern by: a party never issues
+  // what it swore against, and puts what it promised first. Under a constitutional crown that is
+  // the prime minister, not the king.
+  const k = governor(world);
   if (!k) return;
-  const next = DECREE_ORDER.find((d) => !decreeActive(world, d) && ready(world, d) && RULES[d].wants(world, k, rng));
+  const judge = { ...k, traits: mind(world, k) };
+  const order = [...DECREE_ORDER.filter((d) => favours(world, d)), ...DECREE_ORDER.filter((d) => !favours(world, d))];
+  const next = order.find((d) => !forbids(world, d) && !decreeActive(world, d) && ready(world, d) && RULES[d].wants(world, judge, rng));
   if (!next) return;
   if (!putToCouncil(world, next, DECREES[next].name, k, rng)) {
     (world.decreeAt ??= {})[next] = world.day - COOLDOWN + VETO_WAIT; // the king may try again later
@@ -232,7 +238,7 @@ export function decreesDay(world: WorldState, rng: Rng): void {
   const what = RULES[next].issue(world, k, rng);
   (world.decrees ??= []).push({ kind: next, since: world.day, until: world.day + DECREES[next].days });
   (world.decreeAt ??= {})[next] = world.day;
-  log(world, 'politics', `กษัตริย์${k.name}ออกพระราชโองการ${DECREES[next].name}: ${what}`, k.id);
+  log(world, 'politics', `${constitutional(world) ? `รัฐบาลของนายกรัฐมนตรี${k.name}ออกพระราชกฤษฎีกา` : `กษัตริย์${k.name}ออกพระราชโองการ`}${DECREES[next].name}: ${what}`, k.id);
 }
 
 // A decree the street forced on the ruler: issued at once, past the council, since the crowd is at the gate.
@@ -242,5 +248,6 @@ export function grant(world: WorldState, d: Decree, k: Npc, rng: Rng, by: string
   const what = RULES[d].issue(world, k, rng);
   (world.decrees ??= []).push({ kind: d, since: world.day, until: world.day + DECREES[d].days });
   (world.decreeAt ??= {})[d] = world.day;
+  if (forbids(world, d)) brokePromise(world, DECREES[d].name);
   return `ออกพระราชโองการ${DECREES[d].name}ตามที่${by}เรียกร้อง (${what})`;
 }

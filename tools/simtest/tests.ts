@@ -28,6 +28,11 @@ import { setTie } from '../../src/sim/ties';
 import { reignDay } from '../../src/sim/succession';
 import { regimeEventsDay } from '../../src/sim/regimeEvents';
 import { election } from '../../src/sim/republic';
+import { forbids, general, governor, mind, partiesDay, rulingIdeology } from '../../src/sim/parties';
+import { communeDay, proclaimCommune } from '../../src/sim/commune';
+import { council } from '../../src/sim/government';
+import { grant } from '../../src/sim/decrees';
+import { writeCharter } from '../../src/sim/charter';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -1103,4 +1108,223 @@ test('the merchants\' council throws out a chairman a richer member outweighs', 
     regimeEventsDay(w, { state: i * 7919 });
   }
   ok(w.kingId === rich.id && w.regime === 'oligarchy', 'the richer merchant did not take the chair');
+});
+
+// ---------- parties, parliaments, the commune ----------
+
+const toPartyDay = (w: WorldState) => {
+  w.day += (54 - (w.day % 30)) % 30 || 30; // the parties' day of the month
+};
+// A republic with its charter written and its house open, a few nobles at court.
+function republic(w: WorldState): void {
+  w.regime = 'republic';
+  w.republic = { since: w.day, elections: 1, nextVote: w.day + 3000 };
+  writeCharter(w, 'ทดสอบ');
+  w.parliament = { seats: 0, coalition: [], nextVote: w.day + 3000, elections: 0 };
+  const nobles = grown(w).filter((n) => n.job === 'noble');
+  for (const n of grown(w).filter((x) => x.job === 'farmer').slice(0, Math.max(0, 3 - nobles.length))) n.job = 'noble';
+}
+// Two parties set up by hand: the poor's and the merchants'.
+function twoParties(w: WorldState): { labour: Npc[]; trade: Npc[] } {
+  const folk = grown(w).filter((n) => n.inside === undefined && n.questId === undefined);
+  const labour = folk.slice(0, Math.ceil(folk.length * 0.7));
+  const trade = folk.slice(labour.length);
+  for (const n of labour) Object.assign(n, { gold: 0, job: n.job === 'merchant' ? 'farmer' : n.job });
+  for (const n of trade) Object.assign(n, { gold: 500, job: 'merchant' });
+  w.parties = [
+    { id: 9001, name: 'พรรคแรงงาน', ideology: 'labour', leaderId: labour[0].id, founded: 0, treasury: 0, seats: 0, mps: [] },
+    { id: 9002, name: 'พรรคการค้าเสรี', ideology: 'trade', leaderId: trade[0].id, founded: 0, treasury: 0, seats: 0, mps: [] },
+  ];
+  for (const n of labour) n.partyId = 9001;
+  for (const n of trade) n.partyId = 9002;
+  return { labour, trade };
+}
+
+test('a republic grows parties out of its guilds, movements and court, each with its own platform', () => {
+  const w = world();
+  republic(w);
+  for (let i = 0; i < 60 && (w.parties?.length ?? 0) < 3; i++) {
+    toPartyDay(w);
+    partiesDay(w, { state: i * 7919 + 1 });
+  }
+  const ps = w.parties ?? [];
+  ok(ps.length >= 3, `only ${ps.length} parties formed`);
+  ok(new Set(ps.map((p) => p.ideology)).size === ps.length, 'two parties formed for one platform');
+  ok(ps.every((p) => w.npcs.some((n) => n.id === p.leaderId && n.partyId === p.id)), 'a party has no leader among its members');
+  ok(ps.some((p) => w.npcs.filter((n) => n.alive && n.partyId === p.id).length >= 3), 'no party drew members');
+});
+
+test('a general election shares the seats by the vote, and the biggest side forms the government', () => {
+  const w = world();
+  republic(w);
+  const { labour } = twoParties(w);
+  const head = general(w, rngOf(w), 'ทดสอบ')!;
+  const [lab, tra] = w.parties!;
+  const house = w.parliament!;
+  ok(house.seats % 2 === 1 && lab.seats + tra.seats === house.seats, `seats don't add up: ${lab.seats}+${tra.seats} of ${house.seats}`);
+  ok(lab.seats > tra.seats, `the poor's party (most of the town) won fewer seats: ${lab.seats} vs ${tra.seats}`);
+  ok(house.coalition.includes(lab.id), 'the biggest party is not in government');
+  ok(head === labour[0] && w.kingId === head.id, 'the labour leader did not become the republic\'s leader');
+  ok(council(w).every((n) => lab.mps.includes(n.id) || tra.mps.includes(n.id)), 'the council is not the elected house');
+});
+
+test('a party government rules by its platform: never what it swore against, and pays for being forced to', () => {
+  const w = world();
+  republic(w);
+  twoParties(w);
+  const head = general(w, rngOf(w), 'ทดสอบ')!;
+  ok(rulingIdeology(w) === 'labour', `ruling by ${rulingIdeology(w)}`);
+  ok(forbids(w, 'curfew') && !forbids(w, 'subsidy'), 'the labour platform does not forbid a curfew');
+  ok(mind(w, head).includes('kind'), 'a labour government does not decide with a kind heart');
+  const before = w.npcs.filter((n) => n.alive && n.partyId === 9001).reduce((s, n) => s + (n.loyalty ?? 50), 0);
+  grant(w, 'curfew', head, rngOf(w), 'ฝูงชน');
+  ok(w.parties![0].broke === w.day, 'the broken promise was not recorded');
+  const after = w.npcs.filter((n) => n.alive && n.partyId === 9001).reduce((s, n) => s + (n.loyalty ?? 50), 0);
+  ok(after < before, 'the party\'s members did not mind the broken promise');
+});
+
+test('the opposition can bring down a minority government with no confidence, calling an early election', () => {
+  let fell = false;
+  for (let seed = 1; seed <= 8 && !fell; seed++) {
+    const w = world(seed);
+    republic(w);
+    twoParties(w);
+    general(w, rngOf(w), 'ทดสอบ');
+    const [lab, tra] = w.parties!;
+    // The government loses its majority: most of its seats go over to the opposition.
+    const moved = lab.mps.splice(0, Math.ceil(w.parliament!.seats / 2));
+    tra.mps.push(...moved);
+    for (const id of moved) w.npcs.find((n) => n.id === id)!.partyId = tra.id;
+    lab.seats = lab.mps.length;
+    tra.seats = tra.mps.length;
+    const pm = kingOf(w);
+    Object.assign(pm, { traits: ['kind'], morality: 50 });
+    for (let i = 0; i < 60 && !fell; i++) {
+      toPartyDay(w);
+      partiesDay(w, { state: seed * 31 + i * 7919 });
+      fell = w.republic!.nextVote <= w.day;
+    }
+  }
+  ok(fell, 'a government without a majority was never brought down');
+});
+
+test('with no parties a vote nobody wins outright goes to a second round, and the house is still elected', () => {
+  let runoff = false;
+  for (let seed = 1; seed <= 12; seed++) {
+    const w = world(seed);
+    republic(w);
+    w.parties = [];
+    const won = election(w, rngOf(w), 'ทดสอบ');
+    const res = w.republic!.last!.results;
+    const total = res.reduce((s, r) => s + r.votes, 0);
+    ok(won && res[0].id === won.id && res[0].votes * 2 >= total, `the winner holds ${res[0].votes} of ${total} votes`);
+    runoff ||= res.length === 2 && w.chronicle.some((e) => /รอบสอง/.test(e.text));
+    ok((w.parliament?.independents?.length ?? 0) >= 5, 'no independent house was elected');
+  }
+  ok(runoff, 'no election ever went to a second round');
+});
+
+test('a leader re-elected keeps the street\'s anger and their years in office', () => {
+  const w = world();
+  republic(w);
+  w.parties = [];
+  const k = kingOf(w);
+  w.crown!.since = w.day - 700;
+  w.crown!.unrest = 5;
+  for (const n of grown(w)) {
+    n.loyalty = 100;
+    setTie(w, n.id, k.id, 80);
+  }
+  const won = election(w, rngOf(w), 'ทดสอบ');
+  ok(won === k, 'a beloved leader lost');
+  ok(w.crown!.unrest === 5 && w.crown!.since === w.day - 700, `unrest ${w.crown!.unrest}, since ${w.crown!.since}`);
+});
+
+test('each regime has its own council: priests, trade-house heads, officers, the Party', () => {
+  const w = world();
+  w.regime = 'theocracy';
+  ok(council(w).length > 0 && council(w).every((n) => n.job === 'priest'), 'the theocracy\'s council is not its priests');
+  w.regime = 'junta';
+  ok(council(w).every((n) => n.job === 'soldier' || n.knight), 'the junta\'s council is not its officers');
+  w.regime = 'oligarchy';
+  const head = grown(w).find((n) => n.job === 'farmer')!;
+  w.guilds.push({ id: 8001, name: 'สมาคมการค้าทดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 100 });
+  ok(council(w).includes(head), 'a trade house\'s head does not sit on the merchants\' council');
+  w.regime = 'monarchy';
+  ok(council(w).every((n) => n.job === 'noble'), 'a plain crown\'s council is not its nobles');
+});
+
+test('the workers of a factory town who win their revolution abolish property and set up the Party', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight)) n.marcher = true;
+  for (const s of w.npcs.filter((n) => n.job === 'soldier' || n.knight)) s.loyalty = 0;
+  mv.cause = 'wealth';
+  (w.works ??= {}).factory = 0;
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  const rich = grown(w).filter((n) => n !== leader).sort((a, b) => b.gold - a.gold)[0];
+  rich.gold = 2000;
+  const noble = grown(w).find((n) => n.job === 'noble' && n !== leader);
+  const treasury = w.treasury;
+  revolution(w, mv, kingOf(w), leader, rngOf(w));
+  ok(w.regime === 'commune', `the town became a ${w.regime ?? 'monarchy'}`);
+  ok(rich.gold < 1000 && w.treasury > treasury, `the rich kept ${rich.gold}`);
+  ok(!noble || noble.job === 'farmer', 'a noble kept their estate');
+  ok(w.guilds.length === 0 && w.parties?.length === 1 && w.parties[0].leaderId === w.kingId, 'the Party is not the only party, led by the secretary');
+  ok(council(w).every((n) => n.partyId === w.parties![0].id), 'the politburo is not the Party');
+});
+
+test('under the commune, what piles up past a fair share is levied and the poor are rationed', () => {
+  const w = world();
+  const sec = kingOf(w);
+  proclaimCommune(w, sec, rngOf(w), 'ทดสอบ');
+  w.commune!.plan = w.day + 9999;
+  const fat = grown(w).find((n) => n !== sec)!;
+  const poor = grown(w).find((n) => n !== sec && n !== fat)!;
+  fat.gold = 1000;
+  fat.loyalty = 90; // not one to flee
+  poor.gold = 0;
+  w.treasury = 5000;
+  w.day += (56 - (w.day % 30)) % 30 || 30;
+  communeDay(w, rngOf(w));
+  ok(fat.gold < 1000, 'a fortune was left alone');
+  ok(poor.gold > 0, 'the poor got no ration');
+});
+
+test('a king who grants a parliament keeps the crown; the elected house makes the prime minister', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const k = kingOf(w);
+  const mv = w.movement!;
+  mv.cause = 'voice';
+  w.charter!.councilVeto = true;
+  w.charter!.freePress = true;
+  const said = concede(w, mv, k, rngOf(w));
+  ok(said && w.charter!.parliament, 'the king did not grant a parliament');
+  twoParties(w);
+  w.parliament!.nextVote = w.day;
+  toPartyDay(w);
+  partiesDay(w, rngOf(w));
+  ok(w.kingId === k.id && k.job === 'king', 'the king lost the crown to the election');
+  const pm = governor(w)!;
+  ok(pm !== k && pm.id === w.parliament!.pmId, 'no prime minister was chosen');
+});
+
+test('the merchants\' council weighs a trade house\'s chest, not only its head\'s purse', () => {
+  const w = world();
+  w.regime = 'oligarchy';
+  const k = kingOf(w);
+  k.gold = 200;
+  w.crown!.since = w.day - 800;
+  const head = grown(w).find((n) => n.job === 'farmer')!;
+  head.gold = 50; // poorer than the chairman in their own purse
+  w.guilds.push({ id: 8002, name: 'สมาคมการค้าทดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 3000 });
+  for (let i = 0; i < 80 && w.kingId === k.id; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.kingId === head.id, 'the head of the rich trade house did not take the chair');
 });
