@@ -1,4 +1,4 @@
-import { GOOD_TH, MILLS, goodsOf, handsOf, houses, millsOf, ownerName, seasonOf, type Good, type Guild, type Mill, type Npc, type WorldState } from '../sim';
+import { GOOD_TH, MILLS, goodsOf, handsOf, houses, millsOf, ownerName, seasonOf, wageOf, type Good, type Guild, type Mill, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -18,7 +18,7 @@ export function renderMarket(world: WorldState): void {
   const m = world.market;
   const hungry = world.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2);
   const news = world.chronicle.filter((e) => e.kind === 'trade').slice(-6).reverse();
-  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt, world.mills, world.mech, world.techs?.steam, millsOf(world).map((x) => handsOf(world, x).length)]);
+  const key = JSON.stringify([m, Math.floor(world.treasury), seasonOf(world.day), hungry.map((n) => n.id), news.map((e) => e.seq), houses(world).map((g) => [g.treasury, g.stock, g.hoarding]), world.debt, world.mills, world.mech, world.techs?.steam, world.union, world.smog, world.charter?.labour, millsOf(world).map((x) => handsOf(world, x).length)]);
   if (key === lastKey) return;
   lastKey = key;
   if (!m) {
@@ -94,6 +94,11 @@ function industry(world: WorldState): HTMLElement[] {
       tile('เชื้อเพลิง', `${Math.floor(m.stock.coal)}`, `ถ่านหิน · ผลึกมานา ${Math.floor(m.stock.crystal)}`),
     ),
     section('โรงงานในเมือง', mills.length ? mills.map((x) => millRow(world, x)) : [empty('ยังไม่มีโรงงาน บ้านการค้าที่มีทุนพอจะสร้างเมื่อสินค้าที่ทำได้ขายมีกำไร')]),
+    section('กรรมกรและควันโรงงาน', [
+      empty(`ค่าแรงเดือนละ ${wageOf(world)} ทอง${world.charter?.labour === 'protected' ? ' · มีพระราชบัญญัติโรงงานคุ้มครอง (กะสั้นลง ค่าแรงเป็นธรรม)' : ' · ยังไม่มีกฎหมายคุ้มครองกรรมกร'}`),
+      empty(world.union ? `${world.union.name} นำโดย${world.npcs.find((n) => n.id === world.union!.leaderId)?.name ?? '-'} · ชนะการขึ้นค่าแรงมาแล้ว ${world.union.raises} ครั้ง` : 'ยังไม่มีสหภาพ (กรรมกรรวมตัวกันเมื่อมีตั้งแต่ 6 คนขึ้นไป)'),
+      empty(`ควันถ่านหิน ${Math.round((world.smog ?? 0) * 100)}%${(world.smog ?? 0) > 0.05 ? ' · ทำให้คนในเมืองป่วยง่ายขึ้น (เตาผลึกมานาไม่มีควัน)' : ''}`),
+    ]),
   ];
 }
 

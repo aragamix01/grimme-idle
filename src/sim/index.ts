@@ -7,7 +7,7 @@ export { RANKS, rankName } from './quests';
 export { tieLabel, topTies } from './ties';
 export { ADULT_AGE, ELDER_AGE } from './life';
 export { GOODS, GOOD_TH, MAX_GEAR, SEASON_TH, goodsOf, seasonOf } from './market';
-export { MILLS, handsOf, millsOf, ownerName } from './industry';
+export { MILLS, handsOf, millsOf, ownerName, wageOf } from './industry';
 export { COMMON_JOBS } from './society';
 export { GAME_CAP, HERD_CAP } from './livestock';
 export { troubleChance } from './troubles';

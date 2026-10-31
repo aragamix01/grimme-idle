@@ -152,6 +152,7 @@ export interface Charter {
   parliament?: boolean; // an elected house of parties: the republic's legislature, or a crown made constitutional
   parties?: 'free' | 'one' | 'banned'; // whether people may found parties; missing means free
   property?: 'private' | 'common'; // whether fortunes are one's own or the commune's; missing means private
+  labour?: 'free' | 'protected'; // the factory acts: a shorter shift and a fair wage for the mills' hands; missing means free
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
@@ -516,9 +517,11 @@ export type HappeningKind =
   // affairs of state (affairs.ts)
   | 'scandal' | 'dissolution' | 'templeland' | 'chapel' | 'monopoly' | 'failing' | 'match' | 'exile' | 'warpact' | 'homerule' | 'bandits' | 'knighthood'
   // decisions within a saga (sagas.ts)
-  | 'goldrush' | 'comet' | 'ransom' | 'quarantine';
+  | 'goldrush' | 'comet' | 'ransom' | 'quarantine' | 'breakers'
+  // the steam age's troubles (affairs.ts)
+  | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale';
 // A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
-export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence';
+export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence' | 'luddites';
 export interface Saga {
   kind: SagaKind;
   stage: number; // months it has run
@@ -663,6 +666,8 @@ export interface WorldState {
   mills?: Mill[]; // the steam age's mills (see industry.ts)
   machinery?: number; // engines at work on the farms, wearing out
   mech?: number; // 0..1: the share of the farms they work, worked out monthly
+  smog?: number; // 0..1: how thick the mills' coal smoke hangs over the town, worked out monthly
+  union?: { name: string; leaderId: number; since: number; raises: number }; // the mill hands' union, and the wage rises it has won
   saga?: Saga; // a great matter running over months (see sagas.ts)
   sagaAt?: number; // day the last saga ended
   sagaLast?: Partial<Record<SagaKind, number>>; // day each kind last began

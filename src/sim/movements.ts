@@ -508,7 +508,7 @@ export function revolution(world: WorldState, mv: Movement, ruler: Npc, leader: 
 function settle(world: WorldState, mv: Movement, leader: Npc, turned: Npc[], rng: Rng): void {
   const general = turned.slice().sort((a, b) => b.level + (b.gear ?? 0) - (a.level + (a.gear ?? 0)))[0];
   // The workers of a town of factories rise for bread and wages: they abolish property itself.
-  if ((mv.cause === 'wealth' || mv.cause === 'bread') && world.regime !== 'commune' && (industrial(world) || world.works?.factory !== undefined) && !(general && turned.length * 3 >= mv.members)) {
+  if ((mv.cause === 'wealth' || mv.cause === 'bread') && world.regime !== 'commune' && (industrial(world) || world.works?.factory !== undefined || (world.mills?.length ?? 0) > 0) && !(general && turned.length * 3 >= mv.members)) {
     return proclaimCommune(world, leader, rng, `${leader.name}นำคนงานยึดเมือง ประกาศว่าทรัพย์สินทั้งหมดเป็นของประชาชน สาธารณรัฐประชาชนถือกำเนิดขึ้น!`);
   }
   if (known(world, 'printing') || literacy(world) >= REFORM_LITERACY || mv.cause === 'voice') return proclaimRepublic(world, leader, rng);

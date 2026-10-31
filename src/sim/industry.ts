@@ -8,7 +8,8 @@
 // Engines go out to the farms, where a field worked with one yields more until it wears out.
 // Coal and crystal come from our mines out on the lands, and from the dungeons' depths.
 import { chance, type Rng } from './rng';
-import { clamp, headline, known, log, occupied } from './core';
+import { addMod, clamp, headline, known, log, loyaltyNudge, occupied } from './core';
+import { charterOf } from './charter';
 import { ensureMarket, levelOf, target } from './market';
 import { payrollReserve } from './society';
 import { houses } from './tradehouses';
@@ -29,6 +30,12 @@ const CRYSTAL_FUEL = 3; // coal a crystal stands in for in a mage-wrought furnac
 const WEAR = 0.05; // of the engines at work on the farms that break down each month
 const FARMS_PER_ENGINE = 3;
 const MAGE_BONUS = 0.5; // engines a binding mage adds to an engine works' month
+const UNION_AT = 6; // hands in town before they band together in a union
+const RAISE = 3; // gold a month each wage rise the union wins is worth
+const PROTECTED_PAY = 1.3; // under the factory acts: a fairer wage...
+const PROTECTED_SHIFT = 0.85; // ...for a shorter shift
+const SMOG_COAL = 60; // coal burnt in a month that makes the smog as thick as it gets
+const SMOG_SICK = 0.6; // what the thickest smog adds to the town's sickness
 const DIG_PER_LEVEL = { coal: 3, crystal: 1 }; // a mine's monthly yield per level of its development
 
 export interface MillDef {
@@ -49,6 +56,11 @@ export const MILLS: Record<MillKind, MillDef> = {
 export const MILL_ORDER = Object.keys(MILLS) as MillKind[];
 
 export const millsOf = (world: WorldState) => world.mills ?? [];
+export const protectedLabour = (world: WorldState) => charterOf(world).labour === 'protected';
+// What a hand is paid a month: the base, what the union has won, and the factory acts' due.
+export const wageOf = (world: WorldState) => Math.round((WAGE + RAISE * (world.union?.raises ?? 0)) * (protectedLabour(world) ? PROTECTED_PAY : 1));
+export const workers = (world: WorldState) => world.npcs.filter((n) => n.alive && n.job === 'worker');
+let burnt = 0; // coal the mills burnt this month, for the smog
 export const handsOf = (world: WorldState, mill: Mill) => world.npcs.filter((n) => n.alive && n.millId === mill.id && n.job === 'worker');
 export const ownerName = (world: WorldState, mill: Mill) => (mill.owner === 'crown' ? 'ราชสำนัก' : (world.guilds.find((g) => g.id === mill.owner)?.name ?? 'เจ้าของเดิม'));
 export const millSpot = (world: WorldState, n: Npc) => {
@@ -70,7 +82,40 @@ export function industryDay(world: WorldState, rng: Rng): void {
     work(world, mill);
   }
   mechanise(world);
+  smog(world);
+  unionise(world);
 }
+
+// The coal smoke over the town: sickness while it hangs there. Crystal furnaces burn clean.
+function smog(world: WorldState): void {
+  world.smog = clamp(burnt / SMOG_COAL, 0, 1);
+  burnt = 0;
+  if (world.smog > 0.05) addMod(world, 'sickness', SMOG_SICK * world.smog, 31, 'ควันถ่านหินจากโรงงาน');
+}
+
+// Enough hands, and they band together; too few, and the union fades away.
+function unionise(world: WorldState): void {
+  const hands = workers(world);
+  const u = world.union;
+  if (u && hands.length < UNION_AT / 2) {
+    world.union = undefined;
+    log(world, 'politics', `${u.name}สลายตัวไปเพราะคนงานเหลือน้อย`);
+    return;
+  }
+  if (u) {
+    if (!hands.some((n) => n.id === u.leaderId)) {
+      const next = hands.sort((a, b) => b.level - a.level)[0];
+      if (next) u.leaderId = next.id;
+    }
+    return;
+  }
+  if (hands.length < UNION_AT || charterOf(world).guilds === 'banned') return;
+  const leader = [...hands].sort((a, b) => score(b) - score(a))[0];
+  world.union = { name: 'สหภาพกรรมกรโรงงาน', leaderId: leader.id, since: world.day, raises: 0 };
+  for (const n of hands) loyaltyNudge(n, -2); // talk of rights makes a hand look harder at the crown
+  log(world, 'politics', `กรรมกร ${hands.length} คนรวมตัวกันตั้งสหภาพกรรมกรโรงงาน มี${leader.name}เป็นผู้นำ`, leader.id);
+}
+const score = (n: Npc) => (n.traits.includes('brave') ? 2 : 0) + (n.traits.includes('vengeful') ? 1.5 : 0) + n.level * 0.1;
 
 // Coal and crystal from our mines out on the lands, and crystal the adventurers bring up from the dungeons.
 function dig(world: WorldState): void {
@@ -108,7 +153,7 @@ function margin(world: WorldState, kind: MillKind): number {
   const d = MILLS[kind];
   const cost = Object.entries(d.input).reduce((s, [g, n]) => s + m.price[g as Good] * n, 0) + m.price.coal * d.fuel;
   const short = Object.entries(d.input).some(([g, n]) => m.stock[g as Good] < n * 2);
-  return short ? -Infinity : m.price[d.output] * d.makes * 0.8 - cost - WAGE;
+  return short ? -Infinity : m.price[d.output] * d.makes * 0.8 - cost - wageOf(world);
 }
 
 // A house with money to spare, or the crown, puts up the mill the market is crying out for.
@@ -141,7 +186,7 @@ const SPARE: Partial<Record<Npc['job'], number>> = { farmer: 0, herder: 2, hunte
 const FARM_SHARE = 0.3; // farmers kept as a share of the grown-ups before any leaves for the mills
 function hire(world: WorldState, mill: Mill, rng: Rng): void {
   const have = handsOf(world, mill).length;
-  if (have >= HANDS) return;
+  if (have >= HANDS || fundsOf(world, mill.owner) < wageOf(world) * (have + HIRE) * 2) return; // an owner short of two months' wages takes nobody on
   const grown = adults(world);
   const count = (job: Npc['job']) => grown.filter((n) => n.job === job).length;
   const spare = (job: Npc['job']) => (job === 'farmer' ? count('farmer') > grown.length * FARM_SHARE + 1 : count(job) > (SPARE[job] ?? Infinity));
@@ -166,15 +211,20 @@ function work(world: WorldState, mill: Mill): void {
   const d = MILLS[mill.kind];
   const hands = handsOf(world, mill);
   // Wages first: a mill that can't pay loses its hands back to the fields.
-  const wages = hands.length * WAGE;
+  const wage = wageOf(world);
+  const wages = hands.length * wage;
   if (fundsOf(world, mill.owner) < wages) {
     for (const n of hands) quit(n);
     mill.made = 0;
-    log(world, 'trade', `${mill.name}ของ${ownerName(world, mill)}จ่ายค่าแรงไม่ไหว คนงานกลับไปทำนา`);
+    if (hands.length) log(world, 'trade', `${mill.name}ของ${ownerName(world, mill)}จ่ายค่าแรงไม่ไหว คนงานกลับไปทำนา`);
+    return;
+  }
+  if (!hands.length) {
+    mill.made = 0;
     return;
   }
   pay(world, mill.owner, wages);
-  for (const n of hands) n.gold += WAGE;
+  for (const n of hands) n.gold += wage;
   // A cannery in a grain glut tins grain instead of meat.
   const glutGrain = mill.kind === 'cannery' && m.stock.grain > target(world, 'grain') * 2;
   const input: Partial<Record<Good, number>> = glutGrain ? { grain: 8 } : d.input;
@@ -184,18 +234,24 @@ function work(world: WorldState, mill: Mill): void {
     if (m.stock[d.output] >= target(world, d.output) * 3) break; // the shelves are full
     const cost = Object.entries(input).reduce((s, [g, n]) => s + m.price[g as Good] * n, 0);
     if (Object.entries(input).some(([g, n]) => m.stock[g as Good] < n) || fundsOf(world, mill.owner) < cost) break;
+    // A run that would sell for less than its inputs and coal cost is not worth firing the boilers for.
+    if (m.price[d.output] * makes * 0.8 * (protectedLabour(world) ? PROTECTED_SHIFT : 1) < cost + (d.fuel ? m.price.coal * d.fuel : 0)) break;
     // Coal for the boilers, or a crystal in a mage-wrought furnace when the coal runs out.
     if (d.fuel) {
-      if (m.stock.coal >= d.fuel) m.stock.coal -= d.fuel;
+      if (m.stock.coal >= d.fuel) {
+        m.stock.coal -= d.fuel;
+        burnt += d.fuel;
+      }
       else if (m.stock.crystal * CRYSTAL_FUEL >= d.fuel) m.stock.crystal -= Math.ceil(d.fuel / CRYSTAL_FUEL);
       else break;
     }
     for (const [g, n] of Object.entries(input) as [Good, number][]) m.stock[g] -= n;
+    if (input.coal) burnt += input.coal;
     pay(world, mill.owner, cost);
     m.till += cost;
     runs++;
   }
-  let made = runs * makes;
+  let made = Math.round(runs * makes * (protectedLabour(world) ? PROTECTED_SHIFT : 1));
   if (mill.kind === 'engines' && runs) made += Math.floor(Math.min(3, adults(world).filter((n) => n.job === 'mage').length) * MAGE_BONUS);
   if (!made) {
     mill.made = 0;

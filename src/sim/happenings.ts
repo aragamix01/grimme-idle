@@ -18,6 +18,7 @@ import { traveller } from './world';
 import { capacity, inShack } from './housing';
 import { AFFAIRS } from './affairs';
 import { SAGA_DEFS } from './sagas';
+import { MILL_AFFAIRS } from './millaffairs';
 import type { Happening, HappeningKind, Mod, ModKey, Npc, Trait, WorldState } from './types';
 
 export const WHISPER_COST = 8; // faith to whisper for one option
@@ -535,6 +536,7 @@ const DEFS: Record<HappeningKind, Def> = {
   },
   ...AFFAIRS,
   ...SAGA_DEFS,
+  ...MILL_AFFAIRS,
 };
 export const HAPPENING_ORDER = Object.keys(DEFS) as HappeningKind[];
 export const happeningTitle = (k: HappeningKind) => DEFS[k].title;

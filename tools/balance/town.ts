@@ -58,6 +58,10 @@ const EVENTS: Record<string, RegExp> = {
   raid: /กองโจรม้าของ.+บุกปล้นชายแดน/,
   mill: /ลงทุนสร้าง(โรง)/,
   millBroke: /จ่ายค่าแรงไม่ไหว/,
+  union: /ตั้งสหภาพกรรมกร/,
+  millStrike: /^กรรมกรนัดหยุดงาน: .+เลือก/,
+  factoryAct: /พระราชบัญญัติโรงงาน:/,
+  luddites: /ขบวนการค้อนเหล็ก ทุบเครื่องจักร/,
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,
   disaster: /แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่!|ภัยแล้งแผ่ไป|ฝนตกไม่หยุดทั้งวัน/,
