@@ -5,7 +5,7 @@ import { kill } from '../../src/sim/core';
 import { wed, births, bornTo, homeOf } from '../../src/sim/life';
 import { ROOMS, capacity, inShack, shackDoor, townPop } from '../../src/sim/housing';
 import { fire, shantyCrime } from '../../src/sim/slums';
-import { FIRST_LOTS, LOTS, SHACK_SPOTS, WALL } from '../../src/sim/town';
+import { FIRST_LOTS, LOTS, MAP_W, MILL_PLOTS, SHACK_SPOTS, WALL, millDoor, townLayout } from '../../src/sim/town';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
 import { found as foundMill, handsOf, industryDay, wageOf } from '../../src/sim/industry';
@@ -1729,4 +1729,25 @@ test('when engines take the farmhands work, the machine-breakers smash them unti
   x.day += 30 - (x.day % 30) + 14;
   sagasDay(x, { state: 3 });
   ok(!x.saga, 'hanging the ringleaders did not end it');
+});
+
+// ---------- the steam age on the map ----------
+
+test('mills stand on their plots with a reachable gate, the station brings the railway, steam lights the lamps, the boulevard takes the walls', () => {
+  const w = steamTown();
+  const before = townLayout(w);
+  ok(before.props.some((p) => p.key === 'lamp'), 'no gas lamps in a town that knows steam');
+  ok(before.props.some((p) => p.key === 'town-wall'), 'the walls are missing before the boulevard');
+  for (let i = 0; i < 6; i++) (w.mills ??= []).push({ id: 9900 + i, kind: 'textile', name: 'x', plot: i, owner: 'crown', since: 0, ready: 0 });
+  w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
+  const after = townLayout(w);
+  ok(after !== before, 'the layout did not change when mills, the railway and the boulevard came');
+  for (let i = 0; i < MILL_PLOTS.length; i++) {
+    const p = MILL_PLOTS[i];
+    ok(after.cost[p.y * MAP_W + p.x] === 0, `mill plot ${i} is not built on`);
+    const gate = millDoor(i);
+    ok(after.cost[gate.y * MAP_W + gate.x] > 0, `nobody can reach the gate of mill ${i}`);
+  }
+  ok(after.props.filter((p) => p.key === 'rail').length >= 15, 'the railway is missing');
+  ok(!after.props.some((p) => p.key === 'town-wall' || p.key === 'gate-tower'), 'the walls still stand behind the boulevard');
 });

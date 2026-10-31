@@ -969,3 +969,24 @@ test('the steam age on the economy tab: mills with their owners and hands, the n
   await closeCard(page);
   await pageStill(page);
 });
+
+test('an industrial town on the map: mills with smoke, the railway and its train, no walls; townsfolk still answer a tap', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
+     w.mills = [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: 'crown', since: 0, ready: 0, made: 10 },
+                { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', plot: 1, owner: 'crown', since: 0, ready: 0, made: 10 },
+                { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', plot: 3, owner: 'crown', since: 0, ready: w.day + 90 }];
+     w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
+     w.smog = 0.5;`,
+  );
+  const kinds = await page.evaluate(() => (window as any).__grimm.scene.children.list.map((o: any) => o.texture?.key).filter(Boolean));
+  for (const k of ['mill-textile', 'mill-steel', 'rail', 'train', 'lamp']) expect(kinds).toContain(k);
+  expect(kinds).not.toContain('town-wall');
+  await tapNpc(page);
+  await closeCard(page);
+  await mapTool(page, '#zoom');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
