@@ -259,6 +259,7 @@ export class WorldScene extends Phaser.Scene {
       w.techs?.steam !== undefined,
       Math.round((w.smog ?? 0) * 4), // how thick the smoke rises
       !!w.power && w.techs?.tram !== undefined, // the trams run while the power station does
+      w.techs?.electricity !== undefined, // the power station's plot is marked out
     ].join('|');
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
@@ -475,6 +476,7 @@ export class WorldScene extends Phaser.Scene {
     const rising = w.building && WORKS[w.building.kind].replaces; // a building under scaffolding
     for (const k of WORK_ORDER) if (w.works?.[k] !== undefined && WORKS[k].replaces) upgrade[WORKS[k].replaces!] = WORKS[k].art;
     for (const [kind, plot] of Object.entries(PLOTS) as [keyof typeof PLOTS, { x: number; y: number }][]) {
+      if (kind === 'powerplant' && w.techs?.electricity === undefined) continue; // not marked out before electricity
       if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
       else if (w.works?.[kind] !== undefined) this.placeProp({ key: kind === 'monument' ? `monument-${Math.min(3, w.monument ?? 1)}` : kind, x: plot.x, y: plot.y, anchor: 'top' });
       else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
