@@ -896,3 +896,21 @@ html:has(dialog[open]) { overflow: hidden; }
 .chip--marcher { background: #8a2a2a; color: var(--paper); border-color: var(--outline); }
 button.chip--marcher:hover { background: #a83a3a; }
 .realm-king__note { color: var(--danger); }
+
+/* Parties: each platform's colour, the house's half circle of seats, a member's chip. */
+.party--labour { --party: #d03a4e; }
+.party--trade { --party: #e0a526; }
+.party--nation { --party: #2e56a0; }
+.party--faith { --party: #8a5cc2; }
+.party--old { --party: #2f6e28; }
+.party--none { --party: #b8a888; }
+.hemicycle { display: block; width: 100%; max-width: 260px; margin: 0 auto; }
+.hemicycle circle { fill: var(--party); stroke: var(--outline); stroke-width: 1.5; }
+.party-swatch { display: inline-block; flex: none; width: 14px; height: 14px; background: var(--party); border: 1px solid var(--outline); }
+.party-row__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.party-chip { border-left: 8px solid var(--party); }
+.council.party-row { flex-direction: column; align-items: stretch; gap: 2px; border-top: 1px dashed var(--paper-edge); }
+.council.party-row p { margin: 0; }
+.council--house { justify-content: center; }
+.council .ballot { width: 100%; }
+.council .ballot__row { grid-template-columns: 116px minmax(0, 1fr) 32px; font-size: 13px; }

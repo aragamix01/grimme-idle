@@ -9,7 +9,7 @@ const CHRONICLE_LIMIT = 500;
 
 // Court news is written as if a king rules; outside a monarchy it is reworded for the regime.
 export { RULER_TH } from './lexicon';
-export const councilName = (world: WorldState) => COUNCIL_TH[world.regime ?? 'monarchy'];
+export const councilName = (world: WorldState) => ((world.regime ?? 'monarchy') === 'monarchy' && world.charter?.parliament ? 'รัฐสภา' : COUNCIL_TH[world.regime ?? 'monarchy']);
 
 export function log(world: WorldState, kind: EventKind, text: string, npcId?: number): void {
   world.chronicle.push({ seq: ++world.chronicleSeq, day: world.day, kind, text: say(world, text, true), npcId });

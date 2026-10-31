@@ -10,9 +10,10 @@ import { approval, crownPower, loyaltyOf } from './politics';
 import { enthrone, king, payrollReserve } from './society';
 import { literacy, literate } from './learning';
 import { proclaimRepublic } from './republic';
-import { writeCharter } from './charter';
+import { amend, charterOf, writeCharter } from './charter';
+import { disband, openParliament } from './parties';
 import { guildInCoup } from './adventurers';
-import { deepInDebt } from './tradehouses';
+import { deepInDebt, houses } from './tradehouses';
 import { churchOf } from './church';
 import type { Npc, Regime, WorldState } from './types';
 
@@ -32,8 +33,16 @@ export const reformers = (world: WorldState) => adults(world).filter((n) => n.bl
 export function successor(world: WorldState, r: Regime): Npc | undefined {
   const pool = adults(world);
   if (r === 'theocracy') return pool.filter((n) => n.job === 'priest').sort((a, b) => b.level - a.level || b.age - a.age)[0];
-  if (r === 'oligarchy') return pool.filter((n) => n.job === 'merchant' || n.job === 'noble').sort((a, b) => b.gold - a.gold)[0];
+  if (r === 'oligarchy') {
+    // The head of the richest trade house first, then the richest merchant.
+    const chest = (n: Npc) => n.gold + (houses(world).find((g) => g.leaderId === n.id)?.treasury ?? 0);
+    return pool.filter((n) => n.job === 'merchant' || n.job === 'noble' || houses(world).some((g) => g.leaderId === n.id)).sort((a, b) => chest(b) - chest(a))[0];
+  }
   if (r === 'junta') return pool.filter((n) => n.job === 'soldier' || n.knight).sort((a, b) => b.level + (b.gear ?? 0) - (a.level + (a.gear ?? 0)))[0];
+  if (r === 'commune') {
+    const party = world.parties?.[0];
+    return pool.filter((n) => n.partyId === party?.id && n.job !== 'king').sort((a, b) => b.level + loyaltyOf(b) / 20 - (a.level + loyaltyOf(a) / 20))[0];
+  }
   return undefined;
 }
 
@@ -41,9 +50,16 @@ export function successor(world: WorldState, r: Regime): Npc | undefined {
 export function seize(world: WorldState, r: Regime, n: Npc, how: string, legendText: string): void {
   world.regime = r;
   world.republic = undefined;
+  world.parliament = undefined; // no regime but a republic or a constitutional crown keeps an elected house
+  for (const p of world.parties ?? []) {
+    p.seats = 0;
+    p.mps = [];
+  }
+  if (r !== 'commune') world.commune = undefined;
   if (n.job !== 'king') n.formerJob = n.job;
   enthrone(world, n, how, true);
   writeCharter(world, `${n.name}ขึ้นปกครอง`);
+  if (charterOf(world).parties === 'banned') disband(world, 'ถูกสั่งยุบโดยผู้ปกครองใหม่');
   legend(world, legendText, n.id);
 }
 
@@ -99,6 +115,13 @@ export function regimeDay(world: WorldState, rng: Rng): void {
   const pull = (ruler.traits.includes('kind') ? 0.012 : 0.003) + reformers(world).length * REFORMER_PULL;
   if (literacy(world) >= REFORM_LITERACY && chance(rng, pull)) {
     const voice = reformers(world)[0] ?? ruler;
+    // A loved king with an heir keeps the crown and gives the power to an elected house instead.
+    if (!charterOf(world).parliament && approval(world) >= 50 && world.npcs.some((c) => c.alive && c.parentIds?.includes(ruler.id)) && chance(rng, 0.5)) {
+      amend(world, { parliament: true, termYears: 4, councilVeto: true }, `กษัตริย์${ruler.name}พระราชทานรัฐธรรมนูญ ให้ราษฎรเลือกตั้งรัฐสภาและนายกรัฐมนตรี กษัตริย์ทรงอยู่เหนือการเมือง`);
+      openParliament(world);
+      legend(world, `${ruler.name} พระราชทานรัฐธรรมนูญ`, ruler.id);
+      return;
+    }
     log(world, 'politics', `${voice.name}เรียกร้องให้ชาวเมืองเลือกผู้นำเอง กษัตริย์${ruler.name}ยอมสละราชสมบัติอย่างสงบ`, voice.id);
     retire(ruler, rng);
     proclaimRepublic(world, voice.alive && voice.job !== 'king' ? voice : ruler, rng);

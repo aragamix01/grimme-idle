@@ -722,6 +722,59 @@ test('a movement on the power tab: its ladder, the god hearten the crowd, a memb
   await pageStill(page);
 });
 
+test('a republic\'s house on the council tab: its seats by party, each platform, a member\'s card names the party; the map still answers', async ({ page }) => {
+  // Seed a republic with an elected house: stop the sim, write it into the save, and reload.
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const folk = w.npcs.filter((n: any) => n.alive && n.age >= 20 && n.job !== 'king' && n.inside === undefined);
+    const party = (id: number, name: string, ideology: string, seats: number, from: number) => ({ id, name, ideology, leaderId: folk[from].id, founded: w.day, treasury: 50, seats, mps: folk.slice(from, from + seats).map((n: any) => n.id) });
+    w.parties = [party(9001, 'พรรคแรงงาน', 'labour', 5, 0), party(9002, 'พรรคการค้าเสรี', 'trade', 3, 10), party(9003, 'พรรคธรรมะ', 'faith', 1, 20)];
+    for (const p of w.parties) for (const id of p.mps) w.npcs.find((n: any) => n.id === id).partyId = p.id;
+    w.regime = 'republic';
+    w.republic = { since: w.day, elections: 1, nextVote: w.day + 900 };
+    w.charter = { ...w.charter, termYears: 3, termLimit: 2, franchise: 'all', parliament: true, parties: 'free' };
+    const head = folk[0];
+    head.formerJob = head.job;
+    head.job = 'king';
+    const old = w.npcs.find((n: any) => n.id === w.kingId);
+    old.job = 'noble';
+    w.kingId = head.id;
+    w.parliament = { seats: 9, coalition: [9001], nextVote: w.day + 900, elections: 1, last: { day: w.day, results: [{ partyId: 9001, name: 'พรรคแรงงาน', votes: 40, seats: 5 }, { partyId: 9002, name: 'พรรคการค้าเสรี', votes: 25, seats: 3 }, { partyId: 9003, name: 'พรรคธรรมะ', votes: 9, seats: 1 }] } };
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.parliament);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await section(page, 'power');
+  await sub(page, 'council');
+  const house = page.locator('#kingdom [data-group="council"]').first();
+  await expect(house.locator('.hemicycle circle')).toHaveCount(9);
+  await expect(house.locator('.hemicycle .party--labour')).toHaveCount(5);
+  await expect(house).toContainText('รัฐบาล 5 · ฝ่ายค้าน 4 จาก 9 ที่นั่ง');
+  const labour = house.locator('.party-row').filter({ hasText: 'พรรคแรงงาน' });
+  await expect(labour).toContainText('สังคมนิยม');
+  await expect(labour).toContainText('รัฐบาล');
+  // The leader's chip opens their card, which names their party.
+  await labour.locator('.chip--button').first().tap();
+  await expect(card(page).locator('.party-chip')).toContainText('หัวหน้าพรรคแรงงาน');
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('a missionary goes to a neighbouring realm; the realm card tells its faith; the map still answers', async ({ page }) => {
   await section(page, 'power');
   await sub(page, 'faith');

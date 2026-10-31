@@ -594,6 +594,34 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "secretary": {
+    "file": "assets/sprites/characters/secretary.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age0": {
+    "file": "assets/sprites/characters/secretary-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age2": {
+    "file": "assets/sprites/characters/secretary-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age3": {
+    "file": "assets/sprites/characters/secretary-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "pontiff": {
     "file": "assets/sprites/characters/pontiff.png",
     "group": "characters",

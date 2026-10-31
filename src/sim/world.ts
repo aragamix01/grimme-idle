@@ -43,6 +43,8 @@ import { movementCost, movementsDay, rallying, sway as swayCrowd } from './movem
 import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
 import { amendmentsDay } from './amend';
+import { partiesDay } from './parties';
+import { communeDay } from './commune';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
@@ -200,6 +202,8 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   movementsDay(world, rng);
   reignDay(world, rng);
   regimeEventsDay(world, rng);
+  partiesDay(world, rng);
+  communeDay(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
   for (const npc of world.npcs) {

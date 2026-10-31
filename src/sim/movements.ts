@@ -23,6 +23,9 @@ import { seize } from './regimes';
 import { jailed } from './justice';
 import { fire } from './slums';
 import { rankOf } from './growth';
+import { industrial } from './ages';
+import { proclaimCommune } from './commune';
+import { openParliament } from './parties';
 import type { Cause, Movement, Npc, Tax, WorldState } from './types';
 
 const MOVE_DAY = 22; // day of the month the movement meets, grows and acts
@@ -76,6 +79,7 @@ export const restless = (world: WorldState) => (world.movement?.stage ?? 0) >= 1
 // A movement's name, as the regime it stands against shapes it.
 function nameOf(world: WorldState, cause: Cause): string {
   if (cause === 'voice' && world.regime === 'junta') return 'ขบวนการนักศึกษาและปัญญาชน';
+  if (cause === 'voice' && world.regime === 'commune') return 'ขบวนการเสรีภาพ';
   if (cause === 'wealth' && world.regime === 'oligarchy') return 'สหภาพแรงงานทั่วเมือง';
   if (cause === 'faith' && world.religion?.sect && world.regime === 'theocracy') return `ผู้ศรัทธา${world.religion.sect.name}`;
   return CAUSE_TH[cause].name;
@@ -107,7 +111,7 @@ function mood(world: WorldState): Mood {
     theocracy: r === 'theocracy',
     tyranny: (decreeActive(world, 'curfew') ? 1 : 0) + (c.emergency ? 1.5 : 0) + (r === 'junta' ? 1 : 0),
     unequal: inequality(world) > (r === 'oligarchy' ? 0.6 : 0.7), // the merchants' rule widens the gap, and the poor feel it sooner
-    voice: r === 'republic' ? 0 : (literacy(world) >= 0.35 ? 1 : 0) + (known(world, 'printing') ? 0.5 : 0),
+    voice: r === 'republic' || (r === 'monarchy' && c.parliament) ? 0 : (literacy(world) >= 0.35 ? 1 : 0) + (known(world, 'printing') ? 0.5 : 0) + (r === 'commune' ? 1 : 0), // one party is no voice at all
     level: levelOf(world),
   };
 }
@@ -396,6 +400,15 @@ export function concede(world: WorldState, mv: Movement, ruler: Npc, rng: Rng): 
         amend(world, { freePress: true }, `กษัตริย์${ruler.name}ยอมให้โรงพิมพ์พิมพ์ข่าวได้อย่างเสรี ตามที่${mv.name}เรียกร้อง`);
         return 'ยอมให้มีเสรีภาพสื่อ';
       }
+      if ((world.regime ?? 'monarchy') === 'monarchy' && !c.parliament) {
+        amend(world, { parliament: true, termYears: 4, parties: 'free' }, `กษัตริย์${ruler.name}ยอมให้มีรัฐสภาจากการเลือกตั้ง ตามที่${mv.name}เรียกร้อง`);
+        openParliament(world);
+        return 'ยอมให้ราษฎรเลือกตั้งรัฐสภา';
+      }
+      if (c.parties === 'banned' || c.parties === 'one') {
+        amend(world, { parties: 'free' }, `${ruler.name}ยอมให้ตั้งพรรคการเมืองได้อย่างเสรี ตามที่${mv.name}เรียกร้อง`);
+        return 'ยอมให้ตั้งพรรคการเมืองได้';
+      }
       return undefined;
     }
   }
@@ -494,6 +507,10 @@ export function revolution(world: WorldState, mv: Movement, ruler: Npc, leader: 
 // the church, and only an ambitious leader crowns themselves; otherwise a people's council.
 function settle(world: WorldState, mv: Movement, leader: Npc, turned: Npc[], rng: Rng): void {
   const general = turned.slice().sort((a, b) => b.level + (b.gear ?? 0) - (a.level + (a.gear ?? 0)))[0];
+  // The workers of a town of factories rise for bread and wages: they abolish property itself.
+  if ((mv.cause === 'wealth' || mv.cause === 'bread') && world.regime !== 'commune' && (industrial(world) || world.works?.factory !== undefined) && !(general && turned.length * 3 >= mv.members)) {
+    return proclaimCommune(world, leader, rng, `${leader.name}นำคนงานยึดเมือง ประกาศว่าทรัพย์สินทั้งหมดเป็นของประชาชน สาธารณรัฐประชาชนถือกำเนิดขึ้น!`);
+  }
   if (known(world, 'printing') || literacy(world) >= REFORM_LITERACY || mv.cause === 'voice') return proclaimRepublic(world, leader, rng);
   if (general && turned.length * 3 >= mv.members) return seize(world, 'junta', general, 'ทหารที่แปรพักตร์ยึดอำนาจหลังการปฏิวัติ', `${general.name} นำทหารแปรพักตร์ตั้งคณะทหาร`);
   if (mv.cause === 'faith' && leader.job === 'priest') return seize(world, 'theocracy', leader, 'นำการปฏิวัติของผู้ศรัทธา', `${leader.name} ตั้งเทวาธิปไตยหลังการปฏิวัติ`);

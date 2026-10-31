@@ -14,6 +14,7 @@ import { getTie } from './ties';
 import { literate } from './learning';
 import { charterOf, writeCharter } from './charter';
 import { champion, endorsements } from './adventurers';
+import { general, openParliament, partiesOf } from './parties';
 import type { Npc, WorldState } from './types';
 
 // Days between elections, as the charter sets them.
@@ -26,7 +27,7 @@ const SCANDAL = -2.5; // appeal lost by a candidate the press has exposed
 export const isRepublic = (world: WorldState) => world.regime === 'republic';
 
 // How prominent someone is: wealth, deeds, friends, letters.
-function standing(world: WorldState, n: Npc): number {
+export function standing(world: WorldState, n: Npc): number {
   const friends = world.npcs.filter((o) => o.alive && o !== n && getTie(world, n.id, o.id) >= 40).length;
   return n.gold / 40 + n.level * 0.5 + (n.renown ?? 0) / 10 + friends * 0.4 + (literate(n) ? 1 : 0) + (n.job === 'noble' ? 1 : 0);
 }
@@ -51,7 +52,7 @@ function candidates(world: WorldState): { field: Npc[]; barred?: Npc } {
 }
 
 // Who the charter lets vote.
-function mayVote(world: WorldState, v: Npc): boolean {
+export function mayVote(world: WorldState, v: Npc): boolean {
   if (!v.alive || v.age < 16 || v.inside !== undefined) return false;
   const f = charterOf(world).franchise;
   return f === 'propertied' ? v.gold >= 30 : f === 'lettered' ? literate(v) : true;
@@ -88,7 +89,7 @@ function scandals(world: WorldState, field: Npc[], rng: Rng): Set<number> {
 }
 
 // Put the winner in office; the one they replace goes back to their old trade.
-function install(world: WorldState, winner: Npc): void {
+export function install(world: WorldState, winner: Npc): void {
   const old = world.npcs.find((n) => n.id === world.kingId);
   const r = world.republic;
   if (r) {
@@ -110,12 +111,22 @@ function install(world: WorldState, winner: Npc): void {
   }
   world.kingId = winner.id;
   const crown = ensureCrown(world);
+  if (old === winner) return; // the same face: the street's anger stands, and so does their time in office
   crown.since = world.day;
   crown.unrest = 0;
 }
 
 // Hold an election now. Returns the winner, if anyone stood.
 export function election(world: WorldState, rng: Rng, why: string): Npc | undefined {
+  // Where parties stand, the town elects a house and the house makes the leader.
+  if (partiesOf(world).length >= 2) {
+    const head = general(world, rng, why);
+    const r = (world.republic ??= { since: world.day, elections: 0, nextVote: 0 });
+    r.impeached = undefined;
+    r.elections++;
+    r.nextVote = world.parliament?.nextVote ?? world.day + term(world);
+    if (head) return head;
+  }
   const { field, barred } = candidates(world);
   if (!field.length) return undefined;
   if (barred) log(world, 'politics', world.republic?.impeached === barred.id ? `${barred.name}ถูกถอดถอน หมดสิทธิ์ลงสมัคร` : `${barred.name}ดำรงตำแหน่งครบ ${charterOf(world).termLimit} สมัยตามรัฐธรรมนูญแล้ว ลงสมัครอีกไม่ได้`, barred.id);
@@ -137,7 +148,27 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
     backers.get(best.id)!.push(v);
   }
   rig(world, field, votes, rng);
-  const ranked = [...field].sort((a, b) => votes.get(b.id)! - votes.get(a.id)! || standing(world, b) - standing(world, a));
+  let ranked = [...field].sort((a, b) => votes.get(b.id)! - votes.get(a.id)! || standing(world, b) - standing(world, a));
+  // No one has half the votes: the top two go to a second round.
+  const cast = [...votes.values()].reduce((s, x) => s + x, 0);
+  let final = field;
+  if (ranked.length > 2 && votes.get(ranked[0].id)! * 2 <= cast) {
+    log(world, 'politics', `ไม่มีใครได้เสียงเกินครึ่ง ${ranked[0].name}และ${ranked[1].name}เข้ารอบสอง`, ranked[0].id);
+    const two = ranked.slice(0, 2);
+    for (const c of field) {
+      votes.set(c.id, 0);
+      backers.set(c.id, []);
+    }
+    for (const v of world.npcs) {
+      if (!mayVote(world, v)) continue;
+      const a = two.map((c) => appeal(world, v, c, rng, wear, shamed) + (v.guildId !== undefined && backed.get(v.guildId) === c.id ? 1.5 : 0));
+      const best = a[0] >= a[1] ? two[0] : two[1];
+      votes.set(best.id, votes.get(best.id)! + 1);
+      backers.get(best.id)!.push(v);
+    }
+    final = two;
+  }
+  ranked = [...final].sort((a, b) => votes.get(b.id)! - votes.get(a.id)! || standing(world, b) - standing(world, a));
   const winner = ranked[0];
   const kept = winner.id === world.kingId;
   install(world, winner);
@@ -150,7 +181,36 @@ export function election(world: WorldState, rng: Rng, why: string): Npc | undefi
   r.last = { day: world.day, results: ranked.map((c) => ({ id: c.id, name: c.name, votes: votes.get(c.id)! })) };
   const tally = ranked.map((c) => `${c.name} ${votes.get(c.id)} เสียง`).join(' · ');
   log(world, 'politics', `การเลือกตั้งครั้งที่ ${r.elections} (${why}): ${tally} ${winner.name}${kept ? 'ได้รับเลือกอีกสมัย' : 'ได้เป็นผู้นำสภาคนใหม่'}`, winner.id);
+  independents(world, rng);
   return winner;
+}
+
+// With no parties yet the town still elects its house, one person at a time: the most prominent
+// stand, each voter backs the one they are closest to, and the top vote-getters take the seats.
+function independents(world: WorldState, rng: Rng): void {
+  const voters = world.npcs.filter((v) => mayVote(world, v));
+  const seats = Math.max(5, Math.min(15, Math.round(voters.length / 6))) | 1;
+  const pool = world.npcs.filter((n) => n.alive && n.age >= 20 && n.job !== 'king' && n.job !== 'thief' && !n.cultist && n.inside === undefined).sort((a, b) => standing(world, b) - standing(world, a)).slice(0, seats * 2);
+  if (pool.length < 2) return;
+  const votes = new Map(pool.map((c) => [c.id, 0]));
+  for (const v of voters) {
+    let best = pool[0];
+    let top = -Infinity;
+    for (const c of pool) {
+      const a = appeal(world, v, c, rng, 0, new Set());
+      if (a > top) [best, top] = [c, a];
+    }
+    votes.set(best.id, votes.get(best.id)! + 1);
+  }
+  openParliament(world);
+  const house = world.parliament!;
+  house.independents = [...pool].sort((a, b) => votes.get(b.id)! - votes.get(a.id)! || standing(world, b) - standing(world, a)).slice(0, seats).map((n) => n.id);
+  house.seats = house.independents.length;
+  house.coalition = [];
+  for (const p of partiesOf(world)) {
+    p.mps = [];
+    p.seats = 0;
+  }
 }
 
 // A grasping incumbent losing the count has the ballot boxes stuffed. Where there is a press, the
@@ -160,7 +220,8 @@ function rig(world: WorldState, field: Npc[], votes: Map<number, number>, rng: R
   if (!sitting || sitting.morality >= 0 || !(sitting.traits.includes('greedy') || sitting.traits.includes('vengeful'))) return;
   const best = Math.max(...field.filter((c) => c !== sitting).map((c) => votes.get(c.id)!), 0);
   if (votes.get(sitting.id)! > best || !chance(rng, 0.4)) return;
-  votes.set(sitting.id, best + 1 + Math.floor(next(rng) * 4));
+  const rest = field.filter((c) => c !== sitting).reduce((s, c) => s + votes.get(c.id)!, 0);
+  votes.set(sitting.id, Math.max(best, rest) + 1 + Math.floor(next(rng) * 4)); // enough to win outright, with no second round to face
   if (!known(world, 'printing') || !chance(rng, charterOf(world).freePress ? 0.8 : 0.4)) return;
   ensureCrown(world).unrest += 3;
   for (const v of world.npcs) if (v.alive && v.age >= 16 && literate(v)) loyaltyNudge(v, -8);
@@ -172,7 +233,9 @@ export function proclaimRepublic(world: WorldState, leader: Npc, rng: Rng, text 
   log(world, 'politics', text, leader.id);
   world.regime = 'republic';
   world.republic = { since: world.day, elections: 0, nextVote: 0 };
+  world.commune = undefined;
   writeCharter(world, 'สาธารณรัฐถือกำเนิด');
+  openParliament(world);
   legend(world, `${leader.name} ก่อตั้งสาธารณรัฐ`, leader.id);
   election(world, rng, 'ครั้งแรกของสาธารณรัฐ');
 }

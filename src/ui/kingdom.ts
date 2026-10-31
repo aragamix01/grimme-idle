@@ -1,4 +1,4 @@
-import { reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { IDEOLOGY_TH, partiesOf, partyOf, partyMembers, hasParliament, constitutional, governor, inGovernment, isCommune, reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -67,6 +67,9 @@ export function renderKingdom(world: WorldState): void {
     world.republic,
     reformers(world).length,
     world.council,
+    (world.parties ?? []).map((p) => [p.id, p.name, p.seats, p.leaderId, p.treasury >> 4, partyMembers(world, p).length]),
+    world.parliament,
+    world.commune,
     world.justice,
     world.auditor,
     world.npcs.filter((n) => n.alive && (n.jailedUntil ?? 0) > world.day).length,
@@ -110,7 +113,8 @@ export function renderKingdom(world: WorldState): void {
     g('overview', movementSection(world)),
     g('overview', activeDecrees(world)),
     g('overview', charterGrid(world)),
-    g('council', councilSection(world)),
+    g('council', hasParliament(world) && (world.parliament?.seats ?? 0) > 0 ? parliamentSection(world) : councilSection(world)),
+    ...(partiesOf(world).length && !(hasParliament(world) && (world.parliament?.seats ?? 0) > 0) ? [g('council', partiesSection(world))] : []),
     g(
       'council',
       section(
@@ -192,7 +196,7 @@ function charterGrid(world: WorldState): HTMLElement {
     el(
       'div',
       { className: 'k-clauses' },
-      ...clauses(c).map((t) => el('span', { textContent: t })),
+      ...clauses(c, constitutional(world)).map((t) => el('span', { textContent: t })),
       ...(c.auditor && office ? [el('span', { className: 'k-clauses__good', textContent: `องค์กรอิสระ · อิสระ ${office.independence}` })] : []),
     ),
   );
@@ -248,7 +252,7 @@ function occupiedCard(world: WorldState): HTMLElement {
 // The constitution: its clauses, and how the town has amended it.
 function charterSection(world: WorldState): HTMLElement {
   const c = charterOf(world);
-  const rows = clauses(c).map((t) => el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `§ ${t}` })));
+  const rows = clauses(c, constitutional(world)).map((t) => el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `§ ${t}` })));
   rows.push(el('li', { className: 'council' }, el('small', { className: 'realm-king__meta', textContent: `ร่างขึ้นเมื่อ D${c.written}` })));
   for (const a of c.amendments.slice().reverse()) rows.push(el('li', { className: 'legend' }, icon('book', 16), el('span', { textContent: a.text }), el('time', { textContent: `D${a.day}` })));
   return section('รัฐธรรมนูญ', rows, c.amendments.length ? `แก้ไขแล้ว ${c.amendments.length} ครั้ง` : 'ยังไม่เคยแก้ไข', 'charter');
@@ -284,16 +288,103 @@ function auditorSection(world: WorldState): HTMLElement {
   return section('องค์กรอิสระ', rows, `อิสระ ${office.independence}`, 'auditor');
 }
 
+const RESULT = { passed: 'ผ่าน', vetoed: 'ถูกยับยั้ง', overridden: 'กษัตริย์ใช้อำนาจข้ามสภา' } as const;
+// Who sits on each regime's council, in a line.
+const BODY: Record<string, string> = {
+  monarchy: 'ทุกพระราชโองการต้องผ่านมติสภา เสียงข้างมากคัดค้านได้ เว้นแต่กษัตริย์จะมีอำนาจมากพอ',
+  theocracy: 'นักบวชอาวุโสลงมติทุกพระบัญชา เสียงข้างมากคัดค้านได้ แต่ละคนลงมติตามหลักศาสนา',
+  oligarchy: 'หัวหน้าบ้านการค้าและพ่อค้าผู้มั่งคั่งลงมติทุกเรื่อง ตามผลประโยชน์ของการค้า',
+  junta: 'นายทหารอาวุโสถวายความเห็น แต่คณะทหารไม่ให้สภายับยั้งคำสั่ง',
+  commune: 'แกนนำพรรคในกรมการเมืองลงมติทุกเรื่องตามแนวทางของพรรค',
+  republic: 'สมาชิกสภาที่ชาวเมืองเลือกเป็นรายคน เพราะยังมีพรรคการเมืองไม่ถึงสองพรรค',
+};
+const councilFoot = (c: WorldState['council']) => [
+  el('li', { className: 'council' }, el('span', { className: 'chip' }, `ยับยั้งมาแล้ว ${c?.vetoes ?? 0} ครั้ง`), el('span', { className: 'chip' }, `ถูกใช้อำนาจข้าม ${c?.overrides ?? 0} ครั้ง`)),
+  ...(c?.last ? [el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `มติล่าสุด D${c.last.day}: ${DECREES[c.last.decree].name} เห็นชอบ ${c.last.ayes} คัดค้าน ${c.last.nays} · ${RESULT[c.last.result]}` }))] : []),
+];
+
 function councilSection(world: WorldState): HTMLElement {
   const c = world.council;
   const seats = council(world);
-  const RESULT = { passed: 'ผ่าน', vetoed: 'ถูกยับยั้ง', overridden: 'กษัตริย์ใช้อำนาจข้ามสภา' } as const;
+  const r = regimeOf(world);
   const rows = [
-    el('li', { className: 'council' }, el('b', { textContent: `สมาชิก ${seats.length} คน` }), el('p', { className: 'realm-king__meta', textContent: seats.length < 2 ? 'ขุนนางน้อยเกินกว่าจะคัดค้านกษัตริย์ได้' : 'ทุกพระราชโองการต้องผ่านมติสภา เสียงข้างมากคัดค้านได้ เว้นแต่กษัตริย์จะมีอำนาจมากพอ' })),
-    el('li', { className: 'council' }, el('span', { className: 'chip' }, `ยับยั้งมาแล้ว ${c?.vetoes ?? 0} ครั้ง`), el('span', { className: 'chip' }, `ถูกใช้อำนาจข้าม ${c?.overrides ?? 0} ครั้ง`)),
+    el('li', { className: 'council' }, el('b', { textContent: `สมาชิก ${seats.length} คน` }), el('p', { className: 'realm-king__meta', textContent: seats.length < 2 ? 'สมาชิกน้อยเกินกว่าจะคัดค้านผู้ปกครองได้' : BODY[r] ?? BODY.monarchy })),
+    ...(r === 'monarchy' ? [] : seats.map((n) => personRow(n, jobName(world, n.job)))),
+    ...councilFoot(c),
   ];
-  if (c?.last) rows.push(el('li', { className: 'council' }, el('p', { className: 'realm-king__meta', textContent: `มติล่าสุด D${c.last.day}: ${DECREES[c.last.decree].name} เห็นชอบ ${c.last.ayes} คัดค้าน ${c.last.nays} · ${RESULT[c.last.result]}` })));
   return section(councilName(world), rows, c?.last ? `มติล่าสุด: ${RESULT[c.last.result]}` : '', 'council');
+}
+
+// The elected house: a half-circle of seats coloured by party, then each party with its platform.
+function parliamentSection(world: WorldState): HTMLElement {
+  const house = world.parliament!;
+  const ps = [...partiesOf(world)].filter((p) => p.seats > 0 || partyMembers(world, p).length).sort((a, b) => Number(inGovernment(world, b)) - Number(inGovernment(world, a)) || b.seats - a.seats);
+  const free = house.independents?.length ?? 0;
+  const order = [...ps.flatMap((p) => Array.from({ length: p.seats }, () => `party--${p.ideology}`)), ...Array.from({ length: free }, () => 'party--none')];
+  const gov = ps.filter((p) => inGovernment(world, p)).reduce((s, p) => s + p.seats, 0);
+  const pm = constitutional(world) ? governor(world) : undefined;
+  const rows: HTMLElement[] = [
+    el('li', { className: 'council council--house' }, hemicycle(order)),
+    el(
+      'li',
+      { className: 'council' },
+      el('b', { textContent: house.coalition.length ? `รัฐบาล ${gov} · ฝ่ายค้าน ${house.seats - gov - free}${free ? ` · อิสระ ${free}` : ''} จาก ${house.seats} ที่นั่ง` : `สมาชิกอิสระ ${free} คน` }),
+      el('p', { className: 'realm-king__meta', textContent: `${pm ? `นายกรัฐมนตรี ${pm.name} · ` : ''}${gov * 2 > house.seats ? 'รัฐบาลมีเสียงข้างมาก' : house.coalition.length ? 'รัฐบาลเสียงข้างน้อย ฝ่ายค้านอาจยื่นไม่ไว้วางใจ' : 'ยังไม่มีพรรคการเมืองพอจะตั้งรัฐบาล'} · เลือกตั้งครั้งหน้า D${world.regime === 'republic' ? (world.republic?.nextVote ?? house.nextVote) : house.nextVote}` }),
+    ),
+    ...ps.map((p) => partyRow(world, p)),
+    ...(house.last ? [el('li', { className: 'council' }, ballot(house.last.results.map((x) => ({ name: x.name.replace(/^พรรค/, ''), votes: x.votes })), house.elections, house.last.day))] : []),
+    ...councilFoot(world.council),
+  ];
+  return section(councilName(world), rows, `${house.seats} ที่นั่ง`, 'council');
+}
+
+// Parties with no house to sit in: the Party under the commune, or clubs waiting for a vote.
+function partiesSection(world: WorldState): HTMLElement {
+  return section(isCommune(world) ? 'พรรคที่ปกครอง' : 'พรรคการเมือง', partiesOf(world).map((p) => partyRow(world, p)), `${partiesOf(world).length} พรรค`, 'parties');
+}
+
+function partyRow(world: WorldState, p: ReturnType<typeof partiesOf>[number]): HTMLElement {
+  const leader = world.npcs.find((n) => n.id === p.leaderId && n.alive);
+  const people = partyMembers(world, p).length;
+  const side = hasParliament(world) && p.seats ? (inGovernment(world, p) ? 'รัฐบาล' : 'ฝ่ายค้าน') : '';
+  const head = el('div', { className: 'party-row__head' }, el('i', { className: `party-swatch party--${p.ideology}` }), el('b', { textContent: p.name }), ...(p.seats ? [el('span', { className: 'chip', textContent: `${p.seats} ที่นั่ง` })] : []), ...(side ? [el('span', { className: `chip${side === 'รัฐบาล' ? ' chip--gold' : ''}`, textContent: side })] : []));
+  return el(
+    'li',
+    { className: 'council party-row' },
+    head,
+    el('p', { className: 'realm-king__meta', textContent: `${IDEOLOGY_TH[p.ideology].name}: ${IDEOLOGY_TH[p.ideology].text}` }),
+    el('p', { className: 'realm-king__meta' }, 'หัวหน้า ', ...(leader ? [personChip(leader)] : [el('span', { textContent: '—' })]), ` · สมาชิก ${people} คน · ทุนพรรค ${Math.floor(p.treasury)} ทอง${p.from ? ` · มาจาก${p.from}` : ''}${p.broke !== undefined && world.day - p.broke < 365 ? ' · เพิ่งผิดสัญญา' : ''}`),
+  );
+}
+
+// Seats in a half circle, government first from the left.
+function hemicycle(classes: string[]): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 200 108');
+  svg.setAttribute('class', 'hemicycle');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `${classes.length} ที่นั่ง`);
+  const n = classes.length;
+  const inner = n > 11 ? Math.floor(n * 0.4) : 0;
+  const rows: [number, number][] = inner ? [[n - inner, 88], [inner, 62]] : [[n, 80]];
+  // Seats go out row by row, left to right by angle across both rows so parties stay together.
+  const spots: { a: number; x: number; y: number }[] = [];
+  for (const [count, r] of rows)
+    for (let i = 0; i < count; i++) {
+      const a = Math.PI - (count === 1 ? Math.PI / 2 : (i / (count - 1)) * Math.PI);
+      spots.push({ a, x: 100 + r * Math.cos(a), y: 98 - r * Math.sin(a) });
+    }
+  spots.sort((p, q) => q.a - p.a);
+  spots.forEach((s, i) => {
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', s.x.toFixed(1));
+    c.setAttribute('cy', s.y.toFixed(1));
+    c.setAttribute('r', '8');
+    c.setAttribute('class', classes[i]);
+    svg.append(c);
+  });
+  return svg;
 }
 
 function decreesSection(world: WorldState): HTMLElement {
@@ -712,14 +803,18 @@ function kingCard(world: WorldState, k: Npc): HTMLElement {
       'div',
       { className: 'realm-king__body' },
       name,
-      el('p', { className: 'realm-king__meta', textContent: `ระบอบ${REGIMES[regimeOf(world)].name} · ${REGIMES[regimeOf(world)].text}` }),
+      el('p', { className: 'realm-king__meta', textContent: constitutional(world) ? 'ระบอบราชาธิปไตยภายใต้รัฐธรรมนูญ · กษัตริย์เป็นประมุข รัฐบาลจากการเลือกตั้งบริหาร' : `ระบอบ${REGIMES[regimeOf(world)].name} · ${REGIMES[regimeOf(world)].text}` }),
       ...(regimeOf(world) === 'monarchy' && literacy(world) >= 0.35
         ? [el('p', { className: 'realm-king__meta', textContent: `รู้หนังสือ ${Math.round(literacy(world) * 100)}% · ผู้เรียกร้องการปฏิรูป ${reformers(world).length} คน (อวยพรคนที่อ่านออกและจิตใจดีเพื่อเพิ่ม หรือส่งนิมิตให้ผู้ปกครอง)` })]
         : []),
       el('p', { className: 'realm-king__meta', textContent: r ? `อายุ ${k.age} ปี · ดำรงตำแหน่งตั้งแต่ D${world.crown?.since ?? 0} · เลือกตั้งครั้งหน้าอีก ${Math.max(0, r.nextVote - world.day)} วัน` : regimeOf(world) === 'monarchy'
           ? `พระชนม์ ${k.age} พรรษา · ครองราชย์ตั้งแต่ D${world.crown?.since ?? 0}`
           : `อายุ ${k.age} ปี · ปกครองตั้งแต่ D${world.crown?.since ?? 0}` }),
-      ...(r?.last ? [ballot(r.last.results, r.elections, r.last.day)] : []),
+      ...(world.parliament?.last && (!r?.last || world.parliament.last.day >= r.last.day)
+        ? [] // the house's count is on the council tab
+        : r?.last
+          ? [ballot(r.last.results, r.elections, r.last.day)]
+          : []),
       el('p', { className: 'realm-king__meta', textContent: `นิสัย: ${k.traits.map((t) => TRAIT_TH[t]).join(' · ')}` }),
       ...reignNotes(world, k).map((t) => el('p', { className: 'realm-king__meta realm-king__note', textContent: t })),
       el('div', { className: 'npc__chips' }, el('span', { className: `chip${tax === 'high' ? ' chip--danger' : tax === 'low' ? ' chip--gold' : ''}`, textContent: TAX_TH[tax] })),
@@ -735,8 +830,15 @@ function reignNotes(world: WorldState, k: Npc): string[] {
   if (regent) out.push(`ผู้สำเร็จราชการ: ${regent.name} จนกว่าจะทรงบรรลุนิติภาวะ (อีก ${Math.max(0, 16 - k.age)} ปี)`);
   if (c?.ailing !== undefined) out.push(`ประชวรหนักตั้งแต่ D${c.ailing} ราชสำนักซุบซิบเรื่องรัชทายาท`);
   if (c?.mad !== undefined) out.push(`เสียสติตั้งแต่ D${c.mad} ชาวเมืองหวาดกลัว ขุนนางอาจเชิญให้พ้นจากบัลลังก์`);
+  const party = partyOf(world, k);
+  if (constitutional(world)) {
+    const pm = governor(world);
+    out.push(pm && pm !== k ? `ราชาธิปไตยภายใต้รัฐธรรมนูญ: นายกรัฐมนตรี${pm.name}${partyOf(world, pm) ? `แห่ง${partyOf(world, pm)!.name}` : ''}บริหารบ้านเมือง กษัตริย์ทรงอยู่เหนือการเมือง` : 'ราชาธิปไตยภายใต้รัฐธรรมนูญ: รอรัฐสภาเลือกนายกรัฐมนตรี');
+  } else if (party) out.push(`หัวหน้า${party.name} (${IDEOLOGY_TH[party.ideology].name}) ปกครองตามนโยบาย${IDEOLOGY_TH[party.ideology].text}`);
+  if (world.parliament?.last && regimeOf(world) === 'republic') out.push(`ผลเลือกตั้งทั่วไปครั้งล่าสุด D${world.parliament.last.day}: ${world.parliament.last.results.map((x) => `${x.name} ${x.seats}`).join(' · ')} ที่นั่ง`);
+  if (isCommune(world) && world.commune) out.push(`ยึดทรัพย์เข้าคลังประชาชน ${world.commune.seized} ทอง · ${world.charter?.property === 'common' ? 'ใครมีเกินส่วนแบ่งต้องคืนให้ประชาชนทุกเดือน' : 'ปฏิรูปเปิดตลาดแล้ว มีทรัพย์สินส่วนตัวได้'}${world.commune.plan ? ` · แผนห้าปีถึง D${world.commune.plan}` : ''}`);
   const years = Math.floor(reignYears(world));
-  if (regimeOf(world) !== 'republic' && years >= 10) out.push(`ปกครองมา ${years} ปี ชาวเมืองเริ่มเบื่อหน้าผู้ปกครองคนเดิม`);
+  if (regimeOf(world) !== 'republic' && !constitutional(world) && years >= 10) out.push(`ปกครองมา ${years} ปี ชาวเมืองเริ่มเบื่อหน้าผู้ปกครองคนเดิม`);
   return out;
 }
 

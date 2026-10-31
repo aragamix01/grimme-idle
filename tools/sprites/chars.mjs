@@ -599,6 +599,10 @@ const JOBS = {
     slots: { 1: 'c', 2: 'b', 3: 'c', 4: 'N', 5: 'h' },
     layers: [[HAIR_SHORT], [LAUREL], [SASH, 0, 13], [CHARTER, 0, 13]],
   },
+  secretary: {
+    slots: { 1: 'r', 2: 'k', 3: 'r', 4: 'k', 5: 'h' },
+    layers: [[HAIR_SHORT], [WATCH_CAP.map((r) => r.replaceAll('B', 'k'))], [['.......yy.......'], 0, 4], [BOOK, 0, 13]],
+  },
   pontiff: {
     slots: { 1: 'r', 2: 'y', 3: 'r', 4: 'y', 5: 'z' },
     layers: [[HAIR_SHORT], [MITRE], [BEARD, 0, 10], [STAFF_CROSS, 0, 6]],

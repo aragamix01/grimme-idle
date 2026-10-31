@@ -13,7 +13,9 @@ import { legend } from './quests';
 import { sectMembers, sectOf } from './church';
 import { rally } from './movements';
 import { getTie } from './ties';
-import type { Npc, WorldState } from './types';
+import { houses } from './tradehouses';
+import { levelOf } from './market';
+import type { Good, Guild, Npc, WorldState } from './types';
 
 const EVENT_DAY = 16; // day of the month a regime's own trouble may come
 const PROMISE = 365 * 2; // how long a junta's promise of elections holds off the street
@@ -135,11 +137,22 @@ function zealots(world: WorldState, rng: Rng): boolean {
   return true;
 }
 
-// The merchants' council votes out a chairman whom a richer member outweighs.
+// The merchants' council votes out a chairman whom a richer trade house outweighs. A house's weight
+// is its chest and its warehouse as well as its head's own purse; with no trade houses, the
+// richest merchant's purse alone.
 function ousted(world: WorldState, ruler: Npc, rng: Rng): boolean {
-  const rival = adults(world).filter((n) => n.job === 'merchant' || n.job === 'noble').sort((a, b) => b.gold - a.gold)[0];
-  if (!rival || rival.gold < ruler.gold * 1.5 || rival.gold < 300 || world.day - (world.crown?.since ?? 0) < 365 || !chance(rng, 0.1)) return false;
-  log(world, 'politics', `สภาพ่อค้าลงมติปลดประธาน${ruler.name} ${rival.name}ผู้มั่งคั่งกว่าขึ้นแทน`, rival.id);
+  const lvl = levelOf(world);
+  const stock = (g: Guild) => Object.entries(g.stock ?? {}).reduce((s, [good, q]) => s + (q ?? 0) * (world.market?.price[good as Good] ?? 0), 0);
+  const weight = (n: Npc) => {
+    const g = houses(world).find((h) => h.leaderId === n.id);
+    return n.gold + (g ? g.treasury + stock(g) : 0);
+  };
+  const heads = houses(world).map((g) => adults(world).find((n) => n.id === g.leaderId)).filter((n): n is Npc => !!n);
+  const pool = heads.length ? heads : adults(world).filter((n) => n.job === 'merchant' || n.job === 'noble');
+  const rival = pool.filter((n) => n !== ruler).sort((a, b) => weight(b) - weight(a))[0];
+  if (!rival || weight(rival) < weight(ruler) * 1.5 || weight(rival) < 300 * lvl || world.day - (world.crown?.since ?? 0) < 365 || !chance(rng, 0.1)) return false;
+  const house = houses(world).find((h) => h.leaderId === rival.id);
+  log(world, 'politics', `สภาพ่อค้าลงมติปลดประธาน${ruler.name} ${rival.name}${house ? `แห่ง${house.name}` : ''}ผู้มั่งคั่งกว่าขึ้นแทน`, rival.id);
   ruler.job = ruler.formerJob ?? 'merchant';
   ruler.formerJob = undefined;
   rival.formerJob = rival.job;

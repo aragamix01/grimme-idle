@@ -3,8 +3,8 @@
 // regime's own: who rules, the treasury, the court, decrees, the knights, the army.
 import type { Regime, WorldState } from './types';
 
-export const RULER_TH: Record<Regime, string> = { monarchy: 'กษัตริย์', republic: 'ผู้นำสภา', theocracy: 'มหานักบวช', oligarchy: 'ประธานสมาคมการค้า', junta: 'จอมทัพ' };
-export const COUNCIL_TH: Record<Regime, string> = { monarchy: 'สภาขุนนาง', republic: 'วุฒิสภา', theocracy: 'สภาสงฆ์', oligarchy: 'สภาพ่อค้า', junta: 'สภาขุนศึก' };
+export const RULER_TH: Record<Regime, string> = { monarchy: 'กษัตริย์', republic: 'ผู้นำสภา', theocracy: 'มหานักบวช', oligarchy: 'ประธานสมาคมการค้า', junta: 'จอมทัพ', commune: 'เลขาธิการพรรค' };
+export const COUNCIL_TH: Record<Regime, string> = { monarchy: 'สภาขุนนาง', republic: 'รัฐสภา', theocracy: 'สภาสงฆ์', oligarchy: 'สภาพ่อค้า', junta: 'สภาขุนศึก', commune: 'กรมการเมือง' };
 
 interface Words {
   treasury: string;
@@ -22,6 +22,7 @@ const WORDS: Record<Exclude<Regime, 'monarchy'>, Words> = {
   republic: { treasury: 'คลังเมือง', court: 'สภาเมือง', decree: 'กฤษฎีกา', throne: 'ตำแหน่งผู้นำ', knightsOf: 'สาธารณรัฐ', army: 'กองทัพสาธารณรัฐ', own: 'ประจำเมือง', cheer: 'สาธารณรัฐจงเจริญ!', dynasty: 'ผู้นำและขุนนางเก่า' },
   theocracy: { treasury: 'คลังศาสนจักร', court: 'ศาสนจักร', decree: 'พระบัญชาศาสนจักร', throne: 'บัลลังก์ศักดิ์สิทธิ์', knightsOf: 'ศาสนจักร', army: 'กองทัพศักดิ์สิทธิ์', own: 'ของศาสนจักร', cheer: 'สาธุ! เทพเจ้าคุ้มครอง!', dynasty: 'มหานักบวชและขุนนาง' },
   oligarchy: { treasury: 'คลังสมาคม', court: 'สมาคมการค้า', decree: 'มติสมาคม', throne: 'ตำแหน่งประธาน', knightsOf: 'สมาคม', army: 'กองทหารรับจ้าง', own: 'ของสมาคม', cheer: 'ขอให้ค้าขายร่ำรวย!', dynasty: 'ประธานและผู้มีอันจะกิน' },
+  commune: { treasury: 'คลังประชาชน', court: 'คณะกรรมการกลางพรรค', decree: 'มติพรรค', throne: 'ตำแหน่งเลขาธิการ', knightsOf: 'ประชาชน', army: 'กองทัพประชาชน', own: 'ของประชาชน', cheer: 'ประชาชนจงเจริญ!', dynasty: 'เลขาธิการและแกนนำพรรค' },
   junta: { treasury: 'คลังกองทัพ', court: 'กองบัญชาการ', decree: 'คำสั่งคณะทหาร', throne: 'อำนาจปกครอง', knightsOf: 'คณะทหาร', army: 'กองทัพ', own: 'ของกองทัพ', cheer: 'จอมทัพจงเจริญ!', dynasty: 'จอมทัพและขุนนาง' },
 };
 

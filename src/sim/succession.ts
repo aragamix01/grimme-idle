@@ -31,7 +31,7 @@ export const reignYears = (world: WorldState) => (world.day - (world.crown?.sinc
 // How much a long reign wears on one townsperson's loyalty, each ten days. A republic's voters
 // have their own fatigue at the ballot box; readers tire of the same face sooner.
 export function weariness(world: WorldState, n: Npc): number {
-  if (isRepublic(world)) return 0;
+  if (isRepublic(world) || world.charter?.parliament) return 0; // a crown that reigns and does not rule is not blamed for it
   const over = reignYears(world) - WEARY;
   if (over <= 0 || n.job === 'noble' || n.knight) return 0; // the court has done well out of it
   return -Math.min(MAX_WEAR, over * WEAR) * (literate(n) ? 1.5 : 1);
