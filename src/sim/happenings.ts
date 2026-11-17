@@ -16,6 +16,7 @@ import { addTie } from './ties';
 import { basePrice, ensureMarket, levelOf, priceRatio, target } from './market';
 import { traveller } from './world';
 import { capacity, inShack } from './housing';
+import { claimField } from './landplan';
 import type { Happening, HappeningKind, Mod, ModKey, Npc, Trait, WorldState } from './types';
 
 export const WHISPER_COST = 8; // faith to whisper for one option
@@ -157,7 +158,7 @@ const DEFS: Record<HappeningKind, Def> = {
     gap: 720,
     can: (w) => priceRatio(w, 'grain') >= 1.3 && (w.game ?? 0) >= 8,
     decider: ruler,
-    text: () => 'ข้าวแพงขึ้นทุกวัน ชาวนาขอถางป่าตะวันออกเปิดไร่ใหม่ แต่พรานป่าคัดค้านเพราะสัตว์จะหนีหมด',
+    text: () => 'ข้าวแพงขึ้นทุกวัน ชาวนาขอถางป่ารอบเมืองเปิดไร่ใหม่ แต่พรานป่าคัดค้านเพราะสัตว์จะหนีหมด',
     options: [
       {
         key: 'clear',
@@ -165,6 +166,8 @@ const DEFS: Record<HappeningKind, Def> = {
         likes: { greedy: 2, brave: 1.5 },
         act: (w) => {
           w.game = Math.max(0, (w.game ?? 0) - 8);
+          claimField(w); // two new fields, the woods cleared back for them
+          claimField(w);
           addMod(w, 'harvest', 0.15, 720, 'ไร่ใหม่จากการถางป่า');
           nudgeAll(ofJob(w, 'hunter'), -10);
           nudgeAll(ofJob(w, 'farmer'), 4);

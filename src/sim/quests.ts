@@ -2,7 +2,7 @@
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
 import { atSpot, clamp, inTraining, kill, known, log, makePlan, stepToward } from './core';
-import { FIELDS, PASTURE, PLACES, dungeonDoor, type Spot } from './places';
+import { places, dungeonDoor, type Spot } from './places';
 import { wolvesAtFlock } from './livestock';
 import { snap } from './nav';
 import { might, lootFound, sell, wearGear } from './market';
@@ -112,10 +112,12 @@ export function maybePestQuest(world: WorldState, farmer: Npc, rng: Rng): void {
   if (farmer.gold - 2 < reward - covered) return;
   farmer.gold -= reward - covered;
   const flock = farmer.job === 'herder';
-  const land = flock ? PASTURE : FIELDS;
+  // At the edge of the field or pasture nearest where they were working.
+  const kind = flock ? 'pasture' : 'field';
+  const land = (world.parcels ?? []).filter((p) => p.kind === kind).sort((a, b) => Math.hypot(a.x - farmer.x, a.y - farmer.y) - Math.hypot(b.x - farmer.x, b.y - farmer.y))[0];
   const q = newQuest(world, 'pest', `ไล่ฝูงหมาป่าที่${flock ? 'คอกสัตว์' : 'ทุ่ง'}ของ${farmer.name}`, int(rng, 0, 1), 18, reward, 1);
   q.patronId = farmer.id;
-  q.spot = { x: clamp(farmer.x, land.x0, land.x1), y: clamp(farmer.y, land.y0, land.y1) };
+  q.spot = land ? { x: clamp(farmer.x, land.x, land.x + land.w - 1), y: clamp(farmer.y, land.y, land.y + land.h - 1) } : { x: farmer.x, y: farmer.y };
   world.quests.push(q);
   if (flock) wolvesAtFlock(world, rng);
   log(world, 'quest', `${farmer.name} เจอหมาป่า${flock ? 'คาบสัตว์ในคอกไป' : 'บุกทุ่ง'} ประกาศจ้างนักผจญภัย (${reward} ทอง)`, farmer.id);
@@ -226,11 +228,11 @@ const everyone = (world: WorldState, q: Quest) => {
 const onSite = (q: Quest) => q.kind === 'pest' || q.kind === 'bounty';
 
 function destination(world: WorldState, q: Quest): Spot {
-  if (q.kind === 'escort' || q.kind === 'land') return PLACES.gate;
+  if (q.kind === 'escort' || q.kind === 'land') return places(world).gate;
   if (q.kind === 'pest') return q.spot!;
   if (q.kind === 'bounty') {
     const t = byId(world, q.targetId);
-    return t ? { x: t.x, y: t.y } : PLACES.guild;
+    return t ? { x: t.x, y: t.y } : places(world).guild;
   }
   return dungeonDoor(world.dungeons.find((d) => d.id === q.dungeonId)!);
 }
@@ -357,7 +359,7 @@ function resolve(world: WorldState, q: Quest, rng: Rng): void {
       n.x = dest.x;
       n.y = dest.y;
     }
-    n.plan = makePlan('return', n.job === 'merchant' ? PLACES.shop : PLACES.guild, 0);
+    n.plan = makePlan('return', n.job === 'merchant' ? places(world).shop : places(world).guild, 0);
   }
 }
 
@@ -471,7 +473,7 @@ export function questDay(world: WorldState, npc: Npc, rng: Rng): boolean {
   if (npc.inside !== undefined) return true; // the quest timer brings them back out
   if (q.stage === 'inside' && onSite(q)) return true; // fighting where they stand
   const slot = Math.max(0, q.partyIds.indexOf(npc.id));
-  const base = q.stage === 'recruiting' ? PLACES.guild : destination(world, q);
+  const base = q.stage === 'recruiting' ? places(world).guild : destination(world, q);
   // Fan the party out so they don't stand on one tile.
   const spot = snap(world, { x: base.x - 1 + (slot % 3), y: base.y + (slot >= 3 ? 1 : 0) });
   if (!atSpot(npc, spot)) stepToward(world, npc, spot, rng);

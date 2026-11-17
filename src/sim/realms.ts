@@ -13,6 +13,9 @@ import type { Realm, Regime, Terrain, Trait, WorldState } from './types';
 
 const TRAITS: readonly Trait[] = ['greedy', 'brave', 'coward', 'loyal', 'vengeful', 'kind'];
 // Where the realms sit on the 40x25 world map; our town is in the middle.
+// The world map's size in tiles (the town map is its own size, see town.ts).
+export const WORLD_W = 40;
+export const WORLD_H = 25;
 export const HOME = { x: 20, y: 12 };
 const SLOTS = [
   { x: 7, y: 5 },

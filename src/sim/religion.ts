@@ -11,7 +11,7 @@ import { clamp, cursed, log, makePlan, modOf, occupied, perkLevel, tenetOn } fro
 import { industrial } from './ages';
 import { literate } from './learning';
 import { levelOf, priceRatio } from './market';
-import { PLACES } from './places';
+import { places } from './places';
 import { built } from './works';
 import { founded } from './growth';
 import type { Creed, Npc, Plan, Religion, Tenet, WorldState } from './types';
@@ -235,13 +235,13 @@ export function prayers(world: WorldState): number {
 const mayWorship = (world: WorldState, n: Npc) =>
   believer(n) && grown(n) && n.job !== 'priest' && n.job !== 'king' && n.questId === undefined && n.inside === undefined && (n.jailedUntil ?? 0) <= world.day;
 const toChurch = (world: WorldState, rng: Rng) =>
-  makePlan('pray', { x: clamp(PLACES.church.x + int(rng, -3, 3), 0, world.width - 1), y: clamp(PLACES.church.y + int(rng, 0, 3), 0, world.height - 1) }, SET_OUT + 2);
+  makePlan('pray', { x: clamp(places(world).church.x + int(rng, -3, 3), 0, world.width - 1), y: clamp(places(world).church.y + int(rng, 0, 3), 0, world.height - 1) }, SET_OUT + 2);
 
 // Before the holy day, the devout near the church with nothing pressing walk over to it; the rest
 // keep the day where they are.
 function gather(world: WorldState, rng: Rng): void {
   for (const n of world.npcs) {
-    if (!mayWorship(world, n) || (n.plan && n.plan.kind !== 'idle') || Math.abs(n.x - PLACES.church.x) + Math.abs(n.y - PLACES.church.y) > NEAR) continue;
+    if (!mayWorship(world, n) || (n.plan && n.plan.kind !== 'idle') || Math.abs(n.x - places(world).church.x) + Math.abs(n.y - places(world).church.y) > NEAR) continue;
     if (chance(rng, (pietyOf(n) / 100) * 0.8)) n.plan = toChurch(world, rng);
   }
 }

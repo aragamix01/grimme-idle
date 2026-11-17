@@ -210,6 +210,12 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
     await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
     await tapNpc(page);
     await closeCard(page);
+    if (id === '#zoom') {
+      await mapTool(page, id); // the close-up, then the whole country
+      await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
+      await tapNpc(page);
+      await closeCard(page);
+    }
     await mapTool(page, id); // and back
     await expect(page.locator(id)).toHaveAttribute('aria-pressed', before!);
     await tapNpc(page);
@@ -243,7 +249,9 @@ test('zoomed in, the map drags and taps still pick people, again and again', asy
   const second = await tapNpc(page, first);
   expect(second).not.toBe(first);
   await closeCard(page);
-  // Zoomed back out, the whole town is tappable again.
+  // Out to the whole country, then back to the town, where people are tappable again.
+  await mapTool(page, '#zoom');
+  expect((await camera(page)).zoom).toBeLessThan(1);
   await mapTool(page, '#zoom');
   expect((await camera(page)).zoom).toBe(1);
   await tapNpc(page);
@@ -251,14 +259,16 @@ test('zoomed in, the map drags and taps still pick people, again and again', asy
   await pageStill(page);
 });
 
-test('unzoomed, a drag on the map moves nothing and a tap after it still lands', async ({ page, browserName }) => {
+test('the country is bigger than the screen: at the town view a drag pans it, and a tap after it still lands', async ({ page, browserName }) => {
   chromeOnly(browserName);
   const box = (await page.locator('#game canvas').boundingBox())!;
   const cdp = await page.context().newCDPSession(page);
   const before = await camera(page);
-  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 0, -150);
-  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 0, 150);
-  expect(await camera(page)).toEqual(before);
+  expect(before.zoom).toBe(1);
+  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, -60, -40);
+  const moved = await camera(page);
+  expect(moved.x !== before.x || moved.y !== before.y).toBe(true);
+  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 60, 40);
   await pageStill(page);
   await tapNpc(page);
 });

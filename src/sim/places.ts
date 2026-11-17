@@ -1,39 +1,65 @@
-// Tiles NPCs walk to, taken from the town layout so they always sit in front of
-// the buildings WorldScene draws.
-import { BUILDINGS, PLOTS, doorOf } from './town';
+// Tiles NPCs walk to: the doors of the town's buildings wherever they were put up, the square,
+// and the road in. Worked out afresh whenever the town is built on (buildRev), so they always sit
+// in front of what WorldScene draws. A building not yet put up sends people to the square instead.
+import { terrainOf, type Spot } from './terrain';
+import { doorOf } from './town';
+import type { WorldState } from './types';
 
-export { FIELDS, FOREST, PASTURE, dungeonDoor } from './town';
+export { dungeonDoor } from './town';
+export type { Spot } from './terrain';
 
-export interface Spot {
-  x: number;
-  y: number;
+export interface Places {
+  gate: Spot; // where the road from the wider world comes in
+  square: Spot;
+  castle: Spot;
+  guild: Spot;
+  inn: Spot;
+  church: Spot;
+  shop: Spot;
+  forge: Spot;
+  barracks: Spot;
+  brothel: Spot;
+  manor: Spot;
+  barn: Spot;
+  school: Spot;
+  yard: Spot;
+  hangouts: Spot[]; // open-air spots, so a crowd spreads out instead of piling onto a few doorsteps
 }
 
-const door = (key: string) => {
-  const b = BUILDINGS.find(([k]) => k === key)!;
-  return doorOf(...b);
-};
+let cache: { world: WorldState; rev: number; seed: number; p: Places } | null = null;
 
-export const PLACES = {
-  gate: { x: 0, y: 9 },
-  guild: door('guild'),
-  inn: door('inn'),
-  church: door('church'),
-  shop: door('shop'),
-  forge: door('forge'),
-  barracks: door('barracks'),
-  brothel: door('brothel'),
-  manor: door('manor'),
-  barn: door('barn'),
-  castle: door('castle'),
-  school: { x: PLOTS.school.x + 1, y: PLOTS.school.y + 2 },
-  square: { x: 13, y: 10 },
-  // Open-air spots so a crowd of sixty spreads out instead of piling onto a few doorsteps.
-  hangouts: [
-    { x: 6, y: 14 }, // by the pond
-    { x: 23, y: 13 }, // under the fruit trees
-    { x: 12, y: 16 },
-    { x: 29, y: 9 }, // just outside the east gate
-    { x: 10, y: 18 }, // edge of the fields
-  ],
-} satisfies Record<string, Spot | Spot[]>;
+export function places(world: WorldState): Places {
+  const rev = world.buildRev ?? 0;
+  if (cache?.world === world && cache.rev === rev && cache.seed === world.seed) return cache.p;
+  const t = terrainOf(world.seed);
+  const s = t.site;
+  const door = (k: string, dx: number, dy: number): Spot => {
+    const p = world.plots?.[k];
+    return p ? doorOf(k, p.x, p.y) : { x: s.x + dx, y: s.y + dy };
+  };
+  const p: Places = {
+    gate: { ...t.entry },
+    square: { ...s },
+    castle: door('castle', 0, -2),
+    guild: door('guild', -2, 1),
+    inn: door('inn', -2, -1),
+    church: door('church', 2, -1),
+    shop: door('shop', 2, 1),
+    forge: door('forge', -1, 2),
+    barracks: door('barracks', 3, 2),
+    brothel: door('brothel', 3, 0),
+    manor: door('manor', -3, -2),
+    barn: door('barn', 4, 4),
+    school: door('school', 1, 2),
+    yard: door('yard', -1, 2),
+    hangouts: [
+      { x: s.x - 5, y: s.y + 4 },
+      { x: s.x + 6, y: s.y + 5 },
+      { x: s.x - 7, y: s.y - 2 },
+      { x: s.x + 7, y: s.y - 3 },
+      { x: Math.round((s.x + t.entry.x) / 2), y: Math.round((s.y + t.entry.y) / 2) },
+    ],
+  };
+  cache = { world, rev, seed: world.seed, p };
+  return p;
+}

@@ -13,7 +13,7 @@ import { plagueStrike } from './worldevents';
 import { traveller } from './world';
 import { clamp } from './core';
 import { king, payrollReserve } from './society';
-import { LOTS } from './town';
+import { lotXY } from './town';
 import { sites, standing, townPop, workOnHome } from './housing';
 import { WORKS, WORK_ORDER } from './works';
 import { isAvatar, offer } from './avatar';
@@ -61,7 +61,7 @@ function toll(world: WorldState, rng: Rng, odds: number, how: string): number {
 // Homes come down; rubble stands where they were until the town rebuilds.
 export function ruinHomes(world: WorldState, rng: Rng, count: number): number {
   const ruins = (world.ruins ??= []);
-  const up = (world.homes ?? []).filter((h) => standing(world, h)).map((h) => ({ x: LOTS[h.lot].x, y: LOTS[h.lot].y }));
+  const up = (world.homes ?? []).filter((h) => standing(world, h)).map((h) => lotXY(h.lot));
   let fell = 0;
   for (let i = 0; i < count && up.length; i++) {
     const h = up.splice(int(rng, 0, up.length - 1), 1)[0];

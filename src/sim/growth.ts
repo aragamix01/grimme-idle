@@ -8,6 +8,7 @@ import { isAdventurer, legend, log } from './core';
 import { levelOf } from './market';
 import { payrollReserve } from './society';
 import { townPop } from './housing';
+import { drawRing, placeBuilding } from './landplan';
 import type { Civic, Npc, WorldState } from './types';
 
 export const TOWN_RANKS = [
@@ -94,6 +95,9 @@ export function growthDay(world: WorldState): void {
     const cost = Math.round(CIVICS[k].cost * levelOf(world));
     const who = payer(world, folk, k, cost);
     if (!who) continue;
+    // The chief (later the crown) chooses where it goes; the walls follow the town as it stands.
+    if (k === 'walls') drawRing(world);
+    else if (!placeBuilding(world, k)) continue;
     if (who === 'crown') world.treasury -= cost;
     else who.gold -= cost;
     // The builders are paid from it; with none, the hands that turn out from the market.

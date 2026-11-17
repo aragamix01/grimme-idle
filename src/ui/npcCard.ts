@@ -1,4 +1,4 @@
-import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, PLACES_SCHOOL, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, schoolSpot, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -110,7 +110,7 @@ function schooled(npc: Npc): string {
 function activity(world: WorldState, npc: Npc): string {
   if (!npc.alive) return npc.left ? 'ย้ายออกจากเมืองไปแล้ว' : 'จากไปแล้ว';
   if (npc.age < ADULT_AGE) {
-    if (npc.plan?.x === PLACES_SCHOOL.x && npc.plan?.y === PLACES_SCHOOL.y) return 'เรียนหนังสืออยู่ที่โรงเรียน';
+    if (npc.plan?.x === schoolSpot(world).x && npc.plan?.y === schoolSpot(world).y) return 'เรียนหนังสืออยู่ที่โรงเรียน';
     const parent = world.npcs.find((n) => n.id === npc.plan?.target);
     return parent ? `เดินตาม${parent.name}` : 'วิ่งเล่นอยู่ในเมือง';
   }

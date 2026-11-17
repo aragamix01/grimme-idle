@@ -1,4 +1,4 @@
-import { CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, LOTS, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -399,7 +399,8 @@ function housingSection(world: WorldState): HTMLElement {
   const people = townPop(world);
   const tiers = TIER_TH.map((name, t) => [name, up.filter((h) => h.tier === t).length] as const).filter(([, n]) => n);
   const going = homeSites(world);
-  const outside = up.filter((h) => LOTS[h.lot].outside).length;
+  const outside = up.filter((h) => lotOutside(world, h.lot)).length;
+  const land = (kind: string) => (world.parcels ?? []).filter((p) => p.kind === kind && p.ready <= world.day).length;
   const rows: HTMLElement[] = [
     el(
       'li',
@@ -408,7 +409,7 @@ function housingSection(world: WorldState): HTMLElement {
       el('span', { className: 'chip' }, `บ้าน ${up.length} หลัง${outside ? ` (นอกกำแพง ${outside})` : ''}`),
       ...(world.homeless ? [el('span', { className: 'chip chip--danger' }, `ไร้บ้าน ${world.homeless} คน`)] : []),
       ...(world.shacks?.length ? [el('span', { className: 'chip chip--danger', title: 'คนในชุมชนแออัดมักลักขโมย และโรคระบาดลามจากที่นั่นได้' }, `ชุมชนแออัด ${world.shacks.length} เพิง · ${world.slum ?? 0} คน`)] : []),
-      el('span', { className: 'chip' }, `แปลงว่าง ${Math.max(0, LOTS.length - homes.length)}`),
+      el('span', { className: 'chip', title: 'ชาวนาสามคนต่อนาหนึ่งแปลง ชาวนาที่ไม่มีนาทำได้ผลน้อยลง' }, `นา ${land('field')} แปลง · ทุ่งหญ้า ${land('pasture')}`),
     ),
     el('li', { className: 'realm-king__meta', textContent: tiers.map(([n, c]) => `${n} ${c}`).join(' · ') + ` · ห้องต่อหลัง ${ROOMS.join('/')} คน` }),
     ...going.map((h) =>
@@ -416,7 +417,7 @@ function housingSection(world: WorldState): HTMLElement {
         'li',
         { className: 'work' },
         el('img', { src: '/assets/sprites/buildings/scaffold.png', alt: '', className: 'work__art' }),
-        el('div', {}, el('b', { textContent: `${TIER_TH[h.tier]}${LOTS[h.lot].outside ? 'นอกกำแพง' : 'ในเมือง'}` }), el('p', { className: 'realm-king__meta', textContent: `${h.ownerId !== undefined ? `${world.npcs.find((n) => n.id === h.ownerId)?.name ?? 'ชาวเมือง'}ออกเงิน` : 'ทางการออกเงิน'} · เสร็จอีก ${Math.max(0, (h.until ?? 0) - world.day)} วัน` })),
+        el('div', {}, el('b', { textContent: `${TIER_TH[h.tier]}${lotOutside(world, h.lot) ? 'นอกกำแพง' : 'หลังใหม่'}` }), el('p', { className: 'realm-king__meta', textContent: `${h.ownerId !== undefined ? `${world.npcs.find((n) => n.id === h.ownerId)?.name ?? 'ชาวเมือง'}ออกเงิน` : 'ทางการออกเงิน'} · เสร็จอีก ${Math.max(0, (h.until ?? 0) - world.day)} วัน` })),
       ),
     ),
   ];

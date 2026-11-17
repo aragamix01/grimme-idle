@@ -2,11 +2,14 @@
 // and prefer roads. Each destination gets one distance field, computed on first
 // use and reused by everyone heading there.
 import { pick, type Rng } from './rng';
-import { MAP_H, MAP_W, WALL, townLayout } from './town';
+import { MAP_H, MAP_W, townLayout } from './town';
 import type { WorldState } from './types';
 import type { Spot } from './places';
 
 const UNREACHED = 0xffff;
+const MAX_FIELDS = 400;
+const RING = 8; // more than the dearest step (town.ts: road 1, grass 2, crops and scrub 3)
+let ring: Int32Array[] | null = null;
 const fields = new WeakMap<Uint8Array, Map<number, Uint16Array>>();
 
 const costs = (world: WorldState) => townLayout(world).cost;
@@ -15,21 +18,24 @@ export function walkable(world: WorldState, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && costs(world)[y * MAP_W + x] > 0;
 }
 
-const insideWalls = (x: number, y: number) => x > WALL.x0 && x < WALL.x1 && y > WALL.y0 && y < WALL.y1;
-const onWall = (x: number, y: number) => x >= WALL.x0 && x <= WALL.x1 && y >= WALL.y0 && y <= WALL.y1 && !insideWalls(x, y);
+// Inside or on the town walls, once there are any (WorldState.ring).
+type Ring = NonNullable<WorldState['ring']> | undefined;
+const insideWalls = (r: Ring, x: number, y: number) => !!r && x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
+const onWall = (r: Ring, x: number, y: number) => !!r && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 && !insideWalls(r, x, y);
 
 // The closest tile someone can actually stand on, searching outwards in rings,
 // and never on the far side of the town wall (a spot by the castle stays in town).
 export function snap(world: WorldState, s: Spot): Spot {
   const x0 = Math.min(MAP_W - 1, Math.max(0, s.x));
   const y0 = Math.min(MAP_H - 1, Math.max(0, s.y));
-  const inTown = insideWalls(x0, y0) || onWall(x0, y0);
+  const ring = world.founded && !world.founded.walls ? undefined : world.ring;
+  const inTown = insideWalls(ring, x0, y0) || onWall(ring, x0, y0);
   for (let r = 0; r < 8; r++)
     for (let dy = -r; dy <= r; dy++)
       for (const dx of r - Math.abs(dy) ? [-(r - Math.abs(dy)), r - Math.abs(dy)] : [0]) {
         const x = x0 + dx;
         const y = y0 + dy;
-        if (walkable(world, x, y) && (insideWalls(x, y) === inTown || onWall(x, y))) return { x, y };
+        if (walkable(world, x, y) && (insideWalls(ring, x, y) === inTown || onWall(ring, x, y))) return { x, y };
       }
   return { x: x0, y: y0 };
 }
@@ -40,24 +46,36 @@ function fieldTo(cost: Uint8Array, target: number): Uint16Array {
   if (!byTarget) fields.set(cost, (byTarget = new Map()));
   const hit = byTarget.get(target);
   if (hit) return hit;
-  const dist = new Uint16Array(cost.length).fill(UNREACHED);
-  const buckets: number[][] = [[target]];
+  const N = cost.length;
+  const dist = new Uint16Array(N).fill(UNREACHED);
+  // Every step costs 1 to MAX_STEP, so only the next few buckets are ever open: a ring of them,
+  // reused from one field to the next.
+  if (!ring || ring[0].length < N * 2) ring = Array.from({ length: RING }, () => new Int32Array(N * 2));
+  const rings: Int32Array[] = ring;
+  const fill = new Int32Array(RING);
   dist[target] = 0;
-  for (let d = 0; d < buckets.length; d++) {
-    const bucket = buckets[d];
-    if (!bucket) continue;
-    for (const i of bucket) {
+  rings[0][fill[0]++] = target;
+  let open = 1;
+  for (let d = 0; open > 0; d++) {
+    const r = d % RING;
+    const q = rings[r];
+    for (let k = 0; k < fill[r]; k++) {
+      const i = q[k];
+      open--;
       if (dist[i] !== d) continue;
       const x = i % MAP_W;
       // Moving from a neighbour onto tile i costs what tile i costs.
       const step = d + cost[i];
-      for (const j of [x > 0 ? i - 1 : -1, x < MAP_W - 1 ? i + 1 : -1, i - MAP_W, i + MAP_W]) {
-        if (j < 0 || j >= cost.length || !cost[j] || step >= dist[j]) continue;
-        dist[j] = step;
-        (buckets[step] ??= []).push(j);
-      }
+      const s = step % RING;
+      if (x > 0 && cost[i - 1] && step < dist[i - 1]) (dist[i - 1] = step), (rings[s][fill[s]++] = i - 1), open++;
+      if (x < MAP_W - 1 && cost[i + 1] && step < dist[i + 1]) (dist[i + 1] = step), (rings[s][fill[s]++] = i + 1), open++;
+      if (i >= MAP_W && cost[i - MAP_W] && step < dist[i - MAP_W]) (dist[i - MAP_W] = step), (rings[s][fill[s]++] = i - MAP_W), open++;
+      if (i + MAP_W < N && cost[i + MAP_W] && step < dist[i + MAP_W]) (dist[i + MAP_W] = step), (rings[s][fill[s]++] = i + MAP_W), open++;
     }
+    fill[r] = 0;
   }
+  // A bigger map makes each field bigger: keep the most recent few hundred.
+  if (byTarget.size >= MAX_FIELDS) byTarget.delete(byTarget.keys().next().value!);
   byTarget.set(target, dist);
   return dist;
 }

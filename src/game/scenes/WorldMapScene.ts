@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { HOME, partition, regionAt, type Realm, type Region, type WorldState } from '../../sim';
 import { createRng, next } from '../../sim/rng';
-import { MAP_H, MAP_W } from '../../sim/town';
+import { WORLD_H as MAP_H, WORLD_W as MAP_W } from '../../sim/realms';
 import { TILE } from './WorldScene';
 
 // Banner colours, matching the palette characters realms are given.

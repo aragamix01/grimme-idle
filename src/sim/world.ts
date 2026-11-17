@@ -6,11 +6,11 @@ import { birthday, births, bornTo, childDay, crushOf, homeOf, isBirthday, isChil
 import { addTie, pruneTies, socialize } from './ties';
 import { DUNGEON_NAMES, FIRST_NAMES } from './names';
 import { industrial, jobName } from './ages';
-import { FIELDS, FOREST, PASTURE, PLACES, dungeonDoor } from './places';
-import { PLOTS } from './town';
+import { places, dungeonDoor } from './places';
 import { ensureWilds, hunt, tendHerd, wildsDay } from './livestock';
 import { snap, walkable } from './nav';
-import { TOWN_SIZE, WALL } from './town';
+import { MAP_H, MAP_W, TOWN_SIZE } from './town';
+import { claimField, claimPasture, drawRing, dungeonSpot, fieldSpot, fieldsWanted, landDay, pastureSpot, pasturesWanted, placeBuilding, plotDoor, siteOf as townSite, woodsSpot } from './landplan';
 import { ensureMarket, arrivalJob, buyGear, caravanDay, departCaravan, considerTrade, might, harvest, lootFound, marketDay, priceRatio, sell, tendShop, wantsGear, wearGear } from './market';
 import { afterStampede, approval, rule } from './politics';
 import { REVEAL_COST, darkness, performRitual, reveal, sway } from './cult';
@@ -32,7 +32,6 @@ import { commit, jailed, justiceDay } from './justice';
 import { ascend, avatarDay, choose, incarnate } from './avatar';
 import { dragonDay } from './dragon';
 import { WORKS, built, crownWorks } from './works';
-import { BUILDINGS, doorOf } from './town';
 import { brew, draughts, engineer, pressDay, study } from './learning';
 import { TECHS, TECH_ORDER, researchDay } from './research';
 import { republicDay } from './republic';
@@ -46,7 +45,7 @@ import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDisc
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { happeningsDay, whisper, whisperCost } from './happenings';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
-import { founded, growthDay } from './growth';
+import { CIVIC_ORDER, founded, growthDay } from './growth';
 import { shantyCrime, slumsDay } from './slums';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
@@ -83,8 +82,8 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy,
     rng: 0,
     day: 0,
     faith: 10,
-    width: 40,
-    height: 25,
+    width: MAP_W,
+    height: MAP_H,
     npcs: [],
     dungeons: [],
     quests: [],
@@ -107,16 +106,16 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy,
   if (start === 'camp') pitchCamp(world, rng);
   else {
     for (let i = 0; i < npcCount; i++) world.npcs.push(spawnNpc(world, rng));
-    foundHomes(world);
+    takeLand(world, true);
   }
   settle(world);
-  // The first dungeon is always a gentle one: a cave or a wolf den.
+  // The first dungeon is always a gentle one: a cave or a wolf den, out in the woods.
   const kind = pick(rng, ['cave', 'den'] as const);
+  const lair = dungeonSpot(world, rng) ?? { x: townSite(world).x + 18, y: townSite(world).y };
   world.dungeons.push({
     id: world.nextId++,
     name: pick(rng, kind === 'cave' ? DUNGEON_NAMES : DUNGEON_KINDS.den.names),
-    x: int(rng, 30, 37),
-    y: int(rng, 3, 20),
+    ...lair,
     power: 10,
     kind,
     boss: newBoss(kind),
@@ -133,11 +132,26 @@ export function createWorld(seed: number, npcCount = TOWN_SIZE, legacy?: Legacy,
 export const foundWorld = (seed: number, legacy?: Legacy) => createWorld(seed, undefined, legacy, 'camp');
 
 // The pioneers: farmers and hunters mostly, a couple of builders, a priest, a trader, a smith and
-// a few sellswords, some of them married with small children. They have a handful of huts along
-// the track through the clearing; the eldest of them leads (holdCourt picks them on the first day).
+// a few sellswords, some of them married with small children. They have a handful of huts round
+// the clearing; the eldest of them leads (holdCourt picks them on the first day).
 const PIONEER_JOBS: readonly Npc['job'][] = ['farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'farmer', 'hunter', 'hunter', 'herder', 'herder', 'builder', 'builder', 'priest', 'merchant', 'blacksmith', 'swordsman', 'swordsman', 'swordsman', 'mage', 'scholar', 'watchman'];
-const CAMP_LOTS = [3, 4, 5, 6, 7, 8, 9]; // the middle row, along the main road
+const CAMP_HOMES = 7;
 const CAMP_COUPLES = 6;
+
+// The ground the first settlers take: the chief's hall by the square (a town founded whole has all
+// its buildings and its walls), the first homes, and fields and grazing already cleared.
+function takeLand(world: WorldState, whole: boolean): void {
+  placeBuilding(world, 'castle');
+  if (whole) for (const k of CIVIC_ORDER) if (k !== 'castle' && k !== 'walls' && k !== 'barn') placeBuilding(world, k);
+  foundHomes(world, whole ? undefined : CAMP_HOMES, whole ? 1 : 0);
+  const farmers = world.npcs.filter((n) => n.alive && n.job === 'farmer');
+  for (let i = 0; i < fieldsWanted(world); i++) claimField(world, farmers[i * 2]?.id, true);
+  for (let i = 0; i < pasturesWanted(world); i++) claimPasture(world, true);
+  if (whole) {
+    placeBuilding(world, 'barn');
+    drawRing(world);
+  }
+}
 const CAMP_TREASURY = 150;
 function pitchCamp(world: WorldState, rng: Rng): void {
   world.founded = {};
@@ -163,7 +177,7 @@ function pitchCamp(world: WorldState, rng: Rng): void {
       world.npcs.push(child);
     }
   }
-  foundHomes(world, CAMP_LOTS, 0);
+  takeLand(world, false);
 }
 
 // A doctor's fee: now and then someone who can pay comes in sick.
@@ -237,6 +251,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   pressDay(world, rng);
   decreesDay(world, rng);
   housingDay(world, rng);
+  landDay(world);
   growthDay(world);
   slumsDay(world, rng);
   happeningsDay(world, rng);
@@ -295,9 +310,9 @@ export function traveller(world: WorldState, rng: Rng, hired?: Npc['job']): void
     const wanted = arrivalJob(world, rng);
     if (wanted && !isAdventurer(npc)) npc.job = wanted;
   }
-  npc.x = PLACES.gate.x;
-  npc.y = PLACES.gate.y;
-  npc.plan = plan('arrive', PLACES.inn, 5);
+  npc.x = places(world).gate.x;
+  npc.y = places(world).gate.y;
+  npc.plan = plan('arrive', places(world).inn, 5);
   world.npcs.push(npc);
   log(world, 'world', hired ? `${npc.name} (${jobName(world, npc.job)}) แรงงานที่ราชสำนักจ้างมา เดินทางมาถึงเมือง` : `นักเดินทาง ${npc.name} (${jobName(world, npc.job)}) มาถึงเมือง`, npc.id);
 }
@@ -325,7 +340,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
     gold: int(rng, 5, 30),
     morality: int(rng, -20, 40),
     traits: t1 === t2 ? [t1] : [t1, t2],
-    ...snap(world, { x: int(rng, WALL.x0 + 1, WALL.x1 - 1), y: int(rng, WALL.y0 + 1, WALL.y1 - 1) }),
+    ...snap(world, { x: townSite(world).x + int(rng, -6, 6), y: townSite(world).y + int(rng, -4, 4) }),
     alive: true,
     blessed: false,
   };
@@ -342,7 +357,7 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
   if (isChild(npc)) return childDay(world, npc, rng);
   if (jailed(world, npc)) {
     // In the cells under the castle: walked there, then kept.
-    if (npc.x !== PLACES.castle.x || npc.y !== PLACES.castle.y) return stepToward(world, npc, plan('idle', PLACES.castle, 1), rng);
+    if (npc.x !== places(world).castle.x || npc.y !== places(world).castle.y) return stepToward(world, npc, plan('idle', places(world).castle, 1), rng);
     return;
   }
   if (npc.questId !== undefined && questDay(world, npc, rng)) return;
@@ -368,12 +383,12 @@ function live(world: WorldState, npc: Npc, rng: Rng): void {
   arrive(world, npc, p, rng);
 }
 
-// Where the crown's work stands: its royal plot, the building being rebuilt, or the castle.
+// Where the crown's work stands: the ground chosen for it, the building being rebuilt, or the castle.
 function siteOf(world: WorldState): { x: number; y: number } {
-  const w = world.building && WORKS[world.building.kind];
-  if (w?.plot) return { x: w.plot.x + 1, y: w.plot.y + 2 };
-  const b = w?.replaces && BUILDINGS.find(([k]) => k === w.replaces);
-  return b ? doorOf(...b) : PLACES.castle;
+  const k = world.building?.kind;
+  const w = k && WORKS[k];
+  if (!w) return places(world).castle;
+  return plotDoor(world, w.plot ? k : (w.replaces ?? 'castle')) ?? places(world).castle;
 }
 
 function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
@@ -387,7 +402,7 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     y: clamp(s.y + int(rng, -1, 3), 0, world.height - 1),
   });
   const idle = () =>
-    plan('idle', near(pick(rng, [PLACES.inn, PLACES.square, PLACES.church, home, PLACES.guild, ...PLACES.hangouts])), int(rng, 3, 8));
+    plan('idle', near(pick(rng, [places(world).inn, places(world).square, places(world).church, home, places(world).guild, ...places(world).hangouts])), int(rng, 3, 8));
   considerTrade(world, npc, rng);
   // An empty belly loosens morals; thieves get bolder, and the shady start pilfering.
   const hungry = (npc.hunger ?? 0) >= 2;
@@ -403,9 +418,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'swordsman':
     case 'mage': {
       // A hero in training drills at the guild (or the training yard) and risks no dungeon.
-      if (inTraining(world, npc)) return plan('idle', near(built(world, 'yard') ? { x: PLOTS.yard.x, y: PLOTS.yard.y + 2 } : PLACES.guild), int(rng, 4, 8));
+      if (inTraining(world, npc)) return plan('idle', near(built(world, 'yard') ? places(world).yard : places(world).guild), int(rng, 4, 8));
       const courage = npc.traits.includes('brave') ? 1.6 : npc.traits.includes('coward') ? 0.4 : 1;
-      if (wantsGear(world, npc) && chance(rng, 0.2)) return plan('buy', PLACES.shop, 0);
+      if (wantsGear(world, npc) && chance(rng, 0.2)) return plan('buy', places(world).shop, 0);
       // A dungeon close to spilling over draws glory seekers to thin it out, paid or not.
       const worst = world.dungeons.reduce((a, b) => (b.power > a.power ? b : a));
       const danger = Math.max(0, (worst.power - DANGER_POWER) / 20);
@@ -414,35 +429,35 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
         const d = danger && chance(rng, 0.7) ? worst : pick(rng, world.dungeons);
         return plan('adventure', dungeonDoor(d), 0, d.id);
       }
-      return chance(rng, 0.6) ? plan('idle', near(pick(rng, [PLACES.guild, PLACES.inn])), int(rng, 3, 8)) : idle();
+      return chance(rng, 0.6) ? plan('idle', near(pick(rng, [places(world).guild, places(world).inn])), int(rng, 3, 8)) : idle();
     }
     case 'merchant':
-      return chance(rng, 0.7) ? plan('work', PLACES.shop, int(rng, 5, 10)) : idle();
+      return chance(rng, 0.7) ? plan('work', places(world).shop, int(rng, 5, 10)) : idle();
     case 'blacksmith':
-      return chance(rng, 0.75) ? plan('work', PLACES.forge, int(rng, 5, 10)) : idle();
+      return chance(rng, 0.75) ? plan('work', places(world).forge, int(rng, 5, 10)) : idle();
     case 'innkeeper':
-      return chance(rng, 0.8) ? plan('work', PLACES.inn, int(rng, 5, 10)) : idle();
+      return chance(rng, 0.8) ? plan('work', places(world).inn, int(rng, 5, 10)) : idle();
     case 'courtesan':
-      return chance(rng, 0.7) ? plan('work', PLACES.brothel, int(rng, 4, 8)) : idle();
+      return chance(rng, 0.7) ? plan('work', places(world).brothel, int(rng, 4, 8)) : idle();
     case 'priest':
-      return chance(rng, 0.75) ? plan('work', PLACES.church, int(rng, 5, 10)) : idle();
+      return chance(rng, 0.75) ? plan('work', places(world).church, int(rng, 5, 10)) : idle();
     case 'watchman':
-      return chance(rng, 0.8) ? plan('work', patrolPost(rng), int(rng, 4, 8)) : idle();
+      return chance(rng, 0.8) ? plan('work', patrolPost(world, rng), int(rng, 4, 8)) : idle();
     case 'judge':
-      return chance(rng, 0.7) ? plan('work', PLACES.castle, int(rng, 5, 10)) : idle();
+      return chance(rng, 0.7) ? plan('work', places(world).castle, int(rng, 5, 10)) : idle();
     case 'lawyer':
-      return chance(rng, 0.6) ? plan('work', near(chance(rng, 0.5) ? PLACES.castle : PLACES.square), int(rng, 4, 8)) : idle();
+      return chance(rng, 0.6) ? plan('work', near(chance(rng, 0.5) ? places(world).castle : places(world).square), int(rng, 4, 8)) : idle();
     case 'doctor':
       // Seeing patients by the church's door, or calling on them at home.
-      return chance(rng, 0.7) ? plan('work', near(chance(rng, 0.5) ? PLACES.church : PLACES.square), int(rng, 5, 10)) : idle();
+      return chance(rng, 0.7) ? plan('work', near(chance(rng, 0.5) ? places(world).church : places(world).square), int(rng, 5, 10)) : idle();
     case 'soldier':
-      return chance(rng, 0.7) ? plan('work', patrolPost(rng), int(rng, 4, 8)) : idle();
+      return chance(rng, 0.7) ? plan('work', patrolPost(world, rng), int(rng, 4, 8)) : idle();
     case 'scholar':
       // At the school once there is one; before that, among the books in the castle.
-      return chance(rng, 0.75) ? plan('work', built(world, 'school') ? PLACES.school : PLACES.castle, int(rng, 6, 12)) : idle();
+      return chance(rng, 0.75) ? plan('work', built(world, 'school') ? places(world).school : places(world).castle, int(rng, 6, 12)) : idle();
     case 'alchemist':
       // Brewing in the back of the shop, where the dungeon finds are kept.
-      return chance(rng, 0.7) ? plan('work', near(PLACES.shop), int(rng, 5, 10)) : idle();
+      return chance(rng, 0.7) ? plan('work', near(places(world).shop), int(rng, 5, 10)) : idle();
     case 'engineer':
       // On the crown's building site if there is one, else drawing plans at the castle.
       return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();
@@ -450,26 +465,30 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
       // At a fallen home, else on the crown's site.
       return chance(rng, 0.75) ? plan('work', ruinSite(world) ?? homeSite(world) ?? siteOf(world), int(rng, 6, 12)) : idle();
     case 'noble':
-      return chance(rng, 0.5) ? plan('idle', near(pick(rng, [PLACES.manor, PLACES.castle])), int(rng, 3, 8)) : idle();
+      return chance(rng, 0.5) ? plan('idle', near(pick(rng, [places(world).manor, places(world).castle])), int(rng, 3, 8)) : idle();
     case 'king':
-      return chance(rng, 0.7) ? plan('idle', near(PLACES.castle), int(rng, 4, 10)) : idle();
+      return chance(rng, 0.7) ? plan('idle', near(places(world).castle), int(rng, 4, 10)) : idle();
     case 'farmer':
-      // The fields are a walk past the south gate, so farmers stay out there a good while.
+      // Out in the family's field (or anyone's), a good while; with no field cleared yet, scratching
+      // at the ground on the edge of the square.
       if (chance(rng, 0.8)) {
-        const field = { x: int(rng, FIELDS.x0, FIELDS.x1), y: int(rng, FIELDS.y0, FIELDS.y1) };
-        return plan('work', field, int(rng, 10, 20));
+        const s = places(world).square;
+        const field = fieldSpot(world, npc, rng) ?? snap(world, { x: s.x + int(rng, -6, 6), y: s.y + int(rng, 4, 6) });
+        // A long walk out means a longer stay once there.
+        return plan('work', field, int(rng, 10, 20) + Math.round((Math.abs(field.x - npc.x) + Math.abs(field.y - npc.y)) * 0.6));
       }
       return idle();
     case 'herder':
       // Out with the flock, or mending things at the barn.
       if (chance(rng, 0.8)) {
-        const graze = chance(rng, 0.25) ? PLACES.barn : { x: int(rng, PASTURE.x0, PASTURE.x1), y: int(rng, PASTURE.y0, PASTURE.y1) };
-        return plan('work', snap(world, graze), int(rng, 8, 16));
+        const graze = chance(rng, 0.25) ? places(world).barn : (pastureSpot(world, rng) ?? places(world).barn);
+        const at = snap(world, graze);
+        return plan('work', at, int(rng, 8, 16) + Math.round((Math.abs(at.x - npc.x) + Math.abs(at.y - npc.y)) * 0.6));
       }
       return idle();
     case 'hunter':
-      // A long stalk through the eastern forest, then back to town to sell the meat.
-      if (chance(rng, 0.75)) return plan('work', snap(world, { x: int(rng, FOREST.x0, FOREST.x1), y: int(rng, FOREST.y0, FOREST.y1) }), int(rng, 6, 12));
+      // A long stalk through the woods, then back to town to sell the meat.
+      if (chance(rng, 0.75)) return plan('work', snap(world, woodsSpot(world, rng)), int(rng, 6, 12));
       return idle();
     case 'thief': {
       const marks = world.npcs.filter((n) => n.alive && n !== npc && n.inside === undefined && n.gold >= 5);
@@ -578,7 +597,7 @@ function delve(world: WorldState, npc: Npc, rng: Rng): void {
     if (chance(rng, draughts(world) ? 0.05 : 0.08)) return kill(world, npc, `หายไปใน ${d.name}`); // a healing draught saves some
     wearGear(npc, rng);
   }
-  npc.plan = plan('return', PLACES.guild, 0);
+  npc.plan = plan('return', places(world).guild, 0);
 }
 
 function steal(world: WorldState, npc: Npc, victim: Npc, rng: Rng): void {

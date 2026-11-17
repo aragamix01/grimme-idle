@@ -7,6 +7,7 @@ import { log } from './core';
 import { legend } from './quests';
 import { DUNGEON_NAMES } from './names';
 import { might } from './market';
+import { dungeonSpot } from './landplan';
 import type { Boss, Dungeon, DungeonKind, Npc, WorldState } from './types';
 
 export const DUNGEON_KINDS: Record<DungeonKind, { th: string; tier: number; names: readonly string[]; boss: { name: string; relic: string; hp: number } }> = {
@@ -52,22 +53,13 @@ export function dungeonsDay(world: WorldState): void {
 }
 
 // A free spot in the eastern forest at least a few rows from every dungeon and the road.
-function freeSpot(world: WorldState, rng: Rng): { x: number; y: number } | undefined {
-  const spots: { x: number; y: number }[] = [];
-  for (let y = 2; y <= 20; y++)
-    for (let x = 29; x <= 37; x++) {
-      if (y + 2 >= 7 && y <= 10) continue; // the east road runs along row 9
-      if (world.dungeons.every((d) => Math.abs(d.y - y) >= 5 || Math.abs(d.x - x) >= 6)) spots.push({ x, y });
-    }
-  return spots.length ? pick(rng, spots) : undefined;
-}
 
 // An adventurer back from a delve may have stumbled on somewhere new.
 export function maybeDiscover(world: WorldState, finder: Npc, rng: Rng, odds = FIND_CHANCE): void {
   if (world.dungeons.length >= MAX_DUNGEONS || world.day < FIND_AFTER || !chance(rng, odds)) return;
   const used = new Set(world.dungeons.map(kindOf));
   const kinds = (Object.keys(DUNGEON_KINDS) as DungeonKind[]).filter((k) => !used.has(k));
-  const spot = freeSpot(world, rng);
+  const spot = dungeonSpot(world, rng);
   if (!kinds.length || !spot) return;
   // Harder kinds turn up later, when the town can take them.
   const kind = kinds.sort((a, b) => DUNGEON_KINDS[a].tier - DUNGEON_KINDS[b].tier)[world.dungeons.length > 1 ? int(rng, 0, kinds.length - 1) : 0];
@@ -75,7 +67,7 @@ export function maybeDiscover(world: WorldState, finder: Npc, rng: Rng, odds = F
   const name = pick(rng, DUNGEON_KINDS[kind].names.filter((n) => !taken.has(n)));
   const d: Dungeon = { id: world.nextId++, name, ...spot, power: int(rng, 15, 30), kind, boss: newBoss(kind), found: world.day };
   world.dungeons.push(d);
-  log(world, 'world', `${finder.name}ค้นพบ${name} (${DUNGEON_KINDS[kind].th}) ในป่าตะวันออก ว่ากันว่า${d.boss!.name}ครองที่นั่น`, finder.id);
+  log(world, 'world', `${finder.name}ค้นพบ${name} (${DUNGEON_KINDS[kind].th}) ในป่าลึก ว่ากันว่า${d.boss!.name}ครองที่นั่น`, finder.id);
   legend(world, `${finder.name} ค้นพบ${name}`, finder.id);
 }
 

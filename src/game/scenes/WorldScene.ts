@@ -1,7 +1,8 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
-import { FIELDS, FOREST, PASTURE, PLACES } from '../../sim/places';
-import { BUILDINGS, LOTS, SHACK_SPOTS, MAP_H, MAP_W, PLOTS, dungeonDoor, townLayout, type Placed } from '../../sim/town';
+import { places } from '../../sim/places';
+import { MAP_H, MAP_W, dungeonDoor, lotXY, townLayout, type Placed } from '../../sim/town';
+import { WATER, TREE, terrainOf } from '../../sim/terrain';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -55,7 +56,7 @@ const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; 
 // The pasture's mix of beasts, in the order they join the herd; deer roam the forest.
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
-const DRAGON_ROOST = { x: 34 * TILE, y: 2 * TILE }; // above the hills past the eastern forest
+const ZOOMS = [1, 2, 0] as const; // the zoom button's steps: the town, a close-up, the whole country (0: fit the map's width)
 const BEAST_SPEED = 10; // pixels a second
 const FLEE_AT = 40; // pixels: how close a hunter gets before a deer bolts
 
@@ -89,7 +90,10 @@ export class WorldScene extends Phaser.Scene {
   private seenSeq = -1; // last chronicle entry the scene has reacted to
   private drag: { sx: number; sy: number } | null = null;
   private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private blight!: Phaser.GameObjects.Rectangle;
+  private blight!: Phaser.GameObjects.Graphics;
+  private blightColor = -1;
+  private zoomStep = 0; // index into ZOOMS
+  private seed = -1; // the world the camera was last centred for
   private raining = false;
   private storm = false; // the long rains: a darker sky
   private flood!: Phaser.GameObjects.Container;
@@ -130,16 +134,10 @@ export class WorldScene extends Phaser.Scene {
     this.rain = this.add
       .particles(0, -8, 'raindrop', { x: { min: 0, max: MAP_W * TILE }, speedY: { min: 240, max: 300 }, speedX: -40, lifespan: 1400, quantity: 6, frequency: 30, alpha: 0.85, emitting: false })
       .setDepth(19_999);
-    const fx = FIELDS.x0 * TILE;
-    const fy = FIELDS.y0 * TILE;
-    this.blight = this.add
-      .rectangle(fx, fy, (FIELDS.x1 - FIELDS.x0 + 1) * TILE, (FIELDS.y1 - FIELDS.y0 + 1) * TILE, 0x6b4a1c, 0.5)
-      .setOrigin(0)
-      .setDepth(1)
-      .setVisible(false);
-    // Floodwater over the low ground south of the walls, the crops showing faintly through.
+    // Drawn over the fields wherever they are (buildTown fills both in).
+    this.blight = this.add.graphics().setDepth(1).setVisible(false);
+    // Floodwater over the low ground by the water, the crops showing faintly through.
     this.flood = this.add.container(0, 0).setDepth(2).setVisible(false).setAlpha(0.8);
-    for (let y = FIELDS.y0 - 1; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) this.flood.add(this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow'));
 
     // Gold ring under the selected NPC's feet.
     this.selectRing = this.add.graphics().setVisible(false);
@@ -150,7 +148,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // Taps and drags reach the scenes from the page's own pointer events (see mapInput.ts).
-  // Zoomed in, a drag pans the map from where the camera was when the finger landed.
+  // The country is bigger than the screen at any zoom but the widest, so a drag always pans the map
+  // from where the camera was when the finger landed.
   grab(): void {
     const cam = this.cameras.main;
     this.drag = { sx: cam.scrollX, sy: cam.scrollY };
@@ -158,7 +157,7 @@ export class WorldScene extends Phaser.Scene {
 
   dragBy(dx: number, dy: number): void {
     const cam = this.cameras.main;
-    if (!this.drag || cam.zoom <= 1) return;
+    if (!this.drag) return;
     cam.stopFollow();
     cam.setScroll(this.drag.sx - dx / cam.zoom, this.drag.sy - dy / cam.zoom);
   }
@@ -188,19 +187,35 @@ export class WorldScene extends Phaser.Scene {
     this.onSelect(best);
   }
 
-  // Toggle a 2x close-up, centred on whoever is selected (and following them) or on the town.
+  // Step through the zooms: the town, a 2x close-up centred on whoever is selected (and following
+  // them), the whole country, and back. True while the view is anything but the plain town view.
   toggleZoom(): boolean {
     const cam = this.cameras.main;
-    if (cam.zoom > 1) {
-      cam.stopFollow();
-      cam.setZoom(1).centerOn((MAP_W * TILE) / 2, (MAP_H * TILE) / 2);
-      return false;
+    this.zoomStep = (this.zoomStep + 1) % ZOOMS.length;
+    const z = ZOOMS[this.zoomStep];
+    cam.stopFollow();
+    if (z === 0) {
+      cam.setZoom(this.scale.gameSize.width / (MAP_W * TILE)).centerOn((MAP_W * TILE) / 2, (MAP_H * TILE) / 2);
+      return true;
     }
-    cam.setZoom(2);
+    cam.setZoom(z);
     const s = this.selectedId === null ? undefined : this.npcSprites.get(this.selectedId);
-    if (s?.visible) cam.startFollow(s, true, 0.15, 0.15, 0, 10);
-    else cam.centerOn(13 * TILE, 10 * TILE);
-    return true;
+    if (z > 1 && s?.visible) cam.startFollow(s, true, 0.15, 0.15, 0, 10);
+    else this.centreOnTown();
+    return z !== 1;
+  }
+
+  // The camera on the town square, where every game opens.
+  private centreOnTown(): void {
+    if (!this.world) return;
+    const s = terrainOf(this.world.seed).site;
+    this.cameras.main.centerOn(s.x * TILE + TILE / 2, s.y * TILE);
+  }
+
+  // Up on the hills in the woods past the town, where the dragon circles.
+  private roost(): { x: number; y: number } {
+    const s = this.world ? terrainOf(this.world.seed).site : { x: MAP_W / 2, y: MAP_H / 2 };
+    return { x: Phaser.Math.Clamp(s.x + 14, 2, MAP_W - 3) * TILE, y: Phaser.Math.Clamp(s.y - 10, 2, MAP_H - 3) * TILE };
   }
 
   setWorld(world: WorldState): void {
@@ -235,7 +250,8 @@ export class WorldScene extends Phaser.Scene {
     // The dragon wheels slowly above its roost on the hills past the forest.
     if (this.dragon && !this.swooping) {
       const t = this.time.now / 2600;
-      this.dragon.setPosition(DRAGON_ROOST.x + Math.cos(t) * 28, DRAGON_ROOST.y + Math.sin(t) * 10).setFlipX(Math.sin(t) > 0);
+      const r = this.roost();
+      this.dragon.setPosition(r.x + Math.cos(t) * 28, r.y + Math.sin(t) * 10).setFlipX(Math.sin(t) > 0);
     }
     if (this.selectedId !== null) {
       const s = this.npcSprites.get(this.selectedId);
@@ -256,6 +272,11 @@ export class WorldScene extends Phaser.Scene {
       w.buildRev ?? 0, // a home started, finished or built up
       (w.shacks ?? []).join(','), // the shanty, drawn apart from the layout
     ].join('|');
+    if (w.seed !== this.seed) {
+      // A new world (a new era, a new game): the camera finds its town.
+      this.seed = w.seed;
+      this.centreOnTown();
+    }
     if (!this.townBuilt || townKey !== this.townKey) {
       // A dungeon found or a boss fallen: clear the old town and lay it out again.
       for (const o of this.townObjs) o.destroy();
@@ -294,8 +315,12 @@ export class WorldScene extends Phaser.Scene {
     }
     // Blight browns the fields; drought bleaches them.
     this.blight.setVisible(weather === 'blight' || weather === 'drought');
-    if (weather === 'drought') this.blight.setFillStyle(0xd9a441, 0.4);
-    else this.blight.setFillStyle(0x6b4a1c, 0.5);
+    const color = weather === 'drought' ? 0xd9a441 : 0x6b4a1c;
+    if (color !== this.blightColor) {
+      this.blightColor = color;
+      this.blight.clear().fillStyle(color, weather === 'drought' ? 0.4 : 0.5);
+      for (const p of w.parcels ?? []) if (p.kind === 'field') this.blight.fillRect(p.x * TILE, p.y * TILE, p.w * TILE, p.h * TILE);
+    }
     this.flood.setVisible(flooded(w));
     this.raining = wet;
     this.storm = weather === 'deluge';
@@ -304,13 +329,14 @@ export class WorldScene extends Phaser.Scene {
   // The dragon arrives over the hills, and on its death (or leaving) falls or flies away.
   private syncDragon(w: WorldState): void {
     if (w.dragon && !this.dragon) {
-      const d = this.add.sprite(DRAGON_ROOST.x, DRAGON_ROOST.y, 'dragon').setScale(1.5).setDepth(19_998).play('dragon-walk');
+      const r = this.roost();
+      const d = this.add.sprite(r.x, r.y, 'dragon').setScale(1.5).setDepth(19_998).play('dragon-walk');
       this.dragon = d;
       if (this.seenSeq >= 0) {
-        // In from off the map's edge.
+        // In from off the screen's edge.
         this.swooping = true;
-        d.setPosition(MAP_W * TILE + 40, -30);
-        this.tweens.add({ targets: d, x: DRAGON_ROOST.x, y: DRAGON_ROOST.y, duration: 2200, ease: 'Sine.out', onComplete: () => (this.swooping = false) });
+        d.setPosition(r.x + 360, r.y - 200);
+        this.tweens.add({ targets: d, x: r.x, y: r.y, duration: 2200, ease: 'Sine.out', onComplete: () => (this.swooping = false) });
       }
     } else if (!w.dragon && this.dragon) {
       const d = this.dragon;
@@ -320,7 +346,7 @@ export class WorldScene extends Phaser.Scene {
       this.tweens.add(
         slain
           ? { targets: d, y: d.y + 60, angle: 80, alpha: 0, duration: 1600, ease: 'Quad.in', onComplete: () => d.destroy() }
-          : { targets: d, x: MAP_W * TILE + 60, y: -40, duration: 2000, ease: 'Sine.in', onComplete: () => d.destroy() },
+          : { targets: d, x: d.x + 400, y: d.y - 240, duration: 2000, ease: 'Sine.in', onComplete: () => d.destroy() },
       );
     }
   }
@@ -330,14 +356,16 @@ export class WorldScene extends Phaser.Scene {
     const d = this.dragon;
     if (!d) return;
     this.swooping = true;
-    const over = { x: 13 * TILE, y: 8 * TILE };
+    const s = terrainOf(this.world!.seed).site;
+    const over = { x: s.x * TILE, y: (s.y - 2) * TILE };
+    const r = this.roost();
     d.setFlipX(true);
     this.tweens.chain({
       targets: d,
       tweens: [
         { x: over.x, y: over.y, duration: 1100, ease: 'Quad.in' },
-        { x: 2 * TILE, y: 4 * TILE, duration: 900, ease: 'Linear', onStart: () => this.burn(over) },
-        { x: DRAGON_ROOST.x, y: DRAGON_ROOST.y, duration: 1600, ease: 'Sine.inOut', onStart: () => d.setFlipX(false) },
+        { x: over.x - 11 * TILE, y: over.y - 4 * TILE, duration: 900, ease: 'Linear', onStart: () => this.burn(over) },
+        { x: r.x, y: r.y, duration: 1600, ease: 'Sine.inOut', onStart: () => d.setFlipX(false) },
       ],
       onComplete: () => (this.swooping = false),
     });
@@ -354,16 +382,30 @@ export class WorldScene extends Phaser.Scene {
 
   // A random open tile in the pasture or the forest, as a pixel spot a beast can stand on.
   private beastSpot(area: Beast['area']): { x: number; y: number } {
-    const box = area === 'pasture' ? PASTURE : FOREST;
-    const town = this.world ? townLayout(this.world) : null;
-    for (let tries = 0; tries < 30; tries++) {
+    const box = this.beastBox(area);
+    const w = this.world;
+    const town = w ? townLayout(w) : null;
+    const cover = w ? terrainOf(w.seed).cover : null;
+    for (let tries = 0; tries < 40; tries++) {
       const tx = Phaser.Math.Between(box.x0, box.x1);
       const ty = Phaser.Math.Between(box.y0, box.y1);
       const i = ty * MAP_W + tx;
-      if (town && (!town.cost[i] || town.ground[i] === 'road')) continue;
+      if (town && (!town.cost[i] || town.ground[i] !== 'grass')) continue;
+      // Deer keep to the edge of the trees.
+      if (area === 'forest' && cover && ![i - 1, i + 1, i - MAP_W, i + MAP_W].some((j) => cover[j] === TREE)) continue;
       return { x: tx * TILE + Phaser.Math.Between(2, 14), y: ty * TILE + Phaser.Math.Between(8, 15) };
     }
     return { x: box.x0 * TILE + 8, y: box.y0 * TILE + 12 };
+  }
+
+  // Where each kind of beast roams: inside the first pasture's fence, or the woods around the town.
+  private beastBox(area: Beast['area']): { x0: number; y0: number; x1: number; y1: number } {
+    const w = this.world;
+    const s = w ? terrainOf(w.seed).site : { x: MAP_W >> 1, y: MAP_H >> 1 };
+    const p = area === 'pasture' ? w?.parcels?.find((q) => q.kind === 'pasture') : undefined;
+    if (p) return { x0: p.x + 1, y0: p.y + 1, x1: p.x + p.w - 2, y1: p.y + p.h - 2 };
+    const r = area === 'pasture' ? 4 : 20;
+    return { x0: Math.max(1, s.x - r), y0: Math.max(1, s.y - r), x1: Math.min(MAP_W - 2, s.x + r), y1: Math.min(MAP_H - 2, s.y + r) };
   }
 
   // As many beasts on the map as the sim counts: newborns trot in, the slaughtered (or the
@@ -395,9 +437,10 @@ export class WorldScene extends Phaser.Scene {
       const near = b.area === 'forest' ? hunters.find((h) => Phaser.Math.Distance.Between(h!.x, h!.y, s.x, s.y) < FLEE_AT) : undefined;
       if (near && !b.fleeing) {
         const away = new Phaser.Math.Vector2(s.x - near.x, s.y - near.y).normalize().scale(FLEE_AT * 1.5);
+        const box = this.beastBox('forest');
         b.to = {
-          x: Phaser.Math.Clamp(s.x + away.x, FOREST.x0 * TILE, (FOREST.x1 + 1) * TILE - 4),
-          y: Phaser.Math.Clamp(s.y + away.y, FOREST.y0 * TILE + 12, (FOREST.y1 + 1) * TILE - 2),
+          x: Phaser.Math.Clamp(s.x + away.x, box.x0 * TILE, (box.x1 + 1) * TILE - 4),
+          y: Phaser.Math.Clamp(s.y + away.y, box.y0 * TILE + 12, (box.y1 + 1) * TILE - 2),
         };
         b.fleeing = true;
         s.setFlipX(b.to.x < s.x);
@@ -453,31 +496,46 @@ export class WorldScene extends Phaser.Scene {
   // (and so where its dungeons are) is known.
   private buildTown(w: WorldState): void {
     const town = townLayout(w);
+    const t = terrainOf(w.seed);
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    // The ground is painted once into a single texture: the country is too big for a sprite a tile.
+    // Only the water moves, so it stays as sprites.
+    const rt = this.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0).setDepth(-1);
+    const flat = { originX: 0, originY: 0 };
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const g = town.ground[y * MAP_W + x];
         const px = x * TILE;
         const py = y * TILE;
-        if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).play('water-flow');
-        else if (g === 'road') this.add.image(px, py, 'path', Math.floor(rand() * 2)).setOrigin(0);
-        else if (g === 'crops') this.add.image(px, py, 'crops', (x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0).setOrigin(0);
-        else if (rand() < 0.06) this.add.image(px, py, 'flowers').setOrigin(0);
-        else this.add.image(px, py, 'grass', Math.floor(rand() * 3)).setOrigin(0);
+        if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).setDepth(-1).play('water-flow');
+        else if (g === 'road') rt.stamp('path', Math.floor(rand() * 2), px, py, flat);
+        else if (g === 'crops') rt.stamp('crops', (x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0, px, py, flat);
+        else if (rand() < 0.06) rt.stamp('flowers', undefined, px, py, flat);
+        else rt.stamp('grass', Math.floor(rand() * 3), px, py, flat);
       }
-    // The crown's works: upgraded buildings swap their art, new ones stand on the royal plots.
+    rt.render();
+    // Floodwater over the low ground along the water near town, and over the fields.
+    this.flood.removeAll(true);
+    for (let y = Math.max(0, t.site.y - 22); y < Math.min(MAP_H, t.site.y + 22); y++)
+      for (let x = Math.max(0, t.site.x - 30); x < Math.min(MAP_W, t.site.x + 30); x++) {
+        const i = y * MAP_W + x;
+        const low = t.cover[i] !== WATER && t.wet[i] <= 2 && town.cost[i] > 0;
+        if (low || town.ground[i] === 'crops') this.flood.add(this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow'));
+      }
+    this.blightColor = -1; // the fields may have moved: draw the blight afresh
+    // The crown's works: upgraded buildings swap their art, new ones stand where the crown put them.
     const upgrade: Record<string, string> = {};
     const rising = w.building && WORKS[w.building.kind].replaces; // a building under scaffolding
     for (const k of WORK_ORDER) if (w.works?.[k] !== undefined && WORKS[k].replaces) upgrade[WORKS[k].replaces!] = WORKS[k].art;
-    for (const [kind, plot] of Object.entries(PLOTS) as [keyof typeof PLOTS, { x: number; y: number }][]) {
+    for (const kind of WORK_ORDER) {
+      const plot = WORKS[kind].plot && w.plots?.[kind];
+      if (!plot) continue;
       if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
       else if (w.works?.[kind] !== undefined) this.placeProp({ key: kind === 'monument' ? `monument-${Math.min(3, w.monument ?? 1)}` : kind, x: plot.x, y: plot.y, anchor: 'top' });
-      else if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
-      else this.placeProp({ key: 'lot', x: plot.x, y: plot.y, anchor: 'bottom' });
     }
     // Homes going up stand in scaffolding until they are done.
-    const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${LOTS[h.lot].x},${LOTS[h.lot].y}`));
+    const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${lotXY(h.lot).x},${lotXY(h.lot).y}`));
     for (const p of town.props) {
       const home = /^(house|townhouse|hut)/.test(p.key);
       const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
@@ -494,21 +552,22 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     // A building the town is founding stands in scaffolding on its plot (the castle over the old hall).
-    const raising = w.raising && w.raising.kind !== 'walls' ? BUILDINGS.find(([k]) => k === w.raising!.kind) : undefined;
-    if (raising) {
-      const [k, tx, ty] = raising;
+    const k = w.raising && w.raising.kind !== 'walls' ? w.raising.kind : undefined;
+    const at = k && w.plots?.[k];
+    if (k && at) {
       if (k === 'castle') {
-        const s = this.add.image(tx * TILE + 32, ty * TILE + 56, 'scaffold').setOrigin(0.5, 1);
+        const s = this.add.image(at.x * TILE + 32, at.y * TILE + 56, 'scaffold').setOrigin(0.5, 1);
         s.setDepth(s.y + 1);
-      } else this.placeProp({ key: 'scaffold', x: tx, y: ty, anchor: 'top' });
+      } else this.placeProp({ key: 'scaffold', x: at.x, y: at.y, anchor: 'top' });
     }
     // The shanty's shacks.
-    for (const s of w.shacks ?? []) this.placeProp({ key: 'shack', x: SHACK_SPOTS[s].x, y: SHACK_SPOTS[s].y, anchor: 'bottom' });
+    for (const s of w.shacks ?? []) this.placeProp({ key: 'shack', ...lotXY(s), anchor: 'bottom' });
     // Before there is a church or a market on the square, the camp gathers round a fire there.
-    if (!founded(w, 'church') && !founded(w, 'shop')) this.placeProp({ key: 'campfire', x: PLACES.square.x, y: PLACES.square.y, anchor: 'bottom' });
+    const sq = places(w).square;
+    if (!founded(w, 'church') && !founded(w, 'shop')) this.placeProp({ key: 'campfire', x: sq.x, y: sq.y, anchor: 'bottom' });
     // A hero of a past era stands in stone in the square.
     if (statueHero(w)) {
-      const st = this.add.image(PLACES.square.x * TILE + TILE / 2, (PLACES.square.y + 1) * TILE, 'statue').setOrigin(0.5, 1);
+      const st = this.add.image(sq.x * TILE + TILE / 2, (sq.y + 1) * TILE, 'statue').setOrigin(0.5, 1);
       st.setDepth(st.y);
     }
     for (const d of w.dungeons) {
@@ -590,9 +649,9 @@ export class WorldScene extends Phaser.Scene {
     this.charge(w, dungeonDoor(d), host ? ['demon-lord', ...STAMPEDE_MONSTERS, 'skeleton', 'goblin'] : horde);
   }
 
-  // An enemy army storms in through the west gate.
+  // An enemy army storms in along the road.
   private raid(w: WorldState): void {
-    this.charge(w, { x: 0, y: 9 }, new Array(12).fill('raider'));
+    this.charge(w, places(w).gate, new Array(12).fill('raider'));
   }
 
   // A crowd runs from `door` along the roads and scatters about town before melting away.
@@ -601,9 +660,10 @@ export class WorldScene extends Phaser.Scene {
     const rng = createRng(w.day);
     monsters.forEach((key, i) => {
       const pos = { ...door };
-      const goal = snap(w, { x: 3 + ((i * 7) % 22), y: 3 + ((i * 5) % 13) });
+      const s = places(w).square;
+      const goal = snap(w, { x: s.x - 9 + ((i * 7) % 18), y: s.y - 6 + ((i * 5) % 12) });
       const steps: { x: number; y: number }[] = [];
-      for (let n = 0; n < 90 && (pos.x !== goal.x || pos.y !== goal.y); n++) {
+      for (let n = 0; n < 120 && (pos.x !== goal.x || pos.y !== goal.y); n++) {
         if (!walk(w, pos, goal, rng)) break;
         steps.push({ ...pos });
       }

@@ -5,7 +5,7 @@
 import { chance, int, pick, type Rng } from './rng';
 import { clamp, kill, log, makePlan, perkLevel } from './core';
 import { balanceOf, cultists, sway } from './cult';
-import { dungeonDoor, PLACES } from './places';
+import { dungeonDoor, places } from './places';
 import { might } from './market';
 import { afterStampede, loyaltyOf } from './politics';
 import { isAdventurer, legend } from './quests';
@@ -370,7 +370,7 @@ function release(world: WorldState, ids: number[]): void {
     const n = byId(world, id);
     if (!n?.alive || n.plan?.kind !== 'crusade') continue;
     n.inside = undefined;
-    n.plan = makePlan('return', PLACES.guild, 0);
+    n.plan = makePlan('return', places(world).guild, 0);
   }
 }
 

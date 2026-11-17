@@ -3,9 +3,11 @@ import { applyCommands, createWorld, foundWorld, tick, traveller } from '../../s
 import { TOWN_RANK, founded, rankOf } from '../../src/sim/growth';
 import { kill } from '../../src/sim/core';
 import { wed, births, bornTo, homeOf } from '../../src/sim/life';
-import { ROOMS, capacity, inShack, shackDoor, townPop } from '../../src/sim/housing';
+import { FIRST_HOMES, ROOMS, capacity, inShack, shackDoor, townPop } from '../../src/sim/housing';
 import { fire, shantyCrime } from '../../src/sim/slums';
-import { FIRST_LOTS, LOTS, SHACK_SPOTS, WALL } from '../../src/sim/town';
+import { MAP_W, SHACK_BASE, footprint, lotXY, townLayout } from '../../src/sim/town';
+import { WATER, terrainOf } from '../../src/sim/terrain';
+import { claimField, dungeonSpot, homeSpot, landDay, plotDoor, siteOf, treesOn } from '../../src/sim/landplan';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
 import { ruinHomes } from '../../src/sim/disasters';
@@ -17,7 +19,7 @@ import { commit, jailed } from '../../src/sim/justice';
 import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
 import { endWar } from '../../src/sim/war';
 import { ourForces } from '../../src/sim/war';
-import { PLACES } from '../../src/sim/places';
+import { places } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
@@ -46,6 +48,7 @@ const run = (w: WorldState, days: number) => {
 function cast(w: WorldState): { a: Npc; b: Npc; priest: Npc } {
   const [a, b, priest] = grown(w).filter((n) => n.spouseId === undefined && n.questId === undefined);
   priest.job = 'priest';
+  priest.creed = 'god';
   for (const n of grown(w)) if (n.job === 'priest' && n !== priest) n.job = 'farmer';
   return { a, b, priest };
 }
@@ -82,7 +85,7 @@ test('before a holy day the devout near the church walk over; on the day believe
     n.gold = 100;
     if (n.questId === undefined && n.inside === undefined) {
       n.plan = undefined;
-      Object.assign(n, { x: PLACES.church.x, y: PLACES.church.y + 1 });
+      Object.assign(n, { x: places(w).church.x, y: places(w).church.y + 1 });
     }
   }
   tick(w);
@@ -595,10 +598,20 @@ const settleNow = (w: WorldState) => {
   while (w.day % 10 !== 3) tick(w);
   tick(w); // the day homes are sorted out
 };
+// More homes, standing at once, wherever the town would put them.
+function addHomes(w: WorldState, n: number): void {
+  for (let i = 0; i < n; i++) {
+    const lot = homeSpot(w, [], false);
+    if (lot < 0) return;
+    w.homes!.push({ lot, tier: 1, built: 0 });
+    w.buildRev = (w.buildRev ?? 0) + 1;
+  }
+}
+const fromSite = (w: WorldState, x: number, y: number) => Math.hypot(x - siteOf(w).x, y - siteOf(w).y);
 
 test('at the founding everyone has a home with room for them, a child at a parent\'s', () => {
   const w = world();
-  ok(w.homes!.length === FIRST_LOTS, `homes at the founding: ${w.homes!.length}`);
+  ok(w.homes!.length === FIRST_HOMES, `homes at the founding: ${w.homes!.length}`);
   ok(capacity(w) >= townPop(w), `rooms ${capacity(w)} for ${townPop(w)}`);
   ok(!w.homeless, `homeless at the founding: ${w.homeless}`);
   const [a, b] = grown(w).filter((n) => n.spouseId === undefined && n.job !== 'noble');
@@ -624,18 +637,21 @@ test('a full town: someone who can pay hires builders, and the new home stands a
   ok(site, 'no home was started');
   ok((w.buildRev ?? 0) > rev, 'the town was not laid out again for the site');
   ok(rich.gold < 2000 || w.homes!.some((h) => h.ownerId === undefined && h.until), 'nobody paid for it');
-  const lot = LOTS[site!.lot];
+  const lot = lotXY(site!.lot);
   ok(!walkable(w, lot.x, lot.y), 'the lot can still be walked through');
-  run(w, 70);
+  run(w, 120); // longer if the trees had to come down first
   ok(site!.until === undefined, 'the home never stood');
   ok(capacity(w) > before, `rooms did not grow: ${before} -> ${capacity(w)}`);
 });
 
-test('once every lot is built on, homes are built up a storey', () => {
+test('once the town has spread past an easy walk from the square, homes are built up a storey', () => {
   const w = world();
   for (const t of [...TECH_ORDER.slice(0, 6), 'printing' as const]) (w.techs ??= {})[t] = 0; // the age of townhouses
-  w.homes = LOTS.map((_, lot) => ({ lot, tier: 1 as const, built: 0 }));
-  w.buildRev = (w.buildRev ?? 0) + 1;
+  for (let i = 0; i < 80; i++) {
+    const next = homeSpot(w, [], false);
+    if (next < 0 || fromSite(w, lotXY(next).x, lotXY(next).y) > 14) break;
+    addHomes(w, 1);
+  }
   for (let i = 0; i < 120; i++) traveller(w, rngOf(w));
   ensureMarket(w).stock.timber = 100;
   w.treasury = 50_000;
@@ -654,8 +670,7 @@ test('without a roof, households drift away; with rooms to spare, newcomers come
   ok(townPop(w) < start, `the homeless did not leave: ${start} -> ${townPop(w)}`); // slowly: a shack is a roof of sorts
   ok(w.chronicle.some((e) => e.text.includes('จึงทิ้งเมืองไปหาที่อยู่ใหม่')), 'nobody was said to leave for want of a home');
   const full = world(8);
-  full.homes!.push(...LOTS.slice(FIRST_LOTS).map((_, i) => ({ lot: FIRST_LOTS + i, tier: 1 as const, built: 0 })));
-  full.buildRev = (full.buildRev ?? 0) + 1;
+  addHomes(full, 11);
   const before = townPop(full);
   run(full, 360);
   ok(townPop(full) > before + 10, `newcomers did not fill the empty homes: ${before} -> ${townPop(full)}`);
@@ -670,15 +685,18 @@ test('a home brought down by a disaster takes its rooms with it until it is rebu
 
 // ---------- from a camp to a city ----------
 
-test('a new game starts as a pioneers\' camp: huts by the track, a chief\'s hall, no walls, no church', () => {
+test('a new game starts as a pioneers\' camp: huts round a clearing, a chief\'s hall, no walls, no church', () => {
   const w = foundWorld(5);
   tick(w);
   ok(townPop(w) < 40 && rankOf(w) === 0, `a camp of ${townPop(w)}, rank ${rankOf(w)}`);
   ok(w.homes!.every((h) => h.tier === 0), 'the pioneers live in something better than huts');
   ok(!founded(w, 'church') && !founded(w, 'walls') && !founded(w, 'castle'), 'the camp has a church, walls or a castle');
-  ok(walkable(w, WALL.x0, WALL.y0 + 3), 'there is a wall where the town will one day put one');
+  const wall = (x: WorldState) => townLayout(x).props.some((p) => p.key === 'town-wall' || p.key === 'gate-tower');
+  ok(!wall(w) && !w.ring, 'a camp has walls');
+  ok(w.homes!.every((h) => fromSite(w, lotXY(h.lot).x, lotXY(h.lot).y) < 10), 'the huts are not round the clearing');
+  ok((w.parcels ?? []).some((p) => p.kind === 'field' && p.ready <= w.day), 'the pioneers have no field cleared');
   const town = world();
-  ok(founded(town, 'walls') && !walkable(town, WALL.x0, WALL.y0 + 3), 'a town founded whole has no walls');
+  ok(founded(town, 'walls') && wall(town) && townLayout(town).gates.length > 0, 'a town founded whole has no walls, or no gate in them');
   ok(w.npcs.some((n) => n.spouseId !== undefined) && w.npcs.some((n) => n.age < 16), 'no families among the pioneers');
 });
 
@@ -708,8 +726,13 @@ test('a camp grows into a town over the years: proper houses, a castle and walls
 test('a camp neither titles nobles nor raises an army, and the crown builds no works there', () => {
   const w = foundWorld(5);
   w.treasury = 50_000;
-  run(w, 400);
-  ok(rankOf(w) === 0 || w.npcs.every((n) => !n.alive || n.job !== 'noble'), 'a camp has nobles');
+  // Rich as the crown is, nobody is titled while the town is still a camp (a village may).
+  const nobles = () => w.npcs.filter((n) => n.alive && n.job === 'noble').length;
+  for (let d = 0; d < 400; d++) {
+    const before = nobles();
+    tick(w);
+    ok(rankOf(w) > 0 || nobles() <= before, `a noble was titled over a camp on day ${w.day}`);
+  }
   ok(!w.building && !Object.keys(w.works ?? {}).length, 'the crown built works in a camp');
 });
 
@@ -723,10 +746,9 @@ test('with no room in any home, the homeless knock up shacks; they come down onc
   ok((w.shacks?.length ?? 0) > 0 && (w.slum ?? 0) > 0, `no shanty: ${w.shacks?.length} shacks, ${w.slum} in them`);
   const s = w.shacks![0];
   const dweller = w.npcs.find((n) => n.alive && inShack(n))!;
-  ok(JSON.stringify(homeOf(dweller, w)) === JSON.stringify(shackDoor(s)) || dweller.home! >= 1000, 'the shack dweller goes home elsewhere');
+  ok(JSON.stringify(homeOf(dweller, w)) === JSON.stringify(shackDoor(s)) || dweller.home! >= SHACK_BASE, 'the shack dweller goes home elsewhere');
   ok(shantyCrime(w) > 1, 'the shanty does not breed thieves');
-  w.homes!.push(...LOTS.slice(FIRST_LOTS).map((_, i) => ({ lot: FIRST_LOTS + i, tier: 1 as const, built: 0 })));
-  w.buildRev = (w.buildRev ?? 0) + 1;
+  addHomes(w, 11);
   settleNow(w);
   ok(!w.shacks?.length, `shacks still standing with homes to spare: ${w.shacks?.length}`);
 });
@@ -734,7 +756,7 @@ test('with no room in any home, the homeless knock up shacks; they come down onc
 test('a fire runs along a row of timber homes; the ruler decides how the town rebuilds', () => {
   const w = world();
   const before = capacity(w);
-  const burnt = fire(w, rngOf(w), { x: LOTS[4].x, y: LOTS[4].y });
+  const burnt = fire(w, rngOf(w), lotXY(w.homes![4].lot));
   ok(burnt >= 1, 'nothing burnt');
   ok(capacity(w) < before, 'the burnt homes still count their rooms');
   ok(w.chronicle.some((e) => e.text.startsWith('ไฟไหม้!')), 'the fire was not told');
@@ -784,4 +806,92 @@ test('a camp\'s bread is priced for its own few mouths, not a town\'s', () => {
   const w = foundWorld(5);
   tick(w);
   ok(target(w, 'grain') < target(world(), 'grain') / 3, `a camp of ${townPop(w)} wants ${target(w, 'grain')} sacks in store`);
+});
+
+// ---------- the land: wild country, and who builds where ----------
+
+test('every world is cut from its own wild country, the same each time for a seed', () => {
+  const a = terrainOf(101);
+  const b = terrainOf(202);
+  ok(terrainOf(101) === a && createWorld(101).seed === 101, 'the country is not kept for its seed');
+  let same = 0;
+  for (let i = 0; i < a.cover.length; i++) if (a.cover[i] === b.cover[i]) same++;
+  ok(same < a.cover.length * 0.8, `two seeds give nearly the same country: ${same}/${a.cover.length}`);
+  ok(a.site.x !== b.site.x || a.site.y !== b.site.y, 'the town is always on the same spot');
+  for (const t of [a, b]) {
+    ok(t.wet[t.site.y * MAP_W + t.site.x] <= 14, `the square is far from any water: ${t.wet[t.site.y * MAP_W + t.site.x]}`);
+    ok(t.cover[t.site.y * MAP_W + t.site.x] !== WATER, 'the square is in the water');
+  }
+});
+
+test('every door, field and dungeon can be walked to from the road in', () => {
+  for (const w of [createWorld(3), createWorld(8), foundWorld(4), foundWorld(9)]) {
+    run(w, 400);
+    const cost = townLayout(w).cost;
+    const open = (x: number, y: number) => cost[y * MAP_W + x] > 0;
+    for (const [k, p] of Object.entries(w.plots ?? {})) {
+      if (!p) continue;
+      const d = plotDoor(w, k)!;
+      ok(open(d.x, d.y), `the ${k}'s door (${d.x},${d.y}) cannot be reached in world ${w.seed}`);
+      ok(!open(p.x, p.y) && footprint(k).w >= 2, `the ${k} can be walked through`);
+    }
+    for (const h of w.homes ?? []) ok(open(lotXY(h.lot).x + 1, lotXY(h.lot).y + 2), `a home's door cannot be reached in world ${w.seed}`);
+    for (const p of w.parcels ?? []) {
+      let any = false;
+      for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) any ||= open(x, y);
+      ok(any, `a ${p.kind} at ${p.x},${p.y} cannot be reached in world ${w.seed}`);
+    }
+    for (const d of w.dungeons) ok(open(d.x + 1, d.y + 2), `the dungeon at ${d.x},${d.y} cannot be reached in world ${w.seed}`);
+  }
+});
+
+test('a family builds near its kin; the well-off near the castle', () => {
+  const w = world();
+  // The parent living furthest out, so their side of town is not the side everyone builds on anyway.
+  const housed = grown(w).filter((n) => n.home !== undefined && n.home < SHACK_BASE);
+  const parent = housed.sort((a, b) => fromSite(w, lotXY(b.home!).x, lotXY(b.home!).y) - fromSite(w, lotXY(a.home!).x, lotXY(a.home!).y))[0];
+  const child = grown(w).find((n) => n !== parent && n.spouseId !== parent.id)!;
+  child.parentIds = [parent.id];
+  child.job = 'builder'; // no workshop of their own to live by
+  const at = lotXY(parent.home!);
+  const near = lotXY(homeSpot(w, [child], false));
+  const castle = plotDoor(w, 'castle')!;
+  const rich = lotXY(homeSpot(w, [], true));
+  const plain = lotXY(homeSpot(w, [], false));
+  ok(Math.hypot(near.x - at.x, near.y - at.y) < Math.hypot(plain.x - at.x, plain.y - at.y) || Math.hypot(near.x - at.x, near.y - at.y) < 8, `the new home is ${Math.hypot(near.x - at.x, near.y - at.y).toFixed(1)} tiles from the parents'`);
+  ok(Math.hypot(rich.x - castle.x, rich.y - castle.y) <= Math.hypot(plain.x - castle.x, plain.y - castle.y), `the well-off build ${Math.hypot(rich.x - castle.x, rich.y - castle.y).toFixed(1)} tiles from the castle, further than anyone`);
+});
+
+test('farmers short of land clear a new field; woods cost time and bring in timber', () => {
+  const w = world();
+  const fields = () => (w.parcels ?? []).filter((p) => p.kind === 'field').length;
+  const before = fields();
+  for (let i = 0; i < 12; i++) grown(w).filter((n) => n.job !== 'farmer' && n.job !== 'king' && !n.questId)[0].job = 'farmer';
+  while (w.day % 30 !== 21) tick(w);
+  landDay(w);
+  ok(fields() > before, `no field was claimed: ${before} -> ${fields()}`);
+  const timber = ensureMarket(w).stock.timber;
+  const p = claimField(w)!;
+  const trees = treesOn(w, p.x, p.y, p.w, p.h);
+  ok(p.ready >= w.day + 8 + trees * 3, 'a new field is ready at once');
+  ok(ensureMarket(w).stock.timber === timber + trees, 'the felled trees did not go to market');
+});
+
+test('dungeons lie out in the woods, away from the town', () => {
+  const w = world();
+  const s = siteOf(w);
+  for (const d of w.dungeons) ok(Math.hypot(d.x - s.x, (d.y - s.y) * 1.2) >= 15, `a dungeon at ${d.x},${d.y} is on the town's doorstep`);
+  const spot = dungeonSpot(w, rngOf(w));
+  ok(spot && Math.hypot(spot.x - s.x, spot.y - s.y) >= 12, 'no room for another dungeon out in the woods');
+});
+
+test('the walls go round the town, with a gate wherever a road runs out', () => {
+  const w = world();
+  const r = w.ring!;
+  const s = siteOf(w);
+  const castle = w.plots!.castle!;
+  ok(r.x0 < s.x && s.x < r.x1 && r.y0 < s.y && s.y < r.y1, 'the square is outside the walls');
+  ok(r.x0 < castle.x && castle.x < r.x1 && r.y0 < castle.y && castle.y < r.y1, 'the castle is outside the walls');
+  const lay = townLayout(w);
+  for (const g of lay.gates) ok(lay.ground[g.y * MAP_W + g.x] === 'road' && walkable(w, g.x, g.y), `a gate at ${g.x},${g.y} is not on a road`);
 });

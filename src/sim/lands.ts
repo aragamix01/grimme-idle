@@ -8,8 +8,7 @@
 import { chance, createRng, int, next, pick, type Rng } from './rng';
 import { clamp, decreeActive, log, occupied } from './core';
 import { ensureMarket, levelOf as priceLevel, priceRatio } from './market';
-import { HOME } from './realms';
-import { MAP_H, MAP_W } from './town';
+import { HOME, WORLD_H as MAP_H, WORLD_W as MAP_W } from './realms';
 import { canSend, changeHands, keepOf, labour, sendFamily } from './villages';
 import { landQuestOpen, postLandQuest } from './quests';
 import type { Good, LandKind, LandUse, Realm, Region, WorldState } from './types';

@@ -427,13 +427,25 @@ export type EventKind =
 // The buildings a town founds as it grows (see growth.ts).
 export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'castle' | 'walls' | 'manor' | 'brothel';
 
-// A home on one of the house lots (town.ts LOTS). Its tier decides how many it houses.
+// A home on its own patch of ground (2x2 tiles). `lot` is its top-left tile as y * MAP_W + x, so a
+// home's door can be found from the number alone (housing.ts lotDoor). Its tier decides how many it houses.
 export interface Home {
   lot: number;
   tier: 0 | 1 | 2;
   built: number; // day it stood, or will
   until?: number; // while it is going up (or a storey higher): the day it is done
   ownerId?: number; // who paid for it; missing: the crown
+}
+
+// Land worked in the open: a family's field, or grazing for the flocks (see landplan.ts).
+export interface Parcel {
+  kind: 'field' | 'pasture';
+  x: number; // top-left tile
+  y: number;
+  w: number;
+  h: number;
+  ownerId?: number; // the farmer whose family works it; missing: the town's
+  ready: number; // the day it is cleared and can be worked
 }
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
@@ -562,7 +574,10 @@ export interface WorldState {
   homes?: Home[]; // the town's homes, one per built house lot
   buildRev?: number; // counts changes to the homes, so the town is only laid out again when one comes or goes
   homeless?: number; // townsfolk with no room in any home, nor a shack, as of the last count
-  shacks?: number[]; // the shanty's shacks, by spot (town.ts SHACK_SPOTS)
+  shacks?: number[]; // the shanty's shacks, by tile (y * MAP_W + x)
+  plots?: Partial<Record<string, { x: number; y: number }>>; // where each public building and royal work stands (top-left tile), chosen when it is begun
+  parcels?: Parcel[]; // fields and pastures
+  ring?: { x0: number; y0: number; x1: number; y1: number }; // the line of the town walls, set when they are begun
   slum?: number; // townsfolk living in them, as of the last count
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last

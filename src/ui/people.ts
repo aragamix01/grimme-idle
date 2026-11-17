@@ -1,4 +1,4 @@
-import { jailed, rankName, rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, jobName, PLACES_SCHOOL, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
+import { jailed, rankName, rulerLook, rulerTitle, TECHS, ADULT_AGE, ELDER_AGE, jobName, schoolSpot, RANKS, TRAIT_TH, literacy, loyaltyOf, schoolAge, type Job, type Npc, type WorldState } from '../sim';
 import { el } from './icons';
 import { localize } from './lexicon';
 
@@ -125,7 +125,7 @@ function roster(world: WorldState, adults: Npc[]): HTMLElement {
 }
 
 // A child in class right now: on their way to, or sitting in, the school.
-const atSchool = (n: Npc) => n.plan?.x === PLACES_SCHOOL.x && n.plan?.y === PLACES_SCHOOL.y;
+const atSchool = (world: WorldState) => (n: Npc) => n.plan?.x === schoolSpot(world).x && n.plan?.y === schoolSpot(world).y;
 
 function overview(world: WorldState, living: Npc[], adults: Npc[]): HTMLElement {
   const children = living.filter((n) => n.age < ADULT_AGE);
@@ -150,7 +150,7 @@ function overview(world: WorldState, living: Npc[], adults: Npc[]): HTMLElement 
       tile('ครอบครัว', Math.floor(couples)),
       tile('หิวโหย', hungry.length, hungry.length ? ' people-tile--bad' : ''),
       tile('รู้หนังสือ', `${Math.round(literacy(world) * 100)}%`),
-      tile('ไปโรงเรียน', world.works?.school !== undefined ? children.filter(atSchool).length : '-'),
+      tile('ไปโรงเรียน', world.works?.school !== undefined ? children.filter(atSchool(world)).length : '-'),
       tile('ความรู้', Math.floor(world.knowledge ?? 0)),
     ),
     el(

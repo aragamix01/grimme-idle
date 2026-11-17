@@ -18,6 +18,7 @@ import { jobName } from './ages';
 import { churchOf } from './church';
 import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } from './types';
 import { townPop } from './housing';
+import { entryOf, fieldYield, plotDoor } from './landplan';
 
 export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
 export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ' };
@@ -195,7 +196,7 @@ export function tendShop(world: WorldState, npc: Npc, rng: Rng, smithInTown: boo
 
 // Returns the gold the farmer made, so a landlord can take their cut.
 export function harvest(world: WorldState, npc: Npc, rng: Rng): number {
-  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1) * Math.max(0.2, 1 + modOf(world, 'harvest')); // half the hands are out on strike; new fields or blights
+  const y = YIELD[seasonOf(world.day)] * (1 + 0.1 * perkLevel(world, 'harvest')) * weatherYield(world) * (known(world, 'plough') ? 1.25 : 1) * (built(world, 'clocktower') ? 1.1 : 1) * (known(world, 'steam') ? 1.15 : 1) * (1 + mastery(world, 'agronomy')) * portentYield(world) * ((world.strike ?? 0) > world.day ? 0.5 : 1) * Math.max(0.2, 1 + modOf(world, 'harvest')) * fieldYield(world); // half the hands are out on strike; new fields or blights; how much cleared land the farmers have, and how near water
   const n = Math.floor(y) + (chance(rng, y % 1) ? 1 : 0);
   return sell(world, npc, 'grain', n, rng);
 }
@@ -345,7 +346,7 @@ const TRIP_DAYS = 12;
 export const SELLS: Record<Realm['terrain'], Good> = { forest: 'timber', mountain: 'ore', coast: 'cloth', desert: 'cloth' };
 const IMPORTS: readonly Good[] = ['timber', 'ore', 'cloth', 'spice'];
 const BANDITS = 0.05; // chance a caravan is robbed on the road
-export const WEST_GATE = { x: 0, y: 9 };
+
 
 function caravans(world: WorldState, m: Market): void {
   // Which goods are piling up, and whether the stores need grain, decide where it heads.
@@ -409,7 +410,7 @@ function caravans(world: WorldState, m: Market): void {
   const charted = known(world, 'navigation'); // maps and a compass: shorter roads, better deals
   if (charted) gold *= 1.15;
   m.caravan = { merchantId: merchant.id, grain: buying ? n : 0, gold, gear, goods, realmId: realm.id, days: Math.round(tripDays(realm) * (charted ? 0.7 : 1) * (known(world, 'railway') ? 0.6 : 1)) };
-  merchant.plan = { kind: 'caravan', x: WEST_GATE.x, y: WEST_GATE.y, days: 0 };
+  merchant.plan = { kind: 'caravan', ...entryOf(world), days: 0 };
   log(world, 'trade', `พ่อค้า${merchant.name}นำกองคาราวานไป${buying ? 'ซื้อข้าว' : 'ค้าขาย'}ที่${realm.name}`, merchant.id);
 }
 
@@ -427,9 +428,8 @@ export function caravanDay(world: WorldState, npc: Npc, rng: Rng): void {
   const c = m.caravan;
   npc.inside = undefined;
   npc.trip = undefined;
-  npc.x = WEST_GATE.x;
-  npc.y = WEST_GATE.y;
-  npc.plan = { kind: 'haul', x: 3, y: 9, days: 0 }; // the wagon rolls up the main road to the shop
+  ({ x: npc.x, y: npc.y } = entryOf(world));
+  npc.plan = { kind: 'haul', ...(plotDoor(world, 'shop') ?? plotDoor(world, 'castle') ?? entryOf(world)), days: 0 }; // the wagon rolls up the road to the shop
   m.caravan = undefined;
   if (!c) return;
   const realm = world.realms?.find((r) => r.id === c.realmId);

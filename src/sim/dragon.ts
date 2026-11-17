@@ -24,7 +24,7 @@ export function dragonArrives(world: WorldState, rng: Rng): boolean {
   if (world.dragon || world.treasury < DRAGON_GOLD) return false;
   const name = pick(rng, NAMES);
   world.dragon = { name, hp: DRAGON_HP, maxHp: DRAGON_HP, came: world.day, nextStrike: world.day + 7, hoard: 0 };
-  log(world, 'disaster', `มังกร${name}ได้กลิ่นทองในท้องพระคลัง บินมาเกาะบนเนินเขาเหนือป่าตะวันออก!`);
+  log(world, 'disaster', `มังกร${name}ได้กลิ่นทองในท้องพระคลัง บินมาเกาะบนเนินเขาเหนือผืนป่า!`);
   sway(world, -2);
   return true;
 }
