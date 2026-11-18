@@ -909,6 +909,34 @@
     "frameHeight": 16,
     "frames": 2
   },
+  "trail": {
+    "file": "assets/sprites/tiles/trail.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "paved": {
+    "file": "assets/sprites/tiles/paved.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "ash": {
+    "file": "assets/sprites/tiles/ash.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "palisade": {
+    "file": "assets/sprites/props/palisade.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 20,
+    "frames": 1
+  },
   "water": {
     "file": "assets/sprites/tiles/water.png",
     "group": "tiles",
@@ -1231,6 +1259,13 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "paving": {
+    "file": "assets/sprites/buildings/paving.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
   "watchtower": {
     "file": "assets/sprites/buildings/watchtower.png",
     "group": "buildings",
@@ -1450,6 +1485,27 @@
   },
   "daynight": {
     "file": "assets/sprites/icons/daynight.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "sapling": {
+    "file": "assets/sprites/icons/sapling.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "spring": {
+    "file": "assets/sprites/icons/spring.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "lightning": {
+    "file": "assets/sprites/icons/lightning.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

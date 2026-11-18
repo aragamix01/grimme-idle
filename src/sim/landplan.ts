@@ -7,6 +7,7 @@
 import { int, pick, type Rng } from './rng';
 import { log } from './core';
 import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, terrainOf, tileHash, type Spot } from './terrain';
+import { wildsOf } from './wilds';
 import { SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, tileOf, townLayout } from './town';
 import type { Npc, Parcel, WorldState } from './types';
 
@@ -26,7 +27,7 @@ const LAND_DAY = 21; // day of the month new land is claimed
 
 // What stands on each tile, as far as building goes.
 function occupancy(world: WorldState): Uint8Array {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const occ = new Uint8Array(MAP_W * MAP_H);
   const lay = townLayout(world);
   const mark = (x0: number, y0: number, w: number, h: number, v: number) => {
@@ -34,7 +35,7 @@ function occupancy(world: WorldState): Uint8Array {
   };
   for (let i = 0; i < occ.length; i++) {
     if (t.cover[i] === WATER || t.cover[i] === ROCK) occ[i] = BUILT;
-    else if (lay.ground[i] === 'road') occ[i] = ROAD;
+    else if (lay.ground[i] === 'road' || lay.ground[i] === 'paved' || lay.ground[i] === 'trail') occ[i] = ROAD;
   }
   const sq = plaza(t.site);
   mark(sq.x0, sq.y0, sq.x1 - sq.x0 + 1, sq.y1 - sq.y0 + 1, BUILT);
@@ -58,6 +59,31 @@ function occupancy(world: WorldState): Uint8Array {
   return occ;
 }
 
+// Whether a tile is open ground nobody has claimed or built on (for the god's hand on the land).
+export function landFree(world: WorldState): (i: number) => boolean {
+  const occ = occupancy(world);
+  return (i) => occ[i] === FREE;
+}
+
+// Whether the town has a line round it yet: a palisade first, stone walls later.
+export const enclosed = (world: WorldState) => !!world.ring && (!world.founded || world.founded.walls !== undefined || world.founded.palisade !== undefined);
+
+// How the town is laid out, by who rules it: a camp or a village grows as it will; a king sets his
+// town round the castle and a theocracy round the church, in rings; a republic, an oligarchy or a
+// junta in straight rows of blocks.
+export type PlanStyle = 'organic' | 'radial' | 'grid';
+export const PLAN_TH: Record<PlanStyle, string> = { organic: 'ตามธรรมชาติ ใครสร้างตรงไหนก็ได้', radial: 'วงล้อมรอบศูนย์กลาง', grid: 'ตารางหมากรุก ถนนตัดตรง' };
+export function planStyle(world: WorldState): PlanStyle {
+  if (world.founded && (world.rank ?? 0) < 2) return 'organic';
+  const r = world.regime ?? 'monarchy'; // regimeOf, read here without pulling in the politics
+  return r === 'monarchy' || r === 'theocracy' ? 'radial' : 'grid';
+}
+// The heart a radial town is laid round.
+function radialHeart(world: WorldState): Spot {
+  return (world.regime === 'theocracy' ? plotDoor(world, 'church') : undefined) ?? plotDoor(world, 'castle') ?? siteOf(world);
+}
+const GRID = 4; // a grid town's block
+
 interface Want {
   w: number;
   h: number;
@@ -68,12 +94,14 @@ interface Want {
   wet?: number; // how far from water it would rather be
   doorX?: number; // offset of the door along the bottom edge (buildings)
   inside?: boolean; // within the walls, if the town has them
+  style?: PlanStyle; // the rulers' plan: a grid lines things up, rings keep them at one distance
+  ringR?: number; // for a radial plan: how far out from the heart
 }
 
 // The best open patch for something w x h tiles, near the target: as little to clear as may be,
 // a road at the door, away from the square for fields.
 function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefined {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const R = want.maxR ?? 26;
   const ring = world.ring;
   let best: Spot | undefined;
@@ -118,7 +146,7 @@ function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefi
       }
       if (!ok) continue;
       const wet = want.wet === undefined ? 0 : Math.abs(t.wet[(y + (want.h >> 1)) * MAP_W + x + (want.w >> 1)] - want.wet) * 0.35;
-      const score = near + clear * 1.5 + wet + (want.land || road ? 0 : 1.5) + tileHash(world.seed, x, y, 77) * 0.8;
+      const score = near + clear * 1.5 + wet + (want.land || road ? 0 : 1.5) + tileHash(world.seed, x, y, 77) * 0.8 + planned(world, want, x, y);
       if (score < bestScore) {
         bestScore = score;
         best = { x, y };
@@ -127,9 +155,23 @@ function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefi
   return best;
 }
 
+// What the rulers' plan makes of a spot: a grid town wants it squared to the blocks, a radial town
+// on one of the rings about its heart. An organic town does not mind.
+function planned(world: WorldState, want: Want, x: number, y: number): number {
+  if (!want.style || want.style === 'organic' || want.land) return 0;
+  const s = siteOf(world);
+  if (want.style === 'grid') {
+    const off = (v: number) => ((v % GRID) + GRID) % GRID;
+    return (off(x - s.x) ? 2.5 : 0) + (off(y + want.h - s.y) ? 2.5 : 0); // fronts in a row along the street
+  }
+  const heart = radialHeart(world);
+  const d = Math.hypot(x + want.w / 2 - heart.x, (y + want.h / 2 - heart.y) * 1.2) % GRID;
+  return Math.min(d, GRID - d) * 1.2;
+}
+
 // Trees on a patch: what has to be felled to use it.
 export function treesOn(world: WorldState, x0: number, y0: number, w: number, h: number): number {
-  const cover = terrainOf(world.seed).cover;
+  const cover = wildsOf(world).cover;
   let n = 0;
   for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (cover[y * MAP_W + x] === TREE) n++;
   return n;
@@ -154,7 +196,7 @@ const CIVIC_AIM: Record<string, [dx: number, dy: number]> = {
 // Where the crown or the chief puts a new building; false when there is nowhere to put it.
 export function placeBuilding(world: WorldState, key: string): boolean {
   if (world.plots?.[key]) return true;
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const fp = footprint(key);
   let target: Spot;
   if (key === 'barn') {
@@ -173,7 +215,7 @@ export function placeBuilding(world: WorldState, key: string): boolean {
   const door = doorOf(key, 0, 0);
   // Inside the walls if there is room (the crown's works were always built outside them), else
   // wherever there is ground.
-  const want = { w: fp.w, h: fp.h, target, doorX: door.x, maxR: key === 'castle' ? 8 : 24 };
+  const want = { w: fp.w, h: fp.h, target, doorX: door.x, maxR: key === 'castle' ? 8 : 24, style: key === 'castle' ? undefined : planStyle(world) };
   const occ = occupancy(world);
   const spot = (CIVIC_AIM[key] ? findSpot(world, occ, { ...want, inside: true }) : undefined) ?? findSpot(world, occ, { ...want, maxR: 30 });
   if (!spot) return false;
@@ -193,7 +235,7 @@ export function plotDoor(world: WorldState, key: string): Spot | undefined {
 // Where a new home goes, as its lot number: near the family's kin and work, or for the well-off,
 // near the castle. -1 when the town has no ground left within reach.
 export function homeSpot(world: WorldState, family: Npc[], rich: boolean): number {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const aims: Spot[] = [];
   if (rich) aims.push(plotDoor(world, 'castle') ?? t.site);
   for (const n of family) {
@@ -209,7 +251,7 @@ export function homeSpot(world: WorldState, family: Npc[], rich: boolean): numbe
   const target = aims.length ? { x: Math.round(aims.reduce((s, a) => s + a.x, 0) / aims.length), y: Math.round(aims.reduce((s, a) => s + a.y, 0) / aims.length) } : t.site;
   // Pulled a little toward the square: nobody builds out in the wilds while there is room nearer.
   const pull = { x: Math.round(target.x * 0.75 + t.site.x * 0.25), y: Math.round(target.y * 0.75 + t.site.y * 0.25) };
-  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: 30 });
+  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: 30, style: planStyle(world) });
   return spot ? tileOf(spot.x, spot.y) : -1;
 }
 
@@ -228,7 +270,7 @@ function workplace(world: WorldState, n: Npc): Spot | undefined {
 // Whether a home stands outside the town walls (there are none before the town builds them).
 export function outsideWalls(world: WorldState, x: number, y: number): boolean {
   const r = world.ring;
-  return !!r && !!world.founded?.walls && (x <= r.x0 || x >= r.x1 || y <= r.y0 || y >= r.y1);
+  return !!r && (world.founded?.walls !== undefined || world.founded?.palisade !== undefined) && (x <= r.x0 || x >= r.x1 || y <= r.y0 || y >= r.y1);
 }
 export const lotOutside = (world: WorldState, lot: number) => {
   const { x, y } = lotXY(lot);
@@ -237,7 +279,7 @@ export const lotOutside = (world: WorldState, lot: number) => {
 
 // A tile for a shack: open ground on the edge of the town, by a road if there is one.
 export function shackSpot(world: WorldState, taken: Set<number>): number {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const occ = occupancy(world);
   let edge = 6;
   for (const h of world.homes ?? []) {
@@ -269,7 +311,7 @@ export function shackSpot(world: WorldState, taken: Set<number>): number {
 // ---------- fields and pastures ----------
 
 function claim(world: WorldState, kind: Parcel['kind'], ownerId: number | undefined, ready: boolean): Parcel | undefined {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const size = kind === 'field' ? FIELD : PASTURE;
   const same = (world.parcels ?? []).filter((p) => p.kind === kind);
   let target: Spot;
@@ -331,11 +373,32 @@ export function landDay(world: WorldState): void {
     const p = claimField(world, who?.id);
     if (p) log(world, 'world', `${who ? who.name : 'ชาวนา'}จับจองที่ดินเปิดนาใหม่${treesOn(world, p.x, p.y, p.w, p.h) ? ' ต้องโค่นต้นไม้ถางป่าก่อน' : ''}`, who?.id);
   }
-  const pastures = (world.parcels ?? []).filter((p) => p.kind === 'pasture');
+  // Only the common grazing counts: a pasture a noble has enclosed is no use to the herders.
+  const pastures = (world.parcels ?? []).filter((p) => p.kind === 'pasture' && p.ownerId === undefined);
   if (pastures.length < pasturesWanted(world)) {
     const p = claimPasture(world);
     if (p) log(world, 'world', 'คนเลี้ยงสัตว์ล้อมรั้วทุ่งหญ้าใหม่ให้ฝูงสัตว์');
   }
+  fenceDay(world);
+}
+
+// A field right beside a pasture gets trampled by the flocks until its farmers fence it off.
+const FENCE_TIMBER = 4; // timber for one field's fence
+const TRAMPLED = 0.12; // what a trampled field loses
+const besidePasture = (world: WorldState, f: Parcel) =>
+  (world.parcels ?? []).some((p) => p.kind === 'pasture' && p.x <= f.x + f.w && f.x <= p.x + p.w && p.y <= f.y + f.h && f.y <= p.y + p.h);
+export const trampled = (world: WorldState, f: Parcel) => f.kind === 'field' && !f.fenced && besidePasture(world, f);
+// Monthly: one trampled field is fenced, with timber off the market's shelves.
+function fenceDay(world: WorldState): void {
+  const f = (world.parcels ?? []).find((p) => trampled(world, p));
+  const m = world.market;
+  if (!f || !m || m.stock.timber < FENCE_TIMBER) return;
+  m.stock.timber -= FENCE_TIMBER;
+  m.till += Math.round(FENCE_TIMBER * m.price.timber);
+  f.fenced = true;
+  bump(world);
+  const who = world.npcs.find((n) => n.id === f.ownerId && n.alive);
+  log(world, 'world', `${who ? who.name : 'ชาวนา'}ล้อมรั้วนาไม่ให้ฝูงสัตว์จากทุ่งข้าง ๆ เข้ามาเหยียบข้าว`, who?.id);
 }
 
 // How well the fields feed the farmers: enough of them, cleared and near water. A farmer with no
@@ -343,7 +406,7 @@ export function landDay(world: WorldState): void {
 let yieldCache: { world: WorldState; day: number; v: number } | null = null;
 export function fieldYield(world: WorldState): number {
   if (yieldCache?.world === world && yieldCache.day === world.day) return yieldCache.v;
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const ready = (world.parcels ?? []).filter((p) => p.kind === 'field' && p.ready <= world.day);
   const farmers = Math.max(1, working(world, 'farmer').length);
   const share = Math.min(1, (ready.length * FARMERS_PER_FIELD) / farmers);
@@ -352,7 +415,7 @@ export function fieldYield(world: WorldState): number {
     soil = 0;
     for (const p of ready) {
       const w = t.wet[(p.y + 1) * MAP_W + p.x + 2];
-      soil += w <= 3 ? 1.15 : w <= 7 ? 1.07 : 1;
+      soil += (w <= 3 ? 1.15 : w <= 7 ? 1.07 : 1) * (trampled(world, p) ? 1 - TRAMPLED : 1);
     }
     soil /= ready.length;
   }
@@ -368,13 +431,15 @@ export function fieldSpot(world: WorldState, n: Npc, rng: Rng): Spot | undefined
   return f && { x: int(rng, f.x, f.x + f.w - 1), y: int(rng, f.y, f.y + f.h - 1) };
 }
 export function pastureSpot(world: WorldState, rng: Rng): Spot | undefined {
-  const ps = (world.parcels ?? []).filter((p) => p.kind === 'pasture');
+  const all = (world.parcels ?? []).filter((p) => p.kind === 'pasture');
+  const common = all.filter((p) => p.ownerId === undefined);
+  const ps = common.length ? common : all;
   const p = ps.length ? pick(rng, ps) : undefined;
   return p && { x: int(rng, p.x + 1, p.x + p.w - 2), y: int(rng, p.y + 1, p.y + p.h - 2) };
 }
 // Somewhere in the woods around the town, for a hunter's stalk.
 export function woodsSpot(world: WorldState, rng: Rng): Spot {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   for (let tries = 0; tries < 40; tries++) {
     const x = t.site.x + int(rng, -22, 22);
     const y = t.site.y + int(rng, -16, 16);
@@ -389,7 +454,14 @@ export function woodsSpot(world: WorldState, rng: Rng): Spot {
 
 // The line the walls follow: round the homes and buildings standing, with a little room to spare.
 export function drawRing(world: WorldState): void {
-  const t = terrainOf(world.seed);
+  world.ring = ringFor(world);
+  bump(world);
+}
+// How long a line that is: what a palisade or a wall costs goes by it, so a town spread wide pays more.
+export const ringLength = (r: NonNullable<WorldState['ring']>) => 2 * (r.x1 - r.x0 + r.y1 - r.y0);
+export const RING_REF = 60; // the length a wall's listed price is for
+export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
+  const t = wildsOf(world);
   let x0 = t.site.x - 6;
   let x1 = t.site.x + 6;
   let y0 = t.site.y - 5;
@@ -408,15 +480,14 @@ export function drawRing(world: WorldState): void {
     const { x, y } = lotXY(h.lot);
     if (core(x, y)) take(x, y, 2, 2);
   }
-  world.ring = { x0: Math.max(1, x0 - 2), y0: Math.max(1, y0 - 2), x1: Math.min(MAP_W - 2, x1 + 2), y1: Math.min(MAP_H - 2, y1 + 2) };
-  bump(world);
+  return { x0: Math.max(1, x0 - 2), y0: Math.max(1, y0 - 2), x1: Math.min(MAP_W - 2, x1 + 2), y1: Math.min(MAP_H - 2, y1 + 2) };
 }
 
 // ---------- dungeons ----------
 
 // A spot deep in the woods for a dungeon, well clear of the town and of the others.
 export function dungeonSpot(world: WorldState, rng: Rng): Spot | undefined {
-  const t = terrainOf(world.seed);
+  const t = wildsOf(world);
   const occ = occupancy(world);
   const spots: Spot[] = [];
   for (let y = 3; y < MAP_H - 5; y++)

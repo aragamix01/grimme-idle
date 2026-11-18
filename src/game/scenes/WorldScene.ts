@@ -3,6 +3,7 @@ import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded
 import { places } from '../../sim/places';
 import { MAP_H, MAP_W, dungeonDoor, lotXY, townLayout, type Placed } from '../../sim/town';
 import { WATER, TREE, terrainOf } from '../../sim/terrain';
+import { wildsOf } from '../../sim/wilds';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
 import { createRng } from '../../sim/rng';
@@ -389,7 +390,7 @@ export class WorldScene extends Phaser.Scene {
     const box = this.beastBox(area);
     const w = this.world;
     const town = w ? townLayout(w) : null;
-    const cover = w ? terrainOf(w.seed).cover : null;
+    const cover = w ? wildsOf(w).cover : null;
     for (let tries = 0; tries < 40; tries++) {
       const tx = Phaser.Math.Between(box.x0, box.x1);
       const ty = Phaser.Math.Between(box.y0, box.y1);
@@ -500,7 +501,7 @@ export class WorldScene extends Phaser.Scene {
   // (and so where its dungeons are) is known.
   private buildTown(w: WorldState): void {
     const town = townLayout(w);
-    const t = terrainOf(w.seed);
+    const t = wildsOf(w);
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     // The ground is painted once into a single texture: the country is too big for a sprite a tile.
@@ -515,6 +516,7 @@ export class WorldScene extends Phaser.Scene {
         if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).setDepth(-1).play('water-flow');
         else if (g === 'road') rt.stamp('path', Math.floor(rand() * 2), px, py, flat);
         else if (g === 'crops') rt.stamp('crops', (x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0, px, py, flat);
+        else if (g === 'trail' || g === 'paved' || g === 'ash') rt.stamp(g, Math.floor(rand() * 2), px, py, flat);
         else if (rand() < 0.06) rt.stamp('flowers', undefined, px, py, flat);
         else rt.stamp('grass', Math.floor(rand() * 3), px, py, flat);
       }

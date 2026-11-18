@@ -29,6 +29,7 @@ const MONUMENT_COST = 1500;
 const MONUMENT_STEP = 800;
 
 export const WORKS: Record<Work, WorkDef> = {
+  paving: { name: 'ปูถนนหินในเมือง', cost: 450, days: 60, text: 'ถนนในกำแพงปูหินทั้งหมด ผู้คนเดินไปทำงานได้เร็วขึ้น', art: 'paving' },
   granary: { name: 'ยุ้งฉางหลวง', cost: 500, days: 60, text: 'ข้าวเน่าเสียช้าลงมาก เนื้อเก็บได้นานขึ้น', art: 'granary', plot: true },
   watchtowers: { name: 'หอธนูประจำประตูเมือง', cost: 700, days: 90, text: 'ป้องกันเมืองตอนมอนสเตอร์ทะลักได้ดีขึ้น', art: 'watchtower', replaces: 'gate-tower' },
   yard: { name: 'ลานฝึกนักรบ', cost: 600, days: 75, text: 'นักผจญภัยเลเวลขึ้นเร็วขึ้นเมื่อลงดันเจี้ยน', art: 'yard', plot: true },
@@ -42,7 +43,7 @@ export const WORKS: Record<Work, WorkDef> = {
   station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: true },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'palace', 'monument'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'paving', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'palace', 'monument'];
 const FACTORY_GEAR = 4; // arms the factory turns out each month
 const FACTORY_GOLD = 80; // and what its other goods fetch for the crown
 const STATION_VISITORS = 0.3; // monthly chance a train brings a newcomer
@@ -53,7 +54,7 @@ const ASK_DAY = 8; // day of the month the king considers a new work
 export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefined;
 export const monumentTier = (world: WorldState) => world.monument ?? 0;
 // What the crown could build: a rebuilt building needs the old one there first.
-const REBUILDS: Partial<Record<Work, Civic>> = { watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
+const REBUILDS: Partial<Record<Work, Civic>> = { paving: 'walls', watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
 const open = (world: WorldState, k: Work) => (k === 'monument' || !built(world, k)) && (!REBUILDS[k] || founded(world, REBUILDS[k]!));
 // Architecture makes every work a quarter cheaper and quicker.
 const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1) * Math.max(0.4, 1 - mastery(world, 'engineering'));
@@ -67,6 +68,9 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
   switch (k) {
     case 'granary':
       return 1 + year.filter((e) => /ข้าวหมดตลาด|ความหิวโหย/.test(e.text)).length + (ruler.traits.includes('kind') ? 1 : 0);
+    case 'paving':
+      // Wanted once people have trodden paths all over the town: the roads do not go where they walk.
+      return 1 + ((world.trails?.length ?? 0) >= 60 ? 1 : 0) + (ruler.traits.includes('greedy') ? 0 : 0.5);
     case 'watchtowers':
       return 1 + year.filter((e) => e.text.includes('มอนสเตอร์ล้นออกจาก')).length * 2 + brave;
     case 'yard': {
@@ -146,6 +150,7 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   if (job && world.day >= job.done) {
     (world.works ??= {})[job.kind] = world.day;
     world.building = undefined;
+    world.buildRev = (world.buildRev ?? 0) + 1; // the map shows it done (paving changes the ground)
     if (job.kind === 'monument') {
       world.monument = monumentTier(world) + 1;
       log(world, 'world', `${WORKS.monument.name}ระดับ ${world.monument} สร้างเสร็จแล้ว! ชาวเมืองมาชื่นชมกันทั้งเมือง`);

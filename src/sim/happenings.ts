@@ -58,6 +58,13 @@ const ofJob = (world: WorldState, job: Npc['job']) => adults(world).filter((n) =
 const byId = (world: WorldState, id?: number) => (id === undefined ? undefined : world.npcs.find((n) => n.id === id && n.alive));
 // The ruler, or failing one the senior noble.
 const ruler = (world: WorldState) => king(world) ?? ofJob(world, 'noble').sort((a, b) => b.age - a.age)[0];
+// Land: the pastures nobody owns, the farmers with no field of their own, the fields someone owns.
+const commons = (world: WorldState) => (world.parcels ?? []).filter((p) => p.kind === 'pasture' && p.ownerId === undefined);
+const ownedFields = (world: WorldState) => (world.parcels ?? []).filter((p) => p.kind === 'field' && p.ownerId !== undefined && !!byId(world, p.ownerId)).reverse();
+const landless = (world: WorldState) => {
+  const owners = new Set((world.parcels ?? []).map((p) => p.ownerId));
+  return ofJob(world, 'farmer').filter((n) => !owners.has(n.id));
+};
 const realmOf = (world: WorldState, h: Happening) => world.realms?.find((r) => r.id === h.ctx);
 const nudgeAll = (ns: Npc[], by: number) => ns.forEach((n) => loyaltyNudge(n, by));
 const grainSurplus = (world: WorldState) => ensureMarket(world).stock.grain - target(world, 'grain');
@@ -530,6 +537,141 @@ const DEFS: Record<HappeningKind, Def> = {
           addMod(w, 'fire', -0.3, 720, 'กฎห้ามก่อไฟยามค่ำ');
           nudgeAll(adults(w), -2);
           return 'ยามเดินตรวจทุกคืน ชาวเมืองบ่นว่าหนาวและมืด แต่ไฟไหม้ยากขึ้น';
+        },
+      },
+    ],
+  },
+  enclosure: {
+    title: 'ล้อมทุ่งสาธารณะ',
+    mtth: 540,
+    gap: 720,
+    can: (w) => (w.rank ?? 2) >= 2 && commons(w).length >= 1 && ofJob(w, 'noble').length > 0 && ofJob(w, 'herder').length > 0,
+    decider: ruler,
+    ctx: (w) => ofJob(w, 'noble').sort((a, b) => b.gold - a.gold)[0]?.id,
+    text: (w, h) => `${byId(w, h.ctx)?.name ?? 'ขุนนางคนหนึ่ง'}ขอล้อมรั้วทุ่งหญ้าสาธารณะเป็นทุ่งเลี้ยงแกะของตัวเอง คนเลี้ยงสัตว์จะต้องต้อนฝูงไปไกลกว่าเดิม`,
+    options: [
+      {
+        key: 'enclose',
+        label: 'อนุญาตให้ล้อม',
+        likes: { greedy: 2.5, loyal: 1.3, kind: 0.5 },
+        act: (w, _rng, h) => {
+          const n = byId(w, h.ctx);
+          const p = commons(w)[0];
+          if (p && n) p.ownerId = n.id;
+          w.buildRev = (w.buildRev ?? 0) + 1;
+          if (n) {
+            n.gold += Math.round(60 * levelOf(w));
+            loyaltyNudge(n, 10);
+          }
+          w.herd = Math.max(0, (w.herd ?? 0) - 3);
+          nudgeAll(ofJob(w, 'herder'), -10);
+          return `ทุ่งถูกล้อมเป็นของ${n?.name ?? 'ขุนนาง'} ขนแกะทำเงินให้ขุนนาง คนเลี้ยงสัตว์ต้องหาทุ่งใหม่ที่ไกลกว่าเดิม`;
+        },
+      },
+      {
+        key: 'commons',
+        label: 'ทุ่งเป็นของทุกคน',
+        likes: { kind: 2, brave: 1.3, vengeful: 1.2 },
+        act: (w, _rng, h, decider) => {
+          const n = byId(w, h.ctx);
+          if (n) {
+            loyaltyNudge(n, -12);
+            addTie(w, n, decider, -10);
+          }
+          nudgeAll(ofJob(w, 'herder'), 5);
+          return `ทุ่งยังเป็นของส่วนรวม คนเลี้ยงสัตว์โล่งใจ ${n?.name ?? 'ขุนนาง'}ไม่พอใจ`;
+        },
+      },
+    ],
+  },
+  sacredgrove: {
+    title: 'ดงไม้ศักดิ์สิทธิ์',
+    mtth: 540,
+    gap: 1080,
+    can: (w) => !!w.plots?.church && (w.founded?.church !== undefined || !w.founded) && priceRatio(w, 'grain') >= 1.15 && ofJob(w, 'priest').length > 0,
+    decider: ruler,
+    text: () => 'ข้าวขาดตลาด ชาวนาขอโค่นดงไม้เก่าแก่ที่นักบวชเชื่อว่าเทพเจ้าสถิตอยู่ เพื่อเปิดนาใหม่',
+    options: [
+      {
+        key: 'fell',
+        label: 'โค่นดงไม้ทำนา',
+        likes: { greedy: 2, brave: 1.5 },
+        act: (w) => {
+          claimField(w);
+          claimField(w);
+          addMod(w, 'piety', -5, 720, 'โค่นดงไม้ศักดิ์สิทธิ์');
+          nudgeAll(ofJob(w, 'priest'), -12);
+          nudgeAll(ofJob(w, 'farmer'), 5);
+          return 'ดงไม้ถูกโค่นเป็นนาสองแปลง ข้าวจะมากขึ้น แต่นักบวชประณาม ผู้ศรัทธาใจคอไม่ดี';
+        },
+      },
+      {
+        key: 'spare',
+        label: 'ไว้ชีวิตดงไม้',
+        likes: { kind: 1.3, loyal: 1.5, coward: 1.5 },
+        act: (w) => {
+          addMod(w, 'piety', 2, 360, 'ดงไม้ศักดิ์สิทธิ์ได้รับการปกป้อง');
+          nudgeAll(ofJob(w, 'farmer'), -6);
+          nudgeAll(ofJob(w, 'priest'), 5);
+          return 'ดงไม้ยังยืนต้น นักบวชสรรเสริญผู้ปกครอง ชาวนาหิวและบ่นว่าต้นไม้สำคัญกว่าคน';
+        },
+      },
+    ],
+  },
+  landclaim: {
+    title: 'พิพาทที่นา',
+    mtth: 360,
+    gap: 360,
+    can: (w) => landless(w).length > 0 && ownedFields(w).length > 0 && !!lawman(w),
+    decider: (w) => lawman(w),
+    ctx: (w, rng) => {
+      const ns = landless(w);
+      return ns.length ? pick(rng, ns).id : undefined;
+    },
+    text: (w, h) => {
+      const f = ownedFields(w)[0];
+      return `${byId(w, h.ctx)?.name ?? 'ชาวนาคนหนึ่ง'}อ้างว่าได้ถางที่นาของ${byId(w, f?.ownerId)?.name ?? 'เพื่อนบ้าน'}มาก่อน ทั้งสองมาร้องให้ตัดสิน`;
+    },
+    options: [
+      {
+        key: 'holder',
+        label: 'นาเป็นของคนที่ถือครองอยู่',
+        likes: { loyal: 1.5, coward: 1.3, greedy: 1.2 },
+        act: (w, _rng, h) => {
+          const f = ownedFields(w)[0];
+          const a = byId(w, f?.ownerId);
+          const b = byId(w, h.ctx);
+          if (b) loyaltyNudge(b, -8);
+          if (a && b) addTie(w, b, a, -20);
+          return `${a?.name ?? 'เจ้าของเดิม'}ได้ถือนาต่อ ${b?.name ?? 'ผู้ร้อง'}กลับไปมือเปล่าและผูกใจเจ็บ`;
+        },
+      },
+      {
+        key: 'tiller',
+        label: 'ยกให้คนที่ไม่มีนาทำกิน',
+        likes: { kind: 2.2, brave: 1.2 },
+        act: (w, _rng, h) => {
+          const f = ownedFields(w)[0];
+          const a = byId(w, f?.ownerId);
+          const b = byId(w, h.ctx);
+          if (f && b) f.ownerId = b.id;
+          if (a) loyaltyNudge(a, -12);
+          if (a && b) addTie(w, a, b, -25);
+          return `นาตกเป็นของ${b?.name ?? 'ผู้ร้อง'} ${a?.name ?? 'เจ้าของเดิม'}โกรธจัดว่าศาลไม่ยุติธรรม`;
+        },
+      },
+      {
+        key: 'crown',
+        label: 'ยึดเป็นที่หลวง ให้เช่าทำกิน',
+        likes: { greedy: 2.5, vengeful: 1.3, kind: 0.5 },
+        act: (w, _rng, h) => {
+          const f = ownedFields(w)[0];
+          const a = byId(w, f?.ownerId);
+          const b = byId(w, h.ctx);
+          if (f) f.ownerId = undefined;
+          w.treasury += Math.round(60 * levelOf(w));
+          for (const n of [a, b]) if (n) loyaltyNudge(n, -8);
+          return 'ทางการยึดนาเป็นที่หลวงแล้วเก็บค่าเช่า คลังได้เงิน แต่ทั้งสองฝ่ายต่างไม่พอใจ';
         },
       },
     ],

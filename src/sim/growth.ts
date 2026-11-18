@@ -8,7 +8,7 @@ import { isAdventurer, legend, log } from './core';
 import { levelOf } from './market';
 import { payrollReserve } from './society';
 import { townPop } from './housing';
-import { drawRing, placeBuilding } from './landplan';
+import { RING_REF, drawRing, placeBuilding, ringFor, ringLength } from './landplan';
 import type { Civic, Npc, WorldState } from './types';
 
 export const TOWN_RANKS = [
@@ -39,8 +39,9 @@ export const CIVICS: Record<Civic, CivicDef> = {
   barn: { name: 'โรงนา', when: 'มีคนเลี้ยงสัตว์', cost: 60, days: 25, needs: (_w, f) => has(f, 'herder'), payer: 'herder', text: 'ฝูงสัตว์มีที่หลบหนาว' },
   guild: { name: 'กิลด์นักผจญภัย', when: 'ชาวเมือง 45 คนและนักผจญภัย 4 คน', cost: 150, days: 50, needs: (w, f) => townPop(w) >= 45 && f.filter(isAdventurer).length >= 4, text: 'นักผจญภัยมีที่รับเควสและรวมกลุ่ม' },
   barracks: { name: 'ค่ายทหาร', when: 'ทหาร 3 นาย', cost: 140, days: 45, needs: (_w, f) => has(f, 'soldier', 3), text: 'ทหารมีที่ฝึกและพัก' },
+  palisade: { name: 'ระเนียดไม้', when: 'ขึ้นเป็นหมู่บ้าน (40 คน)', cost: 120, days: 40, needs: (w) => rankOf(w) >= 1 && !founded(w, 'walls'), text: 'รั้วซุงล้อมหมู่บ้าน กันสัตว์ป่าและโจร' },
   castle: { name: 'ปราสาท', when: 'ขึ้นเป็นเมือง (80 คน)', cost: 400, days: 120, needs: (w) => rankOf(w) >= TOWN_RANK, text: 'โถงหัวหน้าค่ายกลายเป็นปราสาทหิน' },
-  walls: { name: 'กำแพงเมือง', when: 'เป็นเมืองและมีปราสาท', cost: 500, days: 150, needs: (w) => rankOf(w) >= TOWN_RANK && founded(w, 'castle'), text: 'กำแพงหินล้อมเมือง ประตูสามด้าน' },
+  walls: { name: 'กำแพงเมือง', when: 'เป็นเมืองและมีปราสาท', cost: 500, days: 150, needs: (w) => rankOf(w) >= TOWN_RANK && founded(w, 'castle'), text: 'กำแพงหินล้อมเมืองแทนระเนียดไม้ ประตูเกิดตรงที่ถนนตัดผ่าน' },
   manor: { name: 'คฤหาสน์ขุนนาง', when: 'เป็นเมืองและมีขุนนาง', cost: 250, days: 60, needs: (w, f) => rankOf(w) >= TOWN_RANK && has(f, 'noble'), payer: 'noble', text: 'ขุนนางมีที่อยู่สมฐานะ' },
   brothel: { name: 'หอนางโลม', when: 'ชาวเมือง 70 คนและมีนางโลม', cost: 120, days: 40, needs: (w, f) => townPop(w) >= 70 && has(f, 'courtesan'), payer: 'courtesan', text: 'ความบันเทิงยามค่ำคืน' },
 };
@@ -92,11 +93,13 @@ export function growthDay(world: WorldState): void {
   const folk = world.npcs.filter((n) => n.alive && n.age >= 16);
   for (const k of CIVIC_ORDER) {
     if (founded(world, k) || !CIVICS[k].needs(world, folk)) continue;
-    const cost = Math.round(CIVICS[k].cost * levelOf(world));
+    // A palisade or a wall is paid by its length: the further the town has spread, the dearer.
+    const line = k === 'walls' || k === 'palisade' ? ringLength(ringFor(world)) / RING_REF : 1;
+    const cost = Math.round(CIVICS[k].cost * line * levelOf(world));
     const who = payer(world, folk, k, cost);
     if (!who) continue;
     // The chief (later the crown) chooses where it goes; the walls follow the town as it stands.
-    if (k === 'walls') drawRing(world);
+    if (k === 'walls' || k === 'palisade') drawRing(world);
     else if (!placeBuilding(world, k)) continue;
     if (who === 'crown') world.treasury -= cost;
     else who.gold -= cost;

@@ -111,7 +111,7 @@ function makeTerrain(seed: number): Terrain {
   return { cover, wet, site, entry: pickEntry(cover, site) };
 }
 
-function distanceToWater(cover: Uint8Array): Uint8Array {
+export function distanceToWater(cover: Uint8Array): Uint8Array {
   const wet = new Uint8Array(cover.length).fill(255);
   const queue: number[] = [];
   for (let i = 0; i < cover.length; i++)

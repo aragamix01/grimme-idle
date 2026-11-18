@@ -46,7 +46,9 @@ import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divin
 import { happeningsDay, whisper, whisperCost } from './happenings';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
 import { CIVIC_ORDER, founded, growthDay } from './growth';
-import { shantyCrime, slumsDay } from './slums';
+import { fire, shantyCrime, slumsDay } from './slums';
+import { pathsDay } from './paths';
+import { homeInFlames, woodsDay } from './wilds';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -142,7 +144,7 @@ const CAMP_COUPLES = 6;
 // its buildings and its walls), the first homes, and fields and grazing already cleared.
 function takeLand(world: WorldState, whole: boolean): void {
   placeBuilding(world, 'castle');
-  if (whole) for (const k of CIVIC_ORDER) if (k !== 'castle' && k !== 'walls' && k !== 'barn') placeBuilding(world, k);
+  if (whole) for (const k of CIVIC_ORDER) if (k !== 'castle' && k !== 'walls' && k !== 'palisade' && k !== 'barn') placeBuilding(world, k);
   foundHomes(world, whole ? undefined : CAMP_HOMES, whole ? 1 : 0);
   const farmers = world.npcs.filter((n) => n.alive && n.job === 'farmer');
   for (let i = 0; i < fieldsWanted(world); i++) claimField(world, farmers[i * 2]?.id, true);
@@ -252,6 +254,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   decreesDay(world, rng);
   housingDay(world, rng);
   landDay(world);
+  pathsDay(world);
+  const lit = homeInFlames(world, woodsDay(world, rng));
+  if (lit) fire(world, rng, lit);
   growthDay(world);
   slumsDay(world, rng);
   happeningsDay(world, rng);

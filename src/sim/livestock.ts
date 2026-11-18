@@ -7,6 +7,7 @@ import { cursed, kill, log, adherence, tenetOn } from './core';
 import { seasonOf, sell } from './market';
 import { industrial } from './ages';
 import { woodsHeld } from './lands';
+import { woodsShare } from './wilds';
 import type { Npc, WorldState } from './types';
 
 export const HERD_CAP = 24; // beasts the pasture can feed
@@ -15,7 +16,9 @@ const YIELD_PER_BEAST = 0.1; // meat a day's tending brings in, per beast in the
 const RESTOCK_BELOW = 4;
 const STRAY_FLOOR = 4; // a few old beasts never leave the barn, herder or no
 const BREED = 0.12; // chance a day's tending adds a beast, outside winter
-export const GAME_CAP = 20; // deer the forest holds
+export const GAME_CAP = 20; // deer the untouched forest holds
+// Deer the woods hold now: fewer as they are cleared or burnt (wilds.ts woodsShare).
+export const gameCap = (world: WorldState) => Math.max(6, Math.round(GAME_CAP * Math.min(1, woodsShare(world))));
 const GAME_START = 14;
 const HUNT = 0.25; // chance of a kill on a hunter's day, with the forest full of deer
 const MAULED = 0.001; // a bear, a boar, a fall
@@ -57,7 +60,8 @@ export function hunt(world: WorldState, npc: Npc, rng: Rng): void {
 export function wildsDay(world: WorldState, rng: Rng): void {
   ensureWilds(world);
   const g = world.game!;
-  if (g < GAME_CAP && chance(rng, 0.03 + 0.25 * (g / GAME_CAP) * (1 - g / GAME_CAP) + 0.02 * woodsHeld(world))) world.game!++; // the woods we hold send more deer
+  const cap = gameCap(world);
+  if (g < cap && chance(rng, 0.03 + 0.25 * (g / cap) * (1 - g / cap) + 0.02 * woodsHeld(world))) world.game!++; // the woods we hold send more deer
   const herders = world.npcs.some((n) => n.alive && n.job === 'herder' && n.age >= 16);
   if (!herders && world.herd! > STRAY_FLOOR && chance(rng, 0.01)) world.herd!--;
   if (world.day % 30 === 9) murrain(world, rng);

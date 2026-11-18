@@ -122,7 +122,10 @@ export function setSound(on: boolean): void {
 export function start(): void {
   if (!enabled) return;
   if (!ctx) {
-    ctx = new AudioContext();
+    // Older Safari names it webkitAudioContext; a browser with neither stays silent, the setting kept.
+    const Ctx = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    ctx = new Ctx();
     master = ctx.createGain();
     master.gain.value = 1;
     master.connect(ctx.destination);

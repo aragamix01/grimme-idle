@@ -3,8 +3,10 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 // Each test gets a fresh browser context, so a fresh world with no save and no offline report.
 test.beforeEach(async ({ page }) => {
   await page.goto('/?start=town');
-  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
-  await page.locator('#speed button[data-speed="0"]').tap(); // hold the world still
+  // The map can be drawn before the first day has passed; wait for a couple of days, so everyone
+  // has taken up a creed and the market has opened, then hold the world still.
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true && (window as any).__grimm.scene.world?.day >= 2);
+  await page.locator('#speed button[data-speed="0"]').tap();
 });
 
 const card = (page: Page) => page.locator('#npc-card');
@@ -213,7 +215,7 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
     if (id === '#zoom') {
       await mapTool(page, id); // the close-up, then the whole country
       await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
-      await tapNpc(page);
+      await tapNpc(page, undefined, false); // the whole country is small: neighbours may stand on one spot
       await closeCard(page);
     }
     await mapTool(page, id); // and back
@@ -307,7 +309,7 @@ test('the god-powers sheet and the era dialog open and close, and the map still 
   await page.locator('#miracle-open').tap();
   const powers = page.locator('#miracles');
   await expect(powers).toBeVisible();
-  await expect(page.locator('#miracles .miracle')).toHaveCount(19);
+  await expect(page.locator('#miracles .miracle')).toHaveCount(22);
   await powers.locator('.dialog-x').tap();
   await expect(powers).toBeHidden();
   await tapNpc(page);

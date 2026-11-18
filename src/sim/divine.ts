@@ -15,6 +15,8 @@ import { jobName } from './ages';
 import type { DreamKind, Job, MiracleKind, Npc, WorldState } from './types';
 import { insight } from './learning';
 import { ambition, reformVision } from './regimes';
+import { canGrove, canSpring, canStrike, homeInFlames, openSpring, raiseGrove, strike } from './wilds';
+import { fire } from './slums';
 
 export const BLESS_DAYS = 365;
 export const CURSE_DAYS = 180;
@@ -146,6 +148,9 @@ export const MIRACLES: Record<MiracleKind, { name: string; text: string; cost: n
   goldrain: { name: 'ฝนทองคำ', text: 'ทองโปรยลงมาจากฟ้า ท้องพระคลัง +200 และทุกคนได้ 8 ทอง', cost: 15, icon: 'gold', dark: false },
   festival: { name: 'งานฉลองศักดิ์สิทธิ์', text: 'ทั้งเมืองเฉลิมฉลอง ภักดี +15 ศีล +5 ทุกคน', cost: 12, icon: 'banner', dark: false },
   wanderers: { name: 'ส่งนักเดินทาง', text: 'นักเดินทาง 4 คนเดินทางเข้าเมือง', cost: 8, icon: 'wanderer', dark: false },
+  grove: { name: 'ปลูกป่า', text: 'ป่าใหม่งอกขึ้นบนที่ไหม้และชายป่า สัตว์ป่ากลับมา พรานป่าพอใจ แต่ที่ว่างให้เปิดนาเหลือน้อยลง', cost: 14, icon: 'sapling', dark: false },
+  spring: { name: 'ตาน้ำศักดิ์สิทธิ์', text: 'ตาน้ำผุดขึ้นข้างนาที่ไกลน้ำที่สุด นารอบ ๆ อุดมขึ้นตลอดไป', cost: 18, icon: 'spring', dark: false },
+  lightning: { name: 'สายฟ้าถางป่า', text: 'ฟ้าผ่าป่าที่ใกล้เมืองที่สุด ป่าโล่งเป็นที่ว่างและได้ไม้ แต่ไฟอาจลามเป็นไฟป่า', cost: 10, icon: 'lightning', dark: false },
   blight: { name: 'โรคพืช', text: 'ข้าวในยุ้งเน่าไป 30% และผลผลิต ×0.3 นาน 60 วัน', cost: 10, icon: 'blight', dark: true },
   plague: { name: 'โรคระบาด', text: 'โรคร้ายคร่าชีวิตคนชราและคนอ่อนแอ นักบวชช่วยบรรเทาได้', cost: 20, icon: 'plague', dark: true },
   cult: { name: 'ปลุกลัทธิมาร', text: 'คนใจดำที่สุดในเมืองตั้งลัทธิมารขึ้นพร้อมสาวก 2 คน', cost: 15, icon: 'cult', dark: true },
@@ -180,6 +185,9 @@ export function miracleBlocked(world: WorldState, k: MiracleKind): string | unde
   if (k === 'uprising' && world.demon?.stage !== 'occupied') return 'ใช้ได้เมื่อจอมมารยึดเมืองเท่านั้น';
   if (k === 'tyranny' && !king(world)) return 'เมืองไม่มีผู้ปกครอง';
   if (k === 'doom' && world.demon) return 'จอมมารตื่นอยู่แล้ว';
+  if (k === 'grove' && !canGrove(world)) return 'ไม่มีที่ว่างริมป่าให้ปลูก';
+  if (k === 'spring' && !canSpring(world)) return 'นาทุกแปลงอยู่ใกล้น้ำแล้ว';
+  if (k === 'lightning' && !canStrike(world)) return 'ไม่มีป่าเหลือรอบเมือง';
   return undefined;
 }
 export const MIRACLE_ORDER = Object.keys(MIRACLES) as MiracleKind[];
@@ -298,6 +306,26 @@ function work(world: WorldState, k: MiracleKind, rng: Rng): boolean {
     case 'wanderers':
       for (let i = 0; i < 4; i++) traveller(world, rng);
       return true;
+    case 'grove': {
+      const n = raiseGrove(world);
+      for (const h of grown) if (h.job === 'hunter') h.loyalty = clamp(loyaltyOf(h) + 8, 0, 100);
+      sway(world, 1);
+      log(world, 'bless', `ชั่วข้ามคืน ต้นไม้ ${n} ต้นงอกขึ้นเป็นป่าใหม่ กวางกลับมาหากินชายป่า พรานป่ายิ้มออก`);
+      return true;
+    }
+    case 'spring':
+      openSpring(world);
+      sway(world, 1);
+      log(world, 'bless', 'น้ำใสผุดขึ้นจากดินกลางทุ่งข้างนา ชาวนาคุกเข่าขอบคุณเทพเจ้า ดินรอบตาน้ำชุ่มชื้นขึ้น');
+      return true;
+    case 'lightning': {
+      const { burnt: tiles, spread } = strike(world, rng);
+      const burnt = tiles.length;
+      const lit = homeInFlames(world, tiles);
+      if (lit) fire(world, rng, lit);
+      log(world, spread ? 'disaster' : 'bless', spread ? `สายฟ้าฟาดลงกลางป่า ไฟลุกลามไปไกลกว่าที่ใครคิด ป่าวอดไป ${burnt} ต้น` : `สายฟ้าฟาดลงกลางป่าใกล้เมือง ต้นไม้ ${burnt} ต้นล้มเป็นที่โล่ง ชาวเมืองขนไม้ไปขาย`);
+      return true;
+    }
     case 'plague':
       plagueStrike(world, rng, 1, 'โรคระบาดแพร่ไปทั่วเมือง');
       sway(world, -2);

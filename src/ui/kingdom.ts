@@ -1,4 +1,4 @@
-import { CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
+import { PLAN_TH, planStyle, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, type Npc, type WorldState } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -384,11 +384,11 @@ function foundingSection(world: WorldState): HTMLElement {
     return el(
       'li',
       { className: `work${done ? ' work--done' : ''}` },
-      el('img', { src: up ? '/assets/sprites/buildings/scaffold.png' : k === 'walls' ? '/assets/sprites/props/gate-tower.png' : `/assets/sprites/buildings/${k}.png`, alt: '', className: 'work__art' }),
+      el('img', { src: up ? '/assets/sprites/buildings/scaffold.png' : k === 'walls' ? '/assets/sprites/props/gate-tower.png' : k === 'palisade' ? '/assets/sprites/props/palisade.png' : `/assets/sprites/buildings/${k}.png`, alt: '', className: 'work__art' }),
       el('div', {}, el('b', { textContent: c.name }), el('p', { className: 'realm-king__meta', textContent: `${c.text} · ${status}` })),
     );
   });
-  return section(`การก่อตั้ง${TOWN_RANKS[rank].name}`, rows, next ? `ขั้นต่อไป: ${next.name} เมื่อมีคน ${next.from} คน` : 'ใหญ่ที่สุดแล้ว');
+  return section(`การก่อตั้ง${TOWN_RANKS[rank].name}`, rows, `${next ? `ขั้นต่อไป: ${next.name} เมื่อมีคน ${next.from} คน` : 'ใหญ่ที่สุดแล้ว'} · ผังเมือง: ${PLAN_TH[planStyle(world)]}`);
 }
 
 // The town's homes: rooms against mouths, who is sleeping rough, and what is going up.

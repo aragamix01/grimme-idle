@@ -5,10 +5,11 @@ import { pick, type Rng } from './rng';
 import { MAP_H, MAP_W, townLayout } from './town';
 import type { WorldState } from './types';
 import type { Spot } from './places';
+import { trod } from './paths';
 
 const UNREACHED = 0xffff;
 const MAX_FIELDS = 400;
-const RING = 8; // more than the dearest step (town.ts: road 1, grass 2, crops and scrub 3)
+const RING = 8; // more than the dearest step (town.ts COST: paved 1 up to crops and scrub 6)
 let ring: Int32Array[] | null = null;
 const fields = new WeakMap<Uint8Array, Map<number, Uint16Array>>();
 
@@ -28,7 +29,7 @@ const onWall = (r: Ring, x: number, y: number) => !!r && x >= r.x0 && x <= r.x1 
 export function snap(world: WorldState, s: Spot): Spot {
   const x0 = Math.min(MAP_W - 1, Math.max(0, s.x));
   const y0 = Math.min(MAP_H - 1, Math.max(0, s.y));
-  const ring = world.founded && !world.founded.walls ? undefined : world.ring;
+  const ring = world.founded && world.founded.walls === undefined && world.founded.palisade === undefined ? undefined : world.ring;
   const inTown = insideWalls(ring, x0, y0) || onWall(ring, x0, y0);
   for (let r = 0; r < 8; r++)
     for (let dy = -r; dy <= r; dy++)
@@ -106,5 +107,6 @@ export function walk(world: WorldState, npc: { x: number; y: number }, to: Spot,
   const next = options.length > 1 ? pick(rng, options) : options[0];
   npc.x = next.x;
   npc.y = next.y;
+  trod(world, next.x, next.y);
   return true;
 }

@@ -3,7 +3,8 @@
 // (terrain.ts); everything on it is the townsfolk's doing: the square, the buildings where the
 // town chose to put them, the homes where families chose to build, the fields and pastures they
 // cleared, the walls once there are some, and the roads, trodden from every door to the square.
-import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, entryOutward, terrainOf, type Spot } from './terrain';
+import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, entryOutward, type Spot } from './terrain';
+import { ashOf, wildsOf } from './wilds';
 import type { Parcel, WorldState } from './types';
 
 export { MAP_H, MAP_W } from './terrain';
@@ -13,7 +14,9 @@ export type { Spot } from './terrain';
 // hold from then on (see housing.ts).
 export const TOWN_SIZE = 120;
 
-export type Ground = 'grass' | 'road' | 'water' | 'crops';
+// trail: a footpath trodden bare (paths.ts); paved: a road the crown has paved (works.ts); ash: woods
+// burnt in a fire (wilds.ts), growing back.
+export type Ground = 'grass' | 'road' | 'water' | 'crops' | 'trail' | 'paved' | 'ash';
 
 // A sprite on the map. Buildings sit by their top-left tile; everything else
 // stands on its tile, its art rising above it.
@@ -71,12 +74,12 @@ export const SHACK_BASE = 100_000;
 // Where an NPC stands to enter a dungeon drawn at (d.x, d.y).
 export const dungeonDoor = (d: { x: number; y: number }) => ({ x: d.x + 1, y: d.y + 2 });
 
-const COST: Record<Ground, number> = { road: 1, grass: 2, crops: 3, water: 0 };
-const BRUSH_COST = 3;
+const COST: Record<Ground, number> = { paved: 1, road: 2, trail: 3, grass: 4, ash: 4, crops: 6, water: 0 };
+const BRUSH_COST = 6;
 
 // What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
 // again then.
-export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring'>;
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works'>;
 
 let cache: { ref: unknown; n: number; rev: number; seed: number; key: string; layout: Layout } | null = null;
 
@@ -92,8 +95,11 @@ export function townLayout(view: TownView): Layout {
     dungeons.map((d) => `${d.x},${d.y}`).join(';'),
     homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(','),
     plots.map(([k, p]) => `${k}${has(k) ? '+' : ''}@${p.x},${p.y}`).join(','),
-    (view.parcels ?? []).map((p) => `${p.kind[0]}${p.x},${p.y},${p.w},${p.h}${p.ready}`).join(','),
-    has('walls') && view.ring ? `${view.ring.x0},${view.ring.y0},${view.ring.x1},${view.ring.y1}` : '',
+    (view.parcels ?? []).map((p) => `${p.kind[0]}${p.x},${p.y},${p.w},${p.h}${p.ready}${p.fenced ? 'f' : ''}`).join(','),
+    view.ring && (has('walls') || has('palisade')) ? `${has('walls') ? 'w' : 'p'}${view.ring.x0},${view.ring.y0},${view.ring.x1},${view.ring.y1}` : '',
+    (view.trails ?? []).join(','),
+    view.wild ? JSON.stringify(view.wild) : '',
+    view.works?.paving !== undefined ? 'paved' : '',
   ].join('|');
   if (cache?.key === key) {
     Object.assign(cache, { ref: dungeons, n: dungeons.length, rev, seed: view.seed });
@@ -105,7 +111,8 @@ export function townLayout(view: TownView): Layout {
 }
 
 function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [string, Spot][], has: (k: string) => boolean): Layout {
-  const t = terrainOf(view.seed);
+  const t = wildsOf(view);
+  const ash = ashOf(view);
   const N = MAP_W * MAP_H;
   const ground: Ground[] = new Array(N).fill('grass');
   const blocked = new Uint8Array(N);
@@ -151,6 +158,7 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
       if (p.kind === 'field' && ground[i] !== 'water') ground[i] = 'crops';
     });
     if (p.kind === 'pasture') pasture(p, props);
+    else if (p.fenced) fence(p, props);
     doors.push({ x: p.x + (p.w >> 1), y: p.y + p.h }); // a lane out to it
   }
   // Dungeons: their mound blocks, and the ground about them is trampled bare.
@@ -164,6 +172,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   // Roads: first the road in from the wider world to the square, the town's main street; then from
   // every door the cheapest way to the nearest road, nearest doors first, so the lanes join into
   // streets; then on from the road in to the edge of the map.
+  // Footpaths people have trodden (paths.ts): the roads take to them where they can.
+  for (const i of view.trails ?? []) {
+    if (blocked[i] || ground[i] !== 'grass' || t.cover[i] === ROCK) continue;
+    ground[i] = 'trail';
+    cleared[i] = 1;
+  }
   tread(t.entry, ground, blocked, cleared, t.cover);
   const order = doors.sort((a, b) => Math.hypot(a.x - t.site.x, a.y - t.site.y) - Math.hypot(b.x - t.site.x, b.y - t.site.y));
   for (const d of order) tread(d, ground, blocked, cleared, t.cover);
@@ -178,7 +192,9 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   // The walls, with towers on the corners and either side of each gate; a gate wherever a road
   // crosses the line.
   const gates: Spot[] = [];
-  const ring = has('walls') ? view.ring : undefined;
+  // A palisade of logs first; stone walls with towers once the town has built them.
+  const stone = has('walls');
+  const ring = stone || has('palisade') ? view.ring : undefined;
   if (ring) {
     const onRing = (x: number, y: number) => (x === ring.x0 || x === ring.x1) && y >= ring.y0 && y <= ring.y1 || (y === ring.y0 || y === ring.y1) && x >= ring.x0 && x <= ring.x1;
     const isGate = (x: number, y: number) => inMap(x, y) && onRing(x, y) && ground[y * MAP_W + x] === 'road';
@@ -188,6 +204,7 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
         if (!onRing(x, y) || !inMap(x, y)) continue;
         if (isGate(x, y)) {
           gates.push({ x, y });
+          if (!stone) continue;
           const side = x === ring.x0 || x === ring.x1;
           towers.add(side ? `${x},${y - 1}` : `${x - 1},${y}`);
           towers.add(side ? `${x},${y + 1}` : `${x + 1},${y}`);
@@ -201,15 +218,24 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
         blocked[i] = 1;
         cleared[i] = 1;
         const edgeY = y === ring.y0 || y === ring.y1;
-        if (towers.has(`${x},${y}`)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
+        if (!stone) props.push({ key: 'palisade', x, y, anchor: 'bottom' });
+        else if (towers.has(`${x},${y}`)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
         else props.push({ key: edgeY ? 'town-wall' : 'wall-top', x, y, anchor: edgeY ? 'bottom' : 'top' });
       }
   }
 
-  // The wild country wherever nobody has cleared it: trees block, scrub slows, rocks stand.
+  // The crown's paving: every road inside the walls (or near the square, with none) laid in stone.
+  if (view.works?.paving !== undefined) {
+    const inside = (x: number, y: number) => (ring ? x > ring.x0 && x < ring.x1 && y > ring.y0 && y < ring.y1 : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
+    for (let i = 0; i < N; i++) if (ground[i] === 'road' && inside(i % MAP_W, Math.floor(i / MAP_W))) ground[i] = 'paved';
+  }
+
+  // The wild country wherever nobody has cleared it: trees block, scrub slows, rocks stand; where
+  // the woods burnt, ash.
   const brush = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (cleared[i] || blocked[i] || ground[i] !== 'grass') continue;
+    if (ash.has(i)) ground[i] = 'ash';
     const c = t.cover[i];
     const x = i % MAP_W;
     const y = (i - x) / MAP_W;
@@ -257,6 +283,15 @@ function pasture(p: Parcel, props: Placed[]): void {
   props.push({ key: 'haystack', x: p.x + p.w - 2, y: p.y + 1, anchor: 'bottom' });
 }
 
+// A fenced field: rails along its top and bottom, a gap for the lane.
+function fence(p: Parcel, props: Placed[]): void {
+  const gap = p.x + (p.w >> 1);
+  for (let x = p.x; x < p.x + p.w; x++) {
+    props.push({ key: 'fence', x, y: p.y, anchor: 'bottom' });
+    if (x !== gap) props.push({ key: 'fence', x, y: p.y + p.h - 1, anchor: 'bottom' });
+  }
+}
+
 // The cheapest way from `from` to any road, marked as road. Each tile's price is what it takes
 // to make a way across it: open grass is cheap, scrub dearer, trees must be felled, the river
 // forded, and only as a last resort a way cut through rock.
@@ -269,6 +304,7 @@ function tread(from: Spot, ground: Ground[], blocked: Uint8Array, cleared: Uint8
     if (blocked[i]) return 0;
     if (cover[i] === ROCK && !cleared[i]) return 40; // a way cut round the outcrop
     if (ground[i] === 'road') return 1;
+    if (ground[i] === 'trail') return 2;
     if (ground[i] === 'water') return 30;
     if (ground[i] === 'crops') return 6;
     return cleared[i] ? 3 : (TREAD[cover[i]] ?? 3);

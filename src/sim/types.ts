@@ -151,7 +151,7 @@ export interface Charter {
 export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
+export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
 
 export interface Dragon {
   name: string;
@@ -376,7 +376,7 @@ export interface War {
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision' | 'ambition';
-export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom';
+export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom' | 'grove' | 'spring' | 'lightning';
 
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward' | 'lore';
 
@@ -425,7 +425,7 @@ export type EventKind =
   | 'happening';
 
 // The buildings a town founds as it grows (see growth.ts).
-export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'castle' | 'walls' | 'manor' | 'brothel';
+export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'palisade' | 'castle' | 'walls' | 'manor' | 'brothel';
 
 // A home on its own patch of ground (2x2 tiles). `lot` is its top-left tile as y * MAP_W + x, so a
 // home's door can be found from the number alone (housing.ts lotDoor). Its tier decides how many it houses.
@@ -446,11 +446,12 @@ export interface Parcel {
   h: number;
   ownerId?: number; // the farmer whose family works it; missing: the town's
   ready: number; // the day it is cleared and can be worked
+  fenced?: true; // a field fenced off from the flocks next door (landplan.ts fenceDay)
 }
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
 // and the god may whisper to tip the scale.
-export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode';
+export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode' | 'enclosure' | 'sacredgrove' | 'landclaim';
 export interface Happening {
   kind: HappeningKind;
   title: string;
@@ -578,6 +579,8 @@ export interface WorldState {
   plots?: Partial<Record<string, { x: number; y: number }>>; // where each public building and royal work stands (top-left tile), chosen when it is begun
   parcels?: Parcel[]; // fields and pastures
   ring?: { x0: number; y0: number; x1: number; y1: number }; // the line of the town walls, set when they are begun
+  trails?: number[]; // tiles trodden bare into footpaths, by tile; redrawn monthly from where people walk (paths.ts)
+  wild?: { burnt?: { i: number; day: number }[]; planted?: number[]; springs?: number[] }; // the wild country changed since the seed: woods burnt, woods grown by the god, springs opened (wilds.ts)
   slum?: number; // townsfolk living in them, as of the last count
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last

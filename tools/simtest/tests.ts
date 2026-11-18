@@ -7,7 +7,11 @@ import { FIRST_HOMES, ROOMS, capacity, inShack, shackDoor, townPop } from '../..
 import { fire, shantyCrime } from '../../src/sim/slums';
 import { MAP_W, SHACK_BASE, footprint, lotXY, townLayout } from '../../src/sim/town';
 import { WATER, terrainOf } from '../../src/sim/terrain';
-import { claimField, dungeonSpot, homeSpot, landDay, plotDoor, siteOf, treesOn } from '../../src/sim/landplan';
+import { RING_REF, claimField, drawRing, dungeonSpot, enclosed as enclosedTown, entryOf, fieldYield, homeSpot, landDay, planStyle, plotDoor, ringLength, siteOf, trampled, treesOn } from '../../src/sim/landplan';
+import { WEAR_PATH, trod } from '../../src/sim/paths';
+import { REGROW_DAYS, randomWoods, wildfireAt, wildsOf } from '../../src/sim/wilds';
+import { gameCap } from '../../src/sim/livestock';
+import { miracle, miracleBlocked } from '../../src/sim/divine';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
 import { ruinHomes } from '../../src/sim/disasters';
@@ -158,20 +162,27 @@ test("a believer's funeral pays the priest and turns the family toward the god",
 });
 
 test('letters and a town without priests wear belief down; priests and a cathedral build it up', () => {
-  const doubt = world(3);
-  for (const n of doubt.npcs) {
-    n.lettered = true;
-    if (n.job === 'priest') n.job = 'farmer';
-  }
-  const faith = world(3);
-  (faith.works ??= {}).cathedral = 0;
-  for (const n of grown(faith).slice(0, 8)) n.job = 'priest';
-  run(doubt, 365 * 3);
-  run(faith, 365 * 3);
-  const d = creedCounts(doubt);
-  const f = creedCounts(faith);
+  // Two towns each way, so one town's luck does not decide it.
+  const towns = (doubting: boolean) =>
+    [3, 8].map((seed) => {
+      const w = world(seed);
+      if (doubting)
+        for (const n of w.npcs) {
+          n.lettered = true;
+          if (n.job === 'priest') n.job = 'farmer';
+        }
+      else {
+        (w.works ??= {}).cathedral = 0;
+        for (const n of grown(w).slice(0, 8)) n.job = 'priest';
+      }
+      run(w, 365 * 3);
+      return creedCounts(w);
+    });
+  const sum = (cs: ReturnType<typeof creedCounts>[]) => ({ god: cs.reduce((s, c) => s + c.god, 0), all: cs.reduce((s, c) => s + c.god + c.spirits + c.none, 0), piety: cs.reduce((s, c) => s + c.piety, 0) / cs.length });
+  const d = sum(towns(true));
+  const f = sum(towns(false));
   ok(d.piety < f.piety, `piety: doubters ${d.piety}, faithful ${f.piety}`);
-  ok(d.god / (d.god + d.spirits + d.none) < f.god / (f.god + f.spirits + f.none), 'the doubters kept as many believers');
+  ok(d.god / d.all < f.god / f.all, `the doubters kept as many believers: ${JSON.stringify(d)} vs ${JSON.stringify(f)}`);
 });
 
 // ---------- phase 2: the god's commandments ----------
@@ -894,4 +905,157 @@ test('the walls go round the town, with a gate wherever a road runs out', () => 
   ok(r.x0 < castle.x && castle.x < r.x1 && r.y0 < castle.y && castle.y < r.y1, 'the castle is outside the walls');
   const lay = townLayout(w);
   for (const g of lay.gates) ok(lay.ground[g.y * MAP_W + g.x] === 'road' && walkable(w, g.x, g.y), `a gate at ${g.x},${g.y} is not on a road`);
+});
+
+// ---------- paths, fences, palisades, the rulers' plan, the wild country ----------
+
+test('a way walked often is trodden into a footpath within a month, and grows back when left', () => {
+  const w = world();
+  const lay = townLayout(w);
+  const s = siteOf(w);
+  let tile = -1;
+  for (let r = 4; r < 20 && tile < 0; r++)
+    for (let dx = -r; dx <= r && tile < 0; dx++) {
+      const i = (s.y + r) * MAP_W + s.x + dx;
+      if (lay.ground[i] === 'grass' && lay.cost[i] > 0) tile = i;
+    }
+  ok(tile >= 0, 'no open grass near the square');
+  const x = tile % MAP_W;
+  const y = Math.floor(tile / MAP_W);
+  while (w.day % 30 !== 25) tick(w);
+  for (let k = 0; k < WEAR_PATH * 3; k++) trod(w, x, y);
+  tick(w); // the paths are looked at
+  ok(w.trails?.includes(tile), 'the trodden tile did not become a path');
+  const g = townLayout(w).ground[tile];
+  ok(g === 'trail' || g === 'road', `the path is drawn as ${g}`);
+  ok(townLayout(w).cost[tile] < 4, 'a path is no quicker than grass');
+  // Left to itself, a town treads its own paths.
+  const v = world(11);
+  run(v, 65);
+  ok((v.trails?.length ?? 0) > 0, 'two months of walking trod no paths at all');
+});
+
+test('a field beside a pasture is trampled until its farmers fence it, with timber off the shelves', () => {
+  const w = world();
+  const pasture = w.parcels!.find((p) => p.kind === 'pasture')!;
+  const f = { kind: 'field' as const, x: pasture.x + pasture.w, y: pasture.y, w: 4, h: 3, ready: 0 };
+  // Only this field is beside the flocks, so it is the one fenced.
+  w.parcels = w.parcels!.filter((p) => p.kind !== 'field' || !trampled(w, p));
+  w.parcels.push(f);
+  ok(trampled(w, f), 'a field next to the flocks is not trampled');
+  const m = ensureMarket(w);
+  m.stock.timber = 20;
+  while (w.day % 30 !== 20) tick(w);
+  m.stock.timber = 20;
+  tick(w); // land day
+  ok(f.fenced && !trampled(w, f), 'the field was not fenced');
+  ok(m.stock.timber <= 16, 'the fence took no timber');
+});
+
+test('a village raises a palisade, paid by the length of the line; the stone walls come later', () => {
+  const w = foundWorld(5);
+  ok(!founded(w, 'palisade'), 'a camp starts with a palisade');
+  ok(!enclosedTown(w), 'a camp has a line round it');
+  const small = ringLength({ x0: 10, y0: 10, x1: 20, y1: 18 }) / RING_REF;
+  const big = ringLength({ x0: 10, y0: 10, x1: 40, y1: 38 }) / RING_REF;
+  ok(big > small * 2, 'a longer line costs no more');
+  (w.founded ??= {}).palisade = w.day;
+  drawRing(w);
+  const lay = townLayout(w);
+  ok(lay.props.some((p) => p.key === 'palisade') && !lay.props.some((p) => p.key === 'gate-tower'), 'the palisade is not drawn as logs');
+  ok(enclosedTown(w), 'the palisade does not count as the town line');
+  for (const g of lay.gates) ok(walkable(w, g.x, g.y), 'a way through the palisade is blocked');
+});
+
+test("the rulers' plan: a republic builds in squared rows, a kingdom in rings round its castle", () => {
+  const rows = (style: 'grid' | 'radial') => {
+    const w = world(9);
+    w.regime = style === 'grid' ? 'republic' : 'monarchy';
+    ok(planStyle(w) === style, `the plan is not ${style}`);
+    const s = siteOf(w);
+    let lined = 0;
+    for (let k = 0; k < 8; k++) {
+      const lot = homeSpot(w, [], false);
+      if (lot < 0) break;
+      w.homes!.push({ lot, tier: 1, built: w.day });
+      w.buildRev = (w.buildRev ?? 0) + 1;
+      const { x, y } = lotXY(lot);
+      if ((((x - s.x) % 4) + 4) % 4 === 0 && (((y + 2 - s.y) % 4) + 4) % 4 === 0) lined++;
+    }
+    return lined;
+  };
+  const grid = rows('grid');
+  const radial = rows('radial');
+  ok(grid >= 5 && grid > radial, `a republic lines up ${grid} of 8 homes, a kingdom ${radial}`);
+  ok(planStyle(foundWorld(3)) === 'organic', 'a camp follows a plan');
+});
+
+test('a summer wildfire burns the woods to ash, the deer go, and the woods grow back in time', () => {
+  const w = world();
+  const r = rngOf(w);
+  const capBefore = gameCap(w);
+  const start = randomWoods(w, r)!;
+  const burnt = wildfireAt(w, r, start);
+  ok(burnt.length > 0, 'nothing burnt');
+  const lay = townLayout(w);
+  ok(lay.ground[start] === 'ash', `the burnt woods are ${lay.ground[start]}, not ash`);
+  ok(!lay.props.some((p) => p.key === 'tree' && p.y * MAP_W + p.x === start), 'a tree still stands where it burnt');
+  ok(gameCap(w) <= capBefore, 'the woods hold as many deer after the fire');
+  w.day += REGROW_DAYS;
+  while (w.day % 30 !== 16) w.day++;
+  tick(w);
+  ok(!w.wild?.burnt?.length, 'the woods did not grow back');
+});
+
+test('the god raises woods, opens a spring by the driest field, and strikes the woods with lightning', () => {
+  const w = world();
+  const r = rngOf(w);
+  w.faith = 1000;
+  const trees = () => townLayout(w).props.filter((p) => p.key === 'tree').length;
+  const t0 = trees();
+  ok(miracle(w, 'grove', r), 'the grove was not raised');
+  ok(trees() > t0, 'no new trees');
+  if (!miracleBlocked(w, 'spring')) {
+    const yield0 = fieldYield(w);
+    ok(miracle(w, 'spring', r), 'no spring opened');
+    ok(w.wild!.springs!.length === 1 && wildsOf(w).cover[w.wild!.springs![0]] === WATER, 'the spring is not water');
+    w.day++;
+    ok(fieldYield(w) >= yield0, 'the fields are no better for the spring');
+  }
+  const timber = ensureMarket(w).stock.timber;
+  const t1 = trees();
+  ok(miracle(w, 'lightning', r), 'no lightning');
+  ok(trees() < t1 && ensureMarket(w).stock.timber >= timber, 'the lightning cleared nothing');
+  const e = entryOf(w);
+  ok(townLayout(w).cost[e.y * MAP_W + e.x] > 0, 'the road in is cut off');
+});
+
+test('land matters come up: a noble encloses the commons, a field is fought over in court', () => {
+  const w = world();
+  const r = rngOf(w);
+  if (!grown(w).some((n) => n.job === 'noble')) grown(w).find((n) => n.job === 'merchant')!.job = 'noble';
+  ok(raise(w, 'enclosure', r), 'the enclosure did not come up');
+  decide(w, r, 'enclose');
+  ok(w.parcels!.some((p) => p.kind === 'pasture' && p.ownerId !== undefined), 'the commons were not enclosed');
+  // A landless farmer takes a field to court.
+  const owners = new Set(w.parcels!.map((p) => p.ownerId));
+  ok(grown(w).some((n) => n.job === 'farmer' && !owners.has(n.id)), 'every farmer has a field');
+  const h = raise(w, 'landclaim', r);
+  ok(h, 'no land claim came up');
+  const claimant = h!.ctx!;
+  decide(w, r, 'tiller');
+  ok(w.parcels!.some((p) => p.kind === 'field' && p.ownerId === claimant), 'the field did not go to the one who tills it');
+});
+
+test('the crown paves the roads inside the walls, and they walk quicker', () => {
+  const w = world();
+  const lay0 = townLayout(w);
+  const roads = lay0.ground.filter((g) => g === 'road').length;
+  (w.works ??= {}).paving = w.day;
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  const lay = townLayout(w);
+  const paved = lay.ground.filter((g) => g === 'paved').length;
+  ok(paved > 0 && paved < roads, `paved ${paved} of ${roads} roads`);
+  const i = lay.ground.indexOf('paved');
+  ok(lay.cost[i] < lay0.cost[i], 'paving is no quicker');
 });
