@@ -3,7 +3,7 @@
 // (terrain.ts); everything on it is the townsfolk's doing: the square, the buildings where the
 // town chose to put them, the homes where families chose to build, the fields and pastures they
 // cleared, the walls once there are some, and the roads, trodden from every door to the square.
-import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, entryOutward, type Spot } from './terrain';
+import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, entryOutward, terrainOf, type Spot } from './terrain';
 import { ashOf, wildsOf } from './wilds';
 import type { Parcel, WorldState } from './types';
 
@@ -64,6 +64,21 @@ export const doorOf = (key: string, tx: number, ty: number) => {
 // The square at the heart of the town: open ground kept clear for markets and gatherings.
 export const plaza = (site: Spot) => ({ x0: site.x - 2, y0: site.y - 1, x1: site.x + 2, y1: site.y + 1 });
 
+// The steam age's mills stand on 3x2 plots a company or the crown picked (landplan.ts millSite),
+// numbered by their top-left tile like homes; the yard gate is in the middle of the near side.
+export const MILL = { w: 3, h: 2 };
+export const millDoor = (plot: number) => ({ x: (plot % MAP_W) + 1, y: Math.floor(plot / MAP_W) + MILL.h });
+
+// The railway: from the station's door straight out to the edge of the map, on the far side
+// from the square. undefined until there is a station.
+export function railway(view: Pick<WorldState, 'seed' | 'plots' | 'works'>): { y: number; from: number; to: number } | undefined {
+  const st = view.works?.station !== undefined ? view.plots?.station : undefined;
+  if (!st) return undefined;
+  const door = doorOf('station', st.x, st.y);
+  const east = st.x >= terrainOf(view.seed).site.x;
+  return { y: door.y, from: door.x, to: east ? MAP_W - 1 : 0 };
+}
+
 // Homes stand on 2x2 patches, numbered by their top-left tile.
 export const tileOf = (x: number, y: number) => y * MAP_W + x;
 export const lotXY = (lot: number) => ({ x: lot % MAP_W, y: Math.floor(lot / MAP_W) });
@@ -79,14 +94,16 @@ const BRUSH_COST = 6;
 
 // What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
 // again then.
-export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works'>;
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs'>;
 
-let cache: { ref: unknown; n: number; rev: number; seed: number; key: string; layout: Layout } | null = null;
+let cache: { ref: unknown; n: number; rev: number; seed: number; era: string; key: string; layout: Layout } | null = null;
 
 export function townLayout(view: TownView): Layout {
   const { dungeons } = view;
   const rev = view.buildRev ?? 0;
-  if (cache?.ref === dungeons && cache.n === dungeons.length && cache.rev === rev && cache.seed === view.seed) return cache.layout; // hot path: asked many times a tick
+  // The steam age changes the town without always touching buildRev: mills, the railway, the lamps, the boulevard.
+  const era = `${view.mills?.length ?? 0}|${view.works?.station}|${view.works?.boulevard}|${view.works?.powerplant}|${view.techs?.steam}|${view.techs?.electricity}`;
+  if (cache?.ref === dungeons && cache.n === dungeons.length && cache.rev === rev && cache.seed === view.seed && cache.era === era) return cache.layout; // hot path: asked many times a tick
   const homes = [...(view.homes ?? [])].sort((a, b) => a.lot - b.lot);
   const has = (k: string) => !view.founded || view.founded[k as keyof typeof view.founded] !== undefined;
   const plots = Object.entries(view.plots ?? {}).filter((e): e is [string, Spot] => !!e[1]);
@@ -100,13 +117,16 @@ export function townLayout(view: TownView): Layout {
     (view.trails ?? []).join(','),
     view.wild ? JSON.stringify(view.wild) : '',
     view.works?.paving !== undefined ? 'paved' : '',
+    (view.mills ?? []).map((m) => m.plot).join(','),
+    ['station', 'boulevard', 'powerplant'].map((k) => (view.works?.[k as keyof typeof view.works] !== undefined ? k[0] : '')).join(''),
+    ['steam', 'electricity'].map((k) => (view.techs?.[k as keyof typeof view.techs] !== undefined ? k[0] : '')).join(''),
   ].join('|');
   if (cache?.key === key) {
-    Object.assign(cache, { ref: dungeons, n: dungeons.length, rev, seed: view.seed });
+    Object.assign(cache, { ref: dungeons, n: dungeons.length, rev, seed: view.seed, era });
     return cache.layout;
   }
   const layout = layOut(view, homes, plots, has);
-  cache = { ref: dungeons, n: dungeons.length, rev, seed: view.seed, key, layout };
+  cache = { ref: dungeons, n: dungeons.length, rev, seed: view.seed, era, key, layout };
   return layout;
 }
 
@@ -161,6 +181,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     else if (p.fenced) fence(p, props);
     doors.push({ x: p.x + (p.w >> 1), y: p.y + p.h }); // a lane out to it
   }
+  // The mills: their sheds block, and a lane runs to each yard gate.
+  for (const m of view.mills ?? []) {
+    const { x, y } = lotXY(m.plot);
+    build(x, y, MILL.w, MILL.h);
+    doors.push(millDoor(m.plot));
+  }
   // Dungeons: their mound blocks, and the ground about them is trampled bare.
   for (const d of view.dungeons) {
     build(d.x, d.y, 2, 2);
@@ -189,12 +215,35 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     cleared[i] = 1;
   }
 
+  // The railway, laid from the station out to the edge of the map: a road beside the rails.
+  const rail = railway(view);
+  if (rail)
+    for (let x = rail.from, step = Math.sign(rail.to - rail.from) || 1; x !== rail.to + step; x += step) {
+      const i = rail.y * MAP_W + x;
+      if (blocked[i] || ground[i] === 'water') continue;
+      ground[i] = 'road';
+      cleared[i] = 1;
+      props.push({ key: 'rail', x, y: rail.y, anchor: 'top' });
+    }
+
   // The walls, with towers on the corners and either side of each gate; a gate wherever a road
-  // crosses the line.
+  // crosses the line. Once the crown has the boulevard built, the line is a ring road instead.
   const gates: Spot[] = [];
   // A palisade of logs first; stone walls with towers once the town has built them.
   const stone = has('walls');
-  const ring = stone || has('palisade') ? view.ring : undefined;
+  const boulevard = view.works?.boulevard !== undefined;
+  const ring = !boulevard && (stone || has('palisade')) ? view.ring : undefined;
+  if (boulevard && view.ring) {
+    const r = view.ring;
+    for (let y = r.y0; y <= r.y1; y++)
+      for (let x = r.x0; x <= r.x1; x++) {
+        if (x !== r.x0 && x !== r.x1 && y !== r.y0 && y !== r.y1) continue;
+        const i = y * MAP_W + x;
+        if (!inMap(x, y) || blocked[i] || ground[i] === 'water') continue;
+        ground[i] = 'road';
+        cleared[i] = 1;
+      }
+  }
   if (ring) {
     const onRing = (x: number, y: number) => (x === ring.x0 || x === ring.x1) && y >= ring.y0 && y <= ring.y1 || (y === ring.y0 || y === ring.y1) && x >= ring.x0 && x <= ring.x1;
     const isGate = (x: number, y: number) => inMap(x, y) && onRing(x, y) && ground[y * MAP_W + x] === 'road';
@@ -228,6 +277,16 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   if (view.works?.paving !== undefined) {
     const inside = (x: number, y: number) => (ring ? x > ring.x0 && x < ring.x1 && y > ring.y0 && y < ring.y1 : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
     for (let i = 0; i < N; i++) if (ground[i] === 'road' && inside(i % MAP_W, Math.floor(i / MAP_W))) ground[i] = 'paved';
+  }
+
+  // Gas lamps (electric once the power station runs) along the streets near the square, once the town knows steam.
+  if (view.techs?.steam !== undefined) {
+    const electric = view.techs?.electricity !== undefined && view.works?.powerplant !== undefined;
+    for (let i = 0; i < N; i++) {
+      const x = i % MAP_W;
+      const y = (i - x) / MAP_W;
+      if ((ground[i] === 'road' || ground[i] === 'paved') && (x * 3 + y * 5) % 7 === 0 && Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16) props.push({ key: electric ? 'elamp' : 'lamp', x, y, anchor: 'bottom' });
+    }
   }
 
   // The wild country wherever nobody has cleared it: trees block, scrub slows, rocks stand; where

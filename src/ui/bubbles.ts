@@ -1,4 +1,4 @@
-import { ADULT_AGE, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
+import { ADULT_AGE, CAUSE_TH, partyOf, type Ideology, cursed, say as reword, seasonOf, weatherOf, type EventKind, type Job, type Npc, type Regime, type WorldState } from '../sim';
 
 // Short reactions that pop over an NPC's head when something happens to them.
 const LINES: Partial<Record<EventKind, string[]>> = {
@@ -21,6 +21,7 @@ const WORK: Partial<Record<Job, string[]>> = {
   farmer: ['ปลูกข้าวกันเถอะ', 'ข้าวงามดีนะปีนี้', 'ปวดหลังจัง…'],
   alchemist: ['ใส่ผงนี่อีกนิด...', 'ระวัง! ร้อนนะ', 'ยาสูตรนี้ต้องได้ผล'],
   engineer: ['ตรงนี้ต้องเสริมคาน', 'วัดอีกรอบดีกว่า', 'แบบแปลนเสร็จแล้ว'],
+  worker: ['เสียงหวูดเปลี่ยนกะแล้ว', 'เตาผลึกร้อนจัดวันนี้', 'สิ้นเดือนได้ค่าแรงแล้ว'],
   builder: ['ยกคานขึ้นไป!', 'อีกนิดเดียวก็เสร็จ', 'บ้านหลังนี้ต้องแข็งแรงกว่าเดิม'],
   doctor: ['หายใจลึกๆ นะ', 'กินยาวันละสามเวลา', 'ล้างมือก่อนกินข้าว!'],
   watchman: ['หยุดนะ!', 'คืนนี้เงียบดี', 'มีอะไรผิดปกติไหม'],
@@ -114,6 +115,16 @@ const RULER_LINES: Record<Exclude<Regime, 'monarchy'>, string[]> = {
   theocracy: ['เทพเจ้าทรงนำทางเรา', 'จงสวดภาวนาทุกเช้า', 'ศรัทธาคือกฎหมาย'],
   oligarchy: ['ทองคือพลัง', 'การค้าต้องไม่หยุด', 'กำไรปีนี้สวยมาก'],
   junta: ['ระเบียบต้องมาก่อน!', 'ทหาร ตรงไป!', 'ห้ามใครขัดคำสั่ง'],
+  commune: ['ทุกคนเท่าเทียมกัน', 'แผนห้าปีต้องสำเร็จ!', 'เพื่อชนชั้นแรงงาน'],
+};
+
+// What a party member says about their cause.
+const SLOGANS: Record<Ideology, string[]> = {
+  trade: ['ภาษีต่ำ ตลาดเสรี!', 'รัฐอย่ามายุ่งกับการค้า', 'เลือกพรรคการค้านะ'],
+  nation: ['บ้านเมืองต้องเข้มแข็ง!', 'กองทัพคือหัวใจ', 'ปราบมอนสเตอร์ให้หมด!'],
+  labour: ['ข้าวต้องถูก ค่าแรงต้องขึ้น!', 'คนจนก็คือคน', 'สามัคคีคือพลัง!'],
+  faith: ['ขอให้บ้านเมืองมีศีลธรรม', 'เทพเจ้าเลือกเรา', 'เลือกคนดีเข้าสภา'],
+  old: ['ของเดิมดีอยู่แล้ว', 'อย่าเปลี่ยนแปลงเร็วนัก', 'เคารพผู้ใหญ่บ้าง'],
 };
 
 const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)];
@@ -122,6 +133,7 @@ const any = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)]
 function lineFor(world: WorldState, n: Npc): string | undefined {
   if (n.age < ADULT_AGE) return any(KIDS);
   const p = n.plan?.kind;
+  if (p === 'protest' && world.movement) return any([`${CAUSE_TH[world.movement.cause].demand}!`, 'ประชาชนต้องมีเสียง!', 'ไม่ฟังเรา เราไม่กลับ!', 'สู้ ๆ พี่น้อง!']);
   if (p === 'pray') return any(['วันนี้วันพระ ไปโบสถ์กัน', 'ขอเทพเจ้าคุ้มครอง', 'ทำบุญสักหน่อย']);
   if (p === 'ritual') return any(['(กระซิบ) ไปที่ดันเจี้ยน…', 'อย่าให้ใครเห็น…']);
   if (p === 'steal') return any(['เป้าหมายอยู่ตรงนั้น…', 'ค่อยๆ ย่องไป…']);
@@ -146,6 +158,8 @@ function lineFor(world: WorldState, n: Npc): string | undefined {
   if (n.cultist && r < 0.15) return '(กระซิบ) คืนนี้ที่ดันเจี้ยน…';
   if ((n.loyalty ?? 50) < 30 && n.job !== 'king' && r < 0.4) return any(['ภาษีแพงจัง', 'กษัตริย์ไม่เคยสนเราเลย', 'สักวันจะลุกฮือ!']);
   if (seasonOf(world.day) === 'winter' && r < 0.2) return any(['หนาวจัง…', 'อยากนั่งข้างเตาผิง']);
+  const party = partyOf(world, n);
+  if (party && r < 0.12) return any(SLOGANS[party.ideology]);
   const friend = friendNear(world, n);
   if (friend && r < 0.25) return `สวัสดี ${friend.name}!`;
   if (n.job === 'king' && world.regime && world.regime !== 'monarchy') return any(RULER_LINES[world.regime]);

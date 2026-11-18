@@ -20,7 +20,7 @@ for (const [name, run] of tests) {
     console.log(`  ✓ ${name}`);
   } catch (e) {
     failed++;
-    console.log(`  ✗ ${name}\n      ${e.message}`);
+    console.log(`  ✗ ${name}\n      ${e.message}${process.env.STACK ? "\n" + e.stack : ""}`);
   }
 }
 console.log(failed ? `\nไม่ผ่าน ${failed} ข้อ` : '\nผ่านทุกข้อ');

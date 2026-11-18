@@ -5,8 +5,9 @@ import { kill } from '../../src/sim/core';
 import { wed, births, bornTo, homeOf } from '../../src/sim/life';
 import { FIRST_HOMES, ROOMS, capacity, inShack, shackDoor, townPop } from '../../src/sim/housing';
 import { fire, shantyCrime } from '../../src/sim/slums';
-import { MAP_W, SHACK_BASE, footprint, lotXY, townLayout } from '../../src/sim/town';
+import { MAP_W, SHACK_BASE, footprint, lotXY, millDoor, townLayout } from '../../src/sim/town';
 import { WATER, terrainOf } from '../../src/sim/terrain';
+import { millSite, placeBuilding } from '../../src/sim/landplan';
 import { RING_REF, claimField, drawRing, dungeonSpot, enclosed as enclosedTown, entryOf, fieldYield, homeSpot, landDay, planStyle, plotDoor, ringLength, siteOf, trampled, treesOn } from '../../src/sim/landplan';
 import { WEAR_PATH, trod } from '../../src/sim/paths';
 import { REGROW_DAYS, randomWoods, wildfireAt, wildsOf } from '../../src/sim/wilds';
@@ -14,6 +15,11 @@ import { gameCap } from '../../src/sim/livestock';
 import { miracle, miracleBlocked } from '../../src/sim/divine';
 import { walkable } from '../../src/sim/nav';
 import { TECH_ORDER } from '../../src/sim/research';
+import { found as foundMill, handsOf, industryDay, wageOf } from '../../src/sim/industry';
+import { crownWorks } from '../../src/sim/works';
+import { realmsDay } from '../../src/sim/realms';
+import { ageOf, jobName } from '../../src/sim/ages';
+import { goodsOf, harvest } from '../../src/sim/market';
 import { ruinHomes } from '../../src/sim/disasters';
 import { MAX_TENETS, creedCounts, daysToHoly, isHolyDay, pietyPull, prayers, proclaim, religionOf, strain, tenetCost } from '../../src/sim/religion';
 import { tenetOn } from '../../src/sim/core';
@@ -21,7 +27,9 @@ import { churchOf, headOf } from '../../src/sim/church';
 import { faithLaw } from '../../src/sim/charter';
 import { commit, jailed } from '../../src/sim/justice';
 import { FOREIGN_GODS, abroadPrayers, holyTarget, realmFaithName, sendMission, sharesFaith } from '../../src/sim/missions';
-import { endWar } from '../../src/sim/war';
+import { endWar, raid as raidRealm, warDay } from '../../src/sim/war';
+import { begin as beginSaga, sagasDay } from '../../src/sim/sagas';
+import { log as logLine } from '../../src/sim/core';
 import { ourForces } from '../../src/sim/war';
 import { places } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
@@ -29,6 +37,16 @@ import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
 import { TARGET, ensureMarket, target } from '../../src/sim/market';
 import { canSend } from '../../src/sim/villages';
+import { concede, crackdown, members, revolution } from '../../src/sim/movements';
+import { setTie } from '../../src/sim/ties';
+import { reignDay } from '../../src/sim/succession';
+import { regimeEventsDay } from '../../src/sim/regimeEvents';
+import { election } from '../../src/sim/republic';
+import { forbids, general, governor, mind, partiesDay, rulingIdeology } from '../../src/sim/parties';
+import { communeDay, proclaimCommune } from '../../src/sim/commune';
+import { council } from '../../src/sim/government';
+import { grant } from '../../src/sim/decrees';
+import { writeCharter } from '../../src/sim/charter';
 import type { Npc, WorldState } from '../../src/sim/types';
 
 type Test = [string, () => void];
@@ -353,6 +371,7 @@ test('a reading town breeds a sect, led by a lettered believer', () => {
   const w = world(11);
   cast(w);
   for (const n of grown(w)) Object.assign(n, { lettered: true, creed: 'god', piety: 70 });
+  w.crown!.fear = Infinity; // a crown that keeps its streets quiet, so the town stays as it is
   for (let m = 0; m < 240 && !religionOf(w).sect; m++) {
     toMonthDay(w, 5);
     tick(w);
@@ -676,8 +695,13 @@ test('without a roof, households drift away; with rooms to spare, newcomers come
   w.buildRev = (w.buildRev ?? 0) + 1;
   ensureMarket(w).stock.timber = 0; // and nothing to build with
   const start = townPop(w);
-  run(w, 360);
-  ok((w.slum ?? 0) > 0, 'those with no home did not turn to the shanty');
+  // The shanty may be cleared again within the year (the ruler's call), so look for it all along.
+  let slum = 0;
+  for (let d = 0; d < 360; d++) {
+    tick(w);
+    slum = Math.max(slum, w.slum ?? 0);
+  }
+  ok(slum > 0, 'those with no home did not turn to the shanty');
   ok(townPop(w) < start, `the homeless did not leave: ${start} -> ${townPop(w)}`); // slowly: a shack is a roof of sorts
   ok(w.chronicle.some((e) => e.text.includes('จึงทิ้งเมืองไปหาที่อยู่ใหม่')), 'nobody was said to leave for want of a home');
   const full = world(8);
@@ -1058,4 +1082,962 @@ test('the crown paves the roads inside the walls, and they walk quicker', () => 
   ok(paved > 0 && paved < roads, `paved ${paved} of ${roads} roads`);
   const i = lay.ground.indexOf('paved');
   ok(lay.cost[i] < lay0.cost[i], 'paving is no quicker');
+});
+
+// ---------- politics: movements ----------
+
+// A town angry about one thing: high taxes, empty purses, sour on the ruler, and all friends of one bold soul.
+function angryTown(w: WorldState): Npc[] {
+  w.crown!.tax = 'high';
+  const folk = grown(w).filter((n) => !['noble', 'soldier'].includes(n.job) && !n.knight && n.inside === undefined && n.questId === undefined).slice(0, 14);
+  for (const n of folk) {
+    n.loyalty = 15;
+    n.gold = 0;
+    n.cultist = undefined;
+  }
+  for (const a of folk) for (const b of folk) if (a.id < b.id) setTie(w, a.id, b.id, 30); // one circle of friends
+  folk[0].traits = ['brave'];
+  return folk;
+}
+// Tick up to the movement's monthly meeting, the king kept from lowering the tax meanwhile.
+const toMeeting = (w: WorldState) => {
+  const taxed = w.crown!.tax === 'high';
+  do {
+    if (taxed) w.crown!.tax = 'high';
+    tick(w);
+  } while (w.day % 30 !== 22);
+};
+
+test('townsfolk sharing a grievance band together behind the boldest, through their friends', () => {
+  const w = world();
+  const folk = angryTown(w);
+  toMeeting(w);
+  ok(w.movement, 'no movement formed');
+  ok(w.movement!.cause === 'tax', `formed over ${w.movement!.cause}, not the tax`);
+  ok(members(w).length >= 3, `only ${members(w).length} members`);
+  ok(folk.filter((n) => n.marcher).length >= 3, 'the angry friends did not join');
+  ok(members(w).every((n) => n.job !== 'soldier' && n.job !== 'noble'), 'a soldier or noble joined on their own');
+});
+
+test('a ruler who gives in on the tax lowers it and keeps it down for a year', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const k = kingOf(w);
+  const said = concede(w, w.movement!, k, rngOf(w));
+  ok(said && w.crown!.tax === 'normal', `tax is ${w.crown!.tax} after giving in`);
+  w.treasury = 0; // a broke crown would raise it again, but for the promise
+  run(w, 60);
+  ok(w.crown!.tax !== 'high', 'the tax went back up inside the year');
+});
+
+test('soldiers with friends in the crowd refuse to march on it, and go over', () => {
+  const w = world();
+  const folk = angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.stage = 2;
+  const soldiers = w.npcs.filter((n) => n.alive && n.inside === undefined && (n.job === 'soldier' || n.knight));
+  ok(soldiers.length >= 2, 'too few soldiers to test');
+  for (const s of soldiers) {
+    s.loyalty = 20;
+    setTie(w, s.id, folk[1].id, 40);
+  }
+  // Each soldier's refusal is a roll: try the order a few times over, from the same morning.
+  let went = false;
+  for (let i = 0; i < 5 && !went; i++) {
+    const x = structuredClone(w);
+    crackdown(x, x.movement!, kingOf(x), { state: w.rng + i * 977 });
+    went = x.movement!.defectors > 0 && x.npcs.some((n) => soldiers.some((s) => s.id === n.id) && n.marcher);
+  }
+  ok(went, 'no soldier went over');
+});
+
+test('a crackdown on a riot jails the leader and makes martyrs who anger the rest', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'soldier' && !x.knight && x.job !== 'noble').slice(0, 40)) n.marcher = true;
+  for (const s of w.npcs.filter((n) => n.job === 'soldier')) s.loyalty = 90;
+  mv.stage = 4;
+  mv.anger = 50;
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  let held = false;
+  for (let i = 0; i < 8 && (!mv.martyrs || !held) && w.movement; i++) {
+    mv.stage = 4;
+    crackdown(w, mv, kingOf(w), { state: w.rng + i * 977 });
+    held ||= jailed(w, leader);
+  }
+  ok(mv.martyrs > 0, 'nobody fell in a riot put down by soldiers');
+  ok(held, 'the leader was never taken');
+});
+
+test('a crowd that wins in a town that cannot read sets up a people\'s council, not a new king', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight)) {
+    n.marcher = true;
+    n.lettered = false;
+  }
+  for (const s of w.npcs.filter((n) => n.job === 'soldier' || n.knight)) s.loyalty = 0; // nobody stands for the crown
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  leader.traits = ['kind'];
+  leader.morality = 60;
+  mv.cause = 'tax';
+  delete w.techs?.printing;
+  const old = kingOf(w);
+  revolution(w, mv, old, leader, rngOf(w));
+  ok(w.kingId !== old.id, 'the ruler held on against everyone');
+  ok(w.regime === 'republic', `the town became a ${w.regime ?? 'monarchy'}`);
+  ok(!w.movement, 'the movement stayed out after winning');
+});
+
+test('a camp has no court to plot in, and a ruler never flees a famine', () => {
+  const w = foundWorld(5);
+  tick(w);
+  const k = kingOf(w);
+  const lord = grown(w).find((n) => n !== k)!;
+  lord.job = 'noble';
+  lord.traits = ['greedy'];
+  lord.gold = 900;
+  for (const n of grown(w)) n.loyalty = 0;
+  for (let i = 0; i < 300; i++) {
+    k.hunger = 9;
+    tick(w);
+  }
+  ok(!w.chronicle.some((e) => /บุกวังหมายชิง/.test(e.text)), 'a noble stormed a camp\'s hut for its chief\'s seat');
+  ok(k.alive || !k.left, 'the ruler walked out of town hungry');
+});
+
+test('a republic\'s march on the hall calls an early election instead of a fight', () => {
+  const w = world();
+  w.regime = 'republic';
+  w.republic = { since: 0, elections: 1, nextVote: w.day + 3000 };
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight).slice(0, 30)) n.marcher = true;
+  mv.anger = 90;
+  mv.stage = 1;
+  const before = w.republic.elections;
+  for (let i = 0; i < 4 && w.republic!.elections === before; i++) {
+    if (w.movement) w.movement.stage = 1;
+    toMeeting(w);
+  }
+  ok(w.republic!.elections > before, 'no early election');
+  ok(!w.chronicle.some((e) => /บุกวัง หมายโค่น/.test(e.text)), 'a republic\'s crowd stormed the hall');
+});
+
+test('a movement out on the street gathers its idle members before the palace, never its workers', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.stage = 2;
+  mv.rally = w.day + 60;
+  const farmers = members(w).filter((n) => n.job === 'farmer');
+  const gathered = new Set<number>(); // members who stood before the palace at some point
+  let pulled = 0;
+  for (let i = 0; i < 45; i++) {
+    tick(w);
+    for (const n of members(w)) if (n.plan?.kind === 'protest') gathered.add(n.id);
+    for (const f of farmers) if (f.plan?.kind === 'protest' && f.plan.days > 6) pulled++;
+  }
+  ok(gathered.size >= 2, `only ${gathered.size} gathered before the palace`);
+  ok(!pulled, 'a protest plan longer than a free spell');
+  ok(!w.npcs.some((n) => !n.marcher && n.plan?.kind === 'protest'), 'someone outside the movement joined the crowd');
+});
+
+test('the god can harden a crowd\'s resolve or cool its anger, for faith', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  mv.anger = 50;
+  w.faith = 100;
+  applyCommands(w, [{ type: 'movement', act: 'stir' }], rngOf(w));
+  ok(mv.anger > 50 && w.faith < 100, `stir: anger ${mv.anger}, faith ${w.faith}`);
+  const before = mv.anger;
+  applyCommands(w, [{ type: 'movement', act: 'calm' }], rngOf(w));
+  ok(mv.anger < before, 'calm did not cool the crowd');
+  w.faith = 0;
+  applyCommands(w, [{ type: 'movement', act: 'stir' }], rngOf(w));
+  ok(mv.anger < before, 'a god without faith still stirred the crowd');
+});
+
+// ---------- politics: reigns and succession ----------
+
+test('a long reign wears on the town: the same ruler after twenty years has a sourer people', () => {
+  const fresh = world();
+  const old = world();
+  old.crown!.since = old.day - 365 * 25;
+  run(fresh, 120);
+  run(old, 120);
+  const avg = (w: WorldState) => grown(w).reduce((s, n) => s + (n.loyalty ?? 50), 0) / grown(w).length;
+  ok(avg(old) < avg(fresh) - 3, `twenty-five years in, loyalty ${avg(old).toFixed(1)} vs a new reign's ${avg(fresh).toFixed(1)}`);
+});
+
+test('a dead king\'s child heir takes the throne with a regent, and is handed it back at sixteen', () => {
+  const w = world();
+  const k = kingOf(w);
+  k.traits = ['kind'];
+  const child = grown(w).find((n) => n.job !== 'noble')!;
+  child.age = 10;
+  child.parentIds = [k.id];
+  const lord = grown(w).find((n) => n !== child && n.job === 'noble') ?? grown(w).find((n) => n !== child)!;
+  lord.job = 'noble';
+  lord.traits = ['loyal'];
+  kill(w, k, 'สิ้นพระชนม์');
+  tick(w);
+  ok(w.kingId === child.id, 'the child was not crowned');
+  ok(w.crown!.regentId !== undefined, 'no regent for a child king');
+  child.age = 16;
+  for (let i = 0; i < 40 && w.crown!.regentId !== undefined; i++) tick(w);
+  ok(w.crown!.regentId === undefined && w.kingId === child.id, 'the regency did not end with the king still crowned');
+});
+
+test('an ambitious lord may contest a grown heir\'s right: one of them is crowned, the other gone', () => {
+  let contested = 0;
+  for (let seed = 1; seed <= 12 && !contested; seed++) {
+    const w = world(seed);
+    const k = kingOf(w);
+    const heir = grown(w).find((n) => n.job !== 'noble' && n.job !== 'soldier')!;
+    heir.parentIds = [k.id];
+    heir.age = 30;
+    const rival = grown(w).find((n) => n !== heir && n.job === 'noble') ?? grown(w).find((n) => n !== heir && n.job !== 'soldier')!;
+    Object.assign(rival, { job: 'noble', traits: ['greedy'], gold: 900, loyalty: 10 });
+    kill(w, k, 'สิ้นพระชนม์');
+    tick(w);
+    if (!w.chronicle.some((e) => /^ศึกชิงบัลลังก์!/.test(e.text))) continue;
+    contested++;
+    ok(w.kingId === heir.id || w.kingId === rival.id, 'someone else took the throne');
+    const loser = w.kingId === heir.id ? rival : heir;
+    ok(!loser.alive, 'the loser of the war of succession is still in town');
+  }
+  ok(contested, 'no lord ever contested a grown heir');
+});
+
+test('an old ruler falls ill, and the illness ends in recovery or death', () => {
+  const w = world();
+  const k = kingOf(w);
+  k.age = 70;
+  w.day += (38 - (w.day % 30)) % 30; // the court's day of the month
+  for (let i = 0; i < 200 && w.crown!.ailing === undefined; i++) reignDay(w, { state: i * 7919 });
+  ok(w.crown!.ailing !== undefined, 'a king of seventy never fell ill');
+  for (let i = 0; i < 200 && w.crown!.ailing !== undefined && k.alive; i++) reignDay(w, { state: i * 104729 });
+  ok(w.crown!.ailing === undefined || !k.alive, 'the illness never ended');
+});
+
+// ---------- politics: each regime's own troubles ----------
+
+const toEventDay = (w: WorldState) => {
+  w.day += (46 - (w.day % 30)) % 30 || 30; // the regimes' day of the month
+};
+
+test('a junta under pressure promises elections, and when they fall due it keeps or breaks the promise', () => {
+  const w = world();
+  w.regime = 'junta';
+  const k = kingOf(w);
+  k.traits = ['kind'];
+  for (const n of grown(w)) n.loyalty = 25; // a sour town
+  for (let i = 0; i < 40 && w.crown!.promise === undefined; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.crown!.promise !== undefined, 'the general never promised to hand power back');
+  w.day = w.crown!.promise! - 1;
+  toEventDay(w);
+  regimeEventsDay(w, rngOf(w));
+  ok(w.regime === 'republic', `a kind general's promise came due and the town is a ${w.regime}`);
+});
+
+test('a vengeful general jails the readers who speak against them', () => {
+  const w = world();
+  w.regime = 'junta';
+  const k = kingOf(w);
+  k.traits = ['vengeful'];
+  w.crown!.promise = w.day + 9999; // already promised, so the month goes to the purge
+  for (const n of grown(w).filter((x) => x.job !== 'soldier' && !x.knight).slice(0, 8)) Object.assign(n, { lettered: true, loyalty: 10 });
+  for (const s of grown(w).filter((x) => x.job === 'soldier' || x.knight)) s.loyalty = 90; // no colonel stirs
+  let jailedNow = 0;
+  for (let i = 0; i < 60 && !jailedNow; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 104729 });
+    jailedNow = grown(w).filter((n) => jailed(w, n)).length;
+  }
+  ok(jailedNow >= 3, `${jailedNow} critics jailed`);
+});
+
+test('a losing, grasping republic leader may stuff the ballot boxes and keep the office', () => {
+  let rigged = false;
+  for (let seed = 1; seed <= 20 && !rigged; seed++) {
+    const w = world(seed);
+    w.regime = 'republic';
+    w.republic = { since: 0, elections: 1, nextVote: w.day + 3000 };
+    const k = kingOf(w);
+    Object.assign(k, { traits: ['greedy'], morality: -40, age: 40 });
+    for (const n of grown(w)) n.loyalty = 5; // everyone wants them out
+    w.techs = { ...(w.techs ?? {}), printing: 0 };
+    const won = election(w, rngOf(w), 'ทดสอบ');
+    rigged = won === k; // only stuffed boxes keep a leader everyone wants gone
+  }
+  ok(rigged, 'a hated, grasping leader never once kept the office');
+});
+
+test('the merchants\' council throws out a chairman a richer member outweighs', () => {
+  const w = world();
+  w.regime = 'oligarchy';
+  const k = kingOf(w);
+  k.gold = 100;
+  w.crown!.since = w.day - 800;
+  const rich = grown(w).find((n) => n.job === 'merchant') ?? grown(w)[0];
+  rich.job = 'merchant';
+  rich.gold = 2000;
+  for (let i = 0; i < 80 && w.kingId === k.id; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.kingId === rich.id && w.regime === 'oligarchy', 'the richer merchant did not take the chair');
+});
+
+// ---------- parties, parliaments, the commune ----------
+
+const toPartyDay = (w: WorldState) => {
+  w.day += (54 - (w.day % 30)) % 30 || 30; // the parties' day of the month
+};
+// A republic with its charter written and its house open, a few nobles at court.
+function republic(w: WorldState): void {
+  w.regime = 'republic';
+  w.republic = { since: w.day, elections: 1, nextVote: w.day + 3000 };
+  writeCharter(w, 'ทดสอบ');
+  w.parliament = { seats: 0, coalition: [], nextVote: w.day + 3000, elections: 0 };
+  const nobles = grown(w).filter((n) => n.job === 'noble');
+  for (const n of grown(w).filter((x) => x.job === 'farmer').slice(0, Math.max(0, 3 - nobles.length))) n.job = 'noble';
+}
+// Two parties set up by hand: the poor's and the merchants'.
+function twoParties(w: WorldState): { labour: Npc[]; trade: Npc[] } {
+  const folk = grown(w).filter((n) => n.inside === undefined && n.questId === undefined);
+  const labour = folk.slice(0, Math.ceil(folk.length * 0.7));
+  const trade = folk.slice(labour.length);
+  for (const n of labour) Object.assign(n, { gold: 0, job: n.job === 'merchant' ? 'farmer' : n.job });
+  for (const n of trade) Object.assign(n, { gold: 500, job: 'merchant' });
+  w.parties = [
+    { id: 9001, name: 'พรรคแรงงาน', ideology: 'labour', leaderId: labour[0].id, founded: 0, treasury: 0, seats: 0, mps: [] },
+    { id: 9002, name: 'พรรคการค้าเสรี', ideology: 'trade', leaderId: trade[0].id, founded: 0, treasury: 0, seats: 0, mps: [] },
+  ];
+  for (const n of labour) n.partyId = 9001;
+  for (const n of trade) n.partyId = 9002;
+  return { labour, trade };
+}
+
+test('a republic grows parties out of its guilds, movements and court, each with its own platform', () => {
+  const w = world();
+  republic(w);
+  for (let i = 0; i < 60 && (w.parties?.length ?? 0) < 3; i++) {
+    toPartyDay(w);
+    partiesDay(w, { state: i * 7919 + 1 });
+  }
+  const ps = w.parties ?? [];
+  ok(ps.length >= 3, `only ${ps.length} parties formed`);
+  ok(new Set(ps.map((p) => p.ideology)).size === ps.length, 'two parties formed for one platform');
+  ok(ps.every((p) => w.npcs.some((n) => n.id === p.leaderId && n.partyId === p.id)), 'a party has no leader among its members');
+  ok(ps.some((p) => w.npcs.filter((n) => n.alive && n.partyId === p.id).length >= 3), 'no party drew members');
+});
+
+test('a general election shares the seats by the vote, and the biggest side forms the government', () => {
+  const w = world();
+  republic(w);
+  const { labour } = twoParties(w);
+  const head = general(w, rngOf(w), 'ทดสอบ')!;
+  const [lab, tra] = w.parties!;
+  const house = w.parliament!;
+  ok(house.seats % 2 === 1 && lab.seats + tra.seats === house.seats, `seats don't add up: ${lab.seats}+${tra.seats} of ${house.seats}`);
+  ok(lab.seats > tra.seats, `the poor's party (most of the town) won fewer seats: ${lab.seats} vs ${tra.seats}`);
+  ok(house.coalition.includes(lab.id), 'the biggest party is not in government');
+  ok(head === labour[0] && w.kingId === head.id, 'the labour leader did not become the republic\'s leader');
+  ok(council(w).every((n) => lab.mps.includes(n.id) || tra.mps.includes(n.id)), 'the council is not the elected house');
+});
+
+test('a party government rules by its platform: never what it swore against, and pays for being forced to', () => {
+  const w = world();
+  republic(w);
+  twoParties(w);
+  const head = general(w, rngOf(w), 'ทดสอบ')!;
+  ok(rulingIdeology(w) === 'labour', `ruling by ${rulingIdeology(w)}`);
+  ok(forbids(w, 'curfew') && !forbids(w, 'subsidy'), 'the labour platform does not forbid a curfew');
+  ok(mind(w, head).includes('kind'), 'a labour government does not decide with a kind heart');
+  const before = w.npcs.filter((n) => n.alive && n.partyId === 9001).reduce((s, n) => s + (n.loyalty ?? 50), 0);
+  grant(w, 'curfew', head, rngOf(w), 'ฝูงชน');
+  ok(w.parties![0].broke === w.day, 'the broken promise was not recorded');
+  const after = w.npcs.filter((n) => n.alive && n.partyId === 9001).reduce((s, n) => s + (n.loyalty ?? 50), 0);
+  ok(after < before, 'the party\'s members did not mind the broken promise');
+});
+
+test('the opposition can bring down a minority government with no confidence, calling an early election', () => {
+  let fell = false;
+  for (let seed = 1; seed <= 8 && !fell; seed++) {
+    const w = world(seed);
+    republic(w);
+    twoParties(w);
+    general(w, rngOf(w), 'ทดสอบ');
+    const [lab, tra] = w.parties!;
+    // The government loses its majority: most of its seats go over to the opposition.
+    const moved = lab.mps.splice(0, Math.ceil(w.parliament!.seats / 2));
+    tra.mps.push(...moved);
+    for (const id of moved) w.npcs.find((n) => n.id === id)!.partyId = tra.id;
+    lab.seats = lab.mps.length;
+    tra.seats = tra.mps.length;
+    const pm = kingOf(w);
+    Object.assign(pm, { traits: ['kind'], morality: 50 });
+    for (let i = 0; i < 60 && !fell; i++) {
+      toPartyDay(w);
+      partiesDay(w, { state: seed * 31 + i * 7919 });
+      fell = w.republic!.nextVote <= w.day;
+    }
+  }
+  ok(fell, 'a government without a majority was never brought down');
+});
+
+test('with no parties a vote nobody wins outright goes to a second round, and the house is still elected', () => {
+  let runoff = false;
+  for (let seed = 1; seed <= 12; seed++) {
+    const w = world(seed);
+    republic(w);
+    w.parties = [];
+    const won = election(w, rngOf(w), 'ทดสอบ');
+    const res = w.republic!.last!.results;
+    const total = res.reduce((s, r) => s + r.votes, 0);
+    ok(won && res[0].id === won.id && res[0].votes * 2 >= total, `the winner holds ${res[0].votes} of ${total} votes`);
+    runoff ||= res.length === 2 && w.chronicle.some((e) => /รอบสอง/.test(e.text));
+    ok((w.parliament?.independents?.length ?? 0) >= 5, 'no independent house was elected');
+  }
+  ok(runoff, 'no election ever went to a second round');
+});
+
+test('a leader re-elected keeps the street\'s anger and their years in office', () => {
+  const w = world();
+  republic(w);
+  w.parties = [];
+  const k = kingOf(w);
+  w.crown!.since = w.day - 700;
+  w.crown!.unrest = 5;
+  for (const n of grown(w)) {
+    n.loyalty = 100;
+    setTie(w, n.id, k.id, 80);
+  }
+  const won = election(w, rngOf(w), 'ทดสอบ');
+  ok(won === k, 'a beloved leader lost');
+  ok(w.crown!.unrest === 5 && w.crown!.since === w.day - 700, `unrest ${w.crown!.unrest}, since ${w.crown!.since}`);
+});
+
+test('each regime has its own council: priests, trade-house heads, officers, the Party', () => {
+  const w = world();
+  w.regime = 'theocracy';
+  ok(council(w).length > 0 && council(w).every((n) => n.job === 'priest'), 'the theocracy\'s council is not its priests');
+  w.regime = 'junta';
+  ok(council(w).every((n) => n.job === 'soldier' || n.knight), 'the junta\'s council is not its officers');
+  w.regime = 'oligarchy';
+  const head = grown(w).find((n) => n.job === 'farmer')!;
+  w.guilds.push({ id: 8001, name: 'สมาคมการค้าทดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 100 });
+  ok(council(w).includes(head), 'a trade house\'s head does not sit on the merchants\' council');
+  w.regime = 'monarchy';
+  ok(council(w).every((n) => n.job === 'noble'), 'a plain crown\'s council is not its nobles');
+});
+
+test('the workers of a factory town who win their revolution abolish property and set up the Party', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const mv = w.movement!;
+  for (const n of grown(w).filter((x) => x.job !== 'noble' && x.job !== 'soldier' && !x.knight)) n.marcher = true;
+  for (const s of w.npcs.filter((n) => n.job === 'soldier' || n.knight)) s.loyalty = 0;
+  mv.cause = 'wealth';
+  (w.works ??= {}).factory = 0;
+  const leader = w.npcs.find((n) => n.id === mv.leaderId)!;
+  const rich = grown(w).filter((n) => n !== leader).sort((a, b) => b.gold - a.gold)[0];
+  rich.gold = 2000;
+  const noble = grown(w).find((n) => n.job === 'noble' && n !== leader);
+  const treasury = w.treasury;
+  revolution(w, mv, kingOf(w), leader, rngOf(w));
+  ok(w.regime === 'commune', `the town became a ${w.regime ?? 'monarchy'}`);
+  ok(rich.gold < 1000 && w.treasury > treasury, `the rich kept ${rich.gold}`);
+  ok(!noble || noble.job === 'farmer', 'a noble kept their estate');
+  ok(w.guilds.length === 0 && w.parties?.length === 1 && w.parties[0].leaderId === w.kingId, 'the Party is not the only party, led by the secretary');
+  ok(council(w).every((n) => n.partyId === w.parties![0].id), 'the politburo is not the Party');
+});
+
+test('under the commune, what piles up past a fair share is levied and the poor are rationed', () => {
+  const w = world();
+  const sec = kingOf(w);
+  proclaimCommune(w, sec, rngOf(w), 'ทดสอบ');
+  w.commune!.plan = w.day + 9999;
+  const fat = grown(w).find((n) => n !== sec)!;
+  const poor = grown(w).find((n) => n !== sec && n !== fat)!;
+  fat.gold = 1000;
+  fat.loyalty = 90; // not one to flee
+  poor.gold = 0;
+  w.treasury = 5000;
+  w.day += (56 - (w.day % 30)) % 30 || 30;
+  communeDay(w, rngOf(w));
+  ok(fat.gold < 1000, 'a fortune was left alone');
+  ok(poor.gold > 0, 'the poor got no ration');
+});
+
+test('a king who grants a parliament keeps the crown; the elected house makes the prime minister', () => {
+  const w = world();
+  angryTown(w);
+  toMeeting(w);
+  const k = kingOf(w);
+  const mv = w.movement!;
+  mv.cause = 'voice';
+  w.charter!.councilVeto = true;
+  w.charter!.freePress = true;
+  const said = concede(w, mv, k, rngOf(w));
+  ok(said && w.charter!.parliament, 'the king did not grant a parliament');
+  twoParties(w);
+  w.parliament!.nextVote = w.day;
+  toPartyDay(w);
+  partiesDay(w, rngOf(w));
+  ok(w.kingId === k.id && k.job === 'king', 'the king lost the crown to the election');
+  const pm = governor(w)!;
+  ok(pm !== k && pm.id === w.parliament!.pmId, 'no prime minister was chosen');
+});
+
+test('the merchants\' council weighs a trade house\'s chest, not only its head\'s purse', () => {
+  const w = world();
+  w.regime = 'oligarchy';
+  const k = kingOf(w);
+  k.gold = 200;
+  w.crown!.since = w.day - 800;
+  const head = grown(w).find((n) => n.job === 'farmer')!;
+  head.gold = 50; // poorer than the chairman in their own purse
+  w.guilds.push({ id: 8002, name: 'สมาคมการค้าทดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 3000 });
+  for (let i = 0; i < 80 && w.kingId === k.id; i++) {
+    toEventDay(w);
+    regimeEventsDay(w, { state: i * 7919 });
+  }
+  ok(w.kingId === head.id, 'the head of the rich trade house did not take the chair');
+});
+
+test('a party does not hoard: a chest past what a campaign needs flows back into the market', () => {
+  const w = world();
+  republic(w);
+  twoParties(w);
+  w.parties![1].treasury = 5000;
+  const till = ensureMarket(w).till;
+  for (let i = 0; i < 12; i++) {
+    toPartyDay(w);
+    partiesDay(w, { state: i * 7919 + 3 });
+  }
+  ok(w.parties![1].treasury < 1500, `the chest still holds ${w.parties![1].treasury}`);
+  ok(ensureMarket(w).till > till, 'the spending did not reach the market');
+});
+
+// ---------- loud and quiet news, affairs of state, sagas, raids ----------
+
+test('routine news is folded away, headlines are marked, and a long run of routine never pushes a headline out first', () => {
+  const w = world();
+  logLine(w, 'trade', 'พ่อค้าสมชายนำกองคาราวานไปค้าขายที่แคว้นหนึ่ง');
+  ok(w.chronicle.at(-1)!.minor && !w.chronicle.at(-1)!.major, 'a caravan setting out should be routine');
+  logLine(w, 'politics', 'กษัตริย์สมชายประกาศสงครามกับแคว้นหนึ่ง ทหารเตรียมเดินทัพ');
+  const war = w.chronicle.at(-1)!;
+  ok(war.major && !war.minor, 'a declaration of war should be a headline');
+  logLine(w, 'politics', 'ผู้ปกครองออกพระราชโองการใหม่');
+  ok(!w.chronicle.at(-1)!.minor && !w.chronicle.at(-1)!.major, 'ordinary news should be neither');
+  for (let i = 0; i < 700; i++) logLine(w, 'trade', `พ่อค้าคนที่ ${i} นำกองคาราวานไปค้าขายที่แคว้นหนึ่ง`);
+  ok(w.chronicle.length <= 500, 'the chronicle outgrew its limit');
+  ok(w.chronicle.includes(war), 'routine caravans pushed the war out of the chronicle');
+});
+
+// Every affair of state, each in a scene where it can come up: it must be raised, offer at
+// least two options, and every option must play out and say what came of it.
+function stage(w: WorldState): void {
+  republic(w);
+  const { labour, trade } = twoParties(w);
+  w.parliament!.coalition = [9001];
+  w.parties![0].seats = 5;
+  w.parties![0].mps = labour.slice(0, 5).map((n) => n.id);
+  w.parties![0].treasury = 500;
+  w.republic!.nextVote = w.day + 2000;
+  w.parliament!.nextVote = w.day + 2000;
+  for (const n of grown(w)) n.loyalty = 20; // a sullen town
+  w.treasury = 5000;
+  w.guilds.push({ id: 8101, name: 'บ้านการค้ามั่งมี', kind: 'merchants', leaderId: trade[0].id, founded: 0, renown: 0, treasury: 2000 });
+  w.guilds.push({ id: 8102, name: 'บ้านการค้าใกล้เจ๊ง', kind: 'merchants', leaderId: trade[1].id, founded: 0, renown: 0, treasury: 0, stock: { spice: 5 } });
+  trade[1].guildId = 8102;
+  trade[2].guildId = 8102;
+  w.day = Math.max(w.day, 400);
+  const c = churchOf(w);
+  c.purse = 1000;
+  const priests = grown(w).filter((n) => n.job === 'priest');
+  if (!priests.length) grown(w).find((n) => n.job === 'farmer')!.job = 'priest';
+  c.headId = grown(w).find((n) => n.job === 'priest')!.id;
+  const flock = grown(w).filter((n) => n.job === 'farmer').slice(0, 5);
+  for (const n of flock) n.creed = 'sect';
+  religionOf(w).sect = { name: 'นิกายทดสอบ', founded: 0, leaderId: flock[0].id, cause: 'reform' };
+  const hero = grown(w).find((n) => n.job === 'swordsman' || n.job === 'mage') ?? grown(w).find((n) => n.job === 'farmer')!;
+  Object.assign(hero, { job: 'swordsman', rank: 4, renown: 200, guildId: undefined, questId: undefined, inside: undefined });
+  for (const n of grown(w).filter((x) => x.job === 'farmer').slice(5, 8)) n.job = 'soldier';
+  // A royal child of age, and the realms as friends and foes.
+  const k = w.npcs.find((n) => n.id === w.kingId) ?? grown(w)[0];
+  w.kingId = k.id;
+  k.job = 'king';
+  const child = grown(w).find((n) => n !== k && n.spouseId === undefined && n.job === 'farmer' && n.questId === undefined)!;
+  Object.assign(child, { parentIds: [k.id], age: 20, inside: undefined });
+  const [friend, foe] = w.realms!;
+  Object.assign(friend, { relation: 30, war: false, wed: undefined, pact: undefined, fallen: false });
+  Object.assign(foe, { relation: -40, war: false, pact: undefined, fallen: false, truceUntil: 0 });
+  // One of our lands with a sullen village and its headman.
+  const r = (w.regions ?? []).find((x) => x.owner === 'us' && !x.seat) ?? w.regions![0];
+  r.owner = 'us';
+  const chief = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: r.id, partyId: undefined, guildId: undefined };
+  (w.villagers ??= []).push(chief);
+  r.village = { chiefId: chief.id, loyalty: 30, purse: 80 };
+}
+test('every affair of state comes up in its scene, offers a real choice, and every choice plays out', () => {
+  const kinds = ['scandal', 'dissolution', 'templeland', 'chapel', 'monopoly', 'failing', 'match', 'exile', 'warpact', 'homerule', 'bandits', 'knighthood'] as const;
+  const base = world(11);
+  stage(base);
+  ok(rankOf(base) >= TOWN_RANK, 'the test town should be a town');
+  for (const k of kinds) {
+    const probe = structuredClone(base);
+    const h = raise(probe, k, rngOf(probe));
+    ok(h, `${k} did not come up in its scene`);
+    ok(h!.options.length >= 2, `${k} offers only ${h!.options.length} option`);
+    for (const o of h!.options) {
+      const w = structuredClone(base);
+      raise(w, k, rngOf(w));
+      decide(w, rngOf(w), o.key);
+      const done = w.happenings!.at(-1)!;
+      ok(done.chosen === o.key && done.outcome, `${k}/${o.key} did not play out`);
+    }
+  }
+});
+
+test('the opposition can force an early election; a scandal denied costs the governing party at the polls', () => {
+  const w = world(11);
+  stage(w);
+  raise(w, 'dissolution', rngOf(w));
+  decide(w, rngOf(w), 'dissolve');
+  ok(w.republic!.nextVote <= w.day, 'dissolving the house did not call an election');
+  const x = world(11);
+  stage(x);
+  raise(x, 'scandal', rngOf(x));
+  decide(x, rngOf(x), 'deny');
+  ok(x.parties!.find((p) => p.id === 9001)!.broke === x.day, 'the denied scandal left no mark on the party');
+});
+
+test('a gold rush opened to all fills purses and brings strangers, then runs dry', () => {
+  const w = world(12);
+  w.day = Math.max(w.day, 400);
+  ok(beginSaga(w, 'goldrush', rngOf(w)), 'the gold rush did not begin');
+  ok(w.happening?.kind === 'goldrush', 'nobody was asked what to do with the gold');
+  decide(w, rngOf(w), 'open');
+  ok(modOf(w, 'arrivals') > 0, 'word of gold drew nobody');
+  const purse = w.npcs.reduce((s, n) => s + (n.alive ? n.gold : 0), 0);
+  for (let i = 0; i < 9 && w.saga; i++) {
+    w.day += 30 - (w.day % 30) + 14;
+    sagasDay(w, { state: 1000 + i });
+  }
+  ok(!w.saga, 'the gold rush never ended');
+  ok(w.npcs.reduce((s, n) => s + (n.alive ? n.gold : 0), 0) > purse, 'nobody found any gold');
+  ok(w.chronicle.some((e) => e.major && e.text.includes('สายแร่ทอง')), 'the end of the rush was not a headline');
+});
+
+test('a stolen royal child is held away from town until paid for, and comes home', () => {
+  const w = world(13);
+  w.day = Math.max(w.day, 400);
+  const k = w.npcs.find((n) => n.id === w.kingId)!;
+  const child = grown(w).find((n) => n !== k && n.questId === undefined)!;
+  Object.assign(child, { parentIds: [k.id], age: 12 });
+  w.treasury = 5000;
+  ok(beginSaga(w, 'ransom', rngOf(w)), 'nobody was taken');
+  const taken = w.npcs.find((n) => n.id === w.saga!.ctx)!;
+  ok(taken.inside === -1, 'the child is still walking about town');
+  run(w, 3);
+  ok(taken.inside === -1, 'the child wandered home from the bandit camp on their own');
+  decide(w, rngOf(w), 'pay');
+  w.day += 30 - (w.day % 30) + 14;
+  sagasDay(w, { state: 5 });
+  ok(taken.alive && taken.inside === undefined, 'the child did not come home after the ransom');
+  ok(!w.saga, 'the saga did not end');
+});
+
+test('a town sealed against the plague sends out no caravans, and the plague takes fewer', () => {
+  const deaths = (choice: string) => {
+    let dead = 0;
+    for (let s = 0; s < 6; s++) {
+      const w = world(20 + s);
+      w.day = Math.max(w.day, 400);
+      beginSaga(w, 'pestilence', rngOf(w));
+      decide(w, rngOf(w), choice);
+      const before = w.npcs.filter((n) => n.alive).length;
+      for (let i = 0; i < 5 && w.saga; i++) {
+        w.day += 30 - (w.day % 30) + 14;
+        sagasDay(w, { state: 77 + i * 13 + s });
+      }
+      dead += before - w.npcs.filter((n) => n.alive).length;
+      if (choice === 'close') ok(!w.saga && !w.sealed, 'the gates stayed shut after the plague');
+    }
+    return dead;
+  };
+  const closed = deaths('close');
+  const open = deaths('open');
+  ok(closed < open, `sealing the town did not save lives (${closed} dead sealed, ${open} open)`);
+  const w = world(30);
+  w.sealed = w.day + 100;
+  const m = ensureMarket(w);
+  m.stock.wool = 9999;
+  m.caravan = undefined;
+  run(w, 20);
+  ok(!m.caravan || m.caravan.grain > 0, 'a caravan went out of a sealed town with goods to sell');
+});
+
+test('a neighbour whose tribute we refused comes for it: a raid on a village, a war on a town', () => {
+  let raided = 0;
+  const base = world(40);
+  base.day = 30 * 40 + 20;
+  base.war = undefined;
+  for (let s = 0; s < 300 && !raided; s++) {
+    const w = structuredClone(base);
+    const r = w.realms![0];
+    Object.assign(r, { spurned: w.day - 10, pact: undefined, fallen: false, truceUntil: 0, raided: undefined });
+    warDay(w, { state: s * 31 + 7 });
+    if (w.war || w.chronicle.some((e) => e.text.includes('กองโจรม้า'))) raided++;
+  }
+  ok(raided, 'no spurned neighbour ever came for its tribute');
+  const v = world(41);
+  v.founded = 0;
+  v.day = 30 * 40 + 20;
+  const r = v.realms![0];
+  Object.assign(r, { spurned: v.day - 10, pact: undefined, fallen: false, truceUntil: 0 });
+  raidRealm(v, r, { state: 9 });
+  ok(v.chronicle.some((e) => e.major && e.text.includes('กองโจรม้า')), 'the raid was not a headline');
+  ok(!v.war, 'a raid should not start a war');
+});
+
+// ---------- the steam age: mills, hands, engines on the farms ----------
+
+const steamTown = (seed = 7) => {
+  const w = world(seed);
+  for (const t of TECH_ORDER) (w.techs ??= {})[t] = 0;
+  return w;
+};
+const toMillDay = (w: WorldState) => {
+  w.day += ((18 - (w.day % 30)) + 30) % 30 || 30;
+};
+
+test('before steam the market knows nothing of the steam age, and nobody builds a mill', () => {
+  const w = world();
+  ok(!goodsOf(w).includes('coal'), 'coal is on the shelves before steam');
+  w.guilds.push({ id: 8201, name: 'บ้านการค้ารวย', kind: 'merchants', leaderId: grown(w)[0].id, founded: 0, renown: 0, treasury: 9000 });
+  for (let i = 0; i < 3; i++) {
+    toMillDay(w);
+    industryDay(w, { state: i + 1 });
+  }
+  ok(!(w.mills ?? []).length, 'a mill went up before anyone knew steam');
+});
+
+test('a rich trade house builds a mill once steam is known; it hires spare hands, never the farms the town needs, and turns inputs into goods', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.meat = 200;
+  m.stock.coal = 100;
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8202, name: 'บริษัททดสอบ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 9000 });
+  const mill = foundMill(w, 8202, 'cannery')!;
+  ok(mill && mill.owner === 8202, 'the house built no mill');
+  const farmers = () => grown(w).filter((n) => n.job === 'farmer').length;
+  const before = farmers();
+  const lean = before <= grown(w).length * 0.3 + 1; // a town with no farmers to spare
+  for (let i = 0; i < 6; i++) {
+    toMillDay(w);
+    industryDay(w, { state: 50 + i });
+  }
+  const hands = handsOf(w, mill);
+  ok(hands.length >= 2, `only ${hands.length} hands at the mill`);
+  ok(!lean || farmers() >= before, `the mills took farmers from a town with none to spare (${before} → ${farmers()})`);
+  ok((mill.made ?? 0) > 0 && m.stock.tins > 0, 'the cannery made no tins');
+  ok(hands.every((n) => n.gold >= 10), 'the hands were not paid');
+});
+
+test('a mill that cannot pay its hands sends them back to the fields', () => {
+  const w = steamTown();
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8203, name: 'บริษัทจน', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 0 });
+  const mill = foundMill(w, 8203, 'textile')!;
+  mill.ready = w.day;
+  const hand = grown(w).find((n) => n.job === 'herder')!;
+  Object.assign(hand, { job: 'worker', millId: mill.id });
+  toMillDay(w);
+  industryDay(w, { state: 9 });
+  ok(hand.job === 'farmer' && hand.millId === undefined, 'the unpaid hand stayed at the mill');
+});
+
+test('engines go out to the farms and a mechanised field yields more grain', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.engine = 40;
+  for (const n of grown(w).filter((x) => x.job === 'farmer')) n.gold = 5000;
+  toMillDay(w);
+  industryDay(w, { state: 3 });
+  ok((w.mech ?? 0) >= 0.99, `the farms are ${Math.round((w.mech ?? 0) * 100)}% mechanised`);
+  const yieldOn = (mech: number) => {
+    const x = structuredClone(w);
+    x.mech = mech;
+    const farmer = x.npcs.find((n) => n.alive && n.job === 'farmer')!;
+    const before = ensureMarket(x).stock.grain;
+    for (let i = 0; i < 200; i++) harvest(x, farmer, { state: 1000 + i });
+    return ensureMarket(x).stock.grain - before;
+  };
+  ok(yieldOn(1) > yieldOn(0) * 1.15, 'engines did not raise the harvest');
+});
+
+test('in a dearth the town eats from the cannery tins', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  m.stock.grain = 0;
+  m.stock.meat = 0;
+  m.stock.tins = 500;
+  for (const n of w.npcs) n.gold = 100;
+  run(w, 12);
+  ok(m.stock.tins < 500, 'nobody ate the tins');
+  ok(!w.npcs.some((n) => n.alive && (n.hunger ?? 0) >= 2), 'people went hungry beside a store of tins');
+});
+
+test('our mines out on the lands send coal (hills) and mana crystal (peaks) to the mills', () => {
+  const w = steamTown();
+  const m = ensureMarket(w);
+  const hills = (w.regions ?? []).find((r) => r.kind === 'hills' || r.kind === 'peaks')!;
+  ok(hills, 'no hills or peaks on the map');
+  hills.owner = 'us';
+  hills.dev = { mine: 2 };
+  const chief = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: hills.id, job: 'farmer' as const };
+  (w.villagers ??= []).push(chief, { ...chief, id: w.nextId++ }, { ...chief, id: w.nextId++ });
+  hills.village = { chiefId: chief.id, loyalty: 80, purse: 0 };
+  const coal = m.stock.coal;
+  const crystal = m.stock.crystal;
+  toMillDay(w);
+  industryDay(w, { state: 4 });
+  ok(m.stock.coal > coal || m.stock.crystal > crystal, 'the mine sent nothing');
+});
+
+// ---------- the steam age's troubles: unions, the factory acts, smog, machine-breakers ----------
+
+// A steam town with a running mill full of hands, owned by a rich house.
+function millTown(seed = 7) {
+  const w = steamTown(seed);
+  const m = ensureMarket(w);
+  Object.assign(m.stock, { meat: 400, coal: 300, wool: 200, ore: 200, steel: 50, crystal: 30 });
+  const head = grown(w).find((n) => n.job === 'merchant')!;
+  w.guilds.push({ id: 8301, name: 'บริษัทไอน้ำ', kind: 'merchants', leaderId: head.id, founded: 0, renown: 0, treasury: 20000 });
+  const mills = [foundMill(w, 8301, 'cannery')!, foundMill(w, 8301, 'textile')!];
+  for (const mill of mills) mill.ready = w.day;
+  const hands = grown(w).filter((n) => n.job !== 'king' && n.job !== 'merchant' && n.questId === undefined && n.partyId === undefined).slice(0, 8);
+  hands.forEach((n, i) => Object.assign(n, { job: 'worker', millId: mills[i % 2].id, guildId: undefined }));
+  return { w, mills, hands, head };
+}
+
+test('enough mill hands form a union, and the coal smoke makes the town sicker', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  ok(w.union, 'eight hands formed no union');
+  ok((w.smog ?? 0) > 0 && modOf(w, 'sickness') > 0, `no smog (${w.smog}) or no sickness from it`);
+});
+
+test('a strike won raises every hand wage; the factory acts raise it again for a shorter shift', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  const base = wageOf(w);
+  w.market!.level = 1.5;
+  ok(raise(w, 'millstrike', rngOf(w)), 'the strike did not come up');
+  decide(w, rngOf(w), 'raise');
+  ok(wageOf(w) > base, 'the strike won no raise');
+  const raised = wageOf(w);
+  ok(raise(w, 'factoryact', rngOf(w)), 'the factory act was not put forward');
+  decide(w, rngOf(w), 'pass');
+  ok(w.charter!.labour === 'protected' && wageOf(w) > raised, 'the factory act changed nothing');
+});
+
+test('every steam-age trouble comes up in its scene and every choice plays out', () => {
+  const { w } = millTown();
+  toMillDay(w);
+  industryDay(w, { state: 5 });
+  w.market!.level = 1.5;
+  const hill = (w.regions ?? []).find((r) => r.kind === 'hills' || r.kind === 'peaks')!;
+  hill.owner = 'us';
+  hill.dev = { mine: 2 };
+  const v = { ...structuredClone(grown(w)[1]), id: w.nextId++, regionId: hill.id, job: 'farmer' as const };
+  (w.villagers ??= []).push(v, { ...v, id: w.nextId++ }, { ...v, id: w.nextId++ });
+  hill.village = { chiefId: v.id, loyalty: 60, purse: 0 };
+  w.treasury = 5000;
+  const noble = grown(w).find((n) => n.job === 'noble') ?? grown(w).find((n) => n.job === 'farmer')!;
+  Object.assign(noble, { job: 'noble', gold: 5 });
+  for (let i = 0; i < 6; i++) grown(w).filter((n) => n.job === 'farmer')[i] && (grown(w).filter((n) => n.job === 'farmer')[i].job = 'soldier');
+  for (const k of ['millfire', 'millstrike', 'factoryact', 'minecollapse', 'estatesale'] as const) {
+    const probe = structuredClone(w);
+    const h = raise(probe, k, rngOf(probe));
+    ok(h, `${k} did not come up in its scene`);
+    for (const o of h!.options) {
+      const x = structuredClone(w);
+      raise(x, k, rngOf(x));
+      decide(x, rngOf(x), o.key);
+      ok(x.happenings!.at(-1)!.outcome, `${k}/${o.key} did not play out`);
+    }
+  }
+});
+
+test('when engines take the farmhands work, the machine-breakers smash them until the crown answers', () => {
+  const w = steamTown();
+  w.day = Math.max(w.day, 400);
+  w.machinery = 20;
+  w.mech = 1;
+  ok(beginSaga(w, 'luddites', rngOf(w)), 'the machine-breakers never rose');
+  ok(w.machinery < 20, 'the first night broke nothing');
+  decide(w, rngOf(w), 'ignore');
+  const after = w.machinery;
+  w.day += 30 - (w.day % 30) + 14;
+  sagasDay(w, { state: 3 });
+  ok(w.machinery < after, 'left alone they stopped breaking machines');
+  const x = steamTown();
+  x.day = Math.max(x.day, 400);
+  Object.assign(x, { machinery: 20, mech: 1 });
+  beginSaga(x, 'luddites', rngOf(x));
+  decide(x, rngOf(x), 'hang');
+  x.day += 30 - (x.day % 30) + 14;
+  sagasDay(x, { state: 3 });
+  ok(!x.saga, 'hanging the ringleaders did not end it');
+});
+
+// ---------- the steam age on the map ----------
+
+test('mills stand on their plots with a reachable gate, the station brings the railway, steam lights the lamps, the boulevard takes the walls', () => {
+  const w = steamTown();
+  const before = townLayout(w);
+  ok(before.props.some((p) => p.key === 'lamp'), 'no gas lamps in a town that knows steam');
+  ok(before.props.some((p) => p.key === 'town-wall'), 'the walls are missing before the boulevard');
+  ok(placeBuilding(w, 'station'), 'nowhere for the station');
+  for (let i = 0; i < 6; i++) {
+    const plot = millSite(w);
+    ok(plot >= 0, `no ground for mill ${i}`);
+    (w.mills ??= []).push({ id: 9900 + i, kind: 'textile', name: 'x', plot, owner: 'crown', since: 0, ready: 0 });
+    w.buildRev = (w.buildRev ?? 0) + 1;
+  }
+  w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  const after = townLayout(w);
+  ok(after !== before, 'the layout did not change when mills, the railway and the boulevard came');
+  for (const m of w.mills!) {
+    const p = lotXY(m.plot);
+    ok(after.cost[p.y * MAP_W + p.x] === 0, `the mill at ${p.x},${p.y} is not built on`);
+    const gate = millDoor(m.plot);
+    ok(after.cost[gate.y * MAP_W + gate.x] > 0, `nobody can reach the gate of the mill at ${p.x},${p.y}`);
+  }
+  ok(after.props.filter((p) => p.key === 'rail').length >= 10, 'the railway is missing');
+  ok(!after.props.some((p) => p.key === 'town-wall' || p.key === 'gate-tower'), 'the walls still stand behind the boulevard');
 });

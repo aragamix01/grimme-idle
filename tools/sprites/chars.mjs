@@ -431,6 +431,8 @@ const ENGINEER_CAP = [
   '..yyyyyyyyyyyy..',
   '.yyyyyyyyyyyyyy.',
 ];
+const FLAT_CAP = ['................', '................', '................', '....HHHHHHHH....', '...HHHHHHHHHH...', '..HHHHHHHHHHHHH.'];
+const SHOVEL = ['..X.............', '.XXX............', '.XXX............', '..M.............', '..M.............', '..M.............', '..M.............', '..M.............', '..M.............', '..M.............'];
 const RULE = ['..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............', '..n.............', '..M.............', '..n.............'];
 
 // The elected leader: a laurel wreath, a blue sash across a cream robe, the charter in hand.
@@ -595,9 +597,18 @@ const JOBS = {
     slots: { 1: 'N', 2: 'M', 3: 'b', 4: 'M', 5: 'h' },
     layers: [[HAIR_SHORT], [ENGINEER_CAP], [RULE, 0, 7]],
   },
+  // A mill hand: grey shirt and braces under a flat cap, a coal shovel over the shoulder.
+  worker: {
+    slots: { 1: 'x', 2: 'M', 3: 'H', 4: 'k', 5: 'H' },
+    layers: [[HAIR_SHORT], [FLAT_CAP], [SHOVEL, 0, 7]],
+  },
   consul: {
     slots: { 1: 'c', 2: 'b', 3: 'c', 4: 'N', 5: 'h' },
     layers: [[HAIR_SHORT], [LAUREL], [SASH, 0, 13], [CHARTER, 0, 13]],
+  },
+  secretary: {
+    slots: { 1: 'r', 2: 'k', 3: 'r', 4: 'k', 5: 'h' },
+    layers: [[HAIR_SHORT], [WATCH_CAP.map((r) => r.replaceAll('B', 'k'))], [['.......yy.......'], 0, 4], [BOOK, 0, 13]],
   },
   pontiff: {
     slots: { 1: 'r', 2: 'y', 3: 'r', 4: 'y', 5: 'z' },

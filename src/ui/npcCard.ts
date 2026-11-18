@@ -1,4 +1,4 @@
-import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, schoolSpot, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, schoolSpot, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, partyOf, IDEOLOGY_TH, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -92,6 +92,7 @@ const WORK_TH: Partial<Record<Job, string>> = {
   scholar: 'ค้นคว้าตำราอยู่',
   alchemist: 'ปรุงยาอยู่หลังร้านค้า',
   engineer: 'คุมงานก่อสร้าง',
+  worker: 'ทำงานในโรงงาน',
   builder: 'สร้างบ้านที่พังขึ้นใหม่',
   doctor: 'ตรวจรักษาผู้ป่วย',
   watchman: 'ลาดตระเวนจับคนร้าย',
@@ -144,6 +145,8 @@ function activity(world: WorldState, npc: Npc): string {
       return 'ไปซื้ออาวุธที่ร้านค้า';
     case 'pray':
       return 'ไปไหว้เทพเจ้าที่โบสถ์ในวันพระ';
+    case 'protest':
+      return 'ไปชุมนุมหน้าวัง';
     case 'ritual':
       return 'แอบไปร่วมพิธีมืดที่ดันเจี้ยน';
     case 'caravan':
@@ -242,6 +245,8 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
     ...(npc.hero ? [el('span', { className: 'chip chip--hero', textContent: 'ผู้กล้า' })] : []),
     ...(npc.knight ? [el('span', { className: 'chip chip--gold', textContent: 'อัศวิน' })] : []),
     ...(npc.prophet ? [el('span', { className: 'chip chip--gold', textContent: 'ศาสดา' })] : []),
+    ...(partyOf(world, npc) ? [partyChip(world, npc)] : []),
+    ...(npc.marcher && world.movement ? [el('span', { className: 'chip chip--danger', textContent: world.movement.leaderId === npc.id ? `แกนนำ${world.movement.name}` : world.movement.name })] : []),
     ...(npc.cultist ? [el('span', { className: 'chip chip--cult', textContent: 'สาวกลัทธิมาร' })] : []),
     ...(isAvatar(world, npc) ? [el('span', { className: 'chip chip--hero', textContent: 'คุณ' })] : []),
     ...(npc.alive && jailed(world, npc) ? [el('span', { className: 'chip chip--curse', textContent: `ติดคุก (${npc.jailedUntil! - day} วัน)` })] : []),
@@ -395,4 +400,11 @@ function powers(npc: Npc, world: WorldState, heroCall: boolean): HTMLElement {
     wrap.append(el('div', { className: 'dream-pick' }, el('span', { textContent: 'ให้ฝันว่าเป็น' }), ...jobs));
   }
   return wrap;
+}
+
+// The party they belong to, and whether they lead it or sit for it.
+function partyChip(world: WorldState, n: Npc): HTMLElement {
+  const p = partyOf(world, n)!;
+  const role = p.leaderId === n.id ? 'หัวหน้า' : p.mps.includes(n.id) ? 'ส.ส. ' : 'สมาชิก';
+  return el('span', { className: `chip party-chip party--${p.ideology}`, title: IDEOLOGY_TH[p.ideology].text, textContent: `${role}${p.name}` });
 }

@@ -166,6 +166,7 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
     ['power', 'threat', '#kingdom'],
     ['power', 'overview', '#kingdom'],
     ['economy', 'houses', '#market'],
+    ['economy', 'industry', '#market'],
     ['economy', 'works', '#kingdom'],
     ['economy', 'research', '#kingdom'],
     ['economy', 'market', '#market'],
@@ -685,6 +686,108 @@ test('the church and a sect on the religion tab: the god embraces the sect, and 
   await pageStill(page);
 });
 
+test('a movement on the power tab: its ladder, the god hearten the crowd, a member\'s card names it; the map still answers', async ({ page }) => {
+  // Seed a movement already out on the street: stop the sim, write it into the save, and reload.
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const folk = w.npcs.filter((n: any) => n.alive && n.age >= 16 && !['king', 'noble', 'soldier'].includes(n.job) && !n.knight).slice(0, 14);
+    for (const n of folk) n.marcher = true;
+    w.movement = { name: 'กลุ่มต้านภาษี', cause: 'tax', founded: w.day, leaderId: folk[0].id, stage: 2, anger: 50, martyrs: 0, members: folk.length, defectors: 0, rally: w.day + 30 };
+    w.faith = 200;
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.movement);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  // The urgent tab carries it, and takes us to it.
+  await section(page, 'town');
+  await sub(page, 'urgent');
+  const urgent = page.locator('#urgent').getByText('กลุ่มต้านภาษี · เดินขบวน');
+  await expect(urgent).toBeVisible();
+  await section(page, 'power');
+  await sub(page, 'overview');
+  const mv = page.locator('#kingdom .movement__card');
+  await expect(mv).toContainText('กลุ่มต้านภาษี');
+  await expect(mv).toContainText('เรียกร้องลดภาษี');
+  await expect(mv.locator('.movement__step--now')).toHaveText('เดินขบวน');
+  const anger = await page.evaluate(() => (window as any).__grimm.scene.world.movement.anger);
+  await mv.locator('[data-act="stir"]').tap();
+  await page.waitForFunction((a) => (window as any).__grimm.scene.world.movement?.anger > a, anger);
+  expect(await page.evaluate(() => (window as any).__grimm.scene.world.chronicle.at(-1).text)).toContain('แสงศักดิ์สิทธิ์');
+  // The leader's chip opens their card, which names the movement.
+  await mv.locator('.quest__party .chip--button').first().tap();
+  await expect(card(page).locator('.chip--danger')).toContainText('แกนนำกลุ่มต้านภาษี');
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('a republic\'s house on the council tab: its seats by party, each platform, a member\'s card names the party; the map still answers', async ({ page }) => {
+  // Seed a republic with an elected house: stop the sim, write it into the save, and reload.
+  await page.evaluate(async () => {
+    const g = (window as any).__grimm;
+    g.worker.terminate();
+    const w = structuredClone(g.scene.world);
+    const folk = w.npcs.filter((n: any) => n.alive && n.age >= 20 && n.job !== 'king' && n.inside === undefined);
+    const party = (id: number, name: string, ideology: string, seats: number, from: number) => ({ id, name, ideology, leaderId: folk[from].id, founded: w.day, treasury: 50, seats, mps: folk.slice(from, from + seats).map((n: any) => n.id) });
+    w.parties = [party(9001, 'พรรคแรงงาน', 'labour', 5, 0), party(9002, 'พรรคการค้าเสรี', 'trade', 3, 10), party(9003, 'พรรคธรรมะ', 'faith', 1, 20)];
+    for (const p of w.parties) for (const id of p.mps) w.npcs.find((n: any) => n.id === id).partyId = p.id;
+    w.regime = 'republic';
+    w.republic = { since: w.day, elections: 1, nextVote: w.day + 900 };
+    w.charter = { ...w.charter, termYears: 3, termLimit: 2, franchise: 'all', parliament: true, parties: 'free' };
+    const head = folk[0];
+    head.formerJob = head.job;
+    head.job = 'king';
+    const old = w.npcs.find((n: any) => n.id === w.kingId);
+    old.job = 'noble';
+    w.kingId = head.id;
+    w.parliament = { seats: 9, coalition: [9001], nextVote: w.day + 900, elections: 1, last: { day: w.day, results: [{ partyId: 9001, name: 'พรรคแรงงาน', votes: 40, seats: 5 }, { partyId: 9002, name: 'พรรคการค้าเสรี', votes: 25, seats: 3 }, { partyId: 9003, name: 'พรรคธรรมะ', votes: 9, seats: 1 }] } };
+    await new Promise<void>((done, fail) => {
+      const req = indexedDB.open('grimm-idle', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onerror = () => fail(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put({ world: w, savedAt: Date.now() }, 'world');
+        tx.oncomplete = () => done();
+        tx.onerror = () => fail(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.world?.parliament);
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await section(page, 'power');
+  await sub(page, 'council');
+  const house = page.locator('#kingdom [data-group="council"]').first();
+  await expect(house.locator('.hemicycle circle')).toHaveCount(9);
+  await expect(house.locator('.hemicycle .party--labour')).toHaveCount(5);
+  await expect(house).toContainText('รัฐบาล 5 · ฝ่ายค้าน 4 จาก 9 ที่นั่ง');
+  const labour = house.locator('.party-row').filter({ hasText: 'พรรคแรงงาน' });
+  await expect(labour).toContainText('สังคมนิยม');
+  await expect(labour).toContainText('รัฐบาล');
+  // The leader's chip opens their card, which names their party.
+  await labour.locator('.chip--button').first().tap();
+  await expect(card(page).locator('.party-chip')).toContainText('หัวหน้าพรรคแรงงาน');
+  await closeCard(page);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('a missionary goes to a neighbouring realm; the realm card tells its faith; the map still answers', async ({ page }) => {
   await section(page, 'power');
   await sub(page, 'faith');
@@ -814,6 +917,106 @@ test('a new game starts as a pioneers\' camp; the works tab says what the town w
   await sub(page, 'works');
   await expect(page.locator('#kingdom')).toContainText('การก่อตั้งค่ายผู้บุกเบิก');
   await expect(page.locator('#kingdom')).toContainText('บ้านเรือน');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('the town chronicle folds its routine away and a headline crosses the map without taking taps', async ({ page }) => {
+  // A comet about to pass: its last month falls ten days on, and its end is a headline.
+  await reloadInto(
+    page,
+    `w.day = Math.max(400, w.day) - (Math.max(400, w.day) % 30) + 4;
+     w.saga = { kind: 'comet', stage: 3, since: w.day - 90, choice: 'good' };
+     w.happening = undefined;
+     w.chronicle.push({ seq: ++w.chronicleSeq, day: w.day, kind: 'trade', text: 'พ่อค้าทดสอบนำกองคาราวานไปค้าขายที่แคว้นทดสอบ', minor: true });`,
+  );
+  await page.locator('#speed button[data-speed="3"]').tap();
+  const banner = page.locator('#headline');
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+  await expect(banner).toContainText('ดาวหาง');
+  await expect(banner).toHaveCSS('pointer-events', 'none');
+  await page.locator('#speed button[data-speed="0"]').tap();
+  await sub(page, 'all');
+  const fold = page.locator('#feed .feed-fold');
+  await expect(fold).toContainText('แสดงเรื่องทั่วไป');
+  await expect(page.locator('#feed')).not.toContainText('พ่อค้าทดสอบ');
+  await expect(page.locator('#feed .entry--major').first()).toContainText('ดาวหาง');
+  await fold.tap();
+  await expect(page.locator('#feed')).toContainText('พ่อค้าทดสอบ');
+  await page.locator('#feed .feed-fold').tap();
+  await expect(page.locator('#feed')).not.toContainText('พ่อค้าทดสอบ');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('the steam age on the economy tab: mills with their owners and hands, the new goods, the map still answers', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
+     const house = w.guilds.find((g) => g.kind === 'merchants');
+     w.mills = [{ id: 9701, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: house ? house.id : 'crown', since: w.day - 90, ready: w.day - 30, made: 15 },
+                { id: 9702, kind: 'cannery', name: 'โรงงานอาหารกระป๋อง', plot: 1, owner: 'crown', since: w.day - 10, ready: w.day + 50 }];
+     const hand = w.npcs.find((n) => n.alive && n.age >= 20 && n.job === 'herder');
+     if (hand) { hand.job = 'worker'; hand.millId = 9701; }
+     w.machinery = 3; w.mech = 0.5;
+     Object.assign(w.market.stock, { coal: 40, crystal: 5, steel: 3, engine: 1, tins: 20 });
+     Object.assign(w.market.price, { coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5 });`,
+  );
+  await section(page, 'economy');
+  await sub(page, 'industry');
+  const panel = page.locator('#market');
+  await expect(panel.locator('[data-group="industry"]').first()).toBeVisible();
+  await expect(panel).toContainText('โรงทอผ้า');
+  await expect(panel).toContainText('กำลังก่อสร้าง');
+  await expect(panel).toContainText('กรรมกร 1 คน');
+  await expect(panel).toContainText('50%');
+  await expect(panel).toContainText('ยังไม่มีสหภาพ');
+  await expect(panel).toContainText('ควันถ่านหิน');
+  await sub(page, 'market');
+  await expect(panel.locator('.good__name').filter({ hasText: 'ถ่านหิน' })).toBeVisible();
+  await expect(panel.locator('.good__name').filter({ hasText: 'เครื่องจักรเวท' })).toBeVisible();
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('an industrial town on the map: mills with smoke, the railway and its train, no walls; townsfolk still answer a tap', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
+     w.mills = [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: 'crown', since: 0, ready: 0, made: 10 },
+                { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', plot: 1, owner: 'crown', since: 0, ready: 0, made: 10 },
+                { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', plot: 3, owner: 'crown', since: 0, ready: w.day + 90 }];
+     w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
+     w.smog = 0.5;`,
+  );
+  const kinds = await page.evaluate(() => (window as any).__grimm.scene.children.list.map((o: any) => o.texture?.key).filter(Boolean));
+  for (const k of ['mill-textile', 'mill-steel', 'rail', 'train', 'lamp']) expect(kinds).toContain(k);
+  expect(kinds).not.toContain('town-wall');
+  await tapNpc(page);
+  await closeCard(page);
+  await mapTool(page, '#zoom');
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
+test('the age of electricity on the map: the power station, electric street lamps and a tram; the map still answers', async ({ page }) => {
+  await reloadInto(
+    page,
+    `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway','electricity','telegraph','lightbulb','tram']) (w.techs ??= {})[t] = 0;
+     w.works = { ...(w.works ?? {}), powerplant: 0 };
+     w.power = true;
+     w.market.stock.crystal = 50;`,
+  );
+  const kinds = await page.evaluate(() => (window as any).__grimm.scene.children.list.map((o: any) => o.texture?.key).filter(Boolean));
+  for (const k of ['powerplant', 'elamp', 'tram']) expect(kinds).toContain(k);
+  expect(kinds).not.toContain('lamp');
+  await section(page, 'economy');
+  await sub(page, 'industry');
+  await expect(page.locator('#market')).toContainText('มีไฟ');
   await tapNpc(page);
   await closeCard(page);
   await pageStill(page);

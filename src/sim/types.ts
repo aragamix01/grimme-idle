@@ -15,6 +15,7 @@ export type Job =
   | 'scholar'
   | 'alchemist'
   | 'engineer'
+  | 'worker'
   | 'builder'
   | 'doctor'
   | 'watchman'
@@ -58,6 +59,7 @@ export interface Npc {
   renown?: number; // earned from finished quests; drives rank-ups
   questId?: number; // quest this NPC is signed up for
   guildId?: number; // guild this NPC belongs to
+  millId?: number; // workers: the mill they work at (see industry.ts)
   spouseId?: number; // kept after the spouse dies, so the card can remember them
   parentIds?: number[]; // set for NPCs born in town
   retired?: boolean; // elders who have hung up their sword
@@ -83,6 +85,8 @@ export interface Npc {
   creed?: Creed; // what they believe in; missing until the religion first counts them (see religion.ts)
   piety?: number; // 0..100: how much their belief rules their days
   prophet?: boolean; // proclaimed a commandment the god sent them in a dream
+  marcher?: boolean; // a member of the town's movement against the ruler (see movements.ts)
+  partyId?: number; // the political party they belong to (see parties.ts)
 }
 
 // What a soul believes in: the god the player is, the old spirits of the land and the ancestors,
@@ -116,7 +120,7 @@ export interface Religion {
 export const AWAY = -1; // `inside` value for NPCs off the edge of the map (escort trips)
 
 // Every action happens at a place: the NPC walks there first, then acts.
-export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray' | 'mission';
+export type PlanKind = 'idle' | 'work' | 'adventure' | 'delve' | 'return' | 'steal' | 'flee' | 'arrive' | 'buy' | 'ritual' | 'caravan' | 'haul' | 'crusade' | 'pray' | 'mission' | 'protest';
 
 export interface Plan {
   kind: PlanKind;
@@ -145,13 +149,44 @@ export interface Charter {
   provinces?: boolean; // the provincial charter: villages keep a fair share and choose their own headmen
   guilds?: 'free' | 'taxed' | 'banned'; // whether people may band together in guilds; missing means free
   economy?: 'free' | 'guided'; // free trade (no tariffs or price caps) or a guided market; missing means the ruler decides
+  parliament?: boolean; // an elected house of parties: the republic's legislature, or a crown made constitutional
+  parties?: 'free' | 'one' | 'banned'; // whether people may found parties; missing means free
+  property?: 'private' | 'common'; // whether fortunes are one's own or the commune's; missing means private
+  labour?: 'free' | 'protected'; // the factory acts: a shorter shift and a fair wage for the mills' hands; missing means free
   written: number; // day this charter was written
   amendments: { day: number; text: string }[];
 }
-export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta';
-export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe';
+export type Regime = 'monarchy' | 'republic' | 'theocracy' | 'oligarchy' | 'junta' | 'commune';
+// What a party stands for (see parties.ts): the merchants' free market, the nation's arms, the
+// workers' bread, the faith's law, the old order's crown and estates.
+export type Ideology = 'trade' | 'nation' | 'labour' | 'faith' | 'old';
+export interface Party {
+  id: number;
+  name: string;
+  ideology: Ideology;
+  leaderId: number;
+  founded: number; // day
+  treasury: number; // dues and donations: spent on campaigns, and on bribes
+  from?: string; // what it grew out of, for the record
+  seats: number; // seats it holds in the parliament
+  mps: number[]; // who sits in them
+  broke?: number; // day its government last broke a promise of its platform
+}
+// The elected legislature (see parties.ts): under a republic its majority makes the leader; under
+// a constitutional monarchy it makes the prime minister and the king reigns without ruling.
+export interface Parliament {
+  seats: number; // seats in the house
+  coalition: number[]; // the parties in government
+  nextVote: number; // day of the next general election
+  elections: number;
+  pmId?: number; // the prime minister (a constitutional monarchy's head of government)
+  independents?: number[]; // members who sit for no party, elected while the town has fewer than two
+  sweep?: number; // elections in a row one party has held two thirds of the house
+  last?: { day: number; results: { partyId: number; name: string; votes: number; seats: number }[]; runoff?: boolean };
+}
+export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe' | 'electricity' | 'telegraph' | 'lightbulb' | 'tram';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station';
+export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant';
 
 export interface Dragon {
   name: string;
@@ -230,7 +265,21 @@ export interface Guild {
   hoarding?: number; // day a greedy house began sitting on grain in a dearth
 }
 
-export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice';
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | IndustrialGood;
+// Goods of the steam age: on the shelves only once the town knows steam (see goodsOf in market.ts).
+export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal' | 'appliance';
+// A mill of the steam age (see industry.ts): a company's or the crown's, on one of the plots by the pasture.
+export type MillKind = 'textile' | 'steel' | 'engines' | 'cannery' | 'appliances';
+export interface Mill {
+  id: number;
+  kind: MillKind;
+  name: string;
+  plot: number; // its top-left tile, y * MAP_W + x (landplan.ts millSite)
+  owner: number | 'crown'; // the trade house (guild id) that built it, or the crown
+  since: number; // day work began on it
+  ready: number; // day it opens
+  made?: number; // what it turned out last month, for the panel
+}
 
 export interface Market {
   stock: Record<Good, number>;
@@ -252,7 +301,30 @@ export interface Crown {
   since: number; // day the current king took the throne
   tax: Tax;
   lastFestival?: number;
-  unrest: number; // months in a row the people have been this unhappy
+  unrest: number; // fresh outrage (scandals, cruelty) since the movement last met; spent monthly
+  pledge?: { cause: Cause; until: number }; // a promise the ruler made the street, and how long it binds
+  conceded?: number; // times this town's rulers have given in to the street
+  fear?: number; // day until which a crushed rising keeps the streets quiet
+  ailing?: number; // day the ruler fell gravely ill
+  mad?: number; // day the ruler lost their mind
+  regentId?: number; // who rules for a king still a child
+  promise?: number; // day a junta promised to hand power back by
+}
+
+// The discontented banded together behind a leader (see movements.ts).
+export type Cause = 'tax' | 'bread' | 'war' | 'graft' | 'faith' | 'tyranny' | 'wealth' | 'voice';
+export interface Movement {
+  name: string;
+  cause: Cause;
+  founded: number;
+  leaderId: number;
+  stage: number; // 0 grumbling, 1 petition, 2 march, 3 strike, 4 riot, 5 revolution
+  anger: number; // 0..100
+  martyrs: number;
+  members: number; // counted at the last meeting, for the panel
+  defectors: number; // soldiers who refused to march on it and joined
+  last?: { day: number; act: 'concede' | 'crackdown' | 'ignore' };
+  rally?: number; // day until which its members gather before the palace when they have nothing else to do
 }
 
 export interface Cult {
@@ -349,6 +421,8 @@ export interface Realm {
   treaty?: boolean; // a trade treaty: better prices both ways while relations hold
   war?: boolean; // at war with us
   truceUntil?: number; // no new war with us before this day
+  raided?: number; // day they last raided our border
+  spurned?: number; // day we threw back their demand for tribute (or insulted their envoy): they will come for it
   plagueUntil?: number;
   tutored?: boolean; // our scholars are teaching there: their next age comes sooner
   disaster?: { kind: 'drought' | 'flood' | 'quake'; until: number }; // nature's blow, and the day they've recovered
@@ -451,7 +525,25 @@ export interface Parcel {
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
 // and the god may whisper to tip the scale.
-export type HappeningKind = 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode' | 'enclosure' | 'sacredgrove' | 'landclaim';
+export type HappeningKind =
+  | 'bumper' | 'refugees' | 'clearing' | 'wages' | 'fair' | 'manorland' | 'foulwell' | 'wanderlust' | 'festival' | 'bribe' | 'shanty' | 'firecode'
+  // affairs of state (affairs.ts)
+  | 'scandal' | 'dissolution' | 'templeland' | 'chapel' | 'monopoly' | 'failing' | 'match' | 'exile' | 'warpact' | 'homerule' | 'bandits' | 'knighthood'
+  // decisions within a saga (sagas.ts)
+  | 'goldrush' | 'comet' | 'ransom' | 'quarantine' | 'breakers'
+  // the steam age's troubles (affairs.ts)
+  | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale'
+  // the land (happenings.ts)
+  | 'enclosure' | 'sacredgrove' | 'landclaim';
+// A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
+export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence' | 'luddites';
+export interface Saga {
+  kind: SagaKind;
+  stage: number; // months it has run
+  since: number;
+  choice?: string; // what the town decided when it came to it
+  ctx?: number; // who or what it is about
+}
 export interface Happening {
   kind: HappeningKind;
   title: string;
@@ -498,6 +590,8 @@ export interface ChronicleEntry {
   kind: EventKind;
   text: string;
   npcId?: number;
+  minor?: boolean; // the town's daily round, folded away in its chronicle (see log in core.ts)
+  major?: boolean; // a headline, announced over the map
 }
 
 export interface WorldState {
@@ -518,6 +612,7 @@ export interface WorldState {
   market?: Market; // missing in saves from before the economy
   kingId?: number; // the reigning king, or the last one if the throne is empty
   crown?: Crown; // missing in saves from before politics
+  movement?: Movement; // the townsfolk banded against the ruler, while they are
   balance?: number; // -100 (darkness) .. 100 (light); missing means 0
   omen?: number; // the last tipping point the chronicle announced, -2..1
   cult?: Cult;
@@ -551,6 +646,9 @@ export interface WorldState {
   regime?: Regime; // how the town is governed; missing means a king
   charter?: Charter; // missing in saves from before constitutions: written from the regime
   strike?: number; // day a workers' strike ends
+  parties?: Party[]; // the political parties (see parties.ts)
+  parliament?: Parliament; // the elected house, where there is one
+  commune?: { since: number; seized: number; plan?: number }; // the people's republic: what was collectivized, and the plan in force
   republic?: { since: number; elections: number; nextVote: number; streak?: number; inOffice?: number; impeached?: number; last?: { day: number; results: { id: number; name: string; votes: number }[] } };
   auditor?: { id?: number; independence: number; cases: number; caught: number; since: number }; // the independent auditor's office (see auditor.ts)
   council?: { vetoes: number; overrides: number; deadlock?: number; last?: { decree: Decree; day: number; ayes: number; nays: number; result: 'passed' | 'vetoed' | 'overridden' } };
@@ -585,6 +683,16 @@ export interface WorldState {
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last
   happenAt?: Partial<Record<HappeningKind, number>>; // day each last came up
+  mills?: Mill[]; // the steam age's mills (see industry.ts)
+  machinery?: number; // engines at work on the farms, wearing out
+  mech?: number; // 0..1: the share of the farms they work, worked out monthly
+  power?: boolean; // the crystal power station had fuel this month: the town has electric light and power
+  smog?: number; // 0..1: how thick the mills' coal smoke hangs over the town, worked out monthly
+  union?: { name: string; leaderId: number; since: number; raises: number }; // the mill hands' union, and the wage rises it has won
+  saga?: Saga; // a great matter running over months (see sagas.ts)
+  sagaAt?: number; // day the last saga ended
+  sagaLast?: Partial<Record<SagaKind, number>>; // day each kind last began
+  sealed?: number; // day until which the gates are shut against the plague: no caravans but grain
   mods?: Mod[]; // happenings' effects still in force
   war?: War; // the neighbours; missing in saves from before the world map // missing in the first era of old saves
   chronicle: ChronicleEntry[];
@@ -609,4 +717,5 @@ export type Command =
   | { type: 'tenet'; tenet: Tenet }
   | { type: 'sect'; act: 'embrace' | 'condemn' }
   | { type: 'mission'; realmId: number }
+  | { type: 'movement'; act: 'stir' | 'calm' } // the god heartens the crowd, or soothes it
   | { type: 'whisper'; key: string } // the god tips a pending happening; a life the player lives decides it outright // a priest sent to preach in a neighbouring realm // the god takes a side in a schism // a commandment through a prophet's dream, or taken back

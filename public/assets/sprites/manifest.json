@@ -566,6 +566,34 @@
     "frameHeight": 24,
     "frames": 6
   },
+  "worker": {
+    "file": "assets/sprites/characters/worker.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age0": {
+    "file": "assets/sprites/characters/worker-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age2": {
+    "file": "assets/sprites/characters/worker-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "worker-age3": {
+    "file": "assets/sprites/characters/worker-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
   "consul": {
     "file": "assets/sprites/characters/consul.png",
     "group": "characters",
@@ -589,6 +617,34 @@
   },
   "consul-age3": {
     "file": "assets/sprites/characters/consul-age3.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary": {
+    "file": "assets/sprites/characters/secretary.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age0": {
+    "file": "assets/sprites/characters/secretary-age0.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age2": {
+    "file": "assets/sprites/characters/secretary-age2.png",
+    "group": "characters",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 6
+  },
+  "secretary-age3": {
+    "file": "assets/sprites/characters/secretary-age3.png",
     "group": "characters",
     "frameWidth": 16,
     "frameHeight": 24,
@@ -1378,6 +1434,174 @@
     "frameHeight": 32,
     "frames": 1
   },
+  "mill-textile": {
+    "file": "assets/sprites/buildings/mill-textile.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-steel": {
+    "file": "assets/sprites/buildings/mill-steel.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-engines": {
+    "file": "assets/sprites/buildings/mill-engines.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "mill-cannery": {
+    "file": "assets/sprites/buildings/mill-cannery.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "forge-age3": {
+    "file": "assets/sprites/buildings/forge-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "inn-age3": {
+    "file": "assets/sprites/buildings/inn-age3.png",
+    "group": "buildings",
+    "frameWidth": 40,
+    "frameHeight": 36,
+    "frames": 1
+  },
+  "shop-age3": {
+    "file": "assets/sprites/buildings/shop-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "brothel-age3": {
+    "file": "assets/sprites/buildings/brothel-age3.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "shack-age3": {
+    "file": "assets/sprites/props/shack-age3.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "lamp": {
+    "file": "assets/sprites/props/lamp.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "rail": {
+    "file": "assets/sprites/tiles/rail.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "train": {
+    "file": "assets/sprites/props/train.png",
+    "group": "props",
+    "frameWidth": 48,
+    "frameHeight": 20,
+    "frames": 1
+  },
+  "smoke": {
+    "file": "assets/sprites/props/smoke.png",
+    "group": "props",
+    "frameWidth": 8,
+    "frameHeight": 8,
+    "frames": 1
+  },
+  "spark": {
+    "file": "assets/sprites/props/spark.png",
+    "group": "props",
+    "frameWidth": 6,
+    "frameHeight": 6,
+    "frames": 1
+  },
+  "rm-headframe": {
+    "file": "assets/sprites/worldmap/rm-headframe.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "powerplant": {
+    "file": "assets/sprites/buildings/powerplant.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "elamp": {
+    "file": "assets/sprites/props/elamp.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "tram": {
+    "file": "assets/sprites/props/tram.png",
+    "group": "props",
+    "frameWidth": 32,
+    "frameHeight": 20,
+    "frames": 1
+  },
+  "electricity": {
+    "file": "assets/sprites/icons/electricity.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "telegraph": {
+    "file": "assets/sprites/icons/telegraph.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "lightbulb": {
+    "file": "assets/sprites/icons/lightbulb.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "tram-icon": {
+    "file": "assets/sprites/icons/tram-icon.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "appliance": {
+    "file": "assets/sprites/icons/appliance.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "rm-coal": {
+    "file": "assets/sprites/worldmap/rm-coal.png",
+    "group": "worldmap",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",
@@ -1737,6 +1961,41 @@
   },
   "spice": {
     "file": "assets/sprites/icons/spice.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "coal": {
+    "file": "assets/sprites/icons/coal.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "crystal": {
+    "file": "assets/sprites/icons/crystal.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "steel": {
+    "file": "assets/sprites/icons/steel.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "engine": {
+    "file": "assets/sprites/icons/engine.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "tins": {
+    "file": "assets/sprites/icons/tins.png",
     "group": "icons",
     "frameWidth": 16,
     "frameHeight": 16,

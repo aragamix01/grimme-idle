@@ -8,7 +8,7 @@ import { int, pick, type Rng } from './rng';
 import { log } from './core';
 import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, terrainOf, tileHash, type Spot } from './terrain';
 import { wildsOf } from './wilds';
-import { SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, tileOf, townLayout } from './town';
+import { MILL, SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, tileOf, townLayout } from './town';
 import type { Npc, Parcel, WorldState } from './types';
 
 const FREE = 0;
@@ -46,6 +46,7 @@ function occupancy(world: WorldState): Uint8Array {
   }
   for (const s of world.shacks ?? []) mark(s % MAP_W, Math.floor(s / MAP_W), 1, 1, BUILT);
   for (const d of world.dungeons) mark(d.x - 1, d.y, 4, 3, BUILT);
+  for (const m of world.mills ?? []) mark(m.plot % MAP_W, Math.floor(m.plot / MAP_W), MILL.w, MILL.h, BUILT);
   for (const p of world.parcels ?? []) mark(p.x, p.y, p.w, p.h, WORKED);
   const r = world.ring;
   if (r) {
@@ -481,6 +482,19 @@ export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
     if (core(x, y)) take(x, y, 2, 2);
   }
   return { x0: Math.max(1, x0 - 2), y0: Math.max(1, y0 - 2), x1: Math.min(MAP_W - 2, x1 + 2), y1: Math.min(MAP_H - 2, y1 + 2) };
+}
+
+// ---------- mills ----------
+
+// Ground for a new mill (3x2): out past the homes, by the railway if there is one, else by the
+// pastures; as its top-left tile, or -1 with nowhere left.
+export function millSite(world: WorldState): number {
+  const t = wildsOf(world);
+  const st = plotDoor(world, 'station');
+  const pasture = (world.parcels ?? []).find((p) => p.kind === 'pasture');
+  const target = st ?? (pasture ? { x: pasture.x + pasture.w + 2, y: pasture.y } : { x: t.site.x + 12, y: t.site.y + 8 });
+  const spot = findSpot(world, occupancy(world), { w: MILL.w, h: MILL.h, target, doorX: 1, maxR: 30, minFromSite: 10 });
+  return spot ? tileOf(spot.x, spot.y) : -1;
 }
 
 // ---------- dungeons ----------

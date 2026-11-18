@@ -17,11 +17,13 @@ export const AGES: readonly AgeDef[] = [
   { name: 'สมัยบุกเบิก', text: 'บ้านมุงจาก ผู้คนสวมผ้าทอมือ', next: 'ค้นพบวิทยาการ 3 อย่าง' },
   { name: 'สมัยกลาง', text: 'หลังคากระเบื้อง ผ้าย้อมสีสด', next: 'ค้นพบวิทยาการ 6 อย่าง รวมถึงการพิมพ์' },
   { name: 'สมัยฟื้นฟูศิลปวิทยา', text: 'บ้านมีหน้าต่างใต้หลังคา ผู้คนสวมปกระบาย ดนตรีคึกคัก', next: 'ค้นพบวิทยาการ 9 อย่าง รวมถึงเครื่องจักรไอน้ำ' },
-  { name: 'สมัยอุตสาหกรรม', text: 'บ้านอิฐมีปล่องไฟ ผู้คนผูกเนกไท เสียงเครื่องจักรดังทั่วเมือง' },
+  { name: 'สมัยอุตสาหกรรม', next: 'ค้นพบวิทยาการ 15 อย่าง รวมถึงไฟฟ้าเวท', text: 'บ้านอิฐมีปล่องไฟ ผู้คนผูกเนกไท เสียงเครื่องจักรดังทั่วเมือง' },
+  { name: 'สมัยไฟฟ้า', text: 'ไฟถนนสว่างทั้งคืน รถรางวิ่งกลางเมือง เสียงโทรเลขดังจากที่ทำการ' },
 ];
 
 export function ageOf(world: WorldState): number {
   const found = Object.keys(world.techs ?? {}).length;
+  if (found >= 15 && world.techs?.electricity !== undefined) return 4;
   if (found >= 9 && world.techs?.steam !== undefined) return 3;
   if (found >= 6 && world.techs?.printing !== undefined) return 2;
   return found >= 3 ? 1 : 0;
@@ -49,7 +51,7 @@ const AGE_JOBS: Partial<Record<Job, (string | undefined)[]>> = {
 
 export function jobName(world: WorldState, job: Job): string {
   if (job === 'alchemist' && world.techs?.chemistry !== undefined) return 'นักเคมี'; // the old art made a science
-  return AGE_JOBS[job]?.[ageOf(world)] ?? JOB_TH[job];
+  return AGE_JOBS[job]?.[Math.min(3, ageOf(world))] ?? JOB_TH[job]; // the age of electricity keeps the industrial names
 }
 
 // How much the trades of the industrial age change the work itself (see where each is used):
@@ -58,7 +60,7 @@ export function jobName(world: WorldState, job: Job): string {
 export const industrial = (world: WorldState) => ageOf(world) >= 3;
 
 // The sprite suffix each age wears; the middle age is the plain art.
-export const AGE_SUFFIX = ['-age0', '', '-age2', '-age3'] as const;
+export const AGE_SUFFIX = ['-age0', '', '-age2', '-age3', '-age3'] as const; // the age of electricity dresses as the industrial one
 
 // Called after a find: announce a new age when the town crosses into one.
 export function markAge(world: WorldState, before: number): void {

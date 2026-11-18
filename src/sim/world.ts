@@ -36,14 +36,21 @@ import { brew, draughts, engineer, pressDay, study } from './learning';
 import { TECHS, TECH_ORDER, researchDay } from './research';
 import { republicDay } from './republic';
 import { regimeDay } from './regimes';
+import { reignDay } from './succession';
+import { regimeEventsDay } from './regimeEvents';
+import { movementCost, movementsDay, rallying, sway as swayCrowd } from './movements';
 import { spendSurplus } from './treasury';
 import { charterOf } from './charter';
 import { amendmentsDay } from './amend';
+import { partiesDay } from './parties';
+import { industryDay, millSpot } from './industry';
+import { communeDay } from './commune';
 import { BOUNTY, decreesDay } from './decrees';
 import { annalsDay } from './annals';
 import { DUNGEON_KINDS, calm, dungeonsDay, ensureDungeons, healBosses, maybeDiscover, newBoss, tierOf } from './dungeons';
 import { bless, curse, dream, fadeBlessing, miracle, miracleCost } from './divine';
 import { happeningsDay, whisper, whisperCost } from './happenings';
+import { sagasDay } from './sagas';
 import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './housing';
 import { CIVIC_ORDER, founded, growthDay } from './growth';
 import { fire, shantyCrime, slumsDay } from './slums';
@@ -210,6 +217,12 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   regimeDay(world, rng);
   amendmentsDay(world, rng);
   rule(world, rng);
+  movementsDay(world, rng);
+  reignDay(world, rng);
+  regimeEventsDay(world, rng);
+  partiesDay(world, rng);
+  industryDay(world, rng);
+  communeDay(world, rng);
   darkness(world, rng);
   demonDay(world, rng);
   for (const npc of world.npcs) {
@@ -260,6 +273,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   growthDay(world);
   slumsDay(world, rng);
   happeningsDay(world, rng);
+  sagasDay(world, rng);
   annalsDay(world);
   healBosses(world);
   const warded = 1 - ward(world); // the mages' wards slow the monsters' return
@@ -359,6 +373,7 @@ function spawnNpc(world: WorldState, rng: Rng): Npc {
 // ---------- daily life: walk to where the plan is, then act there ----------
 
 function live(world: WorldState, npc: Npc, rng: Rng): void {
+  if (npc.inside === AWAY && world.saga?.kind === 'ransom' && world.saga.ctx === npc.id) return; // held in a bandit camp (sagas.ts)
   if (isChild(npc)) return childDay(world, npc, rng);
   if (jailed(world, npc)) {
     // In the cells under the castle: walked there, then kept.
@@ -406,8 +421,9 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     x: clamp(s.x + int(rng, -3, 3), 0, world.width - 1),
     y: clamp(s.y + int(rng, -1, 3), 0, world.height - 1),
   });
+  // A member of a movement out on the street spends their free days in the crowd before the palace.
   const idle = () =>
-    plan('idle', near(pick(rng, [places(world).inn, places(world).square, places(world).church, home, places(world).guild, ...places(world).hangouts])), int(rng, 3, 8));
+    rallying(world) && npc.marcher && chance(rng, 0.6) ? plan('protest', near(places(world).castle), int(rng, 3, 6)) : plan('idle', near(pick(rng, [places(world).inn, places(world).square, places(world).church, home, places(world).guild, ...places(world).hangouts])), int(rng, 3, 8));
   considerTrade(world, npc, rng);
   // An empty belly loosens morals; thieves get bolder, and the shady start pilfering.
   const hungry = (npc.hunger ?? 0) >= 2;
@@ -463,6 +479,11 @@ function choosePlan(world: WorldState, npc: Npc, rng: Rng): Plan {
     case 'alchemist':
       // Brewing in the back of the shop, where the dungeon finds are kept.
       return chance(rng, 0.7) ? plan('work', near(places(world).shop), int(rng, 5, 10)) : idle();
+    case 'worker': {
+      // At the mill's gate for the shift, else wherever a tired hand goes.
+      const at = millSpot(world, npc);
+      return at && chance(rng, 0.8) ? plan('work', at, int(rng, 5, 10)) : idle();
+    }
     case 'engineer':
       // On the crown's building site if there is one, else drawing plans at the castle.
       return chance(rng, 0.7) ? plan('work', siteOf(world), int(rng, 6, 12)) : idle();
@@ -556,6 +577,7 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
       if (trade && chance(rng, 0.15)) trade.treasury += 1; // membership dues
       if (--p.days <= 0) npc.plan = undefined;
       return;
+    case 'protest':
     case 'idle':
       // Mill about near the spot, then pick something new.
       if (--p.days <= 0) npc.plan = undefined;
@@ -577,7 +599,11 @@ function arrive(world: WorldState, npc: Npc, p: Plan, rng: Rng): void {
 
 // Time passes inside the dungeon; the outcome is decided as the adventurer comes out.
 function delve(world: WorldState, npc: Npc, rng: Rng): void {
-  const p = npc.plan!;
+  const p = npc.plan;
+  if (!p) {
+    npc.inside = undefined; // nothing left to do down there: come back up
+    return;
+  }
   if (--p.days > 0) return;
   const d = world.dungeons.find((x) => x.id === npc.inside) as Dungeon;
   npc.inside = undefined;
@@ -693,6 +719,11 @@ function applyCommand(world: WorldState, cmd: Command, rng: Rng): void {
   if (cmd.type === 'mission') {
     const cost = missionCost(world);
     if (world.faith >= cost && sendMission(world, cmd.realmId)) world.faith -= cost;
+    return;
+  }
+  if (cmd.type === 'movement') {
+    const cost = movementCost(world);
+    if (world.faith >= cost && swayCrowd(world, cmd.act)) world.faith -= cost;
     return;
   }
   if (cmd.type === 'sect') {

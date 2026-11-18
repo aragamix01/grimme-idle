@@ -1,7 +1,8 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { places } from '../../sim/places';
-import { MAP_H, MAP_W, dungeonDoor, lotXY, townLayout, type Placed } from '../../sim/town';
+import { MAP_H, MAP_W, dungeonDoor, lotXY, railway, townLayout, type Placed } from '../../sim/town';
+import { entryOf, siteOf } from '../../sim/landplan';
 import { WATER, TREE, terrainOf } from '../../sim/terrain';
 import { wildsOf } from '../../sim/wilds';
 import { founded } from '../../sim/growth';
@@ -273,6 +274,11 @@ export class WorldScene extends Phaser.Scene {
       (w.ruins ?? []).map((r) => `${r.x}.${r.y}`).join(','), // homes brought down or rebuilt
       w.buildRev ?? 0, // a home started, finished or built up
       (w.shacks ?? []).join(','), // the shanty, drawn apart from the layout
+      (w.mills ?? []).map((m) => `${m.plot}:${m.kind}:${w.day >= m.ready}`).join(','), // mills going up and opening
+      w.techs?.steam !== undefined,
+      Math.round((w.smog ?? 0) * 4), // how thick the smoke rises
+      !!w.power && w.techs?.tram !== undefined, // the trams run while the power station does
+      w.techs?.electricity !== undefined, // the power station's plot is marked out
     ].join('|');
     if (w.seed !== this.seed) {
       // A new world (a new era, a new game): the camera finds its town.
@@ -291,7 +297,7 @@ export class WorldScene extends Phaser.Scene {
     this.syncKeep(w);
     this.syncWeather(w);
     this.syncDragon(w);
-    this.syncBeasts(this.herd, w.herd ?? 0, 'pasture');
+    this.syncBeasts(this.herd, (w.mills ?? []).length ? Math.min(3, w.herd ?? 0) : w.herd ?? 0, 'pasture'); // the mills took most of the pasture
     this.syncBeasts(this.deer, Math.min(MAX_DEER, Math.ceil((w.game ?? 0) / 3)), 'forest');
     this.watchChronicle(w);
     for (const npc of w.npcs) this.syncNpc(npc);
@@ -561,7 +567,9 @@ export class WorldScene extends Phaser.Scene {
       if (baked.has(p)) continue;
       const home = /^(house|townhouse|hut)/.test(p.key);
       const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
-      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : p);
+      const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : { ...p, key: this.aged(p.key) });
+      if (p.key === 'lamp') this.glow.fillStyle(0xffd27a, 0.28).fillCircle(img.x + 8, img.y - 18, 14).fillStyle(0xfff2b0, 1).fillRect(img.x + 6, img.y - 21, 4, 4);
+      if (p.key === 'elamp') this.glow.fillStyle(0xeaf6ff, 0.32).fillCircle(img.x + 12, img.y - 14, 20).fillStyle(0xffffff, 1).fillRect(img.x + 10, img.y - 17, 4, 4); // electric light: whiter and wider
       if (p.key === rising && p.anchor === 'top') {
         const b = img.getBounds();
         const s = this.add.image(b.centerX, b.bottom, 'scaffold').setOrigin(0.5, 1);
@@ -582,8 +590,9 @@ export class WorldScene extends Phaser.Scene {
         s.setDepth(s.y + 1);
       } else this.placeProp({ key: 'scaffold', x: at.x, y: at.y, anchor: 'top' });
     }
-    // The shanty's shacks.
-    for (const s of w.shacks ?? []) this.placeProp({ key: 'shack', ...lotXY(s), anchor: 'bottom' });
+    // The shanty's shacks (brick tenements in the industrial age).
+    for (const s of w.shacks ?? []) this.placeProp({ key: this.aged('shack'), ...lotXY(s), anchor: 'bottom' });
+    this.buildMills(w);
     // Before there is a church or a market on the square, the camp gathers round a fire there.
     const sq = places(w).square;
     if (!founded(w, 'church') && !founded(w, 'shop')) this.placeProp({ key: 'campfire', x: sq.x, y: sq.y, anchor: 'bottom' });
@@ -609,6 +618,50 @@ export class WorldScene extends Phaser.Scene {
     this.townBuilt = true;
   }
 
+  // The mills on the old pasture, scaffolded while they go up; coal smoke from a working mill's
+  // chimney (thicker the more coal the town burns), violet sparks over a crystal furnace; and the
+  // train that runs along the railway to the station and back.
+  private buildMills(w: WorldState): void {
+    const smog = w.smog ?? 0;
+    for (const m of w.mills ?? []) {
+      const p = lotXY(m.plot);
+      if (w.day < m.ready) {
+        this.placeProp({ key: 'scaffold', x: p.x, y: p.y, anchor: 'top' });
+        continue;
+      }
+      const img = this.placeProp({ key: `mill-${m.kind}`, x: p.x, y: p.y + 1, anchor: 'bottom' });
+      const chimney = m.kind === 'cannery' ? 6 : m.kind === 'textile' ? 43 : 44;
+      const working = (m.made ?? 0) > 0;
+      if (!working) continue;
+      const coal = smog > 0.02 && m.kind !== 'engines'; // the engine works' crystal furnace throws sparks, not soot
+      this.add
+        .particles(img.x + chimney, img.y - 40, coal ? 'smoke' : 'spark', {
+          speedY: { min: -14, max: -8 },
+          speedX: { min: 2, max: 8 },
+          scale: { start: coal ? 0.8 : 1, end: coal ? 2.2 : 0.2 },
+          alpha: { start: coal ? 0.75 : 1, end: 0 },
+          lifespan: coal ? 3200 : 1400,
+          frequency: coal ? Math.round(900 - 600 * smog) : 500,
+        })
+        .setDepth(img.depth + 1);
+    }
+    // A tram runs the main street, from the road in to the square, while the power station has fuel.
+    if (w.power && w.techs?.tram !== undefined) {
+      const from = entryOf(w);
+      const to = siteOf(w);
+      const tram = this.add.image(from.x * TILE, (from.y + 1) * TILE - 1, 'tram').setOrigin(0.5, 1).setDepth((from.y + 1) * TILE + 2);
+      this.tweens.add({ targets: tram, x: to.x * TILE, y: (to.y + 1) * TILE - 1, duration: 16000, ease: 'Sine.easeInOut', yoyo: true, hold: 3000, repeat: -1, repeatDelay: 3000 });
+    }
+    const rail = railway(w);
+    if (!rail) return;
+    const edge = rail.to > rail.from ? MAP_W * TILE + 48 : -48;
+    const train = this.add.image(edge, (rail.y + 1) * TILE - 2, 'train').setOrigin(0.5, 1).setDepth((rail.y + 1) * TILE + 1);
+    const stop = rail.from * TILE;
+    const west = rail.to < rail.from; // the art faces west; a train in from the west is turned round
+    train.setFlipX(west);
+    this.tweens.add({ targets: train, x: stop, duration: 9000, ease: 'Sine.easeOut', yoyo: true, hold: 4000, repeatDelay: 14000, repeat: -1, onYoyo: () => train.setFlipX(!west), onRepeat: () => train.setFlipX(west) });
+  }
+
   // The art for this age, if there is any: houses and clothes change, the rest stays.
   private aged(key: string): string {
     const k = key + AGE_SUFFIX[this.world ? ageOf(this.world) : 1];
@@ -617,7 +670,7 @@ export class WorldScene extends Phaser.Scene {
 
   private placeProp(p: Placed): Phaser.GameObjects.Image {
     // Flat tiles (the side walls) lie under everyone; anything standing sorts by its base.
-    if (p.key === 'wall-top') return this.add.image(p.x * TILE, p.y * TILE, p.key).setOrigin(0).setDepth(0);
+    if (p.key === 'wall-top' || p.key === 'rail') return this.add.image(p.x * TILE, p.y * TILE, p.key).setOrigin(0).setDepth(0);
     const img =
       p.anchor === 'top'
         ? this.add.image(p.x * TILE, p.y * TILE, p.key).setOrigin(0)
@@ -642,7 +695,8 @@ export class WorldScene extends Phaser.Scene {
     const evil = Math.max(dread, Phaser.Math.Clamp((-(w.balance ?? 0) - 20) / 40, 0, 1));
     const tint = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(Phaser.Display.Color.GetColor(sky.r, sky.g, sky.b)), BLOOD, 100, Math.round(evil * 60));
     // Rain greys the day a little.
-    const gloom = this.storm ? 0.3 : this.raining ? 0.18 : 0;
+    // The mills' coal smoke browns the day.
+    const gloom = Math.max(this.storm ? 0.3 : this.raining ? 0.18 : 0, (w.smog ?? 0) * 0.22);
     this.sky.setFillStyle(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)).setAlpha(Math.max(night * NIGHT_ALPHA, evil * (w.demon?.stage === 'occupied' ? 0.32 : 0.22), gloom));
     this.glow.setAlpha(Phaser.Math.Clamp((night - 0.4) / 0.4, 0, 1));
   }

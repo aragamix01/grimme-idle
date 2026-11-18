@@ -30,8 +30,12 @@ export const TECHS: Record<Tech, TechDef> = {
   chemistry: { name: 'เคมี', cost: 1500, text: 'ยาและน้ำยาฆ่าเชื้อชนิดใหม่ โรคระบาดคร่าชีวิตน้อยลงอีก 30%', icon: 'chemistry', needs: ['medicine', 'arcana'] },
   steam: { name: 'เครื่องจักรไอน้ำ', cost: 1800, text: 'เครื่องจักรช่วยทุ่นแรง ผลผลิตข้าวเพิ่ม 15% สร้างโรงงานได้', icon: 'steam', needs: ['printing', 'metallurgy'] },
   railway: { name: 'ทางรถไฟ', cost: 2400, text: 'กองคาราวานเดินทางเร็วขึ้นอีก สร้างสถานีรถไฟได้', icon: 'railway', needs: ['steam', 'navigation'] },
+  electricity: { name: 'ไฟฟ้าเวท', cost: 2800, text: 'ผนึกพลังผลึกมานาเป็นกระแสไฟ สร้างโรงไฟฟ้าผลึกได้ โรงงานที่มีไฟเดินเครื่องได้มากขึ้น 25% และตั้งโรงงานเครื่องใช้ไฟฟ้าได้', icon: 'electricity', needs: ['steam', 'chemistry'] },
+  telegraph: { name: 'โทรเลข', cost: 2600, text: 'ข่าวสารไปถึงแคว้นอื่นในพริบตา ความสัมพันธ์กับแคว้นที่ไม่ได้รบกันค่อยๆ ดีขึ้น และรู้ตัวก่อนศัตรูยกทัพมา', icon: 'telegraph', needs: ['electricity', 'printing'] },
+  lightbulb: { name: 'หลอดไฟ', cost: 3000, text: 'ไฟฟ้าส่องสว่างทั้งคืน นักปราชญ์อ่านหนังสือได้ดึกขึ้น ความรู้เพิ่ม 20% เมื่อโรงไฟฟ้ามีเชื้อเพลิง', icon: 'lightbulb', needs: ['electricity'] },
+  tram: { name: 'รถรางไฟฟ้า', cost: 3200, text: 'รถรางวิ่งกลางเมือง ผู้คนจากที่อื่นอยากย้ายมาอยู่มากขึ้น', icon: 'tram-icon', needs: ['electricity', 'railway'] },
 };
-export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'irrigation', 'levee', 'navigation', 'arcana', 'printing', 'ironframe', 'chemistry', 'steam', 'railway'];
+export const TECH_ORDER: readonly Tech[] = ['plough', 'medicine', 'metallurgy', 'architecture', 'irrigation', 'levee', 'navigation', 'arcana', 'printing', 'ironframe', 'chemistry', 'steam', 'railway', 'electricity', 'telegraph', 'lightbulb', 'tram'];
 
 const ASK_DAY = 12; // day of the month the king sets a new question
 
@@ -114,6 +118,14 @@ function want(world: WorldState, t: Tech, ruler: Npc): number {
       return 1 + has('greedy') + has('brave');
     case 'railway':
       return 1 + has('greedy') + ((world.realms ?? []).filter((r) => (r.trades ?? 0) >= 5).length ? 1 : 0);
+    case 'electricity':
+      return 1 + has('greedy') + has('brave') + ((world.mills?.length ?? 0) >= 2 ? 1 : 0);
+    case 'telegraph':
+      return 1 + has('loyal') + (world.war ? 2 : 0);
+    case 'lightbulb':
+      return 1 + has('kind') + (world.works?.school !== undefined ? 1 : 0);
+    case 'tram':
+      return 1 + has('greedy');
   }
 }
 

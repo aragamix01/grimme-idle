@@ -45,6 +45,8 @@ export class RegionScene extends Phaser.Scene {
   private walkers: Walker[] = [];
   private thought: Phaser.GameObjects.Text | null = null;
   private rand = () => Math.random();
+  private steam = false; // the steam age: winding towers over the mines, coal by the track
+  private landKind: Region['kind'] | undefined;
   onVillager: (id: number) => void = () => {};
 
   constructor() {
@@ -86,7 +88,7 @@ export class RegionScene extends Phaser.Scene {
     const r = w?.regions?.find((x) => x.id === this.regionId);
     if (!w || !r || !this.textures.exists('rm-hut')) return; // the town scene loads every texture; wait for the last ones
     const folk = folkOf(w, r);
-    const key = JSON.stringify([r.id, r.owner, r.dev, r.village?.works, r.village?.chiefId, folk.map((n) => n.id), ageOf(w), Math.ceil((r.danger ?? 0) / 20)]);
+    const key = JSON.stringify([r.id, r.owner, r.dev, r.village?.works, r.village?.chiefId, folk.map((n) => n.id), ageOf(w), w.techs?.steam !== undefined, Math.ceil((r.danger ?? 0) / 20)]);
     if (key !== this.key) {
       this.key = key;
       for (const o of this.drawn) o.destroy();
@@ -109,6 +111,8 @@ export class RegionScene extends Phaser.Scene {
   }
 
   private build(w: WorldState, r: Region, folk: Npc[]): void {
+    this.steam = w.techs?.steam !== undefined;
+    this.landKind = r.kind;
     const rng = createRng(r.id * 7919 + 13);
     this.rand = () => next(rng);
     const taken = new Set<number>();
@@ -278,8 +282,11 @@ export class RegionScene extends Phaser.Scene {
           const x = z.x0 + 1 + Math.round(i * ((w - 3) / 2));
           this.prop(x, z.y0 + 1, 'rm-mine');
           for (let y = z.y0 + 2; y <= z.y1; y++) this.put(this.add.image(x * TILE, y * TILE, 'path', 1).setOrigin(0).setDepth(1));
-          this.prop(x + 1, z.y0 + 2, 'rock');
-          this.prop(x + 1, z.y1, 'rock');
+          // In the steam age a winding tower stands over the shaft and the coal is heaped by the track.
+          const coal = this.steam && this.landKind !== 'dunes';
+          if (this.steam) this.prop(x - 1, z.y0 + 2, 'rm-headframe');
+          this.prop(x + 1, z.y0 + 2, coal ? 'rm-coal' : 'rock');
+          this.prop(x + 1, z.y1, coal ? 'rm-coal' : 'rock');
         }
         return;
       }

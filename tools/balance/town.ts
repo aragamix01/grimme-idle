@@ -9,7 +9,59 @@ import { creedCounts } from '../../src/sim/religion';
 // Chronicle lines worth counting, by what they say.
 const EVENTS: Record<string, RegExp> = {
   famine: /ข้าวหมดตลาด/,
+  movement: /รวมตัวกันตั้ง|คนตั้ง(กลุ่ม|ขบวนการ|สหภาพ)/,
+  march: /เดินขบวนไปหน้าวัง/,
+  riot: /ก่อจลาจล!/,
+  revolution: /บุกวัง หมายโค่น/,
+  overthrown: /นำ.+โค่นกษัตริย์|ตั้งสภาประชาชน/,
+  conceded: /ยอมตามข้อเรียกร้องของ/,
+  crackdown: /สั่งทหารสลาย/,
+  refused: /ไม่ยอมทำร้ายประชาชน/,
+  ailing: /ประชวรหนัก ราชสำนัก/,
+  mad: /เริ่มเสียสติ/,
+  setAside: /ไม่อาจปกครองได้อีกต่อไป/,
+  abdicated: /สละราชสมบัติให้/,
+  regency: /เป็นผู้สำเร็จราชการแทน/,
+  regentSeized: /^ผู้สำเร็จราชการ.+ไม่ยอมคืนอำนาจ/,
+  succession: /^ศึกชิงบัลลังก์!/,
+  selfCoup: /ประกาศภาวะฉุกเฉินและงดการเลือกตั้งไม่มีกำหนด/,
+  rigged: /สั่งยัดหีบบัตรเลือกตั้ง/,
+  counterCoup: /นำทหารยึดกองบัญชาการซ้อน/,
+  promised: /ให้สัญญาว่าจะคืนอำนาจ/,
+  handedBack: /รักษาสัญญา คืนอำนาจ/,
+  putOff: /เลื่อนการเลือกตั้งออกไปอีก/,
+  purged: /สั่งกวาดล้างผู้เห็นต่าง/,
+  zealots: /ผู้คลั่งศาสนารุมทำร้าย/,
+  ousted: /สภาพ่อค้าลงมติปลดประธาน/,
+  party: /ก่อตั้งพรรค/,
+  partyVote: /การเลือกตั้งทั่วไปครั้งที่/,
+  coalition: /รัฐบาลผสม/,
+  noConfidence: /ยื่นญัตติไม่ไว้วางใจ/,
+  govFell: /รัฐบาลแพ้มติ/,
+  crossed: /ข่าวลือว่ารับเงิน/,
+  partySplit: /พาสมาชิก \d+ คนแยกจาก/,
+  sweep: /ใช้เสียงข้างมากเด็ดขาดแก้รัฐธรรมนูญ/,
+  brokePromise: /ผิดสัญญาที่หาเสียงไว้/,
+  runoff: /เข้ารอบสอง/,
+  constitutional: /พระราชทานรัฐธรรมนูญ|ยอมให้มีรัฐสภาจากการเลือกตั้ง/,
+  commune: /สาธารณรัฐประชาชนถือกำเนิด|สถาปนาสาธารณรัฐประชาชน/,
+  fiveYear: /แผนพัฒนาห้าปี/,
+  peoplesEnemy: /ศัตรูของประชาชน/,
+  fled: /ลักลอบหนีออกนอกเมือง/,
+  thaw: /ปฏิรูปเปิดตลาด/,
   starvedOut: /ทิ้งเมืองไปเพราะความหิวโหย/,
+  affair: /^(ข่าวฉาวหัวหน้าพรรค|ฝ่ายค้านเรียกร้องให้ยุบสภา|ศาสนจักรขอที่ดินสร้างวัด|นิกายขอสร้างโบสถ์ของตัวเอง|บ้านการค้าขอสิทธิ์ผูกขาด|บ้านการค้าใกล้ล้มละลาย|ทูตขอสู่ขอเชื่อมไมตรี|เจ้าชายต่างแดนขอลี้ภัย|ทูตชวนร่วมทัพ|ผู้ใหญ่บ้านขอปกครองตนเอง|โจรป่าขู่หมู่บ้าน|นักผจญภัยดังขอยศขุนนาง): .+เลือก「/,
+  goldRush: /ร่อนพบเกล็ดทองคำ/,
+  comet: /ดาวหางหางยาวสีเพลิง/,
+  kidnap: /ถูกชุมโจรลักพาตัว/,
+  pestilence: /กาฬโรคระบาดไปทั่วแผ่นดิน/,
+  raid: /กองโจรม้าของ.+บุกปล้นชายแดน/,
+  mill: /ลงทุนสร้าง(โรง)/,
+  millBroke: /จ่ายค่าแรงไม่ไหว/,
+  union: /ตั้งสหภาพกรรมกร/,
+  millStrike: /^กรรมกรนัดหยุดงาน: .+เลือก/,
+  factoryAct: /พระราชบัญญัติโรงงาน:/,
+  luddites: /ขบวนการค้อนเหล็ก ทุบเครื่องจักร/,
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,
   disaster: /แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่!|ภัยแล้งแผ่ไป|ฝนตกไม่หยุดทั้งวัน/,
@@ -124,11 +176,19 @@ export function runTown(seed: number, years: number): TownReport {
   const ageYears: number[] = [0];
   const rankYears: number[] = [0];
   const leaders = new Set<number>();
+  let reignFrom = 0;
+  let longestReign = 0;
+  let ruler = w.kingId;
   let hunger = 0;
   let seq = w.chronicleSeq;
   for (let d = 1; d <= years * 365; d++) {
     tick(w);
     if (w.kingId !== undefined) leaders.add(w.kingId);
+    if (w.kingId !== ruler) {
+      longestReign = Math.max(longestReign, d - reignFrom);
+      reignFrom = d;
+      ruler = w.kingId;
+    }
     if (d % 30 === 0) hunger += w.npcs.filter((n) => n.alive && (n.hunger ?? 0) >= 2).length;
     const a = ageOf(w);
     while (ageYears.length <= a) ageYears.push(Math.round(d / 365));
@@ -166,8 +226,10 @@ export function runTown(seed: number, years: number): TownReport {
     piety: creeds.piety,
     weddings: w.religion?.weddings ?? 0,
     knowledge: Math.round(w.knowledge ?? 0),
-    regime: w.regime ?? 'monarchy',
+    regime: `${w.regime ?? 'monarchy'}${w.charter?.parliament && (w.regime ?? 'monarchy') === 'monarchy' ? '+สภา' : ''}`,
+    parties: (w.parties ?? []).map((p) => `${p.ideology}${p.seats ? `:${p.seats}` : ''}`).join(','),
     leaders: leaders.size,
+    longestReign: Math.round((Math.max(longestReign, years * 365 - reignFrom) / 365) * 10) / 10,
     jobs: alive.filter((n) => n.age >= 16).reduce((m, n) => ((m[n.job] = (m[n.job] ?? 0) + 1), m), {} as Record<string, number>),
     events,
   };

@@ -11,6 +11,7 @@ import { townLayout } from './town';
 import { builtFor, townPop } from './housing';
 import { TOWN_RANK, founded, rankOf } from './growth';
 import { successor } from './regimes';
+import { inherit } from './succession';
 import { ageOf, industrial, jobName } from './ages';
 import { TAX_RATE, ensureCrown, loyaltyOf } from './politics';
 import type { Job, Npc, Tech, WorldState } from './types';
@@ -120,13 +121,14 @@ export function holdCourt(world: WorldState, rng: Rng): void {
   if (!crowned) {
     const old = world.npcs.find((n) => n.id === world.kingId);
     const adults = world.npcs.filter((n) => n.alive && n.age >= 16 && n.questId === undefined && n.inside === undefined);
-    const heir = adults.filter((n) => old && n.parentIds?.includes(old.id)).sort((a, b) => b.age - a.age)[0];
+    // The crown goes to the king's children (through a regent, or a war of succession), else the
+    // lords choose one of themselves, else the town its eldest good soul.
+    const heir = old && r === 'monarchy' ? inherit(world, old, rng) : undefined;
     const lord = adults.filter((n) => n.job === 'noble').sort((a, b) => b.gold - a.gold)[0];
     const elder = adults.filter((n) => n.morality > 0).sort((a, b) => b.age - a.age)[0];
     const next = heir ?? lord ?? elder;
     if (!next) return;
-    const how = heir ? `สืบราชสมบัติต่อจาก${old!.name}` : lord ? 'ได้รับเลือกจากเหล่าขุนนาง' : 'ได้รับเลือกจากชาวเมือง';
-    enthrone(world, next, how);
+    if (!heir) enthrone(world, next, lord ? 'ได้รับเลือกจากเหล่าขุนนาง' : 'ได้รับเลือกจากชาวเมือง');
     crowned = next;
   }
   if (world.day % COURT_EVERY !== 0) return;
@@ -162,6 +164,7 @@ export function enthrone(world: WorldState, n: Npc, how: string, keep = false): 
   const crown = ensureCrown(world);
   crown.since = world.day;
   crown.unrest = 0;
+  crown.ailing = crown.mad = crown.regentId = undefined;
   for (const o of world.npcs) if (o.alive && o !== n) o.loyalty = Math.round(loyaltyOf(o) * 0.6 + 50 * 0.4);
   log(world, 'politics', `${n.name} ขึ้นครองบัลลังก์เป็น${RULER_TH[world.regime ?? 'monarchy']} (${how})`, n.id);
 }
@@ -384,7 +387,7 @@ export function garrison(world: WorldState): { soldiers: Npc[]; hunters: Npc[]; 
   const hunters = living(world, 'hunter').filter((s) => s.inside === undefined);
   const strength = soldiers.reduce((s, n) => s + 1 + (n.gear ?? 0) * 0.5, 0) + hunters.reduce((s, n) => s + 0.5 + Math.min(3, n.level) * 0.15, 0);
   // Archers in the gate towers hold the gates however few the garrison.
-  const towers = world.works?.watchtowers !== undefined ? 0.15 : 0;
+  const towers = world.works?.watchtowers !== undefined && world.works?.boulevard === undefined ? 0.15 : 0; // the boulevard took the towers down with the walls
   return { soldiers, hunters, shield: Math.min(0.7 + towers, strength * 0.05 + towers) };
 }
 

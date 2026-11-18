@@ -8,6 +8,8 @@ import { crownPower, loyaltyOf } from './politics';
 import { getTie } from './ties';
 import { charterOf } from './charter';
 import { lobby } from './adventurers';
+import { houses } from './tradehouses';
+import { bodyIdeology, hasParliament, inGovernment, mps, partyOf, PLATFORM, partiesOf } from './parties';
 import type { Decree, Npc, Regime, WorldState } from './types';
 
 export interface RegimeDef {
@@ -22,18 +24,50 @@ export const REGIMES: Record<Regime, RegimeDef> = {
   theocracy: { name: 'เทวาธิปไตย', ruler: RULER_TH.theocracy, text: 'นักบวชปกครองในนามของเทพเจ้า' },
   oligarchy: { name: 'คณาธิปไตยพ่อค้า', ruler: RULER_TH.oligarchy, text: 'พ่อค้าผู้มั่งคั่งที่สุดร่วมกันปกครอง' },
   junta: { name: 'คณะทหาร', ruler: RULER_TH.junta, text: 'ทหารยึดอำนาจและปกครองด้วยกำลัง' },
+  commune: { name: 'สาธารณรัฐประชาชน', ruler: RULER_TH.commune, text: 'พรรคของคนงานปกครองในนามของประชาชน ทรัพย์สินเป็นของส่วนรวม' },
 };
 
 export const regimeOf = (world: WorldState): Regime => world.regime ?? 'monarchy';
 // The ruler's title, and the sprite they wear, under the town's regime.
 export const rulerTitle = (world: WorldState) => REGIMES[regimeOf(world)].ruler;
-const LOOK: Record<Regime, string> = { monarchy: 'king', republic: 'consul', theocracy: 'pontiff', oligarchy: 'oligarch', junta: 'general' };
+const LOOK: Record<Regime, string> = { monarchy: 'king', republic: 'consul', theocracy: 'pontiff', oligarchy: 'oligarch', junta: 'general', commune: 'secretary' };
 export const rulerLook = (world: WorldState) => LOOK[regimeOf(world)];
 
 const OVERRIDE_POWER = 70; // a crown this strong can ignore its council
 const SNUB = -8; // loyalty a councillor loses when the king overrides their no
 
-export const council = (world: WorldState) => world.npcs.filter((n) => n.alive && n.age >= 16 && n.job === 'noble');
+const SEATS = 7; // the most a regime's own council seats
+
+// Who sits on the council that votes on the ruler's decrees: each regime has its own. The elected
+// house where there is one; the senior priests, the heads of the trade houses and the richest
+// merchants, the senior officers, or the Party's politburo; under a plain crown, the nobles.
+export function council(world: WorldState): Npc[] {
+  const seated = (n: Npc) => n.alive && n.age >= 16 && n.job !== 'king' && n.inside === undefined;
+  const nobles = world.npcs.filter((n) => seated(n) && n.job === 'noble');
+  if (hasParliament(world)) {
+    const house = mps(world);
+    const free = (world.parliament?.independents ?? []).map((id) => world.npcs.find((n) => n.id === id)).filter((n): n is Npc => !!n && seated(n));
+    return house.length + free.length >= 2 ? [...house, ...free] : nobles; // before the first election, the old council sits on
+  }
+  const top = (list: Npc[], score: (n: Npc) => number) => list.sort((a, b) => score(b) - score(a)).slice(0, SEATS);
+  const folk = world.npcs.filter(seated);
+  switch (world.regime) {
+    case 'theocracy':
+      return top(folk.filter((n) => n.job === 'priest'), (n) => n.level + (n.piety ?? 50) / 25);
+    case 'oligarchy': {
+      const heads = new Set(houses(world).map((g) => g.leaderId));
+      return top(folk.filter((n) => heads.has(n.id) || n.job === 'merchant' || n.job === 'noble'), (n) => (heads.has(n.id) ? 1e6 : 0) + n.gold);
+    }
+    case 'junta':
+      return top(folk.filter((n) => n.job === 'soldier' || n.knight), (n) => n.level + (n.gear ?? 0));
+    case 'commune': {
+      const party = partiesOf(world)[0];
+      return party ? top(folk.filter((n) => n.partyId === party.id), (n) => n.level + loyaltyOf(n) / 25) : [];
+    }
+    default:
+      return nobles;
+  }
+}
 
 // How a councillor leans on a decree: their own interest and temper, then how they feel about
 // the crown and about the king himself.
@@ -56,13 +90,20 @@ function lean(world: WorldState, n: Npc, d: Decree, ruler: Npc): number {
     embargo: has('vengeful') + has('brave') * 0.5 - has('greedy') * 0.5,
     ceiling: has('kind') - has('greedy') * 1.5, // their own granaries sell at the cap too
   };
-  return stake[d] + (loyaltyOf(n) - 50) / 25 + getTie(world, n.id, ruler.id) / 50;
+  // A councillor who sits for a party or a body votes its platform, and a party in government
+  // backs its own ministers; the nobles' own stake weighs less on anyone but a noble.
+  const ideo = bodyIdeology(world, n);
+  const platform = ideo ? (PLATFORM[ideo].likes.includes(d) ? 1.5 : PLATFORM[ideo].hates.includes(d) ? -1.5 : 0) : 0;
+  const p = partyOf(world, n);
+  const side = p && p.mps.includes(n.id) ? (inGovernment(world, p) ? 0.8 : -0.8) : 0;
+  return stake[d] * (n.job === 'noble' || !ideo ? 1 : 0.5) + platform + side + (loyaltyOf(n) - 50) / 25 + getTie(world, n.id, ruler.id) / 50;
 }
 
 // The council votes on a decree the king wants. True if it goes ahead.
 export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: Npc, rng: Rng): boolean {
   const seats = council(world);
-  if (seats.length < 2 || !charterOf(world).councilVeto || charterOf(world).emergency) return true; // too few lords, no veto in the charter, or emergency powers
+  const house = hasParliament(world);
+  if (seats.length < 2 || (!charterOf(world).councilVeto && !house) || charterOf(world).emergency) return true; // too few lords, no veto in the charter, or emergency powers
   // A council in a feud with the ruler votes everything down.
   const feud = (world.council?.deadlock ?? 0) > world.day;
   const nays = feud ? seats : seats.filter((n) => lean(world, n, d, ruler) + (chance(rng, 0.5) ? 0.5 : -0.5) < 0);
@@ -77,6 +118,13 @@ export function putToCouncil(world: WorldState, d: Decree, name: string, ruler: 
   if (no * 2 <= total) {
     c.last = { decree: d, day: world.day, ayes: total - no, nays: no, result: 'passed' };
     return true;
+  }
+  if (house) {
+    // No one overrides an elected house.
+    c.vetoes++;
+    c.last = { decree: d, day: world.day, ayes: total - no, nays: no, result: 'vetoed' };
+    log(world, 'politics', `รัฐสภาลงมติไม่เห็นชอบ${name} (${tally}) รัฐบาลของ${ruler.name}ต้องถอนเรื่อง`, ruler.id);
+    return false;
   }
   // A strong crown, or a hot-headed king, may push it through anyway.
   const forceful = crownPower(world).total >= OVERRIDE_POWER || ((ruler.traits.includes('vengeful') || ruler.traits.includes('greedy')) && chance(rng, 0.4));
