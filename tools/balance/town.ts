@@ -65,6 +65,9 @@ const EVENTS: Record<string, RegExp> = {
   regime: /ร่างรัฐธรรมนูญฉบับใหม่/, // every change of government writes a new charter
   election: /การเลือกตั้งครั้งที่/,
   disaster: /แผ่นดินไหวครั้งใหญ่|น้ำท่วมใหญ่!|ภัยแล้งแผ่ไป|ฝนตกไม่หยุดทั้งวัน/,
+  wildfire: /^ไฟป่า!/, // summer fires in the woods (wilds.ts)
+  fenced: /ล้อมรั้วนาไม่ให้ฝูงสัตว์/,
+  palisade: /ระเนียดไม้สร้างเสร็จแล้ว/,
   exodus: /เก็บข้าวของที่เหลือแล้วทิ้งเมือง/,
   plague: /คร่าชีวิตไป \d+ คน/,
   crisis: /ข่าวฉาวสะเทือนเมือง|นัดหยุดงาน|ลอบสังหาร|ทะเลาะกับ.+อย่างรุนแรง/,

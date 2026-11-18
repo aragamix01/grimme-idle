@@ -1,9 +1,17 @@
 // The crown's building works: new buildings for the royal plots, grander versions of old ones,
 // the scaffolding that stands while they go up, and the sign on an empty plot.
 import { Grid } from './lib.mjs';
-import { brick, castle, church, door, flag, roof, shop, sign, wall, windowAt } from './world.mjs';
+import { brick, castle, church, cobbles, door, flag, roof, shop, sign, wall, windowAt } from './world.mjs';
 
 const finish = (g) => g.outline('o');
+
+// The paving, for the works list: a square of cobbles with a mason's hammer laid on it.
+function paving() {
+  const g = new Grid(32, 32);
+  for (const [x, y] of [[0, 0], [16, 0], [0, 16], [16, 16]]) g.layer(cobbles(x + y + 3), x, y);
+  g.rect(9, 20, 14, 3, 'N').rect(20, 15, 4, 12, 'X').rect(20, 15, 4, 2, 'x');
+  return g;
+}
 
 // A round stone silo with a conical roof beside a small barn, sacks stacked at the door.
 function granary() {
@@ -240,6 +248,7 @@ function monument(tier) {
 export function works() {
   return [
     { name: 'granary', group: 'buildings', frames: [granary()] },
+    { name: 'paving', group: 'buildings', frames: [paving()] },
     { name: 'watchtower', group: 'buildings', frames: [watchtower()] },
     { name: 'yard', group: 'buildings', frames: [yard()] },
     { name: 'scaffold', group: 'buildings', frames: [scaffold()] },

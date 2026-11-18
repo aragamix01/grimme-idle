@@ -1,15 +1,22 @@
-// The walled town and its surroundings, shared by the sim (who can walk where)
-// and WorldScene (what gets drawn where), so the two can never drift apart.
-import { createRng, next } from './rng';
+// The town on its patch of wild country, shared by the sim (who can walk where) and WorldScene
+// (what gets drawn where), so the two can never drift apart. The country comes from the seed
+// (terrain.ts); everything on it is the townsfolk's doing: the square, the buildings where the
+// town chose to put them, the homes where families chose to build, the fields and pastures they
+// cleared, the walls once there are some, and the roads, trodden from every door to the square.
+import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, entryOutward, terrainOf, type Spot } from './terrain';
+import { ashOf, wildsOf } from './wilds';
+import type { Parcel, WorldState } from './types';
+
+export { MAP_H, MAP_W } from './terrain';
+export type { Spot } from './terrain';
 
 // How many people the town is founded for. The homes it actually has decide how many it can
 // hold from then on (see housing.ts).
 export const TOWN_SIZE = 120;
 
-export const MAP_W = 40;
-export const MAP_H = 25;
-
-export type Ground = 'grass' | 'road' | 'water' | 'crops';
+// trail: a footpath trodden bare (paths.ts); paved: a road the crown has paved (works.ts); ash: woods
+// burnt in a fire (wilds.ts), growing back.
+export type Ground = 'grass' | 'road' | 'water' | 'crops' | 'trail' | 'paved' | 'ash';
 
 // A sprite on the map. Buildings sit by their top-left tile; everything else
 // stands on its tile, its art rising above it.
@@ -24,353 +31,370 @@ export interface Layout {
   ground: Ground[]; // MAP_W * MAP_H, row by row
   cost: Uint8Array; // walking cost per tile; 0 = blocked
   props: Placed[];
+  gates: Spot[]; // gaps in the town walls, where the roads run through
 }
 
-// Pixel size of each building's art, so footprints block exactly what is drawn.
+// Pixel size of each building's art, so footprints block exactly what is drawn. Anything not
+// listed (the crown's works, a home) is 32x32.
 const BUILDING_PX: Record<string, [w: number, h: number]> = {
   castle: [64, 56],
   guild: [48, 40],
   inn: [40, 36],
   church: [32, 48],
-  shop: [32, 32],
-  house: [32, 32],
-  'house-red': [32, 32],
-  'house-blue': [32, 32],
-  forge: [32, 32],
   barracks: [48, 32],
   brothel: [32, 40],
   manor: [48, 40],
-  barn: [32, 32],
 };
+// The buildings a town founds (growth.ts), drawn from the layout; the crown's works on their
+// plots are drawn by WorldScene, which knows how far along each is.
+export const CIVIC_ART = new Set(['castle', 'guild', 'inn', 'church', 'shop', 'forge', 'barracks', 'brothel', 'manor', 'barn']);
 
-// Ring of stone around the town; gates are gaps in it.
-export const WALL = { x0: 0, y0: 1, x1: 26, y1: 17 };
-export const GATES = [
-  { x: 0, y: 9 }, // west: where newcomers arrive
-  { x: 26, y: 9 }, // east: the road into the forest and the dungeons
-  { x: 13, y: 17 }, // south: out to the fields
-];
-
-// The town's own buildings. Homes are not among them: they stand on the house lots below, as
-// world.homes says.
-export const BUILDINGS: [key: string, tx: number, ty: number][] = [
-  // north row, facing the high street (y 6)
-  ['castle', 1, 2],
-  ['guild', 6, 3],
-  ['inn', 10, 3],
-  ['church', 14, 2],
-  // middle row, facing the main road (y 9)
-  ['shop', 2, 7],
-  // behind the back lane: trades, the garrison and the gentry
-  ['forge', 7, 13],
-  ['brothel', 9, 13],
-  ['barracks', 14, 13],
-  ['manor', 19, 13],
-  // out past the south gate, by the pasture
-  ['barn', 22, 18],
-];
-
-// House lots (2x2 tiles, top-left). The first twenty lie inside the walls along the three streets;
-// the rest spread out past the east gate into the forest once the town outgrows its walls.
-export interface Lot {
-  key: 'house' | 'house-red' | 'house-blue';
-  x: number;
-  y: number;
-  outside?: boolean;
-}
-export const LOTS: readonly Lot[] = [
-  // north row, facing the high street (y 6)
-  { key: 'house', x: 17, y: 4 },
-  { key: 'house-red', x: 20, y: 4 },
-  { key: 'house-blue', x: 23, y: 4 },
-  // middle row, facing the main road (y 9)
-  { key: 'house-red', x: 5, y: 7 },
-  { key: 'house', x: 8, y: 7 },
-  { key: 'house-blue', x: 11, y: 7 },
-  { key: 'house', x: 14, y: 7 },
-  { key: 'house-blue', x: 17, y: 7 },
-  { key: 'house-red', x: 20, y: 7 },
-  { key: 'house', x: 23, y: 7 },
-  // south row, facing the back lane (y 12)
-  { key: 'house-blue', x: 2, y: 10 },
-  { key: 'house', x: 5, y: 10 },
-  { key: 'house-red', x: 8, y: 10 },
-  { key: 'house', x: 16, y: 10 },
-  { key: 'house-red', x: 19, y: 10 },
-  { key: 'house-blue', x: 22, y: 10 },
-  // past the east gate: along the road out, a lane north of it, and one south of it
-  { key: 'house', x: 28, y: 7, outside: true },
-  { key: 'house-red', x: 31, y: 7, outside: true },
-  { key: 'house-blue', x: 28, y: 4, outside: true },
-  { key: 'house', x: 31, y: 4, outside: true },
-  { key: 'house-red', x: 30, y: 10, outside: true },
-  { key: 'house-blue', x: 34, y: 7, outside: true },
-  { key: 'house', x: 33, y: 10, outside: true },
-  { key: 'house-red', x: 34, y: 4, outside: true },
-  { key: 'house-blue', x: 37, y: 7, outside: true },
-  { key: 'house', x: 36, y: 10, outside: true },
-  { key: 'house-red', x: 37, y: 4, outside: true },
-];
-export const FIRST_LOTS = 16; // the lots built on at the founding
-
-// Where the homeless knock up shacks when there is no room for them: one tile each, along the
-// strip between the south wall and the fields, then along the far edge past the fields.
-export const SHACK_SPOTS: readonly { x: number; y: number }[] = [
-  ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((x) => ({ x, y: 18 })),
-  ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((x) => ({ x, y: 24 })),
-];
-// Shacks come and go too often to lay the town out again for each, so they are drawn on their own
-// (WorldScene) and nobody has to walk round them.
-export const SHACK_BASE = 1000; // a home number past this is a shack: SHACK_BASE + its spot
+// Tiles a building's art covers.
+export const footprint = (key: string) => {
+  const [w, h] = BUILDING_PX[key] ?? [32, 32];
+  return { w: Math.ceil(w / 16), h: Math.ceil(h / 16) };
+};
 
 // Where someone stands to use a building: the tile in front of its door.
 export const doorOf = (key: string, tx: number, ty: number) => {
-  const [w, h] = BUILDING_PX[key];
-  return { x: tx + Math.floor(w / 32), y: ty + Math.ceil(h / 16) };
+  const [w] = BUILDING_PX[key] ?? [32, 32];
+  return { x: tx + Math.floor(w / 32), y: ty + footprint(key).h };
 };
 
-// Royal plots outside the walls, kept clear for the crown's new buildings (2x2 tiles each).
-export const PLOTS = { granary: { x: 0, y: 18 }, yard: { x: 27, y: 11 }, school: { x: 11, y: 14 }, clocktower: { x: 24, y: 10 }, press: { x: 27, y: 14 }, monument: { x: 17, y: 14 }, factory: { x: 15, y: 18 }, station: { x: 19, y: 18 }, powerplant: { x: 22, y: 13 } } as const;
+// The square at the heart of the town: open ground kept clear for markets and gatherings.
+export const plaza = (site: Spot) => ({ x0: site.x - 2, y0: site.y - 1, x1: site.x + 2, y1: site.y + 1 });
 
-// The steam age's mill plots on the pasture south of the walls (3x2 tiles each, top-left), taken
-// in order as companies and the crown build (see industry.ts). The railway runs along row
-// RAIL_Y between the station and the mills.
-export const MILL_PLOTS: readonly { x: number; y: number }[] = [
-  { x: 14, y: 21 },
-  { x: 18, y: 21 },
-  { x: 22, y: 21 },
-  { x: 14, y: 23 },
-  { x: 18, y: 23 },
-  { x: 22, y: 23 },
-];
-export const RAIL_Y = 20;
-// The yard gate: the upper row opens onto the railway, the lower row onto the lane beside it.
-export const millDoor = (i: number) => {
-  const p = MILL_PLOTS[i];
-  return p.y === MILL_PLOTS[0].y ? { x: p.x + 1, y: RAIL_Y } : { x: p.x + 3, y: p.y + 1 };
-};
-// Gas lamps along the main road and the high street once the town knows steam.
-export const LAMPS: readonly { x: number; y: number }[] = [...[2, 6, 10, 16, 20, 24].map((x) => ({ x, y: 9 })), ...[4, 12, 18, 22].map((x) => ({ x, y: 6 }))];
+// The steam age's mills stand on 3x2 plots a company or the crown picked (landplan.ts millSite),
+// numbered by their top-left tile like homes; the yard gate is in the middle of the near side.
+export const MILL = { w: 3, h: 2 };
+export const millDoor = (plot: number) => ({ x: (plot % MAP_W) + 1, y: Math.floor(plot / MAP_W) + MILL.h });
 
-export const POND = { x0: 2, y0: 13, x1: 5, y1: 15 };
-export const FIELDS = { x0: 2, y0: 19, x1: 12, y1: 23 }; // rice, west of the south road
-export const PASTURE = { x0: 14, y0: 20, x1: 24, y1: 23 }; // grazing, east of it (the factory and station plots are at its north edge)
-export const FOREST = { x0: 28, y0: 0, x1: 39, y1: 24 }; // hunting grounds past the east gate
+// The railway: from the station's door straight out to the edge of the map, on the far side
+// from the square. undefined until there is a station.
+export function railway(view: Pick<WorldState, 'seed' | 'plots' | 'works'>): { y: number; from: number; to: number } | undefined {
+  const st = view.works?.station !== undefined ? view.plots?.station : undefined;
+  if (!st) return undefined;
+  const door = doorOf('station', st.x, st.y);
+  const east = st.x >= terrainOf(view.seed).site.x;
+  return { y: door.y, from: door.x, to: east ? MAP_W - 1 : 0 };
+}
+
+// Homes stand on 2x2 patches, numbered by their top-left tile.
+export const tileOf = (x: number, y: number) => y * MAP_W + x;
+export const lotXY = (lot: number) => ({ x: lot % MAP_W, y: Math.floor(lot / MAP_W) });
+
+// A home number past this is a shack: SHACK_BASE + its tile.
+export const SHACK_BASE = 100_000;
 
 // Where an NPC stands to enter a dungeon drawn at (d.x, d.y).
 export const dungeonDoor = (d: { x: number; y: number }) => ({ x: d.x + 1, y: d.y + 2 });
 
-const COST: Record<Ground, number> = { road: 1, grass: 2, crops: 3, water: 0 };
+const COST: Record<Ground, number> = { paved: 1, road: 2, trail: 3, grass: 4, ash: 4, crops: 6, water: 0 };
+const BRUSH_COST = 6;
 
-// What the layout is drawn from: the dungeons, and the lots with a home on them (finished or
-// going up). buildRev counts every change to the homes, so a layout is only laid out again then.
-export interface TownView {
-  dungeons: readonly { x: number; y: number }[];
-  mills?: readonly { plot: number }[]; // the steam age's mills: their plots are built on
-  works?: Partial<Record<string, number>>; // the station brings the railway; the boulevard takes the walls down
-  techs?: Partial<Record<string, number>>; // steam lights the gas lamps
-  homes?: readonly { lot: number; tier?: number }[];
-  founded?: Partial<Record<string, number>>; // missing: a town founded whole, walls and all
-  buildRev?: number;
-}
+// What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
+// again then.
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs'>;
 
-// The streets that come with what stands along them; the main road and the south road are there
-// from the first day.
-const HIGH_STREET = new Set(['castle', 'guild', 'inn', 'church']);
-const BACK_LANE = new Set(['forge', 'brothel', 'barracks', 'manor']);
-
-let cache: { ref: unknown; rev: number; era: string; key: string; layout: Layout } | null = null;
+let cache: { ref: unknown; n: number; rev: number; seed: number; era: string; key: string; layout: Layout } | null = null;
 
 export function townLayout(view: TownView): Layout {
   const { dungeons } = view;
   const rev = view.buildRev ?? 0;
-  // The steam age changes the town without touching its homes: mills, the railway, the lamps, the boulevard.
-  const era = `${view.mills?.length ?? 0}|${view.works?.station !== undefined}|${view.techs?.steam !== undefined}|${view.works?.boulevard !== undefined}|${view.works?.powerplant !== undefined}|${view.techs?.electricity !== undefined}`;
-  if (cache?.ref === dungeons && cache.rev === rev && cache.era === era) return cache.layout; // hot path: asked many times a tick
+  // The steam age changes the town without always touching buildRev: mills, the railway, the lamps, the boulevard.
+  const era = `${view.mills?.length ?? 0}|${view.works?.station}|${view.works?.boulevard}|${view.works?.powerplant}|${view.techs?.steam}|${view.techs?.electricity}`;
+  if (cache?.ref === dungeons && cache.n === dungeons.length && cache.rev === rev && cache.seed === view.seed && cache.era === era) return cache.layout; // hot path: asked many times a tick
   const homes = [...(view.homes ?? [])].sort((a, b) => a.lot - b.lot);
-  const lots = homes.map((h) => h.lot);
-  const has = (k: string) => !view.founded || view.founded[k] !== undefined;
-  const standingKeys = BUILDINGS.map(([k]) => k).filter(has);
-  const mills = (view.mills ?? []).map((m) => m.plot);
-  const rail = view.works?.station !== undefined;
-  const lamps = view.techs?.steam !== undefined;
-  const electric = view.works?.powerplant !== undefined && view.techs?.electricity !== undefined;
-  const boulevard = view.works?.boulevard !== undefined;
-  const key = `${dungeons.map((d) => `${d.x},${d.y}`).join(';')}|${homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(',')}|${standingKeys.join(',')}|${has('walls')}|${mills.join(',')}|${rail}|${lamps}|${boulevard}|${electric}|${view.techs?.electricity !== undefined}`;
+  const has = (k: string) => !view.founded || view.founded[k as keyof typeof view.founded] !== undefined;
+  const plots = Object.entries(view.plots ?? {}).filter((e): e is [string, Spot] => !!e[1]);
+  const key = [
+    view.seed,
+    dungeons.map((d) => `${d.x},${d.y}`).join(';'),
+    homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(','),
+    plots.map(([k, p]) => `${k}${has(k) ? '+' : ''}@${p.x},${p.y}`).join(','),
+    (view.parcels ?? []).map((p) => `${p.kind[0]}${p.x},${p.y},${p.w},${p.h}${p.ready}${p.fenced ? 'f' : ''}`).join(','),
+    view.ring && (has('walls') || has('palisade')) ? `${has('walls') ? 'w' : 'p'}${view.ring.x0},${view.ring.y0},${view.ring.x1},${view.ring.y1}` : '',
+    (view.trails ?? []).join(','),
+    view.wild ? JSON.stringify(view.wild) : '',
+    view.works?.paving !== undefined ? 'paved' : '',
+    (view.mills ?? []).map((m) => m.plot).join(','),
+    ['station', 'boulevard', 'powerplant'].map((k) => (view.works?.[k as keyof typeof view.works] !== undefined ? k[0] : '')).join(''),
+    ['steam', 'electricity'].map((k) => (view.techs?.[k as keyof typeof view.techs] !== undefined ? k[0] : '')).join(''),
+  ].join('|');
   if (cache?.key === key) {
-    cache.ref = dungeons;
-    cache.rev = rev;
-    cache.era = era;
+    Object.assign(cache, { ref: dungeons, n: dungeons.length, rev, seed: view.seed, era });
     return cache.layout;
   }
+  const layout = layOut(view, homes, plots, has);
+  cache = { ref: dungeons, n: dungeons.length, rev, seed: view.seed, era, key, layout };
+  return layout;
+}
 
-  const ground: Ground[] = new Array(MAP_W * MAP_H).fill('grass');
-  const blocked = new Uint8Array(MAP_W * MAP_H);
+function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [string, Spot][], has: (k: string) => boolean): Layout {
+  const t = wildsOf(view);
+  const ash = ashOf(view);
+  const N = MAP_W * MAP_H;
+  const ground: Ground[] = new Array(N).fill('grass');
+  const blocked = new Uint8Array(N);
+  const cleared = new Uint8Array(N); // the wild cover is gone: built on, worked or trodden
   const props: Placed[] = [];
   const inMap = (x: number, y: number) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
-  const setGround = (x: number, y: number, g: Ground) => inMap(x, y) && (ground[y * MAP_W + x] = g);
-  const block = (x: number, y: number) => inMap(x, y) && (blocked[y * MAP_W + x] = 1);
-  const isBlocked = (x: number, y: number) => !inMap(x, y) || blocked[y * MAP_W + x] === 1;
-  const hline = (x0: number, x1: number, y: number, g: Ground) => {
-    for (let x = x0; x <= x1; x++) setGround(x, y, g);
+  const rect = (x0: number, y0: number, w: number, h: number, f: (i: number, x: number, y: number) => void) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inMap(x, y)) f(y * MAP_W + x, x, y);
   };
-  const vline = (x: number, y0: number, y1: number, g: Ground) => {
-    for (let y = y0; y <= y1; y++) setGround(x, y, g);
-  };
+  const build = (x0: number, y0: number, w: number, h: number) =>
+    rect(x0, y0, w, h, (i) => {
+      blocked[i] = 1;
+      cleared[i] = 1;
+    });
+  for (let i = 0; i < N; i++) if (t.cover[i] === WATER) ground[i] = 'water';
 
-  // Fields first so the south road runs over them.
-  for (let y = FIELDS.y0; y <= FIELDS.y1; y++) hline(FIELDS.x0, FIELDS.x1, y, 'crops');
-  for (let y = POND.y0; y <= POND.y1; y++) hline(POND.x0, POND.x1, y, 'water');
-  const inner = lots.filter((i) => !LOTS[i].outside).map((i) => LOTS[i].y);
-  if (inner.includes(4) || standingKeys.some((k) => HIGH_STREET.has(k))) {
-    hline(WALL.x0 + 1, WALL.x1 - 1, 6, 'road'); // high street
-    vline(13, 6, 9, 'road');
+  // The square, then what stands around it.
+  const sq = plaza(t.site);
+  rect(sq.x0, sq.y0, sq.x1 - sq.x0 + 1, sq.y1 - sq.y0 + 1, (i) => {
+    ground[i] = 'road';
+    cleared[i] = 1;
+  });
+  const doors: Spot[] = [];
+  for (const [k, p] of plots) {
+    const art = k === 'castle' && !has(k) ? 'hall' : k;
+    const fp = footprint(k);
+    build(p.x, p.y, fp.w, fp.h);
+    doors.push(doorOf(k, p.x, p.y));
+    // Before the castle the chief keeps a timber hall in its place; a building still going up is
+    // scaffolding, drawn by WorldScene, as are the crown's works.
+    if (CIVIC_ART.has(k) && (has(k) || k === 'castle')) props.push({ key: art, x: p.x, y: p.y, anchor: 'top' });
   }
-  hline(0, WALL.x1, 9, 'road'); // main road, gate to gate
-  if (inner.includes(10) || standingKeys.some((k) => BACK_LANE.has(k))) hline(WALL.x0 + 1, WALL.x1 - 1, 12, 'road'); // back lane
-  vline(13, 9, MAP_H - 1, 'road'); // north-south, out the south gate
-  if (has('church') || has('shop')) for (let y = 10; y <= 11; y++) hline(11, 15, y, 'road'); // the square
-
-  // Walls, with towers on the corners and either side of each gate.
-  const isGate = (x: number, y: number) => GATES.some((g) => g.x === x && g.y === y);
-  const towers = new Set<string>();
-  for (const [x, y] of [[WALL.x0, WALL.y0], [WALL.x1, WALL.y0], [WALL.x0, WALL.y1], [WALL.x1, WALL.y1]]) towers.add(`${x},${y}`);
-  for (const g of GATES) {
-    const side = g.x === WALL.x0 || g.x === WALL.x1; // gate in a side wall: towers above and below
-    towers.add(side ? `${g.x},${g.y - 1}` : `${g.x - 1},${g.y}`);
-    towers.add(side ? `${g.x},${g.y + 1}` : `${g.x + 1},${g.y}`);
+  for (const { lot, tier = 1 } of homes) {
+    const { x, y } = lotXY(lot);
+    build(x, y, 2, 2);
+    doors.push({ x: x + 1, y: y + 2 });
+    props.push({ key: tier === 0 ? 'hut' : tier === 2 ? homeArt(lot).replace('house', 'townhouse') : homeArt(lot), x, y, anchor: 'top' });
   }
-  for (let y = WALL.y0; y <= WALL.y1; y++)
-    for (let x = WALL.x0; x <= WALL.x1; x++) {
-      if (!has('walls')) break; // a camp or a village has none yet
-      const edgeX = x === WALL.x0 || x === WALL.x1;
-      const edgeY = y === WALL.y0 || y === WALL.y1;
-      if (!edgeX && !edgeY) continue;
-      if (boulevard) {
-        setGround(x, y, 'road'); // the walls pulled down for a boulevard round the town
-        continue;
-      }
-      if (isGate(x, y)) {
-        setGround(x, y, 'road');
-        continue;
-      }
-      block(x, y);
-      if (towers.has(`${x},${y}`)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
-      else props.push({ key: edgeY ? 'town-wall' : 'wall-top', x, y, anchor: edgeY ? 'bottom' : 'top' });
-    }
-
-  for (const [key, tx, ty] of BUILDINGS) {
-    // Before the castle the chief keeps a timber hall in its place; other buildings not yet founded leave their plot open.
-    if (!has(key) && key !== 'castle') continue;
-    const [w, h] = BUILDING_PX[key];
-    for (let y = ty; y < ty + Math.ceil(h / 16); y++) for (let x = tx; x < tx + Math.ceil(w / 16); x++) block(x, y);
-    props.push({ key: has(key) ? key : 'hall', x: tx, y: ty, anchor: 'top' });
+  // Fields and pastures: crops once the ground is cleared and sown, a fence round the flocks.
+  for (const p of view.parcels ?? []) {
+    rect(p.x, p.y, p.w, p.h, (i) => {
+      cleared[i] = 1;
+      if (p.kind === 'field' && ground[i] !== 'water') ground[i] = 'crops';
+    });
+    if (p.kind === 'pasture') pasture(p, props);
+    else if (p.fenced) fence(p, props);
+    doors.push({ x: p.x + (p.w >> 1), y: p.y + p.h }); // a lane out to it
   }
-  // Homes on their lots. Out past the east gate a lane is trodden to each one from the road.
-  for (const { lot: i, tier = 1 } of homes) {
-    const lot = LOTS[i];
-    for (let y = lot.y; y < lot.y + 2; y++) for (let x = lot.x; x < lot.x + 2; x++) block(x, y);
-    props.push({ key: tier === 0 ? 'hut' : tier === 2 ? lot.key.replace('house', 'townhouse') : lot.key, x: lot.x, y: lot.y, anchor: 'top' });
-    if (!lot.outside) continue;
-    const door = { x: lot.x + 1, y: lot.y + 2 };
-    if (door.y < 9) {
-      hline(WALL.x1 + 1, door.x, 6, 'road');
-      vline(WALL.x1 + 1, 6, 9, 'road');
-    } else if (door.y > 9) {
-      hline(WALL.x1 + 3, door.x, 12, 'road');
-      vline(WALL.x1 + 3, 9, 12, 'road');
-    }
+  // The mills: their sheds block, and a lane runs to each yard gate.
+  for (const m of view.mills ?? []) {
+    const { x, y } = lotXY(m.plot);
+    build(x, y, MILL.w, MILL.h);
+    doors.push(millDoor(m.plot));
   }
-
-  // The mills stand on their plots; the railway runs from the forest's edge past the station.
-  for (const i of mills) {
-    const p = MILL_PLOTS[i];
-    for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 2; x++) block(x, y);
-    const gate = millDoor(i);
-    setGround(gate.x, gate.y, 'road'); // a trodden yard at the gate, so no tree grows in the way
-  }
-  if (rail)
-    for (let x = PASTURE.x0; x < MAP_W; x++) {
-      if (isBlocked(x, RAIL_Y)) continue;
-      setGround(x, RAIL_Y, 'road');
-      props.push({ key: 'rail', x, y: RAIL_Y, anchor: 'top' });
-    }
-  if (lamps) for (const l of LAMPS) if (!isBlocked(l.x, l.y) && ground[l.y * MAP_W + l.x] === 'road') props.push({ key: electric ? 'elamp' : 'lamp', x: l.x, y: l.y, anchor: 'bottom' }); // on the street's edge, nobody's way; electric once the power station runs
-
-  // The royal plots are fenced off whether or not anything stands on them yet.
-  // (The power station's plot is only marked out once the town knows electricity: before that it is
-  // the manor's orchard.)
-  for (const [k, p] of Object.entries(PLOTS)) {
-    if (k === 'powerplant' && view.techs?.electricity === undefined) continue;
-    for (let y = p.y; y <= p.y + 1; y++) for (let x = p.x; x <= p.x + 1; x++) block(x, y);
-  }
-
-  // Dungeons: their mound blocks, and a trail leads from the east gate to each door.
-  const clearing = new Set<string>();
-  for (const d of dungeons) {
-    for (let y = d.y; y <= d.y + 1; y++) for (let x = d.x; x <= d.x + 1; x++) block(x, y);
+  // Dungeons: their mound blocks, and the ground about them is trampled bare.
+  for (const d of view.dungeons) {
+    build(d.x, d.y, 2, 2);
     const door = dungeonDoor(d);
-    hline(WALL.x1, door.x, 9, 'road');
-    vline(door.x, Math.min(9, door.y), Math.max(9, door.y), 'road');
-    for (let y = d.y - 1; y <= door.y + 1; y++) for (let x = d.x - 2; x <= d.x + 3; x++) clearing.add(`${x},${y}`);
+    rect(d.x - 2, d.y - 1, 6, door.y - d.y + 3, (i) => (cleared[i] = 1));
+    doors.push(door);
   }
 
-  // Scenery. Trees block; bushes and rocks are small enough to step past, except the pond rock.
-  const scenery = createRng(1847);
-  const rand = () => next(scenery);
-  const tree = (x: number, y: number) => {
-    if (isBlocked(x, y) || ground[y * MAP_W + x] !== 'grass' || clearing.has(`${x},${y}`)) return;
-    block(x, y);
-    props.push({ key: 'tree', x, y, anchor: 'bottom' });
-  };
-  const deco = (key: string, x: number, y: number) => {
-    if (!isBlocked(x, y) && ground[y * MAP_W + x] === 'grass' && !clearing.has(`${x},${y}`)) props.push({ key, x, y, anchor: 'bottom' });
-  };
-  // A few fruit trees left between the manor and the wall.
-  for (const [x, y] of [[23, 14], [24, 16], [22, 16], [17, 16]]) tree(x, y);
-  deco('bush', 12, 14);
-  deco('rock', 6, 16);
-  // The eastern forest, thick but never on the road.
-  // The mills' appetite for timber thins the forest south of the road, more with every mill.
-  const felled = Math.max(0.25, 1 - 0.15 * mills.length);
-  for (let x = WALL.x1 + 1; x < MAP_W; x++)
-    for (let y = 0; y < MAP_H; y++) {
-      if (y >= 8 && y <= 10) continue;
-      const r = rand();
-      if (r < 0.34 * (y > 12 ? felled : 1)) tree(x, y);
-      else if (r < 0.42) deco('bush', x, y);
+  // Roads: first the road in from the wider world to the square, the town's main street; then from
+  // every door the cheapest way to the nearest road, nearest doors first, so the lanes join into
+  // streets; then on from the road in to the edge of the map.
+  // Footpaths people have trodden (paths.ts): the roads take to them where they can.
+  for (const i of view.trails ?? []) {
+    if (blocked[i] || ground[i] !== 'grass' || t.cover[i] === ROCK) continue;
+    ground[i] = 'trail';
+    cleared[i] = 1;
+  }
+  tread(t.entry, ground, blocked, cleared, t.cover);
+  const order = doors.sort((a, b) => Math.hypot(a.x - t.site.x, a.y - t.site.y) - Math.hypot(b.x - t.site.x, b.y - t.site.y));
+  for (const d of order) tread(d, ground, blocked, cleared, t.cover);
+  const out = entryOutward(t);
+  for (let x = t.entry.x, y = t.entry.y; inMap(x, y); x += out.x, y += out.y) {
+    const i = y * MAP_W + x;
+    if (blocked[i]) break;
+    ground[i] = 'road';
+    cleared[i] = 1;
+  }
+
+  // The railway, laid from the station out to the edge of the map: a road beside the rails.
+  const rail = railway(view);
+  if (rail)
+    for (let x = rail.from, step = Math.sign(rail.to - rail.from) || 1; x !== rail.to + step; x += step) {
+      const i = rail.y * MAP_W + x;
+      if (blocked[i] || ground[i] === 'water') continue;
+      ground[i] = 'road';
+      cleared[i] = 1;
+      props.push({ key: 'rail', x, y: rail.y, anchor: 'top' });
     }
-  // Woods along the west and south edges, outside the fields.
-  for (let y = WALL.y1 + 1; y < MAP_H; y++) for (const x of [0, 1, 25, 26]) if (rand() < 0.6) tree(x, y);
-  for (let x = 0; x < MAP_W; x += 2) if (rand() < 0.5) deco('bush', x, 0);
-  // A fence keeps the crows out of the fields and the beasts in the pasture.
-  for (let x = FIELDS.x0; x <= PASTURE.x1; x++) if (x !== 13 && !isBlocked(x, FIELDS.y1 + 1)) props.push({ key: 'fence', x, y: FIELDS.y1 + 1, anchor: 'bottom' });
-  // Along the pasture's north edge the factory and station plots (fenced off themselves) stand in for the fence.
-  const onPlot = (x: number) => [PLOTS.factory, PLOTS.station].some((p) => x >= p.x && x <= p.x + 1);
-  for (let x = PASTURE.x0; x < 22; x++) if (!onPlot(x)) props.push({ key: 'fence', x, y: PASTURE.y0 - 1, anchor: 'bottom' });
-  if (!mills.length) {
-    deco('haystack', 15, 20);
-    deco('haystack', 20, 23);
-    deco('trough', 18, 21);
+
+  // The walls, with towers on the corners and either side of each gate; a gate wherever a road
+  // crosses the line. Once the crown has the boulevard built, the line is a ring road instead.
+  const gates: Spot[] = [];
+  // A palisade of logs first; stone walls with towers once the town has built them.
+  const stone = has('walls');
+  const boulevard = view.works?.boulevard !== undefined;
+  const ring = !boulevard && (stone || has('palisade')) ? view.ring : undefined;
+  if (boulevard && view.ring) {
+    const r = view.ring;
+    for (let y = r.y0; y <= r.y1; y++)
+      for (let x = r.x0; x <= r.x1; x++) {
+        if (x !== r.x0 && x !== r.x1 && y !== r.y0 && y !== r.y1) continue;
+        const i = y * MAP_W + x;
+        if (!inMap(x, y) || blocked[i] || ground[i] === 'water') continue;
+        ground[i] = 'road';
+        cleared[i] = 1;
+      }
+  }
+  if (ring) {
+    const onRing = (x: number, y: number) => (x === ring.x0 || x === ring.x1) && y >= ring.y0 && y <= ring.y1 || (y === ring.y0 || y === ring.y1) && x >= ring.x0 && x <= ring.x1;
+    const isGate = (x: number, y: number) => inMap(x, y) && onRing(x, y) && ground[y * MAP_W + x] === 'road';
+    const towers = new Set<string>([`${ring.x0},${ring.y0}`, `${ring.x1},${ring.y0}`, `${ring.x0},${ring.y1}`, `${ring.x1},${ring.y1}`]);
+    for (let y = ring.y0; y <= ring.y1; y++)
+      for (let x = ring.x0; x <= ring.x1; x++) {
+        if (!onRing(x, y) || !inMap(x, y)) continue;
+        if (isGate(x, y)) {
+          gates.push({ x, y });
+          if (!stone) continue;
+          const side = x === ring.x0 || x === ring.x1;
+          towers.add(side ? `${x},${y - 1}` : `${x - 1},${y}`);
+          towers.add(side ? `${x},${y + 1}` : `${x + 1},${y}`);
+        }
+      }
+    for (let y = ring.y0; y <= ring.y1; y++)
+      for (let x: number = ring.x0; x <= ring.x1; x++) {
+        if (!onRing(x, y) || !inMap(x, y) || isGate(x, y)) continue;
+        const i = y * MAP_W + x;
+        if (ground[i] === 'water' || blocked[i]) continue; // the river is its own moat; a house in the line is part of it
+        blocked[i] = 1;
+        cleared[i] = 1;
+        const edgeY = y === ring.y0 || y === ring.y1;
+        if (!stone) props.push({ key: 'palisade', x, y, anchor: 'bottom' });
+        else if (towers.has(`${x},${y}`)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
+        else props.push({ key: edgeY ? 'town-wall' : 'wall-top', x, y, anchor: edgeY ? 'bottom' : 'top' });
+      }
   }
 
-  const cost = new Uint8Array(MAP_W * MAP_H);
-  for (let i = 0; i < cost.length; i++) cost[i] = blocked[i] ? 0 : COST[ground[i]];
+  // The crown's paving: every road inside the walls (or near the square, with none) laid in stone.
+  if (view.works?.paving !== undefined) {
+    const inside = (x: number, y: number) => (ring ? x > ring.x0 && x < ring.x1 && y > ring.y0 && y < ring.y1 : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
+    for (let i = 0; i < N; i++) if (ground[i] === 'road' && inside(i % MAP_W, Math.floor(i / MAP_W))) ground[i] = 'paved';
+  }
+
+  // Gas lamps (electric once the power station runs) along the streets near the square, once the town knows steam.
+  if (view.techs?.steam !== undefined) {
+    const electric = view.techs?.electricity !== undefined && view.works?.powerplant !== undefined;
+    for (let i = 0; i < N; i++) {
+      const x = i % MAP_W;
+      const y = (i - x) / MAP_W;
+      if ((ground[i] === 'road' || ground[i] === 'paved') && (x * 3 + y * 5) % 7 === 0 && Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16) props.push({ key: electric ? 'elamp' : 'lamp', x, y, anchor: 'bottom' });
+    }
+  }
+
+  // The wild country wherever nobody has cleared it: trees block, scrub slows, rocks stand; where
+  // the woods burnt, ash.
+  const brush = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (cleared[i] || blocked[i] || ground[i] !== 'grass') continue;
+    if (ash.has(i)) ground[i] = 'ash';
+    const c = t.cover[i];
+    const x = i % MAP_W;
+    const y = (i - x) / MAP_W;
+    if (c === TREE || c === ROCK) {
+      blocked[i] = 1;
+      props.push({ key: c === TREE ? 'tree' : 'rock', x, y, anchor: 'bottom' });
+    } else if (c === BRUSH) {
+      brush[i] = 1;
+      props.push({ key: 'bush', x, y, anchor: 'bottom' });
+    }
+  }
+
+  const cost = new Uint8Array(N);
+  for (let i = 0; i < N; i++) cost[i] = blocked[i] ? 0 : brush[i] ? BRUSH_COST : COST[ground[i]];
   // Glades the trees close off completely count as blocked, so nobody is sent into one.
-  const reached = new Uint8Array(cost.length);
-  const queue = [GATES[0].y * MAP_W + GATES[0].x];
-  reached[queue[0]] = 1;
+  const reached = new Uint8Array(N);
+  const start = t.entry.y * MAP_W + t.entry.x;
+  const queue = [start];
+  reached[start] = 1;
   while (queue.length) {
     const i = queue.pop()!;
     const x = i % MAP_W;
     for (const j of [x > 0 ? i - 1 : -1, x < MAP_W - 1 ? i + 1 : -1, i - MAP_W, i + MAP_W]) {
-      if (j < 0 || j >= cost.length || !cost[j] || reached[j]) continue;
+      if (j < 0 || j >= N || !cost[j] || reached[j]) continue;
       reached[j] = 1;
       queue.push(j);
     }
   }
-  for (let i = 0; i < cost.length; i++) if (!reached[i]) cost[i] = 0;
-  const layout = { ground, cost, props };
-  cache = { ref: dungeons, rev, era, key, layout };
-  return layout;
+  for (let i = 0; i < N; i++) if (!reached[i]) cost[i] = 0;
+  return { ground, cost, props, gates };
+}
+
+// Homes come in three colours, the same for a lot every time it is drawn.
+const HOME_ART = ['house', 'house-red', 'house-blue'] as const;
+const homeArt = (lot: number) => HOME_ART[(lot * 7 + (lot >> 3)) % 3];
+
+// A pasture is fenced all round but for a gap on its near side, with a trough and some hay.
+function pasture(p: Parcel, props: Placed[]): void {
+  const gap = p.x + (p.w >> 1);
+  for (let x = p.x; x < p.x + p.w; x++) {
+    props.push({ key: 'fence', x, y: p.y, anchor: 'bottom' });
+    if (x !== gap) props.push({ key: 'fence', x, y: p.y + p.h - 1, anchor: 'bottom' });
+  }
+  props.push({ key: 'trough', x: p.x + 1, y: p.y + (p.h >> 1), anchor: 'bottom' });
+  props.push({ key: 'haystack', x: p.x + p.w - 2, y: p.y + 1, anchor: 'bottom' });
+}
+
+// A fenced field: rails along its top and bottom, a gap for the lane.
+function fence(p: Parcel, props: Placed[]): void {
+  const gap = p.x + (p.w >> 1);
+  for (let x = p.x; x < p.x + p.w; x++) {
+    props.push({ key: 'fence', x, y: p.y, anchor: 'bottom' });
+    if (x !== gap) props.push({ key: 'fence', x, y: p.y + p.h - 1, anchor: 'bottom' });
+  }
+}
+
+// The cheapest way from `from` to any road, marked as road. Each tile's price is what it takes
+// to make a way across it: open grass is cheap, scrub dearer, trees must be felled, the river
+// forded, and only as a last resort a way cut through rock.
+const TREAD: Record<number, number> = { [TREE]: 9, [BRUSH]: 4 };
+function tread(from: Spot, ground: Ground[], blocked: Uint8Array, cleared: Uint8Array, cover: Uint8Array): void {
+  const N = ground.length;
+  const start = from.y * MAP_W + from.x;
+  if (start < 0 || start >= N || ground[start] === 'road') return;
+  const price = (i: number) => {
+    if (blocked[i]) return 0;
+    if (cover[i] === ROCK && !cleared[i]) return 40; // a way cut round the outcrop
+    if (ground[i] === 'road') return 1;
+    if (ground[i] === 'trail') return 2;
+    if (ground[i] === 'water') return 30;
+    if (ground[i] === 'crops') return 6;
+    return cleared[i] ? 3 : (TREAD[cover[i]] ?? 3);
+  };
+  const dist = new Uint32Array(N).fill(0xffffffff);
+  const prev = new Int32Array(N).fill(-1);
+  const buckets: number[][] = [[start]];
+  dist[start] = 0;
+  let found = -1;
+  for (let d = 0; d < buckets.length && found < 0; d++) {
+    const bucket = buckets[d];
+    if (!bucket) continue;
+    for (const i of bucket) {
+      if (dist[i] !== d) continue;
+      if (i !== start && ground[i] === 'road') {
+        found = i;
+        break;
+      }
+      const x = i % MAP_W;
+      for (const j of [x > 0 ? i - 1 : -1, x < MAP_W - 1 ? i + 1 : -1, i - MAP_W, i + MAP_W]) {
+        if (j < 0 || j >= N) continue;
+        const p = price(j);
+        if (!p || d + p >= dist[j]) continue;
+        dist[j] = d + p;
+        prev[j] = i;
+        (buckets[d + p] ??= []).push(j);
+      }
+    }
+  }
+  for (let i = found; i >= 0; i = prev[i]) {
+    if (ground[i] !== 'road') ground[i] = 'road';
+    cleared[i] = 1;
+  }
 }

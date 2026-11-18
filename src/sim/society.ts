@@ -6,7 +6,8 @@ import { RULER_TH } from './lexicon';
 import { writeCharter } from './charter';
 import { addTie } from './ties';
 import { buy, ensureMarket, priceRatio, sell, levelOf } from './market';
-import { PLACES, type Spot } from './places';
+import { places, type Spot } from './places';
+import { townLayout } from './town';
 import { builtFor, townPop } from './housing';
 import { TOWN_RANK, founded, rankOf } from './growth';
 import { successor } from './regimes';
@@ -80,15 +81,13 @@ export function pickJob(rng: Rng, world?: WorldState): Job {
 const living = (world: WorldState, job: Job) => world.npcs.filter((n) => n.alive && n.job === job && n.age >= 16);
 export const king = (world: WorldState) => world.npcs.find((n) => n.id === world.kingId && n.alive && n.job === 'king');
 
-// Soldiers' posts: the three gates, the square and the barracks door.
-const POSTS: Spot[] = [
-  { x: 1, y: 9 },
-  { x: 25, y: 9 },
-  { x: 13, y: 16 },
-  PLACES.square,
-  PLACES.barracks,
-];
-export const patrolPost = (rng: Rng) => pick(rng, POSTS);
+// Soldiers' posts: the gates in the walls (or the road in, before there are any), the square and
+// the barracks door.
+export function patrolPost(world: WorldState, rng: Rng): Spot {
+  const p = places(world);
+  const gates = townLayout(world).gates;
+  return pick(rng, [...(gates.length ? gates : [p.gate]), p.square, p.barracks]);
+}
 
 // A grown child of the gentry is gentry too, while there is room at court.
 export function inheritedJob(world: WorldState, parents: Npc[], rng: Rng): Job {

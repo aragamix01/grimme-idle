@@ -186,7 +186,7 @@ export interface Parliament {
 }
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe' | 'electricity' | 'telegraph' | 'lightbulb' | 'tram';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant';
+export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant';
 
 export interface Dragon {
   name: string;
@@ -274,7 +274,7 @@ export interface Mill {
   id: number;
   kind: MillKind;
   name: string;
-  plot: number; // index into MILL_PLOTS
+  plot: number; // its top-left tile, y * MAP_W + x (landplan.ts millSite)
   owner: number | 'crown'; // the trade house (guild id) that built it, or the crown
   since: number; // day work began on it
   ready: number; // day it opens
@@ -450,7 +450,7 @@ export interface War {
 }
 
 export type DreamKind = 'repent' | 'love' | 'nightmare' | 'vision' | 'ambition';
-export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom';
+export type MiracleKind = 'rain' | 'goldrain' | 'festival' | 'wanderers' | 'blight' | 'plague' | 'cult' | 'surge' | 'eclipse' | 'aegis' | 'revive' | 'wonder' | 'bounty' | 'uprising' | 'quake' | 'flood' | 'drought' | 'tyranny' | 'doom' | 'grove' | 'spring' | 'lightning';
 
 export type Perk = 'faith' | 'grace' | 'valor' | 'harvest' | 'ward' | 'lore';
 
@@ -499,15 +499,28 @@ export type EventKind =
   | 'happening';
 
 // The buildings a town founds as it grows (see growth.ts).
-export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'castle' | 'walls' | 'manor' | 'brothel';
+export type Civic = 'shop' | 'church' | 'inn' | 'forge' | 'barn' | 'guild' | 'barracks' | 'palisade' | 'castle' | 'walls' | 'manor' | 'brothel';
 
-// A home on one of the house lots (town.ts LOTS). Its tier decides how many it houses.
+// A home on its own patch of ground (2x2 tiles). `lot` is its top-left tile as y * MAP_W + x, so a
+// home's door can be found from the number alone (housing.ts lotDoor). Its tier decides how many it houses.
 export interface Home {
   lot: number;
   tier: 0 | 1 | 2;
   built: number; // day it stood, or will
   until?: number; // while it is going up (or a storey higher): the day it is done
   ownerId?: number; // who paid for it; missing: the crown
+}
+
+// Land worked in the open: a family's field, or grazing for the flocks (see landplan.ts).
+export interface Parcel {
+  kind: 'field' | 'pasture';
+  x: number; // top-left tile
+  y: number;
+  w: number;
+  h: number;
+  ownerId?: number; // the farmer whose family works it; missing: the town's
+  ready: number; // the day it is cleared and can be worked
+  fenced?: true; // a field fenced off from the flocks next door (landplan.ts fenceDay)
 }
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
@@ -519,7 +532,9 @@ export type HappeningKind =
   // decisions within a saga (sagas.ts)
   | 'goldrush' | 'comet' | 'ransom' | 'quarantine' | 'breakers'
   // the steam age's troubles (affairs.ts)
-  | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale';
+  | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale'
+  // the land (happenings.ts)
+  | 'enclosure' | 'sacredgrove' | 'landclaim';
 // A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
 export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence' | 'luddites';
 export interface Saga {
@@ -658,7 +673,12 @@ export interface WorldState {
   homes?: Home[]; // the town's homes, one per built house lot
   buildRev?: number; // counts changes to the homes, so the town is only laid out again when one comes or goes
   homeless?: number; // townsfolk with no room in any home, nor a shack, as of the last count
-  shacks?: number[]; // the shanty's shacks, by spot (town.ts SHACK_SPOTS)
+  shacks?: number[]; // the shanty's shacks, by tile (y * MAP_W + x)
+  plots?: Partial<Record<string, { x: number; y: number }>>; // where each public building and royal work stands (top-left tile), chosen when it is begun
+  parcels?: Parcel[]; // fields and pastures
+  ring?: { x0: number; y0: number; x1: number; y1: number }; // the line of the town walls, set when they are begun
+  trails?: number[]; // tiles trodden bare into footpaths, by tile; redrawn monthly from where people walk (paths.ts)
+  wild?: { burnt?: { i: number; day: number }[]; planted?: number[]; springs?: number[] }; // the wild country changed since the seed: woods burnt, woods grown by the god, springs opened (wilds.ts)
   slum?: number; // townsfolk living in them, as of the last count
   happening?: Happening; // the matter waiting on a decision
   happenings?: Happening[]; // the last ones decided, newest last

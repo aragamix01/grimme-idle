@@ -1,16 +1,16 @@
 // The crown's building works. A treasury with gold to spare puts it into the town: a new
-// building on one of the royal plots outside the walls, or an old one rebuilt grander. Which
+// building on ground the crown picks for it, or an old one rebuilt grander. Which
 // one is the king's call: what the town has been suffering, and what kind of king he is.
 import { chance, type Rng } from './rng';
 import { known, log } from './core';
 import { legend } from './quests';
 import { king, payrollReserve } from './society';
-import { PLOTS } from './town';
 import { basePrice, ensureMarket, levelOf } from './market';
 import { mastery } from './research';
 import { traveller } from './world';
 import { feed } from './demonlord';
 import { TOWN_RANK, founded, rankOf } from './growth';
+import { placeBuilding } from './landplan';
 import type { Civic, Good, Npc, Work, WorldState } from './types';
 
 export interface WorkDef {
@@ -19,7 +19,7 @@ export interface WorkDef {
   days: number; // to build
   text: string; // what it does, for the kingdom tab
   art: string; // its sprite
-  plot?: { x: number; y: number }; // a new building's royal plot (top-left tile, 2x2)...
+  plot?: true; // a new building on ground the crown chooses when it is begun (2x2)...
   replaces?: string; // ...or the building it rebuilds in place
 }
 
@@ -29,22 +29,23 @@ const MONUMENT_COST = 1500;
 const MONUMENT_STEP = 800;
 
 export const WORKS: Record<Work, WorkDef> = {
-  granary: { name: 'ยุ้งฉางหลวง', cost: 500, days: 60, text: 'ข้าวเน่าเสียช้าลงมาก เนื้อเก็บได้นานขึ้น', art: 'granary', plot: PLOTS.granary },
+  paving: { name: 'ปูถนนหินในเมือง', cost: 450, days: 60, text: 'ถนนในกำแพงปูหินทั้งหมด ผู้คนเดินไปทำงานได้เร็วขึ้น', art: 'paving' },
+  granary: { name: 'ยุ้งฉางหลวง', cost: 500, days: 60, text: 'ข้าวเน่าเสียช้าลงมาก เนื้อเก็บได้นานขึ้น', art: 'granary', plot: true },
   watchtowers: { name: 'หอธนูประจำประตูเมือง', cost: 700, days: 90, text: 'ป้องกันเมืองตอนมอนสเตอร์ทะลักได้ดีขึ้น', art: 'watchtower', replaces: 'gate-tower' },
-  yard: { name: 'ลานฝึกนักรบ', cost: 600, days: 75, text: 'นักผจญภัยเลเวลขึ้นเร็วขึ้นเมื่อลงดันเจี้ยน', art: 'yard', plot: PLOTS.yard },
+  yard: { name: 'ลานฝึกนักรบ', cost: 600, days: 75, text: 'นักผจญภัยเลเวลขึ้นเร็วขึ้นเมื่อลงดันเจี้ยน', art: 'yard', plot: true },
   cathedral: { name: 'มหาวิหาร', cost: 900, days: 120, text: 'นักบวชสวดได้ศรัทธามากขึ้นเท่าตัว และรักษาโรคระบาดได้ดีขึ้น', art: 'cathedral', replaces: 'church' },
   market: { name: 'หอตลาดใหญ่', cost: 800, days: 90, text: 'ร้านรับซื้อของในราคาดีขึ้น กองคาราวานได้กำไรมากขึ้น', art: 'market-hall', replaces: 'shop' },
-  school: { name: 'โรงเรียนหลวง', cost: 600, days: 75, text: 'นักปราชญ์ได้สอนหนังสือ ค้นคว้าได้ความรู้เพิ่มเป็นเท่าตัว', art: 'school', plot: PLOTS.school },
-  clocktower: { name: 'หอนาฬิกา', cost: 700, days: 90, text: 'ระฆังบอกเวลาทำให้ทุกคนทำงานตรงเวลา ผลผลิตข้าวและความรู้เพิ่ม 10%', art: 'clocktower', plot: PLOTS.clocktower },
-  press: { name: 'โรงพิมพ์', cost: 800, days: 90, text: 'หนังสือราคาถูก ผู้ใหญ่หัดอ่านเองได้ นักปราชญ์ค้นคว้าได้ไวขึ้น 25%', art: 'press', plot: PLOTS.press },
-  monument: { name: 'อนุสรณ์สถานแห่งอาณาจักร', cost: MONUMENT_COST, days: 120, text: 'สร้างต่อเติมได้ไม่รู้จบ ทุกระดับทำให้ชาวเมืองภาคภูมิใจและศรัทธามากขึ้น', art: 'monument-1', plot: PLOTS.monument },
-  factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น หากจอมมารยึดเมืองจะผลิตอาวุธให้ทัพปีศาจแทน', art: 'factory', plot: PLOTS.factory },
-  station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: PLOTS.station },
+  school: { name: 'โรงเรียนหลวง', cost: 600, days: 75, text: 'นักปราชญ์ได้สอนหนังสือ ค้นคว้าได้ความรู้เพิ่มเป็นเท่าตัว', art: 'school', plot: true },
+  clocktower: { name: 'หอนาฬิกา', cost: 700, days: 90, text: 'ระฆังบอกเวลาทำให้ทุกคนทำงานตรงเวลา ผลผลิตข้าวและความรู้เพิ่ม 10%', art: 'clocktower', plot: true },
+  press: { name: 'โรงพิมพ์', cost: 800, days: 90, text: 'หนังสือราคาถูก ผู้ใหญ่หัดอ่านเองได้ นักปราชญ์ค้นคว้าได้ไวขึ้น 25%', art: 'press', plot: true },
+  monument: { name: 'อนุสรณ์สถานแห่งอาณาจักร', cost: MONUMENT_COST, days: 120, text: 'สร้างต่อเติมได้ไม่รู้จบ ทุกระดับทำให้ชาวเมืองภาคภูมิใจและศรัทธามากขึ้น', art: 'monument-1', plot: true },
+  factory: { name: 'โรงงาน', cost: 1200, days: 120, text: 'ผลิตอาวุธเดือนละ 4 ชุด ขายสินค้าได้เงินเข้าคลังเดือนละ 80 แต่ควันทำให้โรคระบาดรุนแรงขึ้น หากจอมมารยึดเมืองจะผลิตอาวุธให้ทัพปีศาจแทน', art: 'factory', plot: true },
+  station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: true },
   boulevard: { name: 'ถนนวงแหวนแทนกำแพงเมือง', cost: 900, days: 120, text: 'รื้อกำแพงเก่าสร้างถนนกว้างรอบเมือง คนย้ายเข้าเมืองมากขึ้นและชาวเมืองภูมิใจ แต่หอธนูที่ประตูเมืองหายไปด้วย', art: 'rubble' },
-  powerplant: { name: 'โรงไฟฟ้าผลึก', cost: 1400, days: 120, text: 'เผาผลึกมานา (หรือถ่านหิน) เป็นกระแสไฟ โรงงานมีไฟเดินเครื่องได้มากขึ้น 25% ไฟถนนสว่างทั้งคืน และเปิดทางให้หลอดไฟกับรถราง', art: 'powerplant', plot: PLOTS.powerplant },
+  powerplant: { name: 'โรงไฟฟ้าผลึก', cost: 1400, days: 120, text: 'เผาผลึกมานา (หรือถ่านหิน) เป็นกระแสไฟ โรงงานมีไฟเดินเครื่องได้มากขึ้น 25% ไฟถนนสว่างทั้งคืน และเปิดทางให้หลอดไฟกับรถราง', art: 'powerplant', plot: true },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'boulevard', 'powerplant', 'palace', 'monument'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'paving', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'boulevard', 'powerplant', 'palace', 'monument'];
 const FACTORY_GEAR = 4; // arms the factory turns out each month
 const FACTORY_GOLD = 80; // and what its other goods fetch for the crown
 const STATION_VISITORS = 0.3; // monthly chance a train brings a newcomer
@@ -55,7 +56,7 @@ const ASK_DAY = 8; // day of the month the king considers a new work
 export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefined;
 export const monumentTier = (world: WorldState) => world.monument ?? 0;
 // What the crown could build: a rebuilt building needs the old one there first.
-const REBUILDS: Partial<Record<Work, Civic>> = { watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
+const REBUILDS: Partial<Record<Work, Civic>> = { paving: 'walls', watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
 const open = (world: WorldState, k: Work) => (k === 'monument' || !built(world, k)) && (!REBUILDS[k] || founded(world, REBUILDS[k]!));
 // Architecture makes every work a quarter cheaper and quicker.
 const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1) * Math.max(0.4, 1 - mastery(world, 'engineering'));
@@ -69,6 +70,9 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
   switch (k) {
     case 'granary':
       return 1 + year.filter((e) => /ข้าวหมดตลาด|ความหิวโหย/.test(e.text)).length + (ruler.traits.includes('kind') ? 1 : 0);
+    case 'paving':
+      // Wanted once people have trodden paths all over the town: the roads do not go where they walk.
+      return 1 + ((world.trails?.length ?? 0) >= 60 ? 1 : 0) + (ruler.traits.includes('greedy') ? 0 : 0.5);
     case 'watchtowers':
       return 1 + year.filter((e) => e.text.includes('มอนสเตอร์ล้นออกจาก')).length * 2 + brave;
     case 'yard': {
@@ -179,6 +183,7 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   if (job && world.day >= job.done) {
     (world.works ??= {})[job.kind] = world.day;
     world.building = undefined;
+    world.buildRev = (world.buildRev ?? 0) + 1; // the map shows it done (paving changes the ground)
     if (job.kind === 'monument') {
       world.monument = monumentTier(world) + 1;
       log(world, 'world', `${WORKS.monument.name}ระดับ ${world.monument} สร้างเสร็จแล้ว! ชาวเมืองมาชื่นชมกันทั้งเมือง`);
@@ -197,8 +202,10 @@ export function crownWorks(world: WorldState, rng: Rng): void {
   const budget = world.treasury - payrollReserve(world) - SPARE;
   const k = WORK_ORDER.filter((w) => open(world, w) && workCost(world, w) + materialsCost(world, w) <= budget && want(world, w, ruler) > 0).sort((a, b) => want(world, b, ruler) - want(world, a, ruler))[0];
   if (!k) return;
+  if (WORKS[k].plot && !placeBuilding(world, k)) return; // nowhere to put it
   const materials = buyMaterials(world, k);
   world.treasury -= workCost(world, k);
   world.building = { kind: k, done: world.day + workDays(world, k) };
+  world.buildRev = (world.buildRev ?? 0) + 1;
   log(world, 'politics', `กษัตริย์${ruler.name}ทุ่มทอง ${workCost(world, k)} เหรียญสร้าง${WORKS[k].name} และซื้อไม้กับแร่อีก ${materials} ทอง`, ruler.id);
 }

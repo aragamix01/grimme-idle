@@ -4,7 +4,7 @@
 // ruler's call: see the firecode happening).
 import { chance, int, pick, type Rng } from './rng';
 import { kill, log, modOf } from './core';
-import { LOTS, SHACK_SPOTS } from './town';
+import { SHACK_BASE, lotXY } from './town';
 import { inShack, standing } from './housing';
 import { ageOf } from './ages';
 import { seasonOf } from './market';
@@ -32,17 +32,17 @@ export function shantyCrime(world: WorldState): number {
   return 1 + SHANTY_CRIME * Math.min(1, (n / Math.max(1, pop)) * 4);
 }
 
-// A fire in town: one home catches, the flames run along its row, and a burnt shack is gone for good.
+// A fire in town: one home catches, the flames run to the homes close about it, and a burnt shack is gone for good.
 export function fire(world: WorldState, rng: Rng, start?: { x: number; y: number }): number {
   const up = (world.homes ?? []).filter((h) => standing(world, h) && timber(world, h) > 0);
   const first = start ? undefined : pick(rng, up);
-  const at = start ?? (first ? LOTS[first.lot] : undefined);
+  const at = start ?? (first ? lotXY(first.lot) : undefined);
   if (!at) return 0;
   let burnt = 0;
   const ruins = (world.ruins ??= []);
   for (const h of up) {
-    const l = LOTS[h.lot];
-    const near = l.y === at.y && Math.abs(l.x - at.x) <= SPREAD + 1;
+    const l = lotXY(h.lot);
+    const near = Math.abs(l.y - at.y) <= 3 && Math.abs(l.x - at.x) <= SPREAD + 1; // the homes close about it
     if (h !== first && !(near && chance(rng, h.tier === 0 ? CATCH.hut : CATCH.timber))) continue;
     ruins.push({ x: l.x, y: l.y, until: world.day + int(rng, ...BURNED_FOR) });
     burnt++;
@@ -50,7 +50,7 @@ export function fire(world: WorldState, rng: Rng, start?: { x: number; y: number
   // The shanty goes up like straw.
   let shacks = 0;
   if (world.shacks?.length) {
-    const lit = start ? world.shacks.filter((s) => Math.abs(SHACK_SPOTS[s].y - at.y) <= 1 && Math.abs(SHACK_SPOTS[s].x - at.x) <= SPREAD) : [];
+    const lit = start ? world.shacks.filter((s) => Math.abs(lotXY(s).y - at.y) <= 2 && Math.abs(lotXY(s).x - at.x) <= SPREAD) : [];
     const gone = new Set(lit.filter(() => chance(rng, CATCH.shack)));
     shacks = gone.size;
     if (shacks) world.shacks = world.shacks.filter((s) => !gone.has(s));
@@ -60,8 +60,8 @@ export function fire(world: WorldState, rng: Rng, start?: { x: number; y: number
   let dead = 0;
   for (const n of world.npcs)
     if (n.alive && n.home !== undefined && n.inside === undefined && chance(rng, (n.age >= 60 || n.age < 6 ? 0.04 : 0.01) * (inShack(n) ? 2 : 0.5))) {
-      const l = inShack(n) ? SHACK_SPOTS[n.home - 1000] : LOTS[n.home];
-      if (l && Math.abs(l.y - at.y) <= 1 && Math.abs(l.x - at.x) <= SPREAD + 1) {
+      const l = lotXY(inShack(n) ? n.home - SHACK_BASE : n.home);
+      if (Math.abs(l.y - at.y) <= 3 && Math.abs(l.x - at.x) <= SPREAD + 1) {
         kill(world, n, 'เสียชีวิตในกองเพลิง');
         dead++;
       }
@@ -79,7 +79,7 @@ export function slumsDay(world: WorldState, rng: Rng): void {
   if (chance(rng, odds)) {
     // A fire is likelier to start in the shanty, among the braziers and straw.
     const fromShanty = world.shacks?.length && chance(rng, 0.4);
-    const burnt = fromShanty ? fire(world, rng, SHACK_SPOTS[pick(rng, world.shacks!)]) : fire(world, rng);
+    const burnt = fromShanty ? fire(world, rng, lotXY(pick(rng, world.shacks!))) : fire(world, rng);
     if (burnt && !world.happening) raise(world, 'firecode', rng);
   }
   const shacks = world.shacks?.length ?? 0;

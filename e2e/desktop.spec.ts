@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 // The wide layout: nav down the left, map in the middle, sheet on the right, all by mouse.
 test.beforeEach(async ({ page }) => {
   await page.goto('/?start=town');
-  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true && (window as any).__grimm.scene.world?.day >= 2); // a couple of days in: creeds taken up, the market open
   await page.locator('#speed button[data-speed="0"]').click();
 });
 
@@ -46,7 +46,7 @@ test('sections, the map menu, the card and the world map by mouse', async ({ pag
     await page.locator('#npc-card .npc__close').click();
   }
   await page.locator('#miracle-open').click();
-  await expect(page.locator('#miracles .miracle')).toHaveCount(19);
+  await expect(page.locator('#miracles .miracle')).toHaveCount(22);
   await page.locator('#miracles .dialog-x').click();
   await page.locator('#nav [data-section="world"]').click();
   await expect(page.locator('#realms .realm-card')).toHaveCount(4);

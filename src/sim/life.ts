@@ -3,7 +3,7 @@ import { chance, int, pick, type Rng } from './rng';
 import { atSpot, kill, log, makePlan, stepToward } from './core';
 import { jobName } from './ages';
 import { isAvatar, offer, offerCalling } from './avatar';
-import { PLACES } from './places';
+import { places } from './places';
 import { capacity, homeDoor, townPop } from './housing';
 import { inheritedJob } from './society';
 import { priceRatio } from './market';
@@ -206,11 +206,11 @@ function freshName(world: WorldState, rng: Rng): string {
 // A married couple shares the home of whichever of them settled first.
 // Home: their own home's door; a child not yet given one goes home with a parent, a spouse with
 // the other. With no roof at all, they sleep in a corner by the inn.
-export function homeOf(n: Npc, world?: WorldState): { x: number; y: number } {
+export function homeOf(n: Npc, world: WorldState): { x: number; y: number } {
   const own = homeDoor(n);
-  if (own || !world) return own ?? PLACES.inn;
+  if (own) return own;
   const kin = [...(n.age < ADULT_AGE ? (n.parentIds ?? []) : []), n.spouseId].map((id) => byId(world, id)).find((k) => k?.alive && k.home !== undefined);
-  return (kin && homeDoor(kin)) ?? PLACES.inn;
+  return (kin && homeDoor(kin)) ?? places(world).inn;
 }
 
 // Children tag along after a parent or play in the square.
@@ -219,12 +219,12 @@ export function childDay(world: WorldState, n: Npc, rng: Rng): void {
   const school = built(world, 'school') && schoolAge(n);
   if (!n.plan || n.plan.days <= 0) {
     if (school && chance(rng, 0.6)) {
-      n.plan = makePlan('idle', PLACES.school, int(rng, 3, 5)); // off to lessons
+      n.plan = makePlan('idle', places(world).school, int(rng, 3, 5)); // off to lessons
     } else if (parents.length && chance(rng, 0.6)) {
       const p = pick(rng, parents);
       n.plan = makePlan('idle', p, int(rng, 2, 5), p.id);
     } else {
-      n.plan = makePlan('idle', chance(rng, 0.5) ? PLACES.square : homeOf(n, world), int(rng, 3, 6));
+      n.plan = makePlan('idle', chance(rng, 0.5) ? places(world).square : homeOf(n, world), int(rng, 3, 6));
     }
   }
   const p = n.plan;
@@ -236,6 +236,6 @@ export function childDay(world: WorldState, n: Npc, rng: Rng): void {
   if (!atSpot(n, p, following ? 1 : 0)) stepToward(world, n, p, rng);
   else {
     p.days--;
-    lesson(world, n, school && p.x === PLACES.school.x && p.y === PLACES.school.y, following);
+    lesson(world, n, school && p.x === places(world).school.x && p.y === places(world).school.y, following);
   }
 }

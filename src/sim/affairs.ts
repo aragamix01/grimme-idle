@@ -457,7 +457,8 @@ export const AFFAIRS = {
         act: (w, _rng, h) => {
           const r = realmOf(w, h);
           if (!r) return GONE;
-          const foe = foeOf(w, r)!;
+          const foe = foeOf(w, r);
+          if (!foe) return GONE; // the foe made peace or fell while the envoy waited
           nudgeRealm(r, 15);
           conquestWar(w, foe);
           if (w.war) w.war.boost = 1.4; // the allied host rides with ours in the first clash

@@ -3,8 +3,10 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 // Each test gets a fresh browser context, so a fresh world with no save and no offline report.
 test.beforeEach(async ({ page }) => {
   await page.goto('/?start=town');
-  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true);
-  await page.locator('#speed button[data-speed="0"]').tap(); // hold the world still
+  // The map can be drawn before the first day has passed; wait for a couple of days, so everyone
+  // has taken up a creed and the market has opened, then hold the world still.
+  await page.waitForFunction(() => (window as any).__grimm?.scene?.townBuilt === true && (window as any).__grimm.scene.world?.day >= 2);
+  await page.locator('#speed button[data-speed="0"]').tap();
 });
 
 const card = (page: Page) => page.locator('#npc-card');
@@ -211,6 +213,12 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
     await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
     await tapNpc(page);
     await closeCard(page);
+    if (id === '#zoom') {
+      await mapTool(page, id); // the close-up, then the whole country
+      await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
+      await tapNpc(page, undefined, false); // the whole country is small: neighbours may stand on one spot
+      await closeCard(page);
+    }
     await mapTool(page, id); // and back
     await expect(page.locator(id)).toHaveAttribute('aria-pressed', before!);
     await tapNpc(page);
@@ -244,7 +252,9 @@ test('zoomed in, the map drags and taps still pick people, again and again', asy
   const second = await tapNpc(page, first);
   expect(second).not.toBe(first);
   await closeCard(page);
-  // Zoomed back out, the whole town is tappable again.
+  // Out to the whole country, then back to the town, where people are tappable again.
+  await mapTool(page, '#zoom');
+  expect((await camera(page)).zoom).toBeLessThan(1);
   await mapTool(page, '#zoom');
   expect((await camera(page)).zoom).toBe(1);
   await tapNpc(page);
@@ -252,14 +262,16 @@ test('zoomed in, the map drags and taps still pick people, again and again', asy
   await pageStill(page);
 });
 
-test('unzoomed, a drag on the map moves nothing and a tap after it still lands', async ({ page, browserName }) => {
+test('the country is bigger than the screen: at the town view a drag pans it, and a tap after it still lands', async ({ page, browserName }) => {
   chromeOnly(browserName);
   const box = (await page.locator('#game canvas').boundingBox())!;
   const cdp = await page.context().newCDPSession(page);
   const before = await camera(page);
-  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 0, -150);
-  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 0, 150);
-  expect(await camera(page)).toEqual(before);
+  expect(before.zoom).toBe(1);
+  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, -60, -40);
+  const moved = await camera(page);
+  expect(moved.x !== before.x || moved.y !== before.y).toBe(true);
+  await swipe(cdp, box.x + box.width / 2, box.y + box.height / 2, 60, 40);
   await pageStill(page);
   await tapNpc(page);
 });
@@ -298,7 +310,7 @@ test('the god-powers sheet and the era dialog open and close, and the map still 
   await page.locator('#miracle-open').tap();
   const powers = page.locator('#miracles');
   await expect(powers).toBeVisible();
-  await expect(page.locator('#miracles .miracle')).toHaveCount(19);
+  await expect(page.locator('#miracles .miracle')).toHaveCount(22);
   await powers.locator('.dialog-x').tap();
   await expect(powers).toBeHidden();
   await tapNpc(page);
@@ -837,12 +849,15 @@ test('day and night can be held at noon, and the choice is remembered', async ({
 });
 
 // Write a world back to the save and reload into it, the sim held still.
+// The edit gets the world as `w` and the land plan as `L` (L.placeBuilding, L.millSite), for
+// putting something on the map where the town would.
 async function reloadInto(page: Page, edit: string) {
   await page.evaluate(async (edit) => {
     const g = (window as any).__grimm;
     g.worker.terminate();
     const w = structuredClone(g.scene.world);
-    new Function('w', edit)(w);
+    const L = await import(/* @vite-ignore */ '/src/sim/landplan.ts');
+    new Function('w', 'L', edit)(w, L);
     await new Promise<void>((done, fail) => {
       const req = indexedDB.open('grimm-idle', 1);
       req.onupgradeneeded = () => req.result.createObjectStore('saves');
@@ -974,9 +989,12 @@ test('an industrial town on the map: mills with smoke, the railway and its train
   await reloadInto(
     page,
     `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
-     w.mills = [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: 'crown', since: 0, ready: 0, made: 10 },
-                { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', plot: 1, owner: 'crown', since: 0, ready: 0, made: 10 },
-                { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', plot: 3, owner: 'crown', since: 0, ready: w.day + 90 }];
+     L.placeBuilding(w, 'station');
+     w.mills = [];
+     for (const m of [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', made: 10, ready: 0 }, { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', made: 10, ready: 0 }, { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', ready: w.day + 90 }]) {
+       w.mills.push({ ...m, plot: L.millSite(w), owner: 'crown', since: 0 });
+       w.buildRev = (w.buildRev ?? 0) + 1;
+     }
      w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
      w.smog = 0.5;`,
   );
@@ -995,6 +1013,7 @@ test('the age of electricity on the map: the power station, electric street lamp
   await reloadInto(
     page,
     `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway','electricity','telegraph','lightbulb','tram']) (w.techs ??= {})[t] = 0;
+     L.placeBuilding(w, 'powerplant');
      w.works = { ...(w.works ?? {}), powerplant: 0 };
      w.power = true;
      w.market.stock.crystal = 50;`,

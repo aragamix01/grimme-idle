@@ -68,6 +68,58 @@ function crops(ripe) {
   return g;
 }
 
+// A footpath trodden through the grass: bare earth down the middle, grass at the edges.
+function trail(seed) {
+  const r = rng(seed);
+  const g = grass(seed + 10);
+  for (let y = 0; y < 16; y++) {
+    const w = 3 + Math.floor(r() * 3);
+    g.hline(8 - w, y, w * 2, 't');
+  }
+  for (let i = 0; i < 4; i++) g.set(4 + Math.floor(r() * 8), Math.floor(r() * 16), 'T');
+  return g;
+}
+
+// Cobbles the crown has laid: rounded stones in offset rows.
+export function cobbles(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'X');
+  for (let y = 0; y < 16; y += 4) {
+    const off = (y / 4) % 2 ? 2 : 0;
+    for (let x = off - 4; x < 16; x += 4) {
+      g.rect(x + 1, y + 1, 3, 2, r() < 0.3 ? 'z' : 'x');
+      g.set(x + 1, y + 1, 'z');
+    }
+  }
+  return g;
+}
+
+// Burnt woods: grey ash, black stumps, a green shoot or two coming back.
+function ashes(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'L');
+  for (let i = 0; i < 10; i++) g.set(Math.floor(r() * 16), Math.floor(r() * 16), 'l');
+  for (let i = 0; i < 2; i++) {
+    const x = 2 + Math.floor(r() * 11);
+    const y = 3 + Math.floor(r() * 10);
+    g.rect(x, y, 3, 2, 'k').set(x + 1, y - 1, 'k');
+  }
+  g.set(Math.floor(r() * 16), Math.floor(r() * 16), 'g').set(Math.floor(r() * 16), Math.floor(r() * 16), 'j');
+  return g;
+}
+
+// A palisade of sharpened logs, before the town can afford stone.
+function palisade() {
+  const g = new Grid(16, 20);
+  for (const x of [0, 4, 8, 12]) {
+    g.set(x + 1, 0, 'n').rect(x, 1, 4, 1, 'n');
+    g.rect(x, 2, 4, 17, 'N').vline(x, 2, 17, 'n').vline(x + 3, 2, 17, 'M');
+  }
+  g.hline(0, 7, 16, 'M').hline(0, 14, 16, 'M');
+  g.hline(0, 19, 16, 'H');
+  return g.outline('o');
+}
+
 // The side walls seen from above: a walkway between two rows of merlons.
 function wallTop() {
   const g = new Grid(16, 16, 'x');
@@ -191,6 +243,10 @@ export function tiles() {
   return [
     { name: 'grass', group: 'tiles', frames: [grass(1), grass(2), grass(3)] },
     { name: 'path', group: 'tiles', frames: [path(4), path(5)] },
+    { name: 'trail', group: 'tiles', frames: [trail(6), trail(7)] },
+    { name: 'paved', group: 'tiles', frames: [cobbles(8), cobbles(9)] },
+    { name: 'ash', group: 'tiles', frames: [ashes(10), ashes(11)] },
+    { name: 'palisade', group: 'props', frames: [palisade()] },
     { name: 'water', group: 'tiles', frames: [water(0), water(1)] },
     { name: 'flowers', group: 'tiles', frames: [flowers()] },
     { name: 'stone-wall', group: 'tiles', frames: [stoneWall()] },

@@ -16,7 +16,8 @@ import { houses } from './tradehouses';
 import { labour, keepOf } from './villages';
 import { isOurs, levelOf as devLevel } from './lands';
 import { jailed } from './justice';
-import { MILL_PLOTS, millDoor } from './town';
+import { millDoor } from './town';
+import { millSite } from './landplan';
 import type { Good, Mill, MillKind, Npc, WorldState } from './types';
 
 const MILL_DAY = 18; // day of the month the mills settle up
@@ -163,8 +164,6 @@ function margin(world: WorldState, kind: MillKind): number {
 
 // A house with money to spare, or the crown, puts up the mill the market is crying out for.
 export function found(world: WorldState, owner?: Mill['owner'], forced?: MillKind): Mill | undefined {
-  const plot = MILL_PLOTS.findIndex((_, i) => !millsOf(world).some((m) => m.plot === i));
-  if (plot < 0) return undefined;
   const lvl = levelOf(world);
   const open = MILL_ORDER.filter((k) => millsOf(world).filter((m) => m.kind === k).length < PER_KIND && (k !== 'appliances' || world.power)); // appliances need the power station's current
   const kind = forced ?? open.sort((a, b) => margin(world, b) - margin(world, a)).find((k) => margin(world, k) > 0);
@@ -177,10 +176,13 @@ export function found(world: WorldState, owner?: Mill['owner'], forced?: MillKin
     else if (fundsOf(world, 'crown') >= price * (kind === 'cannery' || !millsOf(world).length ? 2 : 4)) builder = 'crown'; // the crown starts the town off and puts up a cannery against famine; a rich crown with no merchant prince builds the rest
   }
   if (builder === undefined || (!forced && fundsOf(world, builder) < price)) return undefined;
+  const plot = millSite(world); // the builder picks the ground once the money is there
+  if (plot < 0) return undefined;
   pay(world, builder, forced ? Math.min(price, fundsOf(world, builder)) : price);
   const mill: Mill = { id: world.nextId++, kind, name: MILLS[kind].name, plot, owner: builder, since: world.day, ready: world.day + BUILD_DAYS };
   (world.mills ??= []).push(mill);
-  const text = `${ownerName(world, mill)}ลงทุนสร้าง${mill.name}ที่ทุ่งใต้กำแพงเมือง (${price} ทอง) ${MILLS[kind].text}`;
+  world.buildRev = (world.buildRev ?? 0) + 1;
+  const text = `${ownerName(world, mill)}ลงทุนสร้าง${mill.name}ที่ชายเมือง (${price} ทอง) ${MILLS[kind].text}`;
   if (millsOf(world).length === 1) headline(world, 'trade', `ปล่องควันแรกของเมือง! ${text}`);
   else log(world, 'trade', text);
   return mill;
