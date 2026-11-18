@@ -97,6 +97,7 @@ export class WorldScene extends Phaser.Scene {
   private raining = false;
   private storm = false; // the long rains: a darker sky
   private flood!: Phaser.GameObjects.Container;
+  private floodTiles: { x: number; y: number }[] = [];
   private keep: Phaser.GameObjects.Image | null = null; // the demon lord's castle, while it stands
   private herd: Beast[] = [];
   private dragon: Phaser.GameObjects.Sprite | null = null;
@@ -321,7 +322,10 @@ export class WorldScene extends Phaser.Scene {
       this.blight.clear().fillStyle(color, weather === 'drought' ? 0.4 : 0.5);
       for (const p of w.parcels ?? []) if (p.kind === 'field') this.blight.fillRect(p.x * TILE, p.y * TILE, p.w * TILE, p.h * TILE);
     }
-    this.flood.setVisible(flooded(w));
+    const wetNow = flooded(w);
+    if (wetNow && !this.flood.length) for (const { x, y } of this.floodTiles) this.flood.add(this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow'));
+    else if (!wetNow && this.flood.length) this.flood.removeAll(true);
+    this.flood.setVisible(wetNow);
     this.raining = wet;
     this.storm = weather === 'deluge';
   }
@@ -515,13 +519,28 @@ export class WorldScene extends Phaser.Scene {
         else rt.stamp('grass', Math.floor(rand() * 3), px, py, flat);
       }
     rt.render();
-    // Floodwater over the low ground along the water near town, and over the fields.
+    // The wild country nobody can stand beside (trees deep in the woods, scrub, rocks) never needs
+    // to pass in front of anyone, so it is painted once too, just above the ground. Only the trees
+    // at the edge of open ground stay sprites, to stand in front of whoever walks behind them.
+    const wild = this.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0).setDepth(-0.5);
+    const open = (x: number, y: number) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && town.cost[y * MAP_W + x] > 0;
+    const baked = new Set<Placed>();
+    for (const p of town.props) {
+      const deep = p.key === 'tree' && !open(p.x - 1, p.y) && !open(p.x + 1, p.y) && !open(p.x, p.y - 1) && !open(p.x, p.y + 1);
+      if (!deep && p.key !== 'bush' && p.key !== 'rock') continue;
+      wild.stamp(p.key, undefined, p.x * TILE, (p.y + 1) * TILE, { originX: 0, originY: 1 });
+      baked.add(p);
+    }
+    wild.render();
+    // Floodwater over the low ground along the water near town, and over the fields: laid out
+    // when the waters rise (syncWeather), not kept animating unseen.
     this.flood.removeAll(true);
+    this.floodTiles = [];
     for (let y = Math.max(0, t.site.y - 22); y < Math.min(MAP_H, t.site.y + 22); y++)
       for (let x = Math.max(0, t.site.x - 30); x < Math.min(MAP_W, t.site.x + 30); x++) {
         const i = y * MAP_W + x;
         const low = t.cover[i] !== WATER && t.wet[i] <= 2 && town.cost[i] > 0;
-        if (low || town.ground[i] === 'crops') this.flood.add(this.add.sprite(x * TILE, y * TILE, 'water').setOrigin(0).play('water-flow'));
+        if (low || town.ground[i] === 'crops') this.floodTiles.push({ x, y });
       }
     this.blightColor = -1; // the fields may have moved: draw the blight afresh
     // The crown's works: upgraded buildings swap their art, new ones stand where the crown put them.
@@ -537,6 +556,7 @@ export class WorldScene extends Phaser.Scene {
     // Homes going up stand in scaffolding until they are done.
     const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${lotXY(h.lot).x},${lotXY(h.lot).y}`));
     for (const p of town.props) {
+      if (baked.has(p)) continue;
       const home = /^(house|townhouse|hut)/.test(p.key);
       const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
       const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : p);
