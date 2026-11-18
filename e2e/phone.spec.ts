@@ -849,12 +849,15 @@ test('day and night can be held at noon, and the choice is remembered', async ({
 });
 
 // Write a world back to the save and reload into it, the sim held still.
+// The edit gets the world as `w` and the land plan as `L` (L.placeBuilding, L.millSite), for
+// putting something on the map where the town would.
 async function reloadInto(page: Page, edit: string) {
   await page.evaluate(async (edit) => {
     const g = (window as any).__grimm;
     g.worker.terminate();
     const w = structuredClone(g.scene.world);
-    new Function('w', edit)(w);
+    const L = await import(/* @vite-ignore */ '/src/sim/landplan.ts');
+    new Function('w', 'L', edit)(w, L);
     await new Promise<void>((done, fail) => {
       const req = indexedDB.open('grimm-idle', 1);
       req.onupgradeneeded = () => req.result.createObjectStore('saves');
@@ -986,9 +989,12 @@ test('an industrial town on the map: mills with smoke, the railway and its train
   await reloadInto(
     page,
     `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway']) (w.techs ??= {})[t] = 0;
-     w.mills = [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', plot: 0, owner: 'crown', since: 0, ready: 0, made: 10 },
-                { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', plot: 1, owner: 'crown', since: 0, ready: 0, made: 10 },
-                { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', plot: 3, owner: 'crown', since: 0, ready: w.day + 90 }];
+     L.placeBuilding(w, 'station');
+     w.mills = [];
+     for (const m of [{ id: 9801, kind: 'textile', name: 'โรงทอผ้า', made: 10, ready: 0 }, { id: 9802, kind: 'steel', name: 'โรงถลุงเหล็ก', made: 10, ready: 0 }, { id: 9803, kind: 'engines', name: 'โรงจักรกลเวท', ready: w.day + 90 }]) {
+       w.mills.push({ ...m, plot: L.millSite(w), owner: 'crown', since: 0 });
+       w.buildRev = (w.buildRev ?? 0) + 1;
+     }
      w.works = { ...(w.works ?? {}), station: 0, boulevard: 0 };
      w.smog = 0.5;`,
   );
@@ -1007,6 +1013,7 @@ test('the age of electricity on the map: the power station, electric street lamp
   await reloadInto(
     page,
     `for (const t of ['plough','medicine','metallurgy','architecture','irrigation','levee','navigation','arcana','printing','ironframe','chemistry','steam','railway','electricity','telegraph','lightbulb','tram']) (w.techs ??= {})[t] = 0;
+     L.placeBuilding(w, 'powerplant');
      w.works = { ...(w.works ?? {}), powerplant: 0 };
      w.power = true;
      w.market.stock.crystal = 50;`,
