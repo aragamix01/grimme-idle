@@ -35,7 +35,7 @@ import { places } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
-import { TARGET, ensureMarket, target } from '../../src/sim/market';
+import { TARGET, basePrice, considerTrade, ensureMarket, levelOf, priceRatio, target } from '../../src/sim/market';
 import { canSend } from '../../src/sim/villages';
 import { concede, crackdown, members, revolution } from '../../src/sim/movements';
 import { setTie } from '../../src/sim/ties';
@@ -2040,4 +2040,33 @@ test('mills stand on their plots with a reachable gate, the station brings the r
   }
   ok(after.props.filter((p) => p.key === 'rail').length >= 10, 'the railway is missing');
   ok(!after.props.some((p) => p.key === 'town-wall' || p.key === 'gate-tower'), 'the walls still stand behind the boulevard');
+});
+
+test('a broke swordsman fed by the crown for two months takes up the plough; one who buys his own bread does not', () => {
+  const w = world();
+  const m = ensureMarket(w);
+  const [a, b] = grown(w).filter((n) => n.job === 'swordsman' && n.questId === undefined);
+  ok(a && b, 'no two idle swordsmen');
+  w.treasury = 5000;
+  b.gold = 500;
+  for (let d = 0; d < 30; d++) {
+    a.gold = 0;
+    tick(w);
+  }
+  ok((a.doled ?? 0) >= 2, `a broke swordsman was fed ${a.doled ?? 0} times by the crown in a month`);
+  ok(b.doled === undefined, 'one who buys his own bread is counted as on alms');
+  // Two months on alms, grain at its usual price: off to the fields.
+  a.doled = 6;
+  a.questId = undefined;
+  m.price.grain = Math.ceil(basePrice('grain') * levelOf(w) * 1.2);
+  ok(priceRatio(w, 'grain') >= 0.8, `grain at ${priceRatio(w, 'grain')} of its price`);
+  const rng = rngOf(w); // one stream, so each roll is a new one
+  for (let k = 0; k < 400 && a.job === 'swordsman'; k++) considerTrade(w, a, rng);
+  ok(a.job === 'farmer' && a.doled === undefined, `a swordsman two months on alms is still a ${a.job}`);
+  // Not when the fields already glut the market.
+  const c = grown(w).find((n) => n.job === 'mage' && n.questId === undefined)!;
+  c.doled = 20;
+  m.price.grain = 1;
+  for (let k = 0; k < 400; k++) considerTrade(w, c, rng);
+  ok(c.job === 'mage', 'with grain glutting the market, a mage on alms went to farm anyway');
 });

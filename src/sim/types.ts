@@ -65,6 +65,7 @@ export interface Npc {
   retired?: boolean; // elders who have hung up their sword
   gear?: number; // 0..MAX_GEAR, bought at the market; adds strength
   hunger?: number; // meals missed in a row
+  doled?: number; // meals in a row from alms or the crown's dole (market.ts considerTrade)
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
   unpaid?: number; // soldiers: paydays missed in a row
   ales?: number; // innkeepers: mugs sold since they last bought grain to brew

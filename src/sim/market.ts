@@ -260,8 +260,12 @@ export function marketDay(world: WorldState, rng: Rng): void {
     if (!n.alive || n.inside !== undefined || (world.day + n.id) % MEAL_EVERY !== 0) continue;
     const food = tenetOn(world, 'nomeat') && n.creed === 'god' && (n.piety ?? 50) >= 50 && m.stock.grain >= 1 ? 'grain' : mealOf(m); // the devout keep the god's word
     const payer = n.age < 16 ? (n.parentIds ?? []).map((id) => byId.get(id)).find((p) => p?.alive && p.gold >= m.price[food]) ?? n : n;
-    if (buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || (m.stock.tins >= 1 && buy(world, payer, 'tins', true)) || charity(world, m) || dole(world, m)) { // tinned food sees a town through a dearth
+    const own = buy(world, payer, food, true) || buy(world, payer, food === 'grain' ? 'meat' : 'grain', true) || (m.stock.tins >= 1 && buy(world, payer, 'tins', true)); // tinned food sees a town through a dearth
+    if (own || charity(world, m) || dole(world, m)) {
       n.hunger = 0;
+      // Meals from the church or the crown, one after another: a grown soul living on alms (see considerTrade).
+      if (own) n.doled = undefined;
+      else if (n.age >= 16) n.doled = (n.doled ?? 0) + 1;
       continue;
     }
     n.hunger = (n.hunger ?? 0) + 1;
@@ -529,6 +533,8 @@ function leave(world: WorldState, n: Npc): void {
   log(world, 'world', `${n.name} ทิ้งเมืองไปเพราะความหิวโหย`, n.id);
 }
 
+const ON_ALMS = 6; // meals in a row from the church or the crown before an able adult turns to the fields
+const ALMS_TO_FIELDS: readonly Npc['job'][] = ['swordsman', 'mage', 'thief', 'hunter', 'herder', 'merchant', 'innkeeper', 'courtesan', 'blacksmith', 'watchman', 'builder', 'worker'];
 // When grain is dear the poor (and the clergy and scholars past their last two) take up the plough; when it's dirt cheap farmers try trade;
 // and someone with nothing left and few scruples turns thief.
 export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
@@ -537,6 +543,16 @@ export function considerTrade(world: WorldState, npc: Npc, rng: Rng): boolean {
   const count = (job: Npc['job']) => world.npcs.filter((n) => n.alive && n.job === job && n.age >= 16).length;
   const keepTwo = npc.job === 'thief' || count(npc.job) > 2; // a trade keeps its last couple of hands
   const commoner = ['farmer', 'herder', 'hunter', 'merchant', 'innkeeper', 'courtesan', 'blacksmith'].includes(npc.job);
+  // An able soul who has lived on the church's or the crown's bread for two months may take up the
+  // plough instead, unless the fields already glut the market: the alms would otherwise feed idle
+  // hands until the purse is empty.
+  if ((npc.doled ?? 0) >= ON_ALMS && r >= 0.8 && chance(rng, 0.05) && npc.job !== 'farmer' && ALMS_TO_FIELDS.includes(npc.job) && npc.age < 60 && npc.questId === undefined && keepTwo) {
+    log(world, 'trade', `${npc.name} กินข้าวแจกมาสองเดือนแล้ว จึงเลิกเป็น${jobName(world, npc.job)} หันมาทำนาเลี้ยงตัวเอง`, npc.id);
+    npc.job = 'farmer';
+    npc.doled = undefined;
+    if (npc.rank !== undefined) npc.rank = npc.renown = npc.guildId = undefined;
+    return true;
+  }
   if (commoner && npc.gold < 5 && npc.morality < 0 && keepTwo && chance(rng, (npc.hunger ?? 0) >= 1 ? 0.08 : 0.03)) {
     log(world, 'trade', `${npc.name} หมดตัวจนต้องเลิกเป็น${jobName(world, npc.job)} หันไปเป็นโจร`, npc.id);
     npc.job = 'thief';
