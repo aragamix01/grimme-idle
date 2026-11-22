@@ -5,6 +5,7 @@
 // a mage with gold to spare studies a mana core. A potion carried down a dungeon saves a life when
 // a quest goes wrong, and the market's potions save the sick when plague comes.
 import { chance, int, type Rng } from './rng';
+import { homeKind } from './terrain';
 import { log } from './core';
 import { ensureMarket, priceRatio, sell } from './market';
 import { woodsShare } from './wilds';
@@ -28,9 +29,10 @@ export function sellSpoils(world: WorldState, party: Npc[], kind: DungeonKind, t
 export function craftsDay(world: WorldState, rng: Rng): void {
   const m = ensureMarket(world);
   const woods = Math.min(1, woodsShare(world));
+  const deep = homeKind(world.seed) === 'woods'; // a woodland home is thick with herbs
   for (const n of world.npcs) {
     if (!inTown(n)) continue;
-    if (n.job === 'hunter' && chance(rng, HERB_DAY * woods)) sell(world, n, 'herb', 1, rng);
+    if (n.job === 'hunter' && chance(rng, HERB_DAY * woods * (deep ? 1.5 : 1))) sell(world, n, 'herb', 1, rng);
     if (n.job !== 'mage') continue;
     // A potion from a measure of gel and a bunch of herbs, bought off the shelves.
     const makings = m.price.gel + m.price.herb;

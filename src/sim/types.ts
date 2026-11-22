@@ -273,7 +273,9 @@ export interface Guild {
 
 export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | WildGood | IndustrialGood;
 // What the dungeons and the woods give, and the potions brewed from them (crafts.ts).
-export type WildGood = 'hide' | 'bone' | 'gel' | 'core' | 'herb' | 'potion';
+export type WildGood = 'hide' | 'bone' | 'gel' | 'core' | 'herb' | 'potion' | 'wine';
+// What a field is sown with (farms.ts).
+export type Crop = 'grain' | 'flax' | 'vines' | 'herbs' | 'fallow';
 // Goods of the steam age: on the shelves only once the town knows steam (see goodsOf in market.ts).
 export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal' | 'appliance';
 // A mill of the steam age (see industry.ts): a company's or the crown's, on one of the plots by the pasture.
@@ -529,6 +531,10 @@ export interface Parcel {
   ownerId?: number; // the farmer whose family works it; missing: the town's
   ready: number; // the day it is cleared and can be worked
   fenced?: true; // a field fenced off from the flocks next door (landplan.ts fenceDay)
+  crop?: Crop; // what a field is sown with; missing: grain (farms.ts)
+  soil?: number; // how good its soil is, 0.5..1.2; missing: 1
+  last?: Crop; // what it grew last year
+  pest?: number; // until this day a pest halves what it gives
 }
 
 // Victoria-style happenings (see happenings.ts): something comes up, someone in town decides,
@@ -685,6 +691,7 @@ export interface WorldState {
   plots?: Partial<Record<string, { x: number; y: number }>>; // where each public building and royal work stands (top-left tile), chosen when it is begun
   parcels?: Parcel[]; // fields and pastures
   ring?: { x0: number; y0: number; x1: number; y1: number; rows?: number[] }; // the line of the town walls, set when they are begun: its bounds, and the span inside it on each row (x0, x1 for y0..y1; missing: the whole box)
+  sheep?: number; // the flock's share of sheep against cattle, 0.15..0.75 (farms.ts)
   street?: number[]; // the high street the crown cut straight from the square to the road in, by tile (happening roadthrough)
   trails?: number[]; // tiles trodden bare into footpaths, by tile; redrawn monthly from where people walk (paths.ts)
   wild?: { burnt?: { i: number; day: number }[]; planted?: number[]; springs?: number[] }; // the wild country changed since the seed: woods burnt, woods grown by the god, springs opened (wilds.ts)

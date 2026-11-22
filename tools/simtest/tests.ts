@@ -40,6 +40,7 @@ import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
 import { CALLING_LEVEL, MAX_DEPTH, depthOf, floorDanger, floorSpoils, healed, mapFloor, partyEdge } from '../../src/sim/callings';
 import { slayBoss } from '../../src/sim/dungeons';
+import { cropOf, cropYield, sheepOf, soilOf } from '../../src/sim/farms';
 import { SPOILS, craftsDay, drinkPotion, sellSpoils } from '../../src/sim/crafts';
 import { smith } from '../../src/sim/society';
 import { plagueStrike } from '../../src/sim/worldevents';
@@ -2072,6 +2073,7 @@ test('a broke swordsman fed by the crown for two months takes up the plough; one
   // Two months on alms, grain at its usual price: off to the fields.
   a.doled = 6;
   a.questId = undefined;
+  a.job = 'swordsman'; // whatever the month made of him (a builder's hire, say)
   m.price.grain = Math.ceil(basePrice('grain') * levelOf(w) * 1.2);
   ok(priceRatio(w, 'grain') >= 0.8, `grain at ${priceRatio(w, 'grain')} of its price`);
   const rng = rngOf(w); // one stream, so each roll is a new one
@@ -2238,4 +2240,72 @@ test('each delve that comes back maps a floor; deeper floors give more and bite 
   d.boss = d.boss ?? { name: 'x', hp: 1, maxHp: 1, relic: 'y', generation: 1 };
   slayBoss(w, d, party);
   ok(depthOf(d) === 0, 'the deep ways stayed open after the boss fell');
+});
+
+// ---------- crops, soil, pests, the flock, what the country gives ----------
+
+test('while bread is cheap a third of the fields turn to cash crops; when it is dear they go back to grain', () => {
+  const w = world();
+  const m = ensureMarket(w);
+  const fields = () => (w.parcels ?? []).filter((p) => p.kind === 'field');
+  for (const p of fields()) p.ownerId ??= grown(w).find((n) => n.job === 'farmer')!.id;
+  // Bread cheap, wine dear.
+  m.stock.grain = target(w, 'grain') * 3;
+  m.price.grain = 1;
+  m.price.wine = 40;
+  while (w.day % 365 !== 4) w.day++;
+  tick(w);
+  const cash = fields().filter((p) => cropOf(p) !== 'grain' && cropOf(p) !== 'fallow');
+  ok(cash.length > 0 && cash.length <= Math.ceil(fields().length / 3), `${cash.length} of ${fields().length} fields turned to cash crops`);
+  ok(cash.some((p) => cropOf(p) === 'vines'), 'wine was dearest, yet no vines were planted');
+  // A vine farmer's day brings in wine.
+  const vintner = w.npcs.find((n) => n.id === cash[0].ownerId)!;
+  ok(cropYield(w, vintner, 4).good === 'wine', 'a vineyard yields no wine');
+  // Bread dear: back to grain next spring.
+  m.stock.grain = 1; // the stores all but empty: bread dear whatever the shop asked yesterday
+  m.price.grain = 20;
+  w.day += 365;
+  while (w.day % 365 !== 4) w.day--;
+  tick(w);
+  ok(fields().every((p) => cropOf(p) === 'grain' || cropOf(p) === 'fallow'), 'cash crops stayed while bread was dear');
+});
+
+test('the soil tires under the same crop, mends with a change or a fallow year, and a worn field is rested', () => {
+  const w = world();
+  const f = (w.parcels ?? []).find((p) => p.kind === 'field')!;
+  f.crop = 'grain';
+  f.last = 'grain';
+  f.soil = 1;
+  while (w.day % 365 !== 299) w.day++;
+  tick(w);
+  ok(soilOf(f) < 1, `the soil did not tire: ${soilOf(f)}`);
+  f.soil = 0.6;
+  // Plenty of fields to spare: the worn one rests.
+  for (const n of grown(w).filter((x) => x.job === 'farmer').slice(3)) n.job = 'merchant';
+  while (w.day % 365 !== 4) w.day++;
+  tick(w);
+  ok(cropOf(f) === 'fallow', `a worn-out field was sown with ${cropOf(f)}`);
+  const before = soilOf(f);
+  while (w.day % 365 !== 299) w.day++;
+  tick(w);
+  ok(soilOf(f) > before, 'a fallow year did not mend the soil');
+});
+
+test('the herders lean to sheep when wool pays; a shore town fishes; a pest halves a field', () => {
+  const w = world();
+  const m = ensureMarket(w);
+  m.price.wool = 40;
+  m.price.meat = 1;
+  const before = sheepOf(w);
+  while (w.day % 30 !== 23) w.day++;
+  tick(w);
+  ok(sheepOf(w) > before, `the flock did not lean to sheep: ${before} -> ${sheepOf(w)}`);
+  const f = (w.parcels ?? []).find((p) => p.kind === 'field')!;
+  const owner = grown(w).find((n) => n.job === 'farmer')!;
+  f.ownerId = owner.id;
+  f.crop = 'grain';
+  f.soil = 1;
+  const clean = cropYield(w, owner, 4).n;
+  f.pest = w.day + 30;
+  ok(cropYield(w, owner, 4).n < clean, 'a pest took nothing');
 });

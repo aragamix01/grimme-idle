@@ -312,6 +312,7 @@ export function leisure(world: WorldState, rng: Rng): void {
       k.ales = (k.ales ?? 0) + 1;
       if (k.ales >= 2 && buy(world, k, 'grain')) k.ales -= 2;
     }
+    if (n.gold >= 120 * p && chance(rng, 0.08)) buy(world, n, 'wine'); // a bottle from the vineyards, for those who can
     const spouse = byId.get(n.spouseId ?? -1);
     const married = !!spouse?.alive;
     const odds = married ? (n.morality < 0 ? 0.02 : 0) : 0.06;

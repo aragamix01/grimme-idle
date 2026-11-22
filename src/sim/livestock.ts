@@ -3,6 +3,7 @@
 // same all year (milk, eggs, the odd beast for the pot), so it carries the town through the
 // winter the fields can't; deer are hunted out if too many go after them, and come back slowly.
 import { chance, int, type Rng } from './rng';
+import { sheepOf } from './farms';
 import { cursed, kill, log, adherence, tenetOn } from './core';
 import { seasonOf, sell } from './market';
 import { industrial } from './ages';
@@ -37,10 +38,12 @@ export function tendHerd(world: WorldState, npc: Npc, rng: Rng): number {
   if (world.herd! < RESTOCK_BELOW && chance(rng, 0.05)) world.herd! += 3;
   const herd = world.herd!;
   if (herd >= 2 && herd < HERD_CAP && seasonOf(world.day) !== 'winter' && chance(rng, BREED)) world.herd!++;
-  const y = herd * YIELD_PER_BEAST * (npc.blessed ? 1.3 : 1);
+  // A flock leaning to sheep gives more wool and less meat (farms.ts).
+  const sheep = sheepOf(world);
+  const y = herd * YIELD_PER_BEAST * (npc.blessed ? 1.3 : 1) * (1 - (sheep - 0.4) * 0.6);
   let made = sell(world, npc, 'meat', Math.floor(y) + (chance(rng, y % 1) ? 1 : 0), rng);
   // Spring shearing: about three beasts in eight are sheep.
-  if (seasonOf(world.day) === 'spring' && herd >= 4 && chance(rng, SHEAR)) made += sell(world, npc, 'wool', Math.max(1, Math.round((herd * 3) / 8 / 3)), rng);
+  if (seasonOf(world.day) === 'spring' && herd >= 4 && chance(rng, SHEAR)) made += sell(world, npc, 'wool', Math.max(1, Math.round((herd * sheep) / 3)), rng);
   return made;
 }
 
