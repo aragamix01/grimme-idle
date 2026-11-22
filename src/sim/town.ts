@@ -44,6 +44,9 @@ const BUILDING_PX: Record<string, [w: number, h: number]> = {
   barracks: [48, 32],
   brothel: [32, 40],
   manor: [48, 40],
+  plaza: [64, 48],
+  bathhouse: [48, 32],
+  theatre: [48, 40],
 };
 // The buildings a town founds (growth.ts), drawn from the layout; the crown's works on their
 // plots are drawn by WorldScene, which knows how far along each is.
@@ -122,7 +125,9 @@ const BRUSH_COST = 6;
 
 // What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
 // again then.
-export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs' | 'street'>;
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs' | 'street' | 'parks'>;
+// Plots that are open ground people walk across, not buildings: the grand square.
+export const OPEN_PLOTS = new Set(['plaza']);
 
 let cache: { ref: unknown; n: number; rev: number; seed: number; era: string; key: string; layout: Layout } | null = null;
 
@@ -147,6 +152,7 @@ export function townLayout(view: TownView): Layout {
     view.wild ? JSON.stringify(view.wild) : '',
     view.works?.paving !== undefined ? 'paved' : '',
     (view.mills ?? []).map((m) => m.plot).join(','),
+    (view.parks ?? []).join(','),
     ['station', 'boulevard', 'powerplant'].map((k) => (view.works?.[k as keyof typeof view.works] !== undefined ? k[0] : '')).join(''),
     ['steam', 'electricity'].map((k) => (view.techs?.[k as keyof typeof view.techs] !== undefined ? k[0] : '')).join(''),
   ].join('|');
@@ -188,6 +194,10 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   for (const [k, p] of plots) {
     const art = k === 'castle' && !has(k) ? 'hall' : k;
     const fp = footprint(k);
+    if (OPEN_PLOTS.has(k)) {
+      rect(p.x, p.y, fp.w, fp.h, (i) => (cleared[i] = 1)); // paved once the roads are down
+      continue;
+    }
     build(p.x, p.y, fp.w, fp.h);
     doors.push(doorOf(k, p.x, p.y));
     // Before the castle the chief keeps a timber hall in its place; a building still going up is
@@ -215,6 +225,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     const { x, y } = lotXY(m.plot);
     build(x, y, MILL.w, MILL.h);
     doors.push(millDoor(m.plot));
+  }
+  // The parks: open lawns, walked across but never built on; a gate on their near side.
+  for (const lot of view.parks ?? []) {
+    const { x, y } = lotXY(lot);
+    rect(x, y, 3, 3, (i) => (cleared[i] = 1));
+    doors.push({ x: x + 1, y: y + 3 });
   }
   // Dungeons: their mound blocks, and the ground about them is trampled bare.
   for (const d of view.dungeons) {
@@ -321,6 +337,15 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     const inside = (x: number, y: number) => (m ? m[y * MAP_W + x] === IN_WALLS : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
     for (let i = 0; i < N; i++) if (ground[i] === 'road' && inside(i % MAP_W, Math.floor(i / MAP_W))) ground[i] = 'paved';
   }
+
+  // The grand square, laid in stone over whatever lanes crossed it.
+  for (const [k, p] of plots)
+    if (OPEN_PLOTS.has(k)) {
+      const fp = footprint(k);
+      rect(p.x, p.y, fp.w, fp.h, (i) => {
+        if (ground[i] !== 'water') ground[i] = 'paved';
+      });
+    }
 
   // Gas lamps (electric once the power station runs) along the streets near the square, once the town knows steam.
   if (view.techs?.steam !== undefined) {

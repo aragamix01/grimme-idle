@@ -52,6 +52,14 @@ function hangouts(world: WorldState, s: Spot): Spot[] {
   return out;
 }
 
+function greens(world: WorldState): Spot[] {
+  const out: Spot[] = [];
+  const sq = world.works?.plaza !== undefined ? world.plots?.plaza : undefined;
+  if (sq) out.push({ x: sq.x + 1, y: sq.y + 2 }, { x: sq.x + 2, y: sq.y + 1 });
+  for (const lot of world.parks ?? []) out.push({ x: (lot % MAP_W) + 1, y: Math.floor(lot / MAP_W) + 2 });
+  return out;
+}
+
 let cache: { world: WorldState; rev: number; seed: number; p: Places } | null = null;
 
 export function places(world: WorldState): Places {
@@ -78,7 +86,8 @@ export function places(world: WorldState): Places {
     barn: door('barn', 4, 4),
     school: door('school', 1, 2),
     yard: door('yard', -1, 2),
-    hangouts: hangouts(world, s),
+    // The grand square and the parks are where the idle like best to be.
+    hangouts: [...hangouts(world, s), ...greens(world)],
   };
   cache = { world, rev, seed: world.seed, p };
   return p;

@@ -1665,6 +1665,69 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "fountain": {
+    "file": "assets/sprites/buildings/fountain.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "plaza": {
+    "file": "assets/sprites/buildings/plaza.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "bathhouse": {
+    "file": "assets/sprites/buildings/bathhouse.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "theatre": {
+    "file": "assets/sprites/buildings/theatre.png",
+    "group": "buildings",
+    "frameWidth": 48,
+    "frameHeight": 40,
+    "frames": 1
+  },
+  "park": {
+    "file": "assets/sprites/buildings/park.png",
+    "group": "buildings",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1
+  },
+  "park-lawn": {
+    "file": "assets/sprites/tiles/park-lawn.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "park-walk": {
+    "file": "assets/sprites/tiles/park-walk.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "park-bed": {
+    "file": "assets/sprites/tiles/park-bed.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "bench": {
+    "file": "assets/sprites/props/bench.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",

@@ -5,6 +5,7 @@ import { MAP_H, MAP_W, ON_WALL, dungeonDoor, footprint, lotXY, railway, ringMask
 import { entryOf, siteOf } from '../../sim/landplan';
 import { WATER, TREE, homeKind, terrainOf, type HomeKind } from '../../sim/terrain';
 import { cropOf } from '../../sim/farms';
+import { parkTiles } from '../../sim/amenities';
 import { wildsOf } from '../../sim/wilds';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
@@ -580,12 +581,22 @@ export class WorldScene extends Phaser.Scene {
     const sown = new Map<number, string>();
     for (const p of w.parcels ?? [])
       if (p.kind === 'field') for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) sown.set(y * MAP_W + x, CROP_ART[cropOf(p)]);
+    // The parks: a flower bed in the middle, gravel walks to it, lawn in the corners.
+    const parks = parkTiles(w);
     const near = (x: number, y: number, c: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => t.cover[(y + dy) * MAP_W + x + dx] === c);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const g = town.ground[y * MAP_W + x];
         const px = x * TILE;
         const py = y * TILE;
+        const park = parks.get(y * MAP_W + x);
+        if (park && g !== 'water') {
+          const { dx, dy } = park;
+          if (dx === 1 && dy === 1) rt.stamp('park-bed', undefined, px, py, flat);
+          else if (dx === 1 || dy === 1) rt.stamp('park-walk', dx === 1 ? 1 : 0, px, py, flat);
+          else rt.stamp('park-lawn', (x + y) % 2, px, py, flat);
+          continue;
+        }
         if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).setDepth(-1).play('water-flow');
         else if (g === 'road') rt.stamp('path', Math.floor(rand() * 2), px, py, flat);
         else if (g === 'crops') {
@@ -633,7 +644,18 @@ export class WorldScene extends Phaser.Scene {
       const plot = WORKS[kind].plot && w.plots?.[kind];
       if (!plot) continue;
       if (w.building?.kind === kind) this.placeProp({ key: 'scaffold', x: plot.x, y: plot.y, anchor: 'top' });
-      else if (w.works?.[kind] !== undefined) this.placeProp({ key: kind === 'monument' ? `monument-${Math.min(3, w.monument ?? 1)}` : kind, x: plot.x, y: plot.y, anchor: 'top' });
+      else if (kind === 'plaza') {
+        // Open paving (laid by townLayout); the fountain in its middle once it is built.
+        if (w.works?.fountain !== undefined) this.placeProp({ key: 'fountain', x: plot.x + 1, y: plot.y, anchor: 'top' });
+      } else if (w.works?.[kind] !== undefined) this.placeProp({ key: kind === 'monument' ? `monument-${Math.min(3, w.monument ?? 1)}` : kind, x: plot.x, y: plot.y, anchor: 'top' });
+    }
+    // Trees at the parks' far corners, benches at the near ones.
+    for (const lot of w.parks ?? []) {
+      const { x, y } = lotXY(lot);
+      for (const dx of [0, 2]) {
+        this.placeProp({ key: (x + dx + y) % 2 ? 'fruit-tree' : 'tree', x: x + dx, y, anchor: 'bottom' });
+        this.placeProp({ key: 'bench', x: x + dx, y: y + 2, anchor: 'bottom' });
+      }
     }
     // Homes going up stand in scaffolding until they are done.
     const goingUp = new Set((w.homes ?? []).filter((h) => (h.until ?? 0) > w.day).map((h) => `${lotXY(h.lot).x},${lotXY(h.lot).y}`));

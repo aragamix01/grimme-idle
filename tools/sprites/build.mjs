@@ -15,13 +15,14 @@ import { worldmap } from './worldmap.mjs';
 import { animals } from './animals.mjs';
 import { works } from './works.mjs';
 import { industry } from './industry.mjs';
+import { amenities } from './amenities.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const gameDir = join(root, 'public', 'assets', 'sprites');
 const designDir = join(root, 'design', 'assets');
 const DESIGN_SCALE = 4;
 
-const assets = [...characters(), ...bodyMonsters(), ...raiders(), ...monsters(), ...bosses(), ...vehicles(), ...animals(), ...tiles(), ...buildings(), ...works(), ...industry(), ...dungeonKinds(), ...worldmap(), ...icons(), ...uiParts()];
+const assets = [...characters(), ...bodyMonsters(), ...raiders(), ...monsters(), ...bosses(), ...vehicles(), ...animals(), ...tiles(), ...buildings(), ...works(), ...industry(), ...amenities(), ...dungeonKinds(), ...worldmap(), ...icons(), ...uiParts()];
 
 rmSync(gameDir, { recursive: true, force: true });
 rmSync(designDir, { recursive: true, force: true });

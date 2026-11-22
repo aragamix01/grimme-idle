@@ -2,6 +2,7 @@
 // among themselves and sending refugees our way, the demon lord swallowing whole kingdoms,
 // and the god's miracles worked on other realms.
 import { chance, int, pick, type Rng } from './rng';
+import { cleaner } from './amenities';
 import { dose } from './crafts';
 import { clamp, kill, log, perkLevel, known } from './core';
 import { draughts } from './learning';
@@ -28,7 +29,7 @@ export function plagueStrike(world: WorldState, rng: Rng, severity: number, how:
   const doctors = world.npcs.filter((n) => n.alive && n.age >= 16 && n.job === 'doctor').length;
   const hall = world.works?.cathedral !== undefined; // the cathedral's infirmary
   const nursing = doctors ? Math.min(0.75, doctors * 0.2 + priests * 0.03) : Math.min(hall ? 0.65 : 0.5, priests * (hall ? 0.15 : 0.1));
-  const care = (1 - nursing) * (known(world, 'medicine') ? 0.6 : 1) * (known(world, 'chemistry') ? 0.7 : 1) * (draughts(world) ? 0.85 : 1) * (world.works?.factory !== undefined ? 1.15 : 1) * Math.max(0.4, 1 - mastery(world, 'physick')); // the factory's smoke; advanced physick
+  const care = (1 - nursing) * (known(world, 'medicine') ? 0.6 : 1) * (known(world, 'chemistry') ? 0.7 : 1) * (draughts(world) ? 0.85 : 1) * (world.works?.factory !== undefined ? 1.15 : 1) * Math.max(0.4, 1 - mastery(world, 'physick')) * cleaner(world); // the factory's smoke; advanced physick; the baths and the parks
   let dead = 0;
   for (const n of world.npcs) {
     if (!n.alive || n.inside !== undefined) continue;

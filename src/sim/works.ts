@@ -43,9 +43,13 @@ export const WORKS: Record<Work, WorkDef> = {
   station: { name: 'สถานีรถไฟ', cost: 1000, days: 120, text: 'นักเดินทางมาถึงเมืองบ่อยขึ้น กองคาราวานได้กำไรมากขึ้น 20% (ใต้การยึดครองของจอมมารไม่มีรถไฟมา)', art: 'station', plot: true },
   boulevard: { name: 'ถนนวงแหวนแทนกำแพงเมือง', cost: 900, days: 120, text: 'รื้อกำแพงเก่าสร้างถนนกว้างรอบเมือง คนย้ายเข้าเมืองมากขึ้นและชาวเมืองภูมิใจ แต่หอธนูที่ประตูเมืองหายไปด้วย', art: 'rubble' },
   powerplant: { name: 'โรงไฟฟ้าผลึก', cost: 1400, days: 120, text: 'เผาผลึกมานา (หรือถ่านหิน) เป็นกระแสไฟ โรงงานมีไฟเดินเครื่องได้มากขึ้น 25% ไฟถนนสว่างทั้งคืน และเปิดทางให้หลอดไฟกับรถราง', art: 'powerplant', plot: true },
+  plaza: { name: 'จัตุรัสใหญ่', cost: 500, days: 60, text: 'ลานปูหินข้างลานกลางเมือง เป็นที่ชุมนุมและพักผ่อน ชาวเมืองพอใจขึ้น', art: 'plaza', plot: true },
+  fountain: { name: 'น้ำพุกลางจัตุรัส', cost: 350, days: 45, text: 'น้ำพุกลางจัตุรัสใหญ่ ชาวเมืองภูมิใจในเมืองของตัวเอง', art: 'fountain' },
+  bathhouse: { name: 'โรงอาบน้ำสาธารณะ', cost: 650, days: 75, text: 'โรคระบาดคร่าชีวิตน้อยลงและชาวเมืองพอใจขึ้น ต้องใช้ฟืนหรือถ่านหินต้มน้ำทุกเดือน', art: 'bathhouse', plot: true },
+  theatre: { name: 'โรงละคร', cost: 900, days: 90, text: 'ชาวเมืองมีที่ดูละคร พอใจขึ้น ค่าตั๋วหมุนกลับเข้าเมือง แต่โรงเตี๊ยมขายเหล้าได้น้อยลง', art: 'theatre', plot: true },
   palace: { name: 'พระราชวังทองคำ', cost: 1500, days: 150, text: 'ราชบัลลังก์มั่นคงขึ้น ขุนนางพอใจ แต่ชาวเมืองมองว่าฟุ่มเฟือย', art: 'palace', replaces: 'castle' },
 };
-export const WORK_ORDER: readonly Work[] = ['granary', 'paving', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'factory', 'station', 'boulevard', 'powerplant', 'palace', 'monument'];
+export const WORK_ORDER: readonly Work[] = ['granary', 'paving', 'watchtowers', 'yard', 'cathedral', 'market', 'school', 'clocktower', 'press', 'plaza', 'fountain', 'bathhouse', 'theatre', 'factory', 'station', 'boulevard', 'powerplant', 'palace', 'monument'];
 const FACTORY_GEAR = 4; // arms the factory turns out each month
 const FACTORY_GOLD = 80; // and what its other goods fetch for the crown
 const STATION_VISITORS = 0.3; // monthly chance a train brings a newcomer
@@ -57,7 +61,9 @@ export const built = (world: WorldState, k: Work) => world.works?.[k] !== undefi
 export const monumentTier = (world: WorldState) => world.monument ?? 0;
 // What the crown could build: a rebuilt building needs the old one there first.
 const REBUILDS: Partial<Record<Work, Civic>> = { paving: 'walls', watchtowers: 'walls', cathedral: 'church', market: 'shop', palace: 'castle' };
-const open = (world: WorldState, k: Work) => (k === 'monument' || !built(world, k)) && (!REBUILDS[k] || founded(world, REBUILDS[k]!));
+// The fountain stands in the grand square, so it waits for it.
+export const NEEDS: Partial<Record<Work, Work>> = { fountain: 'plaza' };
+const open = (world: WorldState, k: Work) => (k === 'monument' || !built(world, k)) && (!REBUILDS[k] || founded(world, REBUILDS[k]!)) && (!NEEDS[k] || built(world, NEEDS[k]!));
 // Architecture makes every work a quarter cheaper and quicker.
 const plans = (world: WorldState) => (known(world, 'architecture') ? 0.75 : 1) * Math.max(0.4, 1 - mastery(world, 'engineering'));
 export const workCost = (world: WorldState, k: Work) => Math.round((WORKS[k].cost + (k === 'monument' ? monumentTier(world) * MONUMENT_STEP : 0)) * plans(world));
@@ -103,6 +109,15 @@ function want(world: WorldState, k: Work, ruler: Npc): number {
       return known(world, 'steam') && founded(world, 'walls') && (world.mills?.length ?? 0) >= 2 ? 1 + (ruler.traits.includes('brave') ? 0 : 1) : 0;
     case 'powerplant':
       return known(world, 'electricity') ? 3 : 0;
+    case 'plaza':
+      // A town grown past a hundred wants somewhere to gather; a republic most of all.
+      return world.npcs.filter((n) => n.alive).length >= 100 ? 1 + (world.regime === 'republic' ? 1 : 0) + (ruler.traits.includes('kind') ? 0.5 : 0) : 0;
+    case 'fountain':
+      return 1 + (ruler.traits.includes('greedy') ? 0 : 0.5);
+    case 'bathhouse':
+      return 1 + year.filter((e) => e.text.includes('โรคระบาด')).length + (world.smog ? 1 : 0);
+    case 'theatre':
+      return world.npcs.filter((n) => n.alive).length >= 140 ? 1 + (ruler.traits.includes('kind') ? 0.5 : 0) : 0;
     case 'monument':
       return 0.5; // after everything the town needs; a vain ruler is the same as anyone here
     case 'palace':

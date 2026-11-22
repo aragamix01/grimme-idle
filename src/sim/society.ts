@@ -1,6 +1,7 @@
 // The town beyond adventuring: a king with nobles and soldiers, and the trades and
 // pleasures people spend their money on. Who holds which rank is decided here.
 import { chance, next, pick, type Rng } from './rng';
+import { innShare, playgoer } from './amenities';
 import { decreeActive, known, log, occupied } from './core';
 import { RULER_TH } from './lexicon';
 import { writeCharter } from './charter';
@@ -301,7 +302,8 @@ export function leisure(world: WorldState, rng: Rng): void {
   const company = Math.max(1, Math.round(COMPANY * p));
   for (const n of world.npcs) {
     if (!n.alive || n.age < 16 || n.inside !== undefined || n.job === 'innkeeper' || n.job === 'courtesan') continue;
-    if (keepers.length && n.gold >= 30 * p && chance(rng, 0.25)) {
+    playgoer(world, n, rng); // a night at the theatre
+    if (keepers.length && n.gold >= 30 * p && chance(rng, 0.25 * innShare(world))) {
       const k = pick(rng, keepers);
       n.gold -= ale;
       // Half the price is the malt, the firewood and the crown's excise, paid out at the market: the

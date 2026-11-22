@@ -6,7 +6,7 @@
 import { log } from './core';
 import { ensureMarket, levelOf } from './market';
 import { king, payrollReserve } from './society';
-import { WORK_ORDER, built, workCost } from './works';
+import { NEEDS, WORK_ORDER, built, workCost } from './works';
 import { known } from './core';
 import type { Npc, WorldState } from './types';
 
@@ -22,7 +22,7 @@ type Outlet = 'alms' | 'arms' | 'jewels' | 'court' | 'church' | 'trade' | 'feast
 
 // Gold the ruler wants to keep: three paydays, the cushion, and the next work they could afford.
 function reserve(world: WorldState): number {
-  const next = WORK_ORDER.filter((w) => (w === 'monument' || !built(world, w)) && (w !== 'boulevard' || known(world, 'steam')) && (w !== 'powerplant' || known(world, 'electricity'))).map((w) => workCost(world, w)); // the boulevard is no prospect before steam
+  const next = WORK_ORDER.filter((w) => (w === 'monument' || !built(world, w)) && (w !== 'boulevard' || known(world, 'steam')) && (w !== 'powerplant' || known(world, 'electricity')) && (!NEEDS[w] || built(world, NEEDS[w]!))).map((w) => workCost(world, w)); // the boulevard is no prospect before steam
   return payrollReserve(world) * 3 + CUSHION + (next.length ? Math.min(...next) : 0);
 }
 

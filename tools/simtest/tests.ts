@@ -60,6 +60,9 @@ import { council } from '../../src/sim/government';
 import { grant } from '../../src/sim/decrees';
 import { writeCharter } from '../../src/sim/charter';
 import type { Npc, WorldState } from '../../src/sim/types';
+import { amenitiesDay, amenityJoy, cleaner } from '../../src/sim/amenities';
+import { parkSpot } from '../../src/sim/landplan';
+import { OPEN_PLOTS } from '../../src/sim/town';
 
 type Test = [string, () => void];
 export const tests: Test[] = [];
@@ -880,7 +883,8 @@ test('every door, field and dungeon can be walked to from the road in', () => {
       if (!p) continue;
       const d = plotDoor(w, k)!;
       ok(open(d.x, d.y), `the ${k}'s door (${d.x},${d.y}) cannot be reached in world ${w.seed}`);
-      ok(!open(p.x, p.y) && footprint(k).w >= 2, `the ${k} can be walked through`);
+      if (OPEN_PLOTS.has(k)) ok(open(p.x + 1, p.y + 1), `the ${k} cannot be walked over`);
+      else ok(!open(p.x, p.y) && footprint(k).w >= 2, `the ${k} can be walked through`);
     }
     for (const h of w.homes ?? []) ok(open(lotXY(h.lot).x + 1, lotXY(h.lot).y + 2), `a home's door cannot be reached in world ${w.seed}`);
     for (const p of w.parcels ?? []) {
@@ -2344,4 +2348,75 @@ test("a guild builds halls out of its coffers, rises in standing, lures a rival'
   outdo(w, [l1], 'ราชาสไลม์');
   ok(low.renown < before, 'the rival lost no face');
   ok(w.chronicle.some((e) => e.text.includes('ชิงปราบ') && e.major), 'outdoing the rivals is not a headline');
+});
+
+// ---------- the town's public places ----------
+
+test('the crown lays out a park where the town has outgrown its green; nothing is built on it, and it can be walked across', () => {
+  const w = world();
+  w.treasury = 5000;
+  ok(townPop(w) >= 60, `only ${townPop(w)} people`);
+  while (w.day % 30 !== 16) w.day++;
+  amenitiesDay(w);
+  ok(w.parks?.length === 1, `parks: ${w.parks}`);
+  ok(w.chronicle.some((e) => e.text.includes('สวน')), 'no word of the park');
+  const lot = w.parks![0];
+  const { x, y } = lotXY(lot);
+  const lay = townLayout(w);
+  ok(lay.cost[(y + 1) * MAP_W + x + 1] > 0, 'the park cannot be walked across');
+  // A rich family's new home leans toward the park; and no home is put on it.
+  for (let k = 0; k < 6; k++) {
+    const spot = homeSpot(w, [grown(w)[k]], true);
+    const h = lotXY(spot);
+    ok(!(h.x + 1 >= x && h.x <= x + 2 && h.y + 1 >= y && h.y <= y + 2), 'a home was put on the park');
+  }
+  ok(places(w).hangouts.some((s) => s.x === x + 1 && s.y === y + 2), 'the idle never go to the park');
+  // One park is enough for a while.
+  w.day += 30;
+  amenitiesDay(w);
+  ok(w.parks!.length === 1 || townPop(w) >= 120, 'a second park for a town the first is enough for');
+});
+
+test('parks, the square, the baths and the theatre lift loyalty; the baths and the parks spare the sick', () => {
+  const w = world();
+  const n = grown(w)[0];
+  const bare = amenityJoy(w, n);
+  const bareClean = cleaner(w);
+  w.parks = [parkSpot(w)];
+  w.works = { ...(w.works ?? {}), plaza: w.day, fountain: w.day, bathhouse: w.day, theatre: w.day };
+  ok(amenityJoy(w, n) > bare + 0.5, `the public places please nobody: ${bare} -> ${amenityJoy(w, n)}`);
+  ok(cleaner(w) < bareClean * 0.8, `the baths spare nobody: ${cleaner(w)}`);
+  // Cold baths do nothing.
+  w.bathsCold = true;
+  const cold = cleaner(w);
+  ok(cold > cleaner({ ...w, bathsCold: false }), 'cold baths still clean');
+  // The baths burn firewood off the market each month, and go cold without it.
+  w.bathsCold = false;
+  const m = ensureMarket(w);
+  m.stock.timber = 0;
+  m.stock.coal = 0;
+  while (w.day % 30 !== 16) w.day++;
+  amenitiesDay(w);
+  ok(w.bathsCold, 'the baths stayed hot without fuel');
+  m.stock.timber = 10;
+  w.day += 30;
+  amenitiesDay(w);
+  ok(!w.bathsCold && m.stock.timber < 10, 'the baths burnt nothing');
+});
+
+test('the fountain waits for the grand square, which is open paving people walk over', () => {
+  const w = world();
+  w.treasury = 20000;
+  for (const n of w.npcs) if (n.alive && n.job === 'king') n.traits = ['kind'];
+  for (let k = 0; k < 40 && w.works?.fountain === undefined; k++) {
+    w.day += 30 - (w.day % 30) + 8;
+    crownWorks(w, rngOf(w));
+    if (w.building) w.day = w.building.done;
+    crownWorks(w, rngOf(w));
+    if (w.works?.fountain !== undefined) ok(w.works.plaza !== undefined && w.works.plaza <= w.works.fountain, 'a fountain before its square');
+  }
+  ok(w.works?.plaza !== undefined, 'the grand square was never built');
+  const p = w.plots!.plaza!;
+  const lay = townLayout(w);
+  ok(lay.ground[(p.y + 1) * MAP_W + p.x + 1] === 'paved' && lay.cost[(p.y + 1) * MAP_W + p.x + 1] > 0, 'the grand square is not open paving');
 });

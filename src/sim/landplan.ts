@@ -46,6 +46,7 @@ function occupancy(world: WorldState): Uint8Array {
   }
   for (const s of world.shacks ?? []) mark(s % MAP_W, Math.floor(s / MAP_W), 1, 1, BUILT);
   for (const d of world.dungeons) mark(d.x - 1, d.y, 4, 3, BUILT);
+  for (const lot of world.parks ?? []) mark(lot % MAP_W, Math.floor(lot / MAP_W), 3, 3, BUILT);
   for (const m of world.mills ?? []) mark(m.plot % MAP_W, Math.floor(m.plot / MAP_W), MILL.w, MILL.h, BUILT);
   for (const p of world.parcels ?? []) mark(p.x, p.y, p.w, p.h, WORKED);
   if (world.ring) {
@@ -196,6 +197,9 @@ const CIVIC_AIM: Record<string, [dx: number, dy: number]> = {
   barracks: [8, 4],
   manor: [-8, -6],
   brothel: [9, 0],
+  plaza: [0, 4],
+  bathhouse: [-9, 5],
+  theatre: [8, -8],
 };
 
 // Where the crown or the chief puts a new building; false when there is nowhere to put it.
@@ -229,6 +233,31 @@ export function placeBuilding(world: WorldState, key: string): boolean {
   return true;
 }
 
+// Where the crown lays out a new park, as the lot of its top-left tile (-1: nowhere): a king's first
+// is a royal garden by the castle; after that, among the homes farthest from any green, inside the
+// walls if there is room.
+export function parkSpot(world: WorldState): number {
+  const t = wildsOf(world);
+  const parks = (world.parks ?? []).map((l) => ({ x: (l % MAP_W) + 1, y: Math.floor(l / MAP_W) + 1 }));
+  let target: Spot = t.site;
+  if (!parks.length && world.regime === 'monarchy') target = plotDoor(world, 'castle') ?? t.site;
+  else {
+    let far = -1;
+    for (const h of world.homes ?? []) {
+      const { x, y } = lotXY(h.lot);
+      const d = Math.min(Math.hypot(x - t.site.x, y - t.site.y) * 0.6 + 6, ...parks.map((p) => Math.hypot(p.x - x, p.y - y)));
+      if (d > far) {
+        far = d;
+        target = { x: x + 1, y: y + 1 };
+      }
+    }
+  }
+  const want = { w: 3, h: 3, target, maxR: 12, style: planStyle(world) };
+  const occ = occupancy(world);
+  const spot = findSpot(world, occ, { ...want, inside: true }) ?? findSpot(world, occ, want);
+  return spot ? tileOf(spot.x, spot.y) : -1;
+}
+
 // The door of a building that has been sited.
 export function plotDoor(world: WorldState, key: string): Spot | undefined {
   const p = world.plots?.[key];
@@ -243,6 +272,9 @@ export function homeSpot(world: WorldState, family: Npc[], rich: boolean): numbe
   const t = wildsOf(world);
   const aims: Spot[] = [];
   if (rich) aims.push(plotDoor(world, 'castle') ?? t.site);
+  // The well-off like a park at the door: the nearest one pulls their new home toward it.
+  const park = rich && (world.parks ?? []).map((l) => ({ x: (l % MAP_W) + 1, y: Math.floor(l / MAP_W) + 1 })).sort((a, b) => Math.hypot(a.x - t.site.x, a.y - t.site.y) - Math.hypot(b.x - t.site.x, b.y - t.site.y))[0];
+  if (park) aims.push(park, park);
   for (const n of family) {
     const housed = (k: Npc | undefined) => !!k?.alive && k.home !== undefined && k.home < SHACK_BASE;
     const kin = (n.parentIds ?? []).map((id) => world.npcs.find((k) => k.id === id)).find(housed) ?? world.npcs.find((k) => housed(k) && k.parentIds?.includes(n.id));

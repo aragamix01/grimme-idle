@@ -189,7 +189,7 @@ export interface Parliament {
 }
 export type Tech = 'plough' | 'medicine' | 'metallurgy' | 'architecture' | 'navigation' | 'arcana' | 'printing' | 'steam' | 'chemistry' | 'railway' | 'irrigation' | 'levee' | 'ironframe' | 'electricity' | 'telegraph' | 'lightbulb' | 'tram';
 export type Field = 'agronomy' | 'physick' | 'commerce' | 'engineering';
-export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant';
+export type Work = 'paving' | 'granary' | 'watchtowers' | 'yard' | 'cathedral' | 'market' | 'palace' | 'school' | 'clocktower' | 'press' | 'monument' | 'factory' | 'station' | 'boulevard' | 'powerplant' | 'plaza' | 'fountain' | 'bathhouse' | 'theatre';
 
 export interface Dragon {
   name: string;
@@ -674,6 +674,8 @@ export interface WorldState {
   study?: Field; // the advanced study under way
   knowledge?: number;
   monument?: number; // tiers of the kingdom's monument raised so far
+  parks?: number[]; // the parks the crown laid out, by the lot of their top-left tile (amenities.ts)
+  bathsCold?: boolean; // the bathhouse had no firewood this month
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest
   realms?: Realm[];

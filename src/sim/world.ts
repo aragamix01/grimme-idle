@@ -1,4 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
+import { amenitiesDay } from './amenities';
 import { guildHallsDay } from './guildhalls';
 import { farmsDay } from './farms';
 import { callingsDay } from './callings';
@@ -276,6 +277,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   callingsDay(world);
   farmsDay(world, rng);
   guildHallsDay(world, rng);
+  amenitiesDay(world);
   const lit = homeInFlames(world, woodsDay(world, rng));
   if (lit) fire(world, rng, lit);
   growthDay(world);

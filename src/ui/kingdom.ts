@@ -1,4 +1,5 @@
 import { PLAN_TH, planStyle, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, IDEOLOGY_TH, partiesOf, partyOf, partyMembers, hasParliament, constitutional, governor, inGovernment, isCommune, reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, type Npc, type WorldState } from '../sim';
+import { greenery } from '../sim/amenities';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -523,7 +524,7 @@ function worksSection(world: WorldState): HTMLElement {
   const job = world.building;
   return section(
     'งานก่อสร้างของราชสำนัก',
-    WORK_ORDER.map((k) => {
+    [parksRow(world), ...WORK_ORDER.map((k) => {
       const w = WORKS[k];
       const done = world.works?.[k] !== undefined;
       if (k === 'monument') {
@@ -543,8 +544,21 @@ function worksSection(world: WorldState): HTMLElement {
         el('img', { src: `/assets/sprites/buildings/${w.art}.png`, alt: '', className: 'work__art' }),
         el('div', {}, el('b', { textContent: w.name }), el('p', { className: 'realm-king__meta', textContent: `${w.text} · ${status}` })),
       );
-    }),
+    })],
     world.building ? `กำลังสร้าง${WORKS[world.building.kind].name}` : '',
+  );
+}
+
+// The parks the crown has laid out, and how much of the town they are enough for.
+function parksRow(world: WorldState): HTMLElement {
+  const n = world.parks?.length ?? 0;
+  const pop = world.npcs.filter((p) => p.alive).length;
+  const status = n ? `${n} แห่ง · พอสำหรับ ${Math.round(greenery(world) * 100)}% ของชาวเมือง ${pop} คน` : 'ยังไม่มี · ราชสำนักจัดสวนเมื่อเมืองโตเกิน 60 คนและคลังมีเงินเหลือ';
+  return el(
+    'li',
+    { className: `work${n ? ' work--done' : ''}` },
+    el('img', { src: '/assets/sprites/buildings/park.png', alt: '', className: 'work__art' }),
+    el('div', {}, el('b', { textContent: 'สวนสาธารณะ' }), el('p', { className: 'realm-king__meta', textContent: `ชาวเมืองพอใจขึ้น บ้านใกล้สวนยิ่งพอใจ อากาศโล่งทำให้โรคระบาดเบาลง สวนละ 80 คน · ${status}` })),
   );
 }
 
