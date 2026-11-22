@@ -304,7 +304,11 @@ export function leisure(world: WorldState, rng: Rng): void {
     if (keepers.length && n.gold >= 30 * p && chance(rng, 0.25)) {
       const k = pick(rng, keepers);
       n.gold -= ale;
-      k.gold += ale;
+      // Half the price is the malt, the firewood and the crown's excise, paid out at the market: the
+      // keeper of a busy inn did well, but kept every coin and grew richer than the crown.
+      const supplies = Math.floor(ale / 2);
+      k.gold += ale - supplies;
+      ensureMarket(world).till += supplies;
       k.ales = (k.ales ?? 0) + 1;
       if (k.ales >= 2 && buy(world, k, 'grain')) k.ales -= 2;
     }

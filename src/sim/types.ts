@@ -66,6 +66,7 @@ export interface Npc {
   gear?: number; // 0..MAX_GEAR, bought at the market; adds strength
   hunger?: number; // meals missed in a row
   potions?: number; // healing potions carried down the dungeons (crafts.ts)
+  calling?: Calling; // a seasoned adventurer's calling (callings.ts)
   doled?: number; // meals in a row from alms or the crown's dole (market.ts considerTrade)
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
   unpaid?: number; // soldiers: paydays missed in a row
@@ -219,9 +220,12 @@ export interface Dungeon {
   kind?: DungeonKind; // missing in old saves: a cave
   boss?: Boss;
   calmUntil?: number; // quiet after its boss falls
+  depth?: number; // floors mapped by the parties that came back (callings.ts), 0..MAX_DEPTH
   found?: number; // day an adventurer discovered it
 }
 
+// What a seasoned adventurer becomes (callings.ts).
+export type Calling = 'knight' | 'ranger' | 'cleric' | 'warlock';
 export type QuestKind = 'hunt' | 'explore' | 'escort' | 'pest' | 'bounty' | 'land';
 export type QuestStage = 'recruiting' | 'travelling' | 'inside' | 'done' | 'failed' | 'expired';
 

@@ -38,6 +38,8 @@ import { places } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
+import { CALLING_LEVEL, MAX_DEPTH, depthOf, floorDanger, floorSpoils, healed, mapFloor, partyEdge } from '../../src/sim/callings';
+import { slayBoss } from '../../src/sim/dungeons';
 import { SPOILS, craftsDay, drinkPotion, sellSpoils } from '../../src/sim/crafts';
 import { smith } from '../../src/sim/society';
 import { plagueStrike } from '../../src/sim/worldevents';
@@ -2205,4 +2207,35 @@ test('the smith forges hides and bones into gear; a potion carried down saves a 
   w.treasury = 5000;
   plagueStrike(w, r, 3, 'โรคระบาดทดสอบ');
   ok(m.stock.potion < 60, 'nobody was dosed from the shelves');
+});
+
+// ---------- callings, parties, what the dungeons fear, the floors below ----------
+
+test('seasoned adventurers take up a calling by their nature; a well-made party and the feared calling fight better', () => {
+  const w = world();
+  const [a, b] = grown(w).filter((n) => n.job === 'swordsman');
+  const mage = grown(w).find((n) => n.job === 'mage')!;
+  Object.assign(a, { level: CALLING_LEVEL, traits: ['brave'], calling: undefined });
+  Object.assign(b, { level: CALLING_LEVEL, traits: ['greedy'], calling: undefined });
+  Object.assign(mage, { level: CALLING_LEVEL, traits: ['kind'], calling: undefined });
+  while (w.day % 30 !== 18) tick(w);
+  tick(w);
+  ok(a.calling === 'knight' && b.calling === 'ranger' && mage.calling === 'cleric', `callings: ${a.calling}, ${b.calling}, ${mage.calling}`);
+  const plain = grown(w).filter((n) => n.job === 'swordsman' && !n.calling).slice(0, 3);
+  ok(partyEdge([a, b, mage]) > partyEdge(plain), 'a guard, a striker and a healer fight no better than three of a kind');
+  ok(partyEdge([a, b, mage], 'crypt') > partyEdge([a, b, mage], 'cave'), 'the dead do not fear the cleric');
+  ok(healed([mage]) < healed([a]), 'a healer spares the party nothing');
+});
+
+test('each delve that comes back maps a floor; deeper floors give more and bite harder; the boss falling closes them', () => {
+  const w = world();
+  const d = w.dungeons[0];
+  const party = grown(w).filter((n) => n.job === 'swordsman').slice(0, 2);
+  ok(depthOf(d) === 0 && floorSpoils(d) === 1, 'a dungeon starts mapped');
+  for (let k = 0; k < 8; k++) mapFloor(w, d, party);
+  ok(depthOf(d) === MAX_DEPTH, `mapped to ${depthOf(d)} floors`);
+  ok(floorSpoils(d) > 1 && floorDanger(d) > 1, 'the deep floors are no richer or worse');
+  d.boss = d.boss ?? { name: 'x', hp: 1, maxHp: 1, relic: 'y', generation: 1 };
+  slayBoss(w, d, party);
+  ok(depthOf(d) === 0, 'the deep ways stayed open after the boss fell');
 });

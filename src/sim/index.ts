@@ -39,6 +39,7 @@ export { ROOMS, TIER_TH, capacity, maxTier, sites as homeSites, standing as home
 export { lotXY } from './town';
 export { lotOutside, outsideWalls, PLAN_TH, planStyle, trampled } from './landplan';
 export { wildsOf, ashOf } from './wilds';
+export { CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf } from './callings';
 export { HAPPENING_ORDER, MOD_TH, activeMods, happeningTitle, whisperCost } from './happenings';
 export { DECREES, DECREE_ORDER, decreeActive } from './decrees';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';

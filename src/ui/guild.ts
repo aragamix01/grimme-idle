@@ -1,4 +1,4 @@
-import { influenceOf, say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf, influenceOf, say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -29,7 +29,7 @@ export function renderGuild(world: WorldState): void {
     Math.floor(world.faith),
     adventurers.map((a) => [a.id, a.rank, a.renown, a.guildId]),
     world.guilds.map((g) => [g, members(g).length]),
-    world.dungeons.map((d) => [d.id, Math.floor(d.power / 5), d.boss?.hp, d.boss?.slainDay, d.calmUntil]),
+    world.dungeons.map((d) => [d.id, Math.floor(d.power / 5), d.boss?.hp, d.boss?.slainDay, d.calmUntil, d.depth]),
     Math.floor(world.day / 10),
   ]);
   if (key === lastKey) return;
@@ -99,7 +99,7 @@ function dungeonCard(world: WorldState, d: Dungeon): HTMLElement {
       'div',
       { className: 'realm-king__body' },
       el('b', { textContent: d.name }),
-      el('p', { className: 'realm-king__meta', textContent: `${kind.th} · ความอันตราย ${'★'.repeat(Math.round(kind.tier * 1.5))}` }),
+      el('p', { className: 'realm-king__meta', textContent: `${kind.th} · ความอันตราย ${'★'.repeat(Math.round(kind.tier * 1.5))} · สำรวจแล้ว ${depthOf(d)}/${MAX_DEPTH} ชั้น · แพ้${CALLING_TH[WEAK_TO[d.kind ?? 'cave']]}` }),
       el('div', { className: 'realm-meter' }, el('span', { className: 'realm-meter__label', textContent: 'มอนสเตอร์สะสม' }), el('span', { className: 'realm-meter__track' }, fill), el('b', { textContent: String(Math.round(d.power)) })),
       el('p', { className: 'realm-king__meta', textContent: bossLine }),
     ),

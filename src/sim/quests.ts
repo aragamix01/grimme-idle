@@ -1,6 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
+import { floorDanger, floorSpoils, healed, mapFloor, partyEdge } from './callings';
 import { drinkPotion, sellSpoils } from './crafts';
 import { darkWoods } from './wilds';
 import { atSpot, clamp, inTraining, kill, known, log, makePlan, stepToward } from './core';
@@ -12,7 +13,7 @@ import { payrollReserve } from './society';
 import { sway } from './cult';
 import { FRIEND, addTie, getTie } from './ties';
 import { bossAlive, calm, maybeDiscover, slayBoss, tierOf, woundBoss } from './dungeons';
-import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type WorldState } from './types';
+import { AWAY, type Guild, type Npc, type Quest, type QuestKind, type DungeonKind, type WorldState } from './types';
 
 export const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'] as const;
 const RANK_RENOWN = [0, 2, 5, 10, 18, 30, 50]; // renown needed for each rank
@@ -209,8 +210,8 @@ export const landQuestOpen = (world: WorldState, regionId: number) => openQuest(
 const MAGE_BOOST = 0.15;
 const ARCANA_BOOST = 0.15;
 const SHIELD = 0.6; // the share of a failed quest's danger a party with a swordsman still faces
-const partyMight = (world: WorldState, party: Npc[]) => {
-  const raw = party.reduce((s, n) => s + might(world, n), 0);
+const partyMight = (world: WorldState, party: Npc[], kind?: DungeonKind) => {
+  const raw = party.reduce((s, n) => s + might(world, n), 0) * partyEdge(party, kind); // a well-made party, and what the place fears
   return party.some((n) => n.job === 'mage') ? raw * (1 + MAGE_BOOST + (known(world, 'arcana') ? ARCANA_BOOST : 0)) : raw;
 };
 
@@ -342,7 +343,8 @@ function expire(world: WorldState, q: Quest): void {
 
 function resolve(world: WorldState, q: Quest, rng: Rng): void {
   const party = members(world, q);
-  const strength = partyMight(world, party);
+  const delved = q.dungeonId === undefined ? undefined : world.dungeons.find((d) => d.id === q.dungeonId);
+  const strength = partyMight(world, party, delved?.kind ?? (delved ? 'cave' : undefined));
   const target = byId(world, q.targetId);
   const lair = q.boss ? world.dungeons.find((d) => d.id === q.dungeonId && bossAlive(d)) : undefined;
   // A boss is as hard as the health it has left: every failed try makes the next one likelier.
@@ -395,7 +397,8 @@ function succeed(world: WorldState, q: Quest, party: Npc[], rng: Rng): void {
     const d = world.dungeons.find((x) => x.id === q.dungeonId)!;
     d.power = Math.max(10, d.power - (8 + q.rank * 4)); // keeping stampedes at bay
     for (const n of party) sell(world, n, 'loot', Math.round(lootFound(rng) * tierOf(d)), rng);
-    sellSpoils(world, party, d.kind ?? 'cave', tierOf(d), rng); // and what the place itself left behind
+    sellSpoils(world, party, d.kind ?? 'cave', tierOf(d) * floorSpoils(d), rng); // and what the place itself left behind, the richer the deeper
+    if (!q.boss) mapFloor(world, d, party);
     if (q.kind === 'explore') maybeDiscover(world, party[0], rng, 0.15); // the deep expeditions map new ground
   }
   const leader = party[0];
@@ -427,7 +430,8 @@ function fail(world: WorldState, q: Quest, party: Npc[], rng?: Rng): void {
   }
   log(world, 'quest', `ปาร์ตี้ของ${party[0].name} ล้มเหลวในเควส: ${q.title}`, party[0].id);
   bondParty(world, party, 6); // surviving a disaster together still counts for something
-  const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1);
+  const deep = q.dungeonId === undefined ? undefined : world.dungeons.find((d) => d.id === q.dungeonId);
+  const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1) * healed(party) * (deep ? floorDanger(deep) : 1);
   for (const n of party) {
     if (chance(rng, risk)) {
       if (drinkPotion(n)) log(world, 'quest', `${n.name}ล้มลงระหว่างเควส แต่ดื่มยารักษาทันลุกขึ้นมาได้`, n.id, 'minor');

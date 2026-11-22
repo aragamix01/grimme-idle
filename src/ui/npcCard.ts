@@ -1,4 +1,4 @@
-import { CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, schoolSpot, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, partyOf, IDEOLOGY_TH, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
+import { CALLING_TH, CREED_TH, isAvatar, CRIME_TH, jailed, AMBITION_COST, schoolSpot, literate, rulerLook, rulerTitle, ADULT_AGE, costOf, cursed, canAwaken, worthy, COMMON_JOBS, ELDER_AGE, jobName, TRAIT_TH, rankName, tieLabel, topTies, partyOf, IDEOLOGY_TH, type Command, type DreamKind, type Job, type Npc, type WorldState } from '../sim';
 import { DANGER_KINDS, EVENT_ICON, el, icon, iconUrl } from './icons';
 import { localize } from './lexicon';
 
@@ -269,7 +269,7 @@ function header(npc: Npc, doing: string, world: WorldState, guild?: { name: stri
       el('p', {
         className: 'npc__meta',
         textContent: [
-          npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : jobName(world, npc.job),
+          npc.age < ADULT_AGE ? 'เด็ก' : npc.job === 'king' ? rulerTitle(world) : npc.calling ? `${jobName(world, npc.job)} (${CALLING_TH[npc.calling]})` : jobName(world, npc.job),
           npc.age >= ELDER_AGE ? `ผู้อาวุโส ${npc.age} ปี` : `${npc.age} ปี`,
           ...(npc.age >= ADULT_AGE ? [`LV ${npc.level}`] : []),
           ...(guild ? [guild.leads ? `หัวหน้า${guild.name}` : guild.name] : []),

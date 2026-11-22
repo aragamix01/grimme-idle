@@ -1,4 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
+import { callingsDay } from './callings';
 import { craftsDay } from './crafts';
 import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, modOf, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
@@ -270,6 +271,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   landDay(world);
   pathsDay(world);
   craftsDay(world, rng);
+  callingsDay(world);
   const lit = homeInFlames(world, woodsDay(world, rng));
   if (lit) fire(world, rng, lit);
   growthDay(world);

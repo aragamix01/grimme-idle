@@ -79,6 +79,7 @@ export function slayBoss(world: WorldState, d: Dungeon, party: Npc[]): void {
   b.slainDay = world.day;
   d.calmUntil = world.day + CALM_DAYS;
   d.power = 10;
+  d.depth = 0; // the deep ways cave in behind it; the next to come maps them afresh
   // The relic goes to the strongest who carries none yet (or the strongest, if all do).
   const byMight = [...party].sort((a, c) => might(world, c) - might(world, a));
   const strongest = byMight.find((n) => !n.relic) ?? byMight[0];

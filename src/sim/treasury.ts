@@ -62,7 +62,7 @@ function richSpend(world: WorldState): void {
     const gold = Math.floor((n.gold - wealthy) * LAVISH * (n.traits.includes('greedy') ? 0.3 : 1));
     n.gold -= gold;
     if (n.traits.includes('kind')) world.alms = (world.alms ?? 0) + gold;
-    else m.till += gold - share(keepers.filter((k) => k !== n), Math.floor(gold / 3));
+    else m.till += gold - share(keepers.filter((k) => k !== n), Math.floor(gold / 6)); // the inn keeps a sixth: the rest is its wine, meat and firewood, bought at the market
   }
 }
 
@@ -131,7 +131,7 @@ export function spendSurplus(world: WorldState): void {
     case 'feast': {
       // A town feast: the innkeepers and the market are paid for it.
       const keepers = adults(world).filter((n) => n.job === 'innkeeper');
-      m.till += gold - share(keepers, Math.floor(gold / 2));
+      m.till += gold - share(keepers, Math.floor(gold / 4)); // the innkeepers serve it; the food and drink are bought at the market
       for (const n of adults(world)) n.loyalty = Math.min(100, (n.loyalty ?? 50) + 1);
       what = 'จัดงานเลี้ยงให้ชาวเมืองทั้งเมือง';
       break;
