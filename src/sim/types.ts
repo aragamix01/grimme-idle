@@ -65,6 +65,7 @@ export interface Npc {
   retired?: boolean; // elders who have hung up their sword
   gear?: number; // 0..MAX_GEAR, bought at the market; adds strength
   hunger?: number; // meals missed in a row
+  potions?: number; // healing potions carried down the dungeons (crafts.ts)
   doled?: number; // meals in a row from alms or the crown's dole (market.ts considerTrade)
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
   unpaid?: number; // soldiers: paydays missed in a row
@@ -266,7 +267,9 @@ export interface Guild {
   hoarding?: number; // day a greedy house began sitting on grain in a dearth
 }
 
-export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | IndustrialGood;
+export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | WildGood | IndustrialGood;
+// What the dungeons and the woods give, and the potions brewed from them (crafts.ts).
+export type WildGood = 'hide' | 'bone' | 'gel' | 'core' | 'herb' | 'potion';
 // Goods of the steam age: on the shelves only once the town knows steam (see goodsOf in market.ts).
 export type IndustrialGood = 'coal' | 'steel' | 'engine' | 'tins' | 'crystal' | 'appliance';
 // A mill of the steam age (see industry.ts): a company's or the crown's, on one of the plots by the pasture.

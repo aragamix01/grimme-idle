@@ -1714,6 +1714,48 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "hide": {
+    "file": "assets/sprites/icons/hide.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "bone": {
+    "file": "assets/sprites/icons/bone.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "gel": {
+    "file": "assets/sprites/icons/gel.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "core": {
+    "file": "assets/sprites/icons/core.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "herb": {
+    "file": "assets/sprites/icons/herb.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
+  "potion": {
+    "file": "assets/sprites/icons/potion.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "daynight": {
     "file": "assets/sprites/icons/daynight.png",
     "group": "icons",

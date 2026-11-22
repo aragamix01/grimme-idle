@@ -38,6 +38,10 @@ import { places } from '../../src/sim/places';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
+import { SPOILS, craftsDay, drinkPotion, sellSpoils } from '../../src/sim/crafts';
+import { smith } from '../../src/sim/society';
+import { plagueStrike } from '../../src/sim/worldevents';
+import { buyGear } from '../../src/sim/market';
 import { TARGET, basePrice, considerTrade, ensureMarket, levelOf, priceRatio, target } from '../../src/sim/market';
 import { canSend } from '../../src/sim/villages';
 import { concede, crackdown, members, revolution } from '../../src/sim/movements';
@@ -2152,4 +2156,53 @@ test('the town line follows the town: inside it every core home, and less ground
   const box = (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1);
   ok(inside <= box, `the line takes in ${inside} tiles of a ${box}-tile box`);
   ok(ringLength(r) > 0, 'a line with no wall');
+});
+
+// ---------- the dungeons' spoils, herbs and potions ----------
+
+test('each kind of dungeon leaves its own spoils; hunters bring herbs; mages brew potions from gel and herbs', () => {
+  const w = world();
+  const m = ensureMarket(w);
+  const r = rngOf(w);
+  const party = grown(w).filter((n) => n.job === 'swordsman').slice(0, 2);
+  const hides = m.stock.hide;
+  const gold = party.reduce((s, n) => s + n.gold, 0);
+  sellSpoils(w, party, 'den', 2, r);
+  ok(m.stock.hide > hides && party.reduce((s, n) => s + n.gold, 0) > gold, 'a den gave no hides, or paid nothing for them');
+  ok(SPOILS.crypt === 'bone' && SPOILS.cave === 'gel' && SPOILS.fort === 'core', 'the spoils do not follow the dungeons');
+  // Herbs from the woods, and potions brewed from them.
+  m.stock.herb = 0;
+  m.stock.gel = 20;
+  m.stock.potion = 0;
+  for (const n of grown(w).filter((x) => x.job === 'mage')) n.gold = 500;
+  if (!grown(w).some((n) => n.job === 'hunter')) grown(w).find((n) => n.job === 'merchant')!.job = 'hunter';
+  for (let d = 0; d < 120; d++) {
+    craftsDay(w, r);
+    if (m.stock.herb > 0) m.stock.herb = Math.max(m.stock.herb, 1);
+  }
+  ok(m.stock.potion > 0 && m.stock.gel < 20, `no potions brewed: ${m.stock.potion} potions, ${m.stock.gel} gel left`);
+});
+
+test('the smith forges hides and bones into gear; a potion carried down saves a life; the sick are dosed in a plague', () => {
+  const w = world();
+  const m = ensureMarket(w);
+  const r = rngOf(w);
+  const smithy = grown(w).find((n) => n.job === 'blacksmith')!;
+  Object.assign(m.stock, { loot: 0, ore: 0, hide: 6, bone: 6 });
+  const gear = m.stock.gear;
+  for (let d = 0; d < 30; d++) smith(w, smithy, r);
+  ok(m.stock.gear > gear && m.stock.hide + m.stock.bone < 12, 'the smith made nothing of the monster parts');
+  const hero = grown(w).find((n) => n.job === 'swordsman')!;
+  hero.potions = 1;
+  ok(drinkPotion(hero) && !hero.potions && !drinkPotion(hero), 'a potion did not save, or saved twice');
+  // Buying one on the way to the dungeon.
+  m.stock.potion = 5;
+  hero.gold = 500;
+  buyGear(w, hero);
+  ok(hero.potions === 1, 'an adventurer with gold to spare bought no potion');
+  // A plague with the shelves full of potions: some are dosed back to health.
+  m.stock.potion = 60;
+  w.treasury = 5000;
+  plagueStrike(w, r, 3, 'โรคระบาดทดสอบ');
+  ok(m.stock.potion < 60, 'nobody was dosed from the shelves');
 });

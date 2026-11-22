@@ -1,6 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
+import { drinkPotion, sellSpoils } from './crafts';
 import { darkWoods } from './wilds';
 import { atSpot, clamp, inTraining, kill, known, log, makePlan, stepToward } from './core';
 import { places, dungeonDoor, type Spot } from './places';
@@ -394,6 +395,7 @@ function succeed(world: WorldState, q: Quest, party: Npc[], rng: Rng): void {
     const d = world.dungeons.find((x) => x.id === q.dungeonId)!;
     d.power = Math.max(10, d.power - (8 + q.rank * 4)); // keeping stampedes at bay
     for (const n of party) sell(world, n, 'loot', Math.round(lootFound(rng) * tierOf(d)), rng);
+    sellSpoils(world, party, d.kind ?? 'cave', tierOf(d), rng); // and what the place itself left behind
     if (q.kind === 'explore') maybeDiscover(world, party[0], rng, 0.15); // the deep expeditions map new ground
   }
   const leader = party[0];
@@ -427,8 +429,10 @@ function fail(world: WorldState, q: Quest, party: Npc[], rng?: Rng): void {
   bondParty(world, party, 6); // surviving a disaster together still counts for something
   const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1);
   for (const n of party) {
-    if (chance(rng, risk)) kill(world, n, `ล้มลงระหว่างเควส${q.title}`);
-    else wearGear(n, rng);
+    if (chance(rng, risk)) {
+      if (drinkPotion(n)) log(world, 'quest', `${n.name}ล้มลงระหว่างเควส แต่ดื่มยารักษาทันลุกขึ้นมาได้`, n.id, 'minor');
+      else kill(world, n, `ล้มลงระหว่างเควส${q.title}`);
+    } else wearGear(n, rng);
   }
   const c = client(world, q);
   if (c && chance(rng, risk)) kill(world, c, 'ถูกโจรป่าซุ่มโจมตีระหว่างเดินทาง');

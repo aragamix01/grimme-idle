@@ -1,4 +1,5 @@
 import { chance, createRng, int, pick, type Rng } from './rng';
+import { craftsDay } from './crafts';
 import { clamp, cursed, decreeActive, inTraining, kill, log, makePlan as plan, modOf, occupied, perkLevel, stepToward, tenetOn } from './core';
 import { updateGuilds } from './guilds';
 import { DIVINE_QUEST_COST, ensureGuild, isAdventurer, maybeBounty, maybePestQuest, postDivineQuest, questDay, updateQuests } from './quests';
@@ -268,6 +269,7 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   housingDay(world, rng);
   landDay(world);
   pathsDay(world);
+  craftsDay(world, rng);
   const lit = homeInFlames(world, woodsDay(world, rng));
   if (lit) fire(world, rng, lit);
   growthDay(world);

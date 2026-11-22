@@ -337,6 +337,13 @@ export function smith(world: WorldState, npc: Npc, rng: Rng): void {
     sell(world, npc, 'gear', 1, rng);
     return;
   }
+  // Hide for the leather, bone for the hilts and plates: monster parts make gear as well.
+  const parts = m.stock.hide >= 1 && m.stock.bone >= 1 ? (['hide', 'bone'] as const) : m.stock.hide >= 2 ? (['hide', 'hide'] as const) : m.stock.bone >= 2 ? (['bone', 'bone'] as const) : undefined;
+  if (parts && chance(rng, 0.35)) {
+    for (const g of parts.slice(0, need)) m.stock[g] -= 1;
+    sell(world, npc, 'gear', 1, rng);
+    return;
+  }
   // Iron from the mines (ours, or the mountain caravans') forges as well as any dungeon find.
   if (m.stock.ore >= 2 && chance(rng, 0.3)) {
     m.stock.ore -= 2;

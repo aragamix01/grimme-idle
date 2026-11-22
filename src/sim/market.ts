@@ -3,6 +3,7 @@
 // Prices follow stock: scarce goods get dear, gluts go cheap, and the chronicle
 // notices when it gets extreme.
 import { chance, int, type Rng } from './rng';
+import { buyPotion } from './crafts';
 import { cursed, decreeActive, log, perkLevel, known, adherence, modOf, tenetOn } from './core';
 import { weatherYield } from './divine';
 import { mastery } from './research';
@@ -20,7 +21,10 @@ import { AWAY, type Good, type Market, type Npc, type Realm, type WorldState } f
 import { townPop } from './housing';
 import { entryOf, fieldYield, plotDoor } from './landplan';
 
-export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'gear', 'spice'];
+export const GOODS: readonly Good[] = ['grain', 'meat', 'wool', 'cloth', 'timber', 'ore', 'loot', 'hide', 'bone', 'gel', 'core', 'herb', 'potion', 'gear', 'spice'];
+// The dungeons' spoils, the woods' herbs and the potions brewed from them (crafts.ts): small trades
+// that come and go, so the chronicle does not report their swings.
+const WILD_GOODS: readonly Good[] = ['hide', 'bone', 'gel', 'core', 'herb', 'potion'];
 // The steam age's goods: coal and mana crystal to fire the mills, steel, arcane engines, tinned food.
 export const INDUSTRIAL_GOODS: readonly Good[] = ['coal', 'crystal', 'steel', 'engine', 'tins', 'appliance'];
 export const ALL_GOODS: readonly Good[] = [...GOODS, ...INDUSTRIAL_GOODS];
@@ -28,12 +32,12 @@ const STEAM_GOODS: readonly Good[] = ALL_GOODS.filter((g) => g !== 'appliance');
 // The goods the town trades in: the steam age's only once its scholars have found steam, and the
 // electric appliances only once they have found electricity.
 export const goodsOf = (world: WorldState): readonly Good[] => (known(world, 'electricity') ? ALL_GOODS : known(world, 'steam') ? STEAM_GOODS : GOODS);
-export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ', coal: 'ถ่านหิน', crystal: 'ผลึกมานา', steel: 'เหล็กกล้า', engine: 'เครื่องจักรเวท', tins: 'อาหารกระป๋อง', appliance: 'เครื่องใช้ไฟฟ้าเวท' };
-const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15, coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5, appliance: 30 };
+export const GOOD_TH: Record<Good, string> = { grain: 'ข้าว', meat: 'เนื้อสัตว์', wool: 'ขนแกะ', loot: 'ของจากดันเจี้ยน', gear: 'อาวุธและชุดเกราะ', timber: 'ไม้', ore: 'แร่เหล็ก', cloth: 'ผ้า', spice: 'เครื่องเทศ', hide: 'หนังอสูร', bone: 'กระดูกอสูร', gel: 'เมือกสไลม์', core: 'แกนมานา', herb: 'สมุนไพร', potion: 'ยารักษา', coal: 'ถ่านหิน', crystal: 'ผลึกมานา', steel: 'เหล็กกล้า', engine: 'เครื่องจักรเวท', tins: 'อาหารกระป๋อง', appliance: 'เครื่องใช้ไฟฟ้าเวท' };
+const BASE: Record<Good, number> = { grain: 2, meat: 3, wool: 5, loot: 8, gear: 25, timber: 4, ore: 6, cloth: 8, spice: 15, hide: 6, bone: 5, gel: 4, core: 20, herb: 3, potion: 12, coal: 4, crystal: 18, steel: 14, engine: 45, tins: 5, appliance: 30 };
 export const basePrice = (g: Good) => BASE[g];
 // Stock that sells at the base price. Grain follows the town's mouths: enough to carry them through winter.
 export const target = (world: WorldState, g: Good) => (g === 'grain' ? Math.round((300 * Math.max(12, townPop(world))) / 80) : TARGET[g]); // a floor of a dozen mouths: higher, and a camp's bread is priced as if it were starving
-export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12, coal: 30, crystal: 6, steel: 12, engine: 4, tins: 40, appliance: 6 }; // grain: enough to carry the town through winter // stock that sells at the base price
+export const TARGET: Record<Good, number> = { grain: Math.round((300 * 120) / 80), meat: 60, wool: 15, loot: 4, gear: 5, timber: 40, ore: 20, cloth: 50, spice: 12, hide: 8, bone: 8, gel: 8, core: 3, herb: 12, potion: 8, coal: 30, crystal: 6, steel: 12, engine: 4, tins: 40, appliance: 6 }; // grain: enough to carry the town through winter // stock that sells at the base price
 
 const MACHINE_YIELD = 0.3; // more grain from a field worked with an arcane engine (see industry.ts)
 const MEAL_EVERY = 10; // days between each resident's sack of grain
@@ -131,8 +135,8 @@ function inflate(world: WorldState, m: Market): void {
 
 // Stock, as a multiple of TARGET, past which caravans ship the surplus out, and past which
 // the shop stops buying at all. Grain is hoarded for winter, so it sits far longer.
-const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2, coal: 3, crystal: 2, steel: 1.5, engine: 1.5, tins: 2, appliance: 1.5 };
-const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3, coal: 4, crystal: 3, steel: 3, engine: 3, tins: 4, appliance: 3 };
+const EXPORT_AT: Record<Good, number> = { grain: 3, meat: 2, wool: 1, loot: 1.5, gear: 1.5, timber: 2, ore: 2, cloth: 2, spice: 2, hide: 2, bone: 2, gel: 2, core: 1.2, herb: 2, potion: 2, coal: 3, crystal: 2, steel: 1.5, engine: 1.5, tins: 2, appliance: 1.5 };
+const GLUT: Record<Good, number> = { grain: 4, meat: 3, wool: 4, loot: 2.5, gear: 2.5, timber: 4, ore: 4, cloth: 4, spice: 3, hide: 3, bone: 3, gel: 3, core: 2, herb: 4, potion: 3, coal: 4, crystal: 3, steel: 3, engine: 3, tins: 4, appliance: 3 };
 
 // What the market pays a seller: a quarter below the shelf price (a fraction of a coin
 // is paid as a chance of a whole one), and only what the till holds.
@@ -220,6 +224,7 @@ export function wantsGear(world: WorldState, npc: Npc): boolean {
 
 export function buyGear(world: WorldState, npc: Npc): void {
   if ((npc.gear ?? 0) < MAX_GEAR && buy(world, npc, 'gear')) npc.gear = (npc.gear ?? 0) + 1;
+  buyPotion(world, npc); // and a healing potion for the road, with gold to spare
 }
 
 export const gearPower = (npc: Npc) => (npc.gear ?? 0) * GEAR_POWER;
@@ -513,7 +518,7 @@ function dole(world: WorldState, m: Market): boolean {
 
 // The chronicle only hears about prices when they swing hard, once per swing.
 function watchPrice(world: WorldState, m: Market, g: Good): void {
-  if (g === 'loot' || g === 'meat' || g === 'wool') return; // swing every few weeks; grain is what the town watches
+  if (g === 'loot' || g === 'meat' || g === 'wool' || WILD_GOODS.includes(g)) return; // swing every few weeks; grain is what the town watches
   const r = m.price[g] / (BASE[g] * (m.level ?? 1));
   const was = m.alert[g];
   if (was !== 1 && r >= 2) {

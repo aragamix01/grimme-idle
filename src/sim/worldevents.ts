@@ -2,6 +2,7 @@
 // among themselves and sending refugees our way, the demon lord swallowing whole kingdoms,
 // and the god's miracles worked on other realms.
 import { chance, int, pick, type Rng } from './rng';
+import { dose } from './crafts';
 import { clamp, kill, log, perkLevel, known } from './core';
 import { draughts } from './learning';
 import { jobName } from './ages';
@@ -33,6 +34,7 @@ export function plagueStrike(world: WorldState, rng: Rng, severity: number, how:
     if (!n.alive || n.inside !== undefined) continue;
     const risk = (n.age >= 58 ? 0.3 : n.age < 16 ? 0.04 : 0.08) * care * severity;
     if (chance(rng, risk)) {
+      if (chance(rng, 0.5) && dose(world)) continue; // a potion off the market's shelves pulls them through
       kill(world, n, 'สิ้นใจด้วยโรคระบาด');
       dead++;
     }
