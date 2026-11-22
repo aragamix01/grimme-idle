@@ -40,6 +40,8 @@ import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
 import { CALLING_LEVEL, MAX_DEPTH, depthOf, floorDanger, floorSpoils, healed, mapFloor, partyEdge } from '../../src/sim/callings';
 import { slayBoss } from '../../src/sim/dungeons';
+import { guildEdge, guildHallsDay, nursed, outdo, tierOf } from '../../src/sim/guildhalls';
+import type { Guild } from '../../src/sim/types';
 import { cropOf, cropYield, sheepOf, soilOf } from '../../src/sim/farms';
 import { SPOILS, craftsDay, drinkPotion, sellSpoils } from '../../src/sim/crafts';
 import { smith } from '../../src/sim/society';
@@ -2308,4 +2310,38 @@ test('the herders lean to sheep when wool pays; a shore town fishes; a pest halv
   const clean = cropYield(w, owner, 4).n;
   f.pest = w.day + 30;
   ok(cropYield(w, owner, 4).n < clean, 'a pest took nothing');
+});
+
+// ---------- the adventurers' guilds as houses ----------
+
+test("a guild builds halls out of its coffers, rises in standing, lures a rival's renowned, and outdoes rivals at a boss", () => {
+  const w = world();
+  const ws = (k: string) => w.npcs.filter((n) => n.alive && n.age >= 16 && n.job === k && n.questId === undefined);
+  const make = (id: number, leader: Npc, renown: number) => {
+    const g: Guild = { id, name: `กิลด์${id}`, kind: 'adventurers', leaderId: leader.id, founded: 0, renown, treasury: 5000 };
+    w.guilds.push(g);
+    leader.guildId = id;
+    return g;
+  };
+  w.guilds = w.guilds.filter((g) => g.kind !== 'adventurers');
+  const [l1, l2, star] = ws('swordsman');
+  const top = make(9001, l1, 130);
+  const low = make(9002, l2, 10);
+  Object.assign(star, { guildId: low.id, rank: 3 });
+  setTie(w, star.id, l2.id, -20);
+  ok(tierOf(top) === 2 && tierOf(low) === 0, `tiers ${tierOf(top)} and ${tierOf(low)}`);
+  // Halls go up; and with a few tries, the rival's star is lured over.
+  const r = rngOf(w);
+  for (let k = 0; k < 12 && star.guildId !== top.id; k++) {
+    w.day += 30 - (w.day % 30) + 21;
+    guildHallsDay(w, r);
+  }
+  ok(top.halls?.includes('infirmary') && top.halls.includes('armoury'), `halls: ${top.halls}`);
+  ok(star.guildId === top.id, 'the renowned member was never lured');
+  ok(guildEdge(w, [l1]) > guildEdge(w, [l2]), 'a silver guild with an armoury fights no better');
+  ok(nursed(w, [l1]) < 1, 'the infirmary spares nobody');
+  const before = low.renown;
+  outdo(w, [l1], 'ราชาสไลม์');
+  ok(low.renown < before, 'the rival lost no face');
+  ok(w.chronicle.some((e) => e.text.includes('ชิงปราบ') && e.major), 'outdoing the rivals is not a headline');
 });

@@ -41,6 +41,7 @@ export { lotOutside, outsideWalls, PLAN_TH, planStyle, trampled } from './landpl
 export { wildsOf, ashOf } from './wilds';
 export { CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf } from './callings';
 export { CROPS, cropOf, ownField, soilOf } from './farms';
+export { GUILD_TIERS, HALLS, tierOf as guildTier } from './guildhalls';
 export { HAPPENING_ORDER, MOD_TH, activeMods, happeningTitle, whisperCost } from './happenings';
 export { DECREES, DECREE_ORDER, decreeActive } from './decrees';
 export { TAX_TH, approval, crownPower, loyaltyOf } from './politics';

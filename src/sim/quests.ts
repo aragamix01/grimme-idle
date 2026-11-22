@@ -1,6 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
+import { guildEdge, nursed, outdo } from './guildhalls';
 import { floorDanger, floorSpoils, healed, mapFloor, partyEdge } from './callings';
 import { drinkPotion, sellSpoils } from './crafts';
 import { darkWoods } from './wilds';
@@ -211,7 +212,7 @@ const MAGE_BOOST = 0.15;
 const ARCANA_BOOST = 0.15;
 const SHIELD = 0.6; // the share of a failed quest's danger a party with a swordsman still faces
 const partyMight = (world: WorldState, party: Npc[], kind?: DungeonKind) => {
-  const raw = party.reduce((s, n) => s + might(world, n), 0) * partyEdge(party, kind); // a well-made party, and what the place fears
+  const raw = party.reduce((s, n) => s + might(world, n), 0) * partyEdge(party, kind) * guildEdge(world, party); // a well-made party, what the place fears, its guild's standing
   return party.some((n) => n.job === 'mage') ? raw * (1 + MAGE_BOOST + (known(world, 'arcana') ? ARCANA_BOOST : 0)) : raw;
 };
 
@@ -350,7 +351,11 @@ function resolve(world: WorldState, q: Quest, rng: Rng): void {
   // A boss is as hard as the health it has left: every failed try makes the next one likelier.
   const difficulty = lair ? lair.boss!.hp : target ? 12 + target.level * 6 + (target.guildId !== undefined ? 10 : 0) : q.difficulty;
   const success = party.length > 0 && (q.kind !== 'bounty' || !!target?.alive) && chance(rng, strength / (strength + difficulty));
-  if (success && lair) slayBoss(world, lair, party);
+  if (success && lair) {
+    const boss = lair.boss!.name;
+    slayBoss(world, lair, party);
+    outdo(world, party, boss);
+  }
   else if (lair) woundBoss(world, lair, strength);
   if (success) succeed(world, q, party, rng);
   else fail(world, q, party, rng);
@@ -431,7 +436,7 @@ function fail(world: WorldState, q: Quest, party: Npc[], rng?: Rng): void {
   log(world, 'quest', `ปาร์ตี้ของ${party[0].name} ล้มเหลวในเควส: ${q.title}`, party[0].id);
   bondParty(world, party, 6); // surviving a disaster together still counts for something
   const deep = q.dungeonId === undefined ? undefined : world.dungeons.find((d) => d.id === q.dungeonId);
-  const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1) * healed(party) * (deep ? floorDanger(deep) : 1);
+  const risk = ((q.kind === 'pest' ? 0.08 : q.boss ? 0.35 : 0.25) / Math.sqrt(party.length)) * (party.some((n) => n.job === 'swordsman') ? SHIELD : 1) * healed(party) * nursed(world, party) * (deep ? floorDanger(deep) : 1);
   for (const n of party) {
     if (chance(rng, risk)) {
       if (drinkPotion(n)) log(world, 'quest', `${n.name}ล้มลงระหว่างเควส แต่ดื่มยารักษาทันลุกขึ้นมาได้`, n.id, 'minor');

@@ -1,4 +1,4 @@
-import { CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf, influenceOf, say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
+import { GUILD_TIERS, HALLS, guildTier, CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf, influenceOf, say, DUNGEON_KINDS, costOf, jobName, RANKS, type Dungeon, type Guild, type Npc, type Quest, type WorldState } from '../sim';
 import { el, icon } from './icons';
 
 const view = document.getElementById('guild')!;
@@ -186,7 +186,7 @@ function guildCard(g: Guild, members: Npc[], byId: Map<number, Npc>, influence: 
   const leader = byId.get(g.leaderId);
   const others = members.filter((m) => m.id !== g.leaderId);
   const kind = { adventurers: 'กิลด์นักผจญภัย', merchants: 'สมาคมการค้า (พ่อค้า ชาวนา และช่างฝีมือ)', thieves: 'สมาคมโจร' }[g.kind];
-  const fame = g.kind === 'adventurers' ? ` · ชื่อเสียง ${g.renown}` : '';
+  const fame = g.kind === 'adventurers' ? ` · ระดับ${GUILD_TIERS[guildTier(g)].name} (ชื่อเสียง ${g.renown})${g.halls?.length ? ` · ${g.halls.map((h) => HALLS[h].th).join(' ')}` : ''}` : '';
   return el(
     'li',
     { className: `guild-card guild-card--${g.kind}` },

@@ -257,6 +257,7 @@ export interface Quest {
   guildId?: number; // claimed by a guild: only its members (and their friends) may join
 }
 
+export type GuildHall = 'infirmary' | 'armoury';
 export type GuildKind = 'adventurers' | 'thieves' | 'merchants';
 
 export interface Guild {
@@ -269,6 +270,7 @@ export interface Guild {
   treasury: number;
   stock?: Partial<Record<Good, number>>; // a trade house's own warehouse (see tradehouses.ts)
   hoarding?: number; // day a greedy house began sitting on grain in a dearth
+  halls?: GuildHall[]; // what an adventurers' guild has built in its hall (guildhalls.ts)
 }
 
 export type Good = 'grain' | 'meat' | 'wool' | 'loot' | 'gear' | 'timber' | 'ore' | 'cloth' | 'spice' | WildGood | IndustrialGood;
