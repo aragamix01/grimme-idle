@@ -227,6 +227,8 @@ function select(id: number | null): void {
     startDream();
   }
   selected = id;
+  // A card closed by its cross goes at once, not when the finger's press is over (see release).
+  if (id === null && world) renderNpcCard(world, null);
   if (id === null) delete app.dataset.card;
   else app.dataset.card = 'open';
   scene.select(id);

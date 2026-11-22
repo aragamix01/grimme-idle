@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // Phone-sized, touch-driven checks of the UI (and one wide-screen run by mouse) against the dev server (which exposes window.__grimm).
 export default defineConfig({
   testDir: 'e2e',
-  timeout: 60_000,
+  timeout: 30_000, // most tests take 7-12 s; a failing one gives up sooner (the long ones set their own)
   fullyParallel: false,
   retries: 1, // the game runs in real time; a busy machine can make one tap miss
   reporter: [['list']],

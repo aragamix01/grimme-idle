@@ -44,8 +44,8 @@ async function tapNpc(page: Page, skip?: number, exact = true) {
   await page.waitForFunction(() => !(window as any).__grimm.scene.sys.isSleeping());
   // Let the townsfolk finish the step they were drawn taking (a busy machine stretches it).
   let pos = await npcPos(page, skip);
-  for (let i = 0; i < 20 && pos; i++) {
-    await page.waitForTimeout(150);
+  for (let i = 0; i < 40 && pos; i++) {
+    await page.waitForTimeout(60); // a walker moves a pixel or two in this time
     const again = await page.evaluate((id) => (window as any).__grimm.scene.npcScreenPos(id), pos.id);
     if (again && Math.abs(again.x - pos.x) < 0.5 && Math.abs(again.y + 8 - pos.y) < 0.5) break;
     pos = await npcPos(page, skip);
@@ -406,6 +406,7 @@ test('scrolling the sheet and the card never moves the page, and the map still a
 });
 
 test('the world map: keeps, lands, a land up close, and back to a tappable town', async ({ page }) => {
+  test.setTimeout(60_000);
   await section(page, 'world');
   await expect(page.locator('#realms .realm-card')).toHaveCount(4);
   await expect(page.locator('#zoom')).toBeHidden();
@@ -451,6 +452,7 @@ test('the world map: keeps, lands, a land up close, and back to a tappable town'
 });
 
 test('land cards open in place, keep their order, and fold from their head', async ({ page }) => {
+  test.setTimeout(60_000);
   // Let the crown settle a second land, so there are two cards to open.
   await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 5 }));
   await page.waitForFunction(() => ((window as any).__grimm.scene.world.regions ?? []).filter((r: any) => r.owner === 'us' && !r.seat).length >= 2, null, { timeout: 50_000 });
@@ -545,6 +547,7 @@ test('a villager can be tapped on a land up close, and the town answers after', 
 });
 
 test('keeps and townsfolk can be picked again and again while time is running', async ({ page }) => {
+  test.setTimeout(60_000); // round after round, in real time
   await page.locator('#speed button[data-speed="1"]').tap();
   for (let round = 0; round < 2; round++) {
     await section(page, 'world');

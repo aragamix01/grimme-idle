@@ -25,6 +25,7 @@ async function clickNpc(page: Page) {
 }
 
 test('sections, the map menu, the card and the world map by mouse', async ({ page }) => {
+  test.setTimeout(60_000);
   for (const [name, panel] of [['people', '#people'], ['power', '#kingdom'], ['economy', '#market'], ['town', '#urgent']]) {
     await page.locator(`#nav [data-section="${name}"]`).click();
     await expect(page.locator(panel)).toBeVisible();

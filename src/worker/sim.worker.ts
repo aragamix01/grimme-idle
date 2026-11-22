@@ -75,6 +75,9 @@ let industry = false;
 function fresh(): WorldState {
   const w = whole || industry ? createWorld(Date.now() >>> 0) : foundWorld(Date.now() >>> 0);
   if (industry) for (const t of TECH_ORDER) (w.techs ??= {})[t] ??= 0;
+  // A town founded whole starts a couple of days in: everyone has taken up a creed and the market
+  // is open, so the tests need not wait for it.
+  if (whole || industry) for (let d = 0; d < 2; d++) tick(w);
   return w;
 }
 
