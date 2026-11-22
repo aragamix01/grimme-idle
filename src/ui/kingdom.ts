@@ -569,7 +569,7 @@ function planSection(world: WorldState): HTMLElement {
     el('li', { className: 'realm-king__meta', textContent: `ตัวเลขคือจำนวนแปลง (แปลงละ 4×4 ช่อง) · สร้างอะไรทับพื้นที่สีเขียวไม่ได้ นอกนั้นสร้างนอกเขตได้แต่ไม่มีใครอยากสร้าง · ดูโซนบนแผนที่ได้จาก ผังที่ดิน ในเมนูแผนที่` }),
   ];
   if (mills.length) rows.push(el('li', { className: 'realm-king__meta', textContent: `โรงงานในเขตโรงงาน ${zoned}/${mills.length} แห่ง · ควันจากโรงงานในเขตถึงบ้านคนน้อยลงครึ่งหนึ่ง` }));
-  if (off.homes.length || off.shacks.length) rows.push(el('li', { className: 'realm-king__meta', textContent: `ขวางผัง: บ้าน ${off.homes.length} หลังอยู่ในเขตโรงงานหรือพื้นที่สีเขียว · เพิง ${off.shacks.length} หลังบุกรุกที่ที่กันไว้` }));
+  if (off.homes.length || off.shacks.length) rows.push(el('li', { className: 'realm-king__meta', textContent: `ขวางผัง: บ้าน ${off.homes.length} หลังอยู่ในเขตโรงงานหรือพื้นที่สีเขียว · เพิง ${off.shacks.length} หลังบุกรุกที่ที่กันไว้ · ผู้ปกครองจะตัดสินว่าจะเวนคืน รื้อ หรือแก้ผัง` }));
   return section('ผังเมือง', rows, IDEOLOGY_TH[z.by].name);
 }
 

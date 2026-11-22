@@ -68,6 +68,7 @@ export interface Npc {
   potions?: number; // healing potions carried down the dungeons (crafts.ts)
   calling?: Calling; // a seasoned adventurer's calling (callings.ts)
   doled?: number; // meals in a row from alms or the crown's dole (market.ts considerTrade)
+  evicted?: number; // day they were turned out of their home without fair pay (expropriation.ts)
   left?: boolean; // gave up on the town (alive is false, but they didn't die)
   unpaid?: number; // soldiers: paydays missed in a row
   ales?: number; // innkeepers: mugs sold since they last bought grain to brew
@@ -324,7 +325,7 @@ export interface Crown {
 }
 
 // The discontented banded together behind a leader (see movements.ts).
-export type Cause = 'tax' | 'bread' | 'war' | 'graft' | 'faith' | 'tyranny' | 'wealth' | 'voice';
+export type Cause = 'tax' | 'bread' | 'war' | 'graft' | 'faith' | 'tyranny' | 'wealth' | 'voice' | 'land';
 export interface Movement {
   name: string;
   cause: Cause;
@@ -561,7 +562,9 @@ export type HappeningKind =
   // the steam age's troubles (affairs.ts)
   | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale'
   // the land (happenings.ts)
-  | 'enclosure' | 'sacredgrove' | 'landclaim' | 'roadthrough';
+  | 'enclosure' | 'sacredgrove' | 'landclaim' | 'roadthrough'
+  // the town plan against the town (expropriation.ts)
+  | 'expropriate' | 'slumclear';
 // A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
 export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence' | 'luddites';
 export interface Saga {

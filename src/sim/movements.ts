@@ -6,6 +6,7 @@
 // down, which may make martyrs; or does nothing. Soldiers with friends in the crowd may refuse to
 // march on it, and join it instead.
 import { chance, type Rng } from './rng';
+import { compensate, evictedGrudge } from './expropriation';
 import { clamp, decreeActive, kill, known, log } from './core';
 import { getTie, FRIEND } from './ties';
 import { legend } from './quests';
@@ -49,9 +50,10 @@ export const CAUSE_TH: Record<Cause, { name: string; demand: string }> = {
   tyranny: { name: 'กลุ่มต้านเผด็จการ', demand: 'ยกเลิกเคอร์ฟิวและอำนาจพิเศษ' },
   wealth: { name: 'สหภาพคนงาน', demand: 'ค่าแรงที่เป็นธรรม' },
   voice: { name: 'ขบวนการประชาธิปไตย', demand: 'ให้ประชาชนมีสิทธิ์มีเสียง' },
+  land: { name: 'กลุ่มคนถูกไล่ที่', demand: 'ค่าชดเชยที่เป็นธรรมและหยุดเวนคืน' },
 };
 // How fast each grievance heats a crowd: an empty belly faster than an unheard voice.
-const HEAT: Record<Cause, number> = { tax: 1, bread: 1.2, war: 1, graft: 0.8, faith: 1, tyranny: 0.7, wealth: 0.8, voice: 0.4 };
+const HEAT: Record<Cause, number> = { tax: 1, bread: 1.2, war: 1, graft: 0.8, faith: 1, tyranny: 0.7, wealth: 0.8, voice: 0.4, land: 1.1 };
 export const STAGE_TH = ['บ่นกันในโรงเตี๊ยม', 'ยื่นฎีกา', 'เดินขบวน', 'นัดหยุดงาน', 'จลาจล', 'ปฏิวัติ'] as const;
 // What it takes to climb to each step: a share of the grown townsfolk, and how angry they are.
 const STEP: [share: number, anger: number][] = [
@@ -129,6 +131,8 @@ export function grievances(world: WorldState, n: Npc, m = mood(world)): Partial<
   if (m.tyranny && n.job !== 'soldier' && !n.knight) g.tyranny = m.tyranny;
   if (m.unequal && poor && ['farmer', 'herder', 'hunter', 'blacksmith', 'miner', 'woodcutter', 'weaver'].includes(n.job)) g.wealth = 2;
   if (m.voice && literate(n)) g.voice = m.voice;
+  const grudge = evictedGrudge(world, n); // turned out of their home for a pittance
+  if (grudge) g.land = grudge;
   return g;
 }
 
@@ -390,6 +394,8 @@ export function concede(world: WorldState, mv: Movement, ruler: Npc, rng: Rng): 
       for (const n of members(world)) n.gold += Math.round(5 * levelOf(world));
       return `จ่ายค่าแรงชดเชยรวม ${pay} ทอง`;
     }
+    case 'land':
+      return compensate(world, members(world));
     case 'voice': {
       const c = charterOf(world);
       if (!c.councilVeto) {

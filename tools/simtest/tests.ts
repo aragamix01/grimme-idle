@@ -35,6 +35,8 @@ import { begin as beginSaga, sagasDay } from '../../src/sim/sagas';
 import { log as logLine } from '../../src/sim/core';
 import { ourForces } from '../../src/sim/war';
 import { places } from '../../src/sim/places';
+import { EXPROPRIATION, compensate } from '../../src/sim/expropriation';
+import { grievances } from '../../src/sim/movements';
 import { ZONES, drawPlan, offPlan, zoneAt, zoneCells, zoningDay } from '../../src/sim/zoning';
 import { districtsDay, isSuburb, suburbFeel } from '../../src/sim/districts';
 import { foundHomes, newHomeLot } from '../../src/sim/housing';
@@ -391,14 +393,14 @@ test('a reading town breeds a sect, led by a lettered believer', () => {
   cast(w);
   for (const n of grown(w)) Object.assign(n, { lettered: true, creed: 'god', piety: 70 });
   w.crown!.fear = Infinity; // a crown that keeps its streets quiet, so the town stays as it is
-  for (let m = 0; m < 240 && !religionOf(w).sect; m++) {
+  for (let m = 0; m < 480 && !religionOf(w).sect; m++) { // a 1.5% chance a month: forty years, so the odds alone never fail it
     toMonthDay(w, 5);
     // It stays a reading town: the newcomers and the children grown up learn their letters too.
     for (const n of grown(w)) n.lettered = true;
     tick(w);
   }
   const sect = religionOf(w).sect;
-  ok(sect, 'no sect broke away in twenty years');
+  ok(sect, 'no sect broke away in forty years');
   ok(w.npcs.find((n) => n.id === sect!.leaderId)?.creed === 'sect', 'the leader does not follow the sect');
 });
 
@@ -2558,4 +2560,81 @@ test('homes on ground the plan keeps for the works or the parks, and shacks on p
   const h = zoneCells(w, 'home')[0];
   w.shacks = [...(w.shacks ?? []), h.y * MAP_W + h.x];
   ok(offPlan(w).shacks.includes(h.y * MAP_W + h.x), 'a shack on ground for homes is not against the plan');
+});
+
+// ---------- expropriation ----------
+
+// A town with a plan, and a farmer's family living on ground it keeps green.
+function plannedTown() {
+  const w = world();
+  w.homes = w.homes!.slice(0, 8);
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  w.zoning = { cells: drawPlan(w, 'labour'), since: w.day, by: 'labour' };
+  w.treasury = 5000;
+  const g = zoneCells(w, 'green')[0];
+  const lot = (g.y - 1) * MAP_W + g.x - 1;
+  const folk = grown(w).filter((n) => n.job === 'farmer').slice(0, 3);
+  w.homes!.push({ lot, tier: 1, built: w.day, ownerId: folk[0].id });
+  for (const n of folk) n.home = lot;
+  return { w, lot, folk };
+}
+
+test('a home on ground the plan keeps green is bought out fairly, taken for a pittance, or spared', () => {
+  for (const key of ['pay', 'cheap', 'defer']) {
+    const { w, lot, folk } = plannedTown();
+    ok(EXPROPRIATION.expropriate.can(w), 'the home in the way did not come up');
+    const gold = folk[0].gold;
+    const r = rngOf(w);
+    ok(raise(w, 'expropriate', r), 'no one to decide');
+    decide(w, r, key);
+    const standing = (w.homes ?? []).some((h) => h.lot === lot);
+    if (key === 'defer') {
+      ok(standing && !offPlan(w).homes.includes(lot), 'the plan was not bent round the home');
+      continue;
+    }
+    ok(!standing && folk.every((n) => n.home === undefined), `${key}: the home still stands`);
+    ok(folk[0].gold > gold, `${key}: the owner was paid nothing`);
+    if (key === 'pay') ok(folk.every((n) => n.evicted === undefined), 'paid in full, yet wronged');
+    else ok(folk.every((n) => n.evicted === w.day) && (grievances(w, folk[1]).land ?? 0) > 0, 'turned out for a pittance, yet no grudge');
+  }
+});
+
+test('shacks on planned ground are cleared with homes for their people, cleared without, or left', () => {
+  for (const key of ['rehouse', 'clear', 'leave']) {
+    const w = world();
+    w.homes = w.homes!.slice(0, 8);
+    w.zoning = { cells: drawPlan(w, 'labour'), since: w.day, by: 'labour' };
+    w.treasury = 5000;
+    const spots = zoneCells(w, 'home').slice(0, 3).map((c) => c.y * MAP_W + c.x);
+    w.shacks = spots;
+    const folk = grown(w).slice(10, 13);
+    folk.forEach((n, k) => (n.home = SHACK_BASE + spots[k]));
+    w.slum = 3;
+    ok(EXPROPRIATION.slumclear.can(w), 'the shacks did not come up');
+    const r = rngOf(w);
+    ok(raise(w, 'slumclear', r), 'no one to decide');
+    decide(w, r, key);
+    if (key === 'leave') {
+      ok(w.shacks.length === 3, 'the shacks were cleared');
+      continue;
+    }
+    ok(w.shacks.length === 0 && folk.every((n) => n.home === undefined), `${key}: the shacks still stand`);
+    if (key === 'rehouse') ok(folk.every((n) => n.evicted === undefined) && modOf(w, 'building') > 0, 'no homes for the shack folk');
+    else ok(folk.every((n) => n.evicted === w.day), 'turned out, yet no grudge');
+  }
+});
+
+test('those turned out band together; a governor who gives way pays them and takes no more land for a while', () => {
+  const { w, folk } = plannedTown();
+  const r = rngOf(w);
+  raise(w, 'expropriate', r);
+  decide(w, r, 'cheap');
+  const gold = folk[1].gold;
+  const said = compensate(w, folk);
+  ok(!!said && folk[1].gold > gold && folk.every((n) => n.evicted === undefined), 'the wronged were not paid');
+  // A new home in the way, but the governor has promised.
+  w.homes!.push({ lot: (zoneCells(w, 'green')[0].y - 1) * MAP_W + zoneCells(w, 'green')[0].x - 1, tier: 1, built: w.day });
+  ok(!EXPROPRIATION.expropriate.can(w), 'took more land straight after promising not to');
+  w.day += 721;
+  ok(EXPROPRIATION.expropriate.can(w), 'the promise never ran out');
 });
