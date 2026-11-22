@@ -2,7 +2,7 @@
 // and the road in. Worked out afresh whenever the town is built on (buildRev), so they always sit
 // in front of what WorldScene draws. A building not yet put up sends people to the square instead.
 import { terrainOf, type Spot } from './terrain';
-import { doorOf } from './town';
+import { MAP_W, doorOf, townLayout } from './town';
 import type { WorldState } from './types';
 
 export { dungeonDoor } from './town';
@@ -24,6 +24,32 @@ export interface Places {
   school: Spot;
   yard: Spot;
   hangouts: Spot[]; // open-air spots, so a crowd spreads out instead of piling onto a few doorsteps
+}
+
+// Street corners round the square, one in each direction, so idle folk stand about the town and
+// not out in the woods (on this map the road in runs a long way through the trees).
+function hangouts(world: WorldState, s: Spot): Spot[] {
+  const lay = townLayout(world);
+  const out: Spot[] = [];
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + 0.4;
+    let best: Spot | undefined;
+    let bestScore = Infinity;
+    for (let dy = -9; dy <= 9; dy++)
+      for (let dx = -9; dx <= 9; dx++) {
+        const d = Math.hypot(dx, dy);
+        if (d < 3 || d > 9) continue;
+        const g = lay.ground[(s.y + dy) * MAP_W + s.x + dx];
+        if (g !== 'road' && g !== 'paved' && g !== 'trail') continue;
+        const score = Math.hypot(dx - Math.cos(a) * 6, dy - Math.sin(a) * 5);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { x: s.x + dx, y: s.y + dy };
+        }
+      }
+    out.push(best ?? { x: s.x, y: s.y });
+  }
+  return out;
 }
 
 let cache: { world: WorldState; rev: number; seed: number; p: Places } | null = null;
@@ -52,13 +78,7 @@ export function places(world: WorldState): Places {
     barn: door('barn', 4, 4),
     school: door('school', 1, 2),
     yard: door('yard', -1, 2),
-    hangouts: [
-      { x: s.x - 5, y: s.y + 4 },
-      { x: s.x + 6, y: s.y + 5 },
-      { x: s.x - 7, y: s.y - 2 },
-      { x: s.x + 7, y: s.y - 3 },
-      { x: Math.round((s.x + t.entry.x) / 2), y: Math.round((s.y + t.entry.y) / 2) },
-    ],
+    hangouts: hangouts(world, s),
   };
   cache = { world, rev, seed: world.seed, p };
   return p;

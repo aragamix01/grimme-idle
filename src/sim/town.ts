@@ -172,13 +172,13 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     props.push({ key: tier === 0 ? 'hut' : tier === 2 ? homeArt(lot).replace('house', 'townhouse') : homeArt(lot), x, y, anchor: 'top' });
   }
   // Fields and pastures: crops once the ground is cleared and sown, a fence round the flocks.
+  const railed: Parcel[] = [];
   for (const p of view.parcels ?? []) {
     rect(p.x, p.y, p.w, p.h, (i) => {
       cleared[i] = 1;
       if (p.kind === 'field' && ground[i] !== 'water') ground[i] = 'crops';
     });
-    if (p.kind === 'pasture') pasture(p, props);
-    else if (p.fenced) fence(p, props);
+    if (p.kind === 'pasture' || p.fenced) railed.push(p); // fenced once the roads are down, so no rail lies across one
     doors.push({ x: p.x + (p.w >> 1), y: p.y + p.h }); // a lane out to it
   }
   // The mills: their sheds block, and a lane runs to each yard gate.
@@ -254,9 +254,11 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
         if (isGate(x, y)) {
           gates.push({ x, y });
           if (!stone) continue;
+          // A tower either side of the gate, unless one already stands within two tiles along the
+          // wall: gates close together share their towers rather than lining the wall with them.
           const side = x === ring.x0 || x === ring.x1;
-          towers.add(side ? `${x},${y - 1}` : `${x - 1},${y}`);
-          towers.add(side ? `${x},${y + 1}` : `${x + 1},${y}`);
+          const along = (k: number) => (side ? `${x},${y + k}` : `${x + k},${y}`);
+          for (const dir of [-1, 1]) if (![1, 2, 3].some((k) => towers.has(along(dir * k)) || (k > 1 && towers.has(along(-dir * k))))) towers.add(along(dir));
         }
       }
     for (let y = ring.y0; y <= ring.y1; y++)
@@ -287,6 +289,29 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
       const y = (i - x) / MAP_W;
       if ((ground[i] === 'road' || ground[i] === 'paved') && (x * 3 + y * 5) % 7 === 0 && Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16) props.push({ key: electric ? 'elamp' : 'lamp', x, y, anchor: 'bottom' });
     }
+  }
+
+  // Fences: along the top and bottom of each pasture and fenced field, but never across a road, and
+  // not between two plots of the same kind (two fields side by side share one hedge, not two fences).
+  const sameKind = (x: number, y: number, p: Parcel) => (view.parcels ?? []).some((q) => q !== p && q.kind === p.kind && x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+  const railAt = new Set<number>();
+  const fenceAt = (x: number, y: number, beyond: number, p: Parcel) => {
+    const i = y * MAP_W + x;
+    if (!inMap(x, y) || railAt.has(i) || blocked[i] || ground[i] !== 'grass' && ground[i] !== 'crops') return;
+    if (sameKind(x, beyond, p)) return;
+    railAt.add(i);
+    props.push({ key: 'fence', x, y, anchor: 'bottom' });
+  };
+  for (const p of railed) {
+    const gap = p.x + (p.w >> 1);
+    for (let x = p.x; x < p.x + p.w; x++) {
+      fenceAt(x, p.y, p.y - 1, p);
+      if (x !== gap) fenceAt(x, p.y + p.h - 1, p.y + p.h, p);
+    }
+    if (p.kind !== 'pasture') continue;
+    const free = (x: number, y: number) => ground[y * MAP_W + x] === 'grass' && !blocked[y * MAP_W + x] && !railAt.has(y * MAP_W + x);
+    if (free(p.x + 1, p.y + (p.h >> 1))) props.push({ key: 'trough', x: p.x + 1, y: p.y + (p.h >> 1), anchor: 'bottom' });
+    if (free(p.x + p.w - 2, p.y + 1)) props.push({ key: 'haystack', x: p.x + p.w - 2, y: p.y + 1, anchor: 'bottom' });
   }
 
   // The wild country wherever nobody has cleared it: trees block, scrub slows, rocks stand; where
@@ -330,26 +355,6 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
 // Homes come in three colours, the same for a lot every time it is drawn.
 const HOME_ART = ['house', 'house-red', 'house-blue'] as const;
 const homeArt = (lot: number) => HOME_ART[(lot * 7 + (lot >> 3)) % 3];
-
-// A pasture is fenced all round but for a gap on its near side, with a trough and some hay.
-function pasture(p: Parcel, props: Placed[]): void {
-  const gap = p.x + (p.w >> 1);
-  for (let x = p.x; x < p.x + p.w; x++) {
-    props.push({ key: 'fence', x, y: p.y, anchor: 'bottom' });
-    if (x !== gap) props.push({ key: 'fence', x, y: p.y + p.h - 1, anchor: 'bottom' });
-  }
-  props.push({ key: 'trough', x: p.x + 1, y: p.y + (p.h >> 1), anchor: 'bottom' });
-  props.push({ key: 'haystack', x: p.x + p.w - 2, y: p.y + 1, anchor: 'bottom' });
-}
-
-// A fenced field: rails along its top and bottom, a gap for the lane.
-function fence(p: Parcel, props: Placed[]): void {
-  const gap = p.x + (p.w >> 1);
-  for (let x = p.x; x < p.x + p.w; x++) {
-    props.push({ key: 'fence', x, y: p.y, anchor: 'bottom' });
-    if (x !== gap) props.push({ key: 'fence', x, y: p.y + p.h - 1, anchor: 'bottom' });
-  }
-}
 
 // The cheapest way from `from` to any road, marked as road. Each tile's price is what it takes
 // to make a way across it: open grass is cheap, scrub dearer, trees must be felled, the river

@@ -56,6 +56,7 @@ const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; 
 };
 
 // The pasture's mix of beasts, in the order they join the herd; deer roam the forest.
+const PER_PEN = 6; // beasts drawn in one pasture
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
 const ZOOMS = [1, 2, 0] as const; // the zoom button's steps: the town, a close-up, the whole country (0: fit the map's width)
@@ -67,6 +68,7 @@ interface Beast {
   to: { x: number; y: number } | null; // where it is ambling, or null while it grazes
   wait: number; // ms left grazing before it wanders on
   area: 'pasture' | 'forest';
+  pen?: number; // which of the common pastures it grazes in
   fleeing?: boolean; // a deer bounding away from a hunter
 }
 
@@ -297,7 +299,8 @@ export class WorldScene extends Phaser.Scene {
     this.syncKeep(w);
     this.syncWeather(w);
     this.syncDragon(w);
-    this.syncBeasts(this.herd, (w.mills ?? []).length ? Math.min(3, w.herd ?? 0) : w.herd ?? 0, 'pasture'); // the mills took most of the pasture
+    // Six beasts to a pasture at most, so a big herd does not pile up over the fences.
+    this.syncBeasts(this.herd, Math.min(w.herd ?? 0, PER_PEN * Math.max(1, this.pens().length)), 'pasture');
     this.syncBeasts(this.deer, Math.min(MAX_DEER, Math.ceil((w.game ?? 0) / 3)), 'forest');
     this.watchChronicle(w);
     for (const npc of w.npcs) this.syncNpc(npc);
@@ -392,8 +395,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // A random open tile in the pasture or the forest, as a pixel spot a beast can stand on.
-  private beastSpot(area: Beast['area']): { x: number; y: number } {
-    const box = this.beastBox(area);
+  private beastSpot(area: Beast['area'], pen = 0): { x: number; y: number } {
+    const box = this.beastBox(area, pen);
     const w = this.world;
     const town = w ? townLayout(w) : null;
     const cover = w ? wildsOf(w).cover : null;
@@ -409,11 +412,19 @@ export class WorldScene extends Phaser.Scene {
     return { x: box.x0 * TILE + 8, y: box.y0 * TILE + 12 };
   }
 
-  // Where each kind of beast roams: inside the first pasture's fence, or the woods around the town.
-  private beastBox(area: Beast['area']): { x0: number; y0: number; x1: number; y1: number } {
+  // The common pastures the herd grazes (not one a noble has fenced for himself).
+  private pens(): NonNullable<WorldState['parcels']> {
+    const ps = (this.world?.parcels ?? []).filter((q) => q.kind === 'pasture');
+    const common = ps.filter((q) => q.ownerId === undefined);
+    return common.length ? common : ps;
+  }
+
+  // Where each kind of beast roams: inside its pasture's fence, or the woods around the town.
+  private beastBox(area: Beast['area'], pen = 0): { x0: number; y0: number; x1: number; y1: number } {
     const w = this.world;
     const s = w ? terrainOf(w.seed).site : { x: MAP_W >> 1, y: MAP_H >> 1 };
-    const p = area === 'pasture' ? w?.parcels?.find((q) => q.kind === 'pasture') : undefined;
+    const pens = this.pens();
+    const p = area === 'pasture' && pens.length ? pens[pen % pens.length] : undefined;
     if (p) return { x0: p.x + 1, y0: p.y + 1, x1: p.x + p.w - 2, y1: p.y + p.h - 2 };
     const r = area === 'pasture' ? 4 : 20;
     return { x0: Math.max(1, s.x - r), y0: Math.max(1, s.y - r), x1: Math.min(MAP_W - 2, s.x + r), y1: Math.min(MAP_H - 2, s.y + r) };
@@ -424,14 +435,15 @@ export class WorldScene extends Phaser.Scene {
   private syncBeasts(list: Beast[], want: number, area: Beast['area']): void {
     while (list.length < want) {
       const kind = area === 'forest' ? 'deer' : HERD_MIX[list.length % HERD_MIX.length];
-      const at = this.beastSpot(area);
+      const pen = area === 'pasture' ? list.length % Math.max(1, this.pens().length) : 0; // spread over the pastures
+      const at = this.beastSpot(area, pen);
       const sprite = this.add.sprite(at.x, at.y, kind).setOrigin(0.5, 1).setDepth(at.y).play(`${kind}-walk`);
       sprite.anims.pause();
       if (this.seenSeq >= 0) {
         sprite.setAlpha(0);
         this.tweens.add({ targets: sprite, alpha: 1, duration: 600 });
       }
-      list.push({ sprite, to: null, wait: Phaser.Math.Between(500, 6000), area });
+      list.push({ sprite, to: null, wait: Phaser.Math.Between(500, 6000), area, pen });
     }
     while (list.length > want) {
       const b = list.pop()!;
@@ -460,7 +472,7 @@ export class WorldScene extends Phaser.Scene {
       }
       if (!b.to) {
         if ((b.wait -= delta) > 0) continue;
-        const next = this.beastSpot(b.area);
+        const next = this.beastSpot(b.area, b.pen);
         // Short hops: pick a spot within a few tiles rather than across the whole field.
         const dx = Phaser.Math.Clamp(next.x - s.x, -48, 48);
         const dy = Phaser.Math.Clamp(next.y - s.y, -24, 24);

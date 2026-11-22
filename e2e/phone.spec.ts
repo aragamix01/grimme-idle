@@ -452,11 +452,13 @@ test('the world map: keeps, lands, a land up close, and back to a tappable town'
 });
 
 test('land cards open in place, keep their order, and fold from their head', async ({ page }) => {
-  test.setTimeout(60_000);
-  // Let the crown settle a second land, so there are two cards to open.
-  await page.evaluate(() => (window as any).__grimm.send({ type: 'speed', tickMs: 5 }));
-  await page.waitForFunction(() => ((window as any).__grimm.scene.world.regions ?? []).filter((r: any) => r.owner === 'us' && !r.seat).length >= 2, null, { timeout: 50_000 });
-  await page.locator('#speed button[data-speed="0"]').tap();
+  // Two lands of our own beyond the home country, so there are two cards to open (written into the
+  // save, rather than waiting on the crown to settle them, which can take most of a minute).
+  await reloadInto(
+    page,
+    `let n = w.regions.filter((r) => r.owner === 'us' && !r.seat).length;
+     for (const r of w.regions) if (n < 2 && !r.seat && r.owner === undefined && !r.danger) { r.owner = 'us'; r.since = w.day; n++; }`,
+  );
   await section(page, 'world');
   await sub(page, 'lands');
   const cards = page.locator('#lands .realm-card');
