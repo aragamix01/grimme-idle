@@ -8,7 +8,7 @@ import { int, pick, type Rng } from './rng';
 import { log } from './core';
 import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, terrainOf, tileHash, type Spot } from './terrain';
 import { wildsOf } from './wilds';
-import { MILL, SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, tileOf, townLayout } from './town';
+import { IN_WALLS, MILL, ON_WALL, SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, ringMask, tileOf, townLayout } from './town';
 import type { Npc, Parcel, WorldState } from './types';
 
 const FREE = 0;
@@ -48,12 +48,9 @@ function occupancy(world: WorldState): Uint8Array {
   for (const d of world.dungeons) mark(d.x - 1, d.y, 4, 3, BUILT);
   for (const m of world.mills ?? []) mark(m.plot % MAP_W, Math.floor(m.plot / MAP_W), MILL.w, MILL.h, BUILT);
   for (const p of world.parcels ?? []) mark(p.x, p.y, p.w, p.h, WORKED);
-  const r = world.ring;
-  if (r) {
-    mark(r.x0, r.y0, r.x1 - r.x0 + 1, 1, BUILT);
-    mark(r.x0, r.y1, r.x1 - r.x0 + 1, 1, BUILT);
-    mark(r.x0, r.y0, 1, r.y1 - r.y0 + 1, BUILT);
-    mark(r.x1, r.y0, 1, r.y1 - r.y0 + 1, BUILT);
+  if (world.ring) {
+    const m = ringMask(world.ring);
+    for (let i = 0; i < occ.length; i++) if (m[i] === ON_WALL) occ[i] = BUILT;
   }
   const e = t.entry;
   mark(e.x, e.y, 1, 1, BUILT);
@@ -99,6 +96,13 @@ interface Want {
   ringR?: number; // for a radial plan: how far out from the heart
 }
 
+// Whether a patch lies wholly within the town line.
+function allInside(ring: NonNullable<WorldState['ring']>, x0: number, y0: number, w: number, h: number): boolean {
+  const m = ringMask(ring);
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (m[y * MAP_W + x] !== IN_WALLS) return false;
+  return true;
+}
+
 // The best open patch for something w x h tiles, near the target: as little to clear as may be,
 // a road at the door, away from the square for fields.
 function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefined {
@@ -116,7 +120,7 @@ function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefi
       if (near > R) continue;
       const fromSite = Math.hypot(x + want.w / 2 - t.site.x, (y + want.h / 2 - t.site.y) * 1.2);
       if (want.minFromSite && fromSite < want.minFromSite) continue;
-      if (want.inside && ring && (x <= ring.x0 || y <= ring.y0 || x + want.w - 1 >= ring.x1 || y + want.h - 1 >= ring.y1)) continue;
+      if (want.inside && ring && !allInside(ring, x, y, want.w, want.h)) continue;
       let ok = true;
       let clear = 0;
       for (let yy = y; yy < y + want.h && ok; yy++)
@@ -271,7 +275,7 @@ function workplace(world: WorldState, n: Npc): Spot | undefined {
 // Whether a home stands outside the town walls (there are none before the town builds them).
 export function outsideWalls(world: WorldState, x: number, y: number): boolean {
   const r = world.ring;
-  return !!r && (world.founded?.walls !== undefined || world.founded?.palisade !== undefined) && (x <= r.x0 || x >= r.x1 || y <= r.y0 || y >= r.y1);
+  return !!r && (world.founded?.walls !== undefined || world.founded?.palisade !== undefined) && world.works?.boulevard === undefined && ringMask(r)[y * MAP_W + x] !== IN_WALLS;
 }
 export const lotOutside = (world: WorldState, lot: number) => {
   const { x, y } = lotXY(lot);
@@ -459,20 +463,13 @@ export function drawRing(world: WorldState): void {
   bump(world);
 }
 // How long a line that is: what a palisade or a wall costs goes by it, so a town spread wide pays more.
-export const ringLength = (r: NonNullable<WorldState['ring']>) => 2 * (r.x1 - r.x0 + r.y1 - r.y0);
+export const ringLength = (r: NonNullable<WorldState['ring']>) => ringMask(r).reduce((n, v) => n + (v === ON_WALL ? 1 : 0), 0);
 export const RING_REF = 60; // the length a wall's listed price is for
 export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
   const t = wildsOf(world);
-  let x0 = t.site.x - 6;
-  let x1 = t.site.x + 6;
-  let y0 = t.site.y - 5;
-  let y1 = t.site.y + 5;
-  const take = (x: number, y: number, w: number, h: number) => {
-    x0 = Math.min(x0, x);
-    y0 = Math.min(y0, y);
-    x1 = Math.max(x1, x + w - 1);
-    y1 = Math.max(y1, y + h); // the door row too
-  };
+  // Everything the line goes round, each with two tiles to spare (the door row counts).
+  const boxes: { x0: number; y0: number; x1: number; y1: number }[] = [{ x0: t.site.x - 8, y0: t.site.y - 7, x1: t.site.x + 8, y1: t.site.y + 7 }];
+  const take = (x: number, y: number, w: number, h: number) => boxes.push({ x0: x - 2, y0: y - 2, x1: x + w + 1, y1: y + h + 2 });
   // Homes and buildings far out by the fields and pastures stay outside: the walls go round the
   // town, not the farms.
   const core = (x: number, y: number) => Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16;
@@ -481,7 +478,48 @@ export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
     const { x, y } = lotXY(h.lot);
     if (core(x, y)) take(x, y, 2, 2);
   }
-  return { x0: Math.max(1, x0 - 2), y0: Math.max(1, y0 - 2), x1: Math.min(MAP_W - 2, x1 + 2), y1: Math.min(MAP_H - 2, y1 + 2) };
+  // Row by row, the line takes in the span of whatever lies on that row; a row with nothing on it
+  // takes the span of the row before. The result hugs the town instead of boxing in the fields.
+  const y0 = Math.max(1, Math.min(...boxes.map((b) => b.y0)));
+  const y1 = Math.min(MAP_H - 2, Math.max(...boxes.map((b) => b.y1)));
+  const rows: number[] = [];
+  let last: [number, number] = [t.site.x - 8, t.site.x + 8];
+  for (let y = y0; y <= y1; y++) {
+    const on = boxes.filter((b) => y >= b.y0 && y <= b.y1);
+    if (on.length) last = [Math.max(1, Math.min(...on.map((b) => b.x0))), Math.min(MAP_W - 2, Math.max(...on.map((b) => b.x1)))];
+    rows.push(...last);
+  }
+  // Smooth the steps: no row juts out past both its neighbours.
+  for (let pass = 0; pass < 2; pass++)
+    for (let k = 1; k < rows.length / 2 - 1; k++) {
+      rows[k * 2] = Math.min(rows[k * 2], Math.max(rows[k * 2 - 2], rows[k * 2 + 2]));
+      rows[k * 2 + 1] = Math.max(rows[k * 2 + 1], Math.min(rows[k * 2 - 1], rows[k * 2 + 3]));
+    }
+  const xs = rows.filter((_, i) => i % 2 === 0);
+  const xe = rows.filter((_, i) => i % 2 === 1);
+  return { x0: Math.min(...xs), y0, x1: Math.max(...xe), y1, rows };
+}
+
+// ---------- the high street ----------
+
+// A straight street from the square out to the road in, two tiles wide, and the homes standing in
+// its way (happening roadthrough).
+export function highStreet(world: WorldState): { tiles: number[]; homes: NonNullable<WorldState['homes']> } {
+  const t = terrainOf(world.seed);
+  const tiles: number[] = [];
+  const n = Math.max(Math.abs(t.entry.x - t.site.x), Math.abs(t.entry.y - t.site.y));
+  for (let k = 0; k <= n; k++) {
+    const x = Math.round(t.site.x + ((t.entry.x - t.site.x) * k) / n);
+    const y = Math.round(t.site.y + ((t.entry.y - t.site.y) * k) / n);
+    for (const i of [y * MAP_W + x, (Math.abs(t.entry.x - t.site.x) >= Math.abs(t.entry.y - t.site.y) ? y + 1 : y) * MAP_W + (Math.abs(t.entry.x - t.site.x) >= Math.abs(t.entry.y - t.site.y) ? x : x + 1)])
+      if (!tiles.includes(i)) tiles.push(i);
+  }
+  const on = new Set(tiles);
+  const homes = (world.homes ?? []).filter((h) => {
+    const { x, y } = lotXY(h.lot);
+    return [0, 1].some((dy) => [0, 1].some((dx) => on.has((y + dy) * MAP_W + x + dx)));
+  });
+  return { tiles, homes };
 }
 
 // ---------- mills ----------

@@ -324,6 +324,10 @@ const showState = (b: HTMLElement, on: boolean) => {
 const zoom = document.getElementById('zoom')!;
 showState(zoom, false);
 zoom.onclick = () => showState(zoom, scene.toggleZoom());
+// Who holds which ground, coloured over the town: the families' fields, the commons, the homes.
+const landmap = document.getElementById('landmap')!;
+showState(landmap, false);
+landmap.onclick = () => showState(landmap, scene.setLandMap(!scene.landMap));
 
 // Notes over the map: the season and weather over the town; our lands and any war over the world.
 function renderMapNotes(w: WorldState): void {
@@ -346,6 +350,7 @@ const WEATHER_TH = { rain: 'ฝนฉ่ำ', blight: 'โรคพืช', drou
 // The world map takes the town's place on the canvas; the town sleeps meanwhile.
 function swapMap(on: boolean): void {
   zoom.hidden = on;
+  landmap.hidden = on;
   document.getElementById('worldmap-tool')!.querySelector('span')!.textContent = on ? 'กลับเมือง' : 'แผนที่โลก';
   if (on && world) {
     pickRealm(world, null);

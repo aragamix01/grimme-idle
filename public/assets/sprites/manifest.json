@@ -1707,6 +1707,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "landmap": {
+    "file": "assets/sprites/icons/landmap.png",
+    "group": "icons",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 1
+  },
   "daynight": {
     "file": "assets/sprites/icons/daynight.png",
     "group": "icons",

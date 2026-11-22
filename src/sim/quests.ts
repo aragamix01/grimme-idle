@@ -1,6 +1,7 @@
 // The quest board. Quests come from real needs (a raided field, a merchant's trip, a theft,
 // a swelling dungeon) and are paid for by whoever posted them; adventurers form parties to take them.
 import { chance, int, next, type Rng } from './rng';
+import { darkWoods } from './wilds';
 import { atSpot, clamp, inTraining, kill, known, log, makePlan, stepToward } from './core';
 import { places, dungeonDoor, type Spot } from './places';
 import { wolvesAtFlock } from './livestock';
@@ -106,7 +107,7 @@ function crownWatch(world: WorldState): void {
 // A farmer working the fields may find wolves at the crops (or a herder, wolves at the flock)
 // and pay to have them driven off.
 export function maybePestQuest(world: WorldState, farmer: Npc, rng: Rng): void {
-  if (!chance(rng, PEST_CHANCE) || openQuest(world, (q) => q.kind === 'pest')) return;
+  if (!chance(rng, PEST_CHANCE * darkWoods(world)) || openQuest(world, (q) => q.kind === 'pest')) return; // wolves come out of thick woods
   const reward = int(rng, 10, 20);
   const covered = guildCovers(world, farmer, reward);
   if (farmer.gold - 2 < reward - covered) return;

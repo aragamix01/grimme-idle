@@ -2,7 +2,7 @@
 // and prefer roads. Each destination gets one distance field, computed on first
 // use and reused by everyone heading there.
 import { pick, type Rng } from './rng';
-import { MAP_H, MAP_W, townLayout } from './town';
+import { IN_WALLS, MAP_H, MAP_W, ON_WALL, ringMask, townLayout } from './town';
 import type { WorldState } from './types';
 import type { Spot } from './places';
 import { trod } from './paths';
@@ -21,8 +21,8 @@ export function walkable(world: WorldState, x: number, y: number): boolean {
 
 // Inside or on the town walls, once there are any (WorldState.ring).
 type Ring = NonNullable<WorldState['ring']> | undefined;
-const insideWalls = (r: Ring, x: number, y: number) => !!r && x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
-const onWall = (r: Ring, x: number, y: number) => !!r && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 && !insideWalls(r, x, y);
+const insideWalls = (r: Ring, x: number, y: number) => !!r && ringMask(r)[y * MAP_W + x] === IN_WALLS;
+const onWall = (r: Ring, x: number, y: number) => !!r && ringMask(r)[y * MAP_W + x] === ON_WALL;
 
 // The closest tile someone can actually stand on, searching outwards in rings,
 // and never on the far side of the town wall (a spot by the castle stays in town).

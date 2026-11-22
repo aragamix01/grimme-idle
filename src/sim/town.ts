@@ -61,6 +61,34 @@ export const doorOf = (key: string, tx: number, ty: number) => {
   return { x: tx + Math.floor(w / 32), y: ty + footprint(key).h };
 };
 
+// The town line as a mask, tile by tile: 0 outside, 1 inside, 2 the wall (or palisade) itself, on
+// whichever tiles of the shape have the outside next to them. Kept per ring.
+export const IN_WALLS = 1;
+export const ON_WALL = 2;
+type Ring = NonNullable<WorldState['ring']>;
+const masks = new WeakMap<Ring, Uint8Array>();
+export function ringMask(r: Ring): Uint8Array {
+  const hit = masks.get(r);
+  if (hit) return hit;
+  const m = new Uint8Array(MAP_W * MAP_H);
+  for (let y = Math.max(0, r.y0); y <= Math.min(MAP_H - 1, r.y1); y++) {
+    const a = r.rows ? r.rows[(y - r.y0) * 2] : r.x0;
+    const b = r.rows ? r.rows[(y - r.y0) * 2 + 1] : r.x1;
+    for (let x = Math.max(0, a); x <= Math.min(MAP_W - 1, b); x++) m[y * MAP_W + x] = IN_WALLS;
+  }
+  const out = (x: number, y: number) => x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || m[y * MAP_W + x] === 0;
+  const edge: number[] = [];
+  for (let i = 0; i < m.length; i++) {
+    if (!m[i]) continue;
+    const x = i % MAP_W;
+    const y = (i - x) / MAP_W;
+    if (out(x - 1, y) || out(x + 1, y) || out(x, y - 1) || out(x, y + 1) || out(x - 1, y - 1) || out(x + 1, y - 1) || out(x - 1, y + 1) || out(x + 1, y + 1)) edge.push(i);
+  }
+  for (const i of edge) m[i] = ON_WALL;
+  masks.set(r, m);
+  return m;
+}
+
 // The square at the heart of the town: open ground kept clear for markets and gatherings.
 export const plaza = (site: Spot) => ({ x0: site.x - 2, y0: site.y - 1, x1: site.x + 2, y1: site.y + 1 });
 
@@ -94,7 +122,7 @@ const BRUSH_COST = 6;
 
 // What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
 // again then.
-export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs'>;
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs' | 'street'>;
 
 let cache: { ref: unknown; n: number; rev: number; seed: number; era: string; key: string; layout: Layout } | null = null;
 
@@ -113,8 +141,9 @@ export function townLayout(view: TownView): Layout {
     homes.map((h) => `${h.lot}:${h.tier ?? 1}`).join(','),
     plots.map(([k, p]) => `${k}${has(k) ? '+' : ''}@${p.x},${p.y}`).join(','),
     (view.parcels ?? []).map((p) => `${p.kind[0]}${p.x},${p.y},${p.w},${p.h}${p.ready}${p.fenced ? 'f' : ''}`).join(','),
-    view.ring && (has('walls') || has('palisade')) ? `${has('walls') ? 'w' : 'p'}${view.ring.x0},${view.ring.y0},${view.ring.x1},${view.ring.y1}` : '',
+    view.ring && (has('walls') || has('palisade')) ? `${has('walls') ? 'w' : 'p'}${view.ring.x0},${view.ring.y0},${view.ring.x1},${view.ring.y1}:${(view.ring.rows ?? []).join(',')}` : '',
     (view.trails ?? []).join(','),
+    (view.street ?? []).length ? 's' + view.street!.length : '',
     view.wild ? JSON.stringify(view.wild) : '',
     view.works?.paving !== undefined ? 'paved' : '',
     (view.mills ?? []).map((m) => m.plot).join(','),
@@ -198,6 +227,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   // Roads: first the road in from the wider world to the square, the town's main street; then from
   // every door the cheapest way to the nearest road, nearest doors first, so the lanes join into
   // streets; then on from the road in to the edge of the map.
+  // The high street the crown cut, where nothing stands in its way.
+  for (const i of view.street ?? []) {
+    if (blocked[i] || ground[i] === 'water') continue;
+    ground[i] = 'road';
+    cleared[i] = 1;
+  }
   // Footpaths people have trodden (paths.ts): the roads take to them where they can.
   for (const i of view.trails ?? []) {
     if (blocked[i] || ground[i] !== 'grass' || t.cover[i] === ROCK) continue;
@@ -234,50 +269,56 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
   const boulevard = view.works?.boulevard !== undefined;
   const ring = !boulevard && (stone || has('palisade')) ? view.ring : undefined;
   if (boulevard && view.ring) {
-    const r = view.ring;
-    for (let y = r.y0; y <= r.y1; y++)
-      for (let x = r.x0; x <= r.x1; x++) {
-        if (x !== r.x0 && x !== r.x1 && y !== r.y0 && y !== r.y1) continue;
-        const i = y * MAP_W + x;
-        if (!inMap(x, y) || blocked[i] || ground[i] === 'water') continue;
-        ground[i] = 'road';
-        cleared[i] = 1;
-      }
+    const m = ringMask(view.ring);
+    for (let i = 0; i < N; i++) {
+      if (m[i] !== ON_WALL || blocked[i] || ground[i] === 'water') continue;
+      ground[i] = 'road';
+      cleared[i] = 1;
+    }
   }
   if (ring) {
-    const onRing = (x: number, y: number) => (x === ring.x0 || x === ring.x1) && y >= ring.y0 && y <= ring.y1 || (y === ring.y0 || y === ring.y1) && x >= ring.x0 && x <= ring.x1;
-    const isGate = (x: number, y: number) => inMap(x, y) && onRing(x, y) && ground[y * MAP_W + x] === 'road';
-    const towers = new Set<string>([`${ring.x0},${ring.y0}`, `${ring.x1},${ring.y0}`, `${ring.x0},${ring.y1}`, `${ring.x1},${ring.y1}`]);
-    for (let y = ring.y0; y <= ring.y1; y++)
-      for (let x = ring.x0; x <= ring.x1; x++) {
-        if (!onRing(x, y) || !inMap(x, y)) continue;
-        if (isGate(x, y)) {
-          gates.push({ x, y });
-          if (!stone) continue;
-          // A tower either side of the gate, unless one already stands within two tiles along the
-          // wall: gates close together share their towers rather than lining the wall with them.
-          const side = x === ring.x0 || x === ring.x1;
-          const along = (k: number) => (side ? `${x},${y + k}` : `${x + k},${y}`);
-          for (const dir of [-1, 1]) if (![1, 2, 3].some((k) => towers.has(along(dir * k)) || (k > 1 && towers.has(along(-dir * k))))) towers.add(along(dir));
-        }
-      }
-    for (let y = ring.y0; y <= ring.y1; y++)
-      for (let x: number = ring.x0; x <= ring.x1; x++) {
-        if (!onRing(x, y) || !inMap(x, y) || isGate(x, y)) continue;
-        const i = y * MAP_W + x;
-        if (ground[i] === 'water' || blocked[i]) continue; // the river is its own moat; a house in the line is part of it
-        blocked[i] = 1;
-        cleared[i] = 1;
-        const edgeY = y === ring.y0 || y === ring.y1;
-        if (!stone) props.push({ key: 'palisade', x, y, anchor: 'bottom' });
-        else if (towers.has(`${x},${y}`)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
-        else props.push({ key: edgeY ? 'town-wall' : 'wall-top', x, y, anchor: edgeY ? 'bottom' : 'top' });
-      }
+    // The line follows the town's own shape (landplan.ts ringFor): a tile of wall wherever the
+    // inside meets the outside, towers on its corners and either side of each gate.
+    const m = ringMask(ring);
+    const at = (x: number, y: number) => (inMap(x, y) ? m[y * MAP_W + x] : 0);
+    const isGate = (x: number, y: number) => at(x, y) === ON_WALL && ground[y * MAP_W + x] === 'road';
+    const across = (x: number, y: number) => at(x, y - 1) === 0 || at(x, y + 1) === 0; // the outside above or below: a wall seen face on
+    const sideways = (x: number, y: number) => at(x - 1, y) === 0 || at(x + 1, y) === 0;
+    const towers = new Set<number>();
+    for (let i = 0; i < N; i++) {
+      const x = i % MAP_W;
+      const y = (i - x) / MAP_W;
+      if (m[i] === ON_WALL && across(x, y) && sideways(x, y)) towers.add(i);
+    }
+    const near = (i: number, r: number) => [...towers].some((j) => Math.abs((j % MAP_W) - (i % MAP_W)) + Math.abs(Math.floor(j / MAP_W) - Math.floor(i / MAP_W)) <= r);
+    for (let i = 0; i < N; i++) {
+      const x = i % MAP_W;
+      const y = (i - x) / MAP_W;
+      if (!isGate(x, y)) continue;
+      gates.push({ x, y });
+      if (!stone) continue;
+      // A tower either side of the gate along the wall, unless one already stands within two tiles:
+      // gates close together share their towers rather than lining the wall with them.
+      for (const j of [i - 1, i + 1, i - MAP_W, i + MAP_W]) if (m[j] === ON_WALL && !isGate(j % MAP_W, Math.floor(j / MAP_W)) && !near(j, 2)) towers.add(j);
+    }
+    for (let i = 0; i < N; i++) {
+      const x = i % MAP_W;
+      const y = (i - x) / MAP_W;
+      if (m[i] !== ON_WALL || isGate(x, y)) continue;
+      if (ground[i] === 'water' || blocked[i]) continue; // the river is its own moat; a house in the line is part of it
+      blocked[i] = 1;
+      cleared[i] = 1;
+      const face = across(x, y);
+      if (!stone) props.push({ key: 'palisade', x, y, anchor: 'bottom' });
+      else if (towers.has(i)) props.push({ key: 'gate-tower', x, y, anchor: 'bottom' });
+      else props.push({ key: face ? 'town-wall' : 'wall-top', x, y, anchor: face ? 'bottom' : 'top' });
+    }
   }
 
   // The crown's paving: every road inside the walls (or near the square, with none) laid in stone.
   if (view.works?.paving !== undefined) {
-    const inside = (x: number, y: number) => (ring ? x > ring.x0 && x < ring.x1 && y > ring.y0 && y < ring.y1 : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
+    const m = ring ? ringMask(ring) : undefined;
+    const inside = (x: number, y: number) => (m ? m[y * MAP_W + x] === IN_WALLS : Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 14);
     for (let i = 0; i < N; i++) if (ground[i] === 'road' && inside(i % MAP_W, Math.floor(i / MAP_W))) ground[i] = 'paved';
   }
 

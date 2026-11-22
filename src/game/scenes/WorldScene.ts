@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded, ruined, type DungeonKind, type Npc, type WorldState, rulerLook, ageOf, AGE_SUFFIX } from '../../sim';
 import { places } from '../../sim/places';
-import { MAP_H, MAP_W, dungeonDoor, lotXY, railway, townLayout, type Placed } from '../../sim/town';
+import { MAP_H, MAP_W, ON_WALL, dungeonDoor, footprint, lotXY, railway, ringMask, townLayout, type Placed } from '../../sim/town';
 import { entryOf, siteOf } from '../../sim/landplan';
 import { WATER, TREE, terrainOf } from '../../sim/terrain';
 import { wildsOf } from '../../sim/wilds';
@@ -85,6 +85,8 @@ export class WorldScene extends Phaser.Scene {
   private lastKey = '';
   tickMs = 500;
   dayNight = true; // false holds the sky at noon (the player's choice: fast speeds flicker)
+  landMap = false; // the land plan coloured over the town (the map menu's ผังที่ดิน)
+  private landLayer: Phaser.GameObjects.Graphics | null = null;
   onSelect: (id: number | null) => void = () => {};
   onGuild: () => void = () => {};
   private guildBounds: Phaser.Geom.Rectangle | null = null;
@@ -627,7 +629,46 @@ export class WorldScene extends Phaser.Scene {
         this.add.sprite(img.x + 30, img.y + 4, boss).setOrigin(0.5, 1).setDepth(img.y + 4).play(`${boss}-walk`);
       }
     }
+    this.drawLandMap();
     this.townBuilt = true;
+  }
+
+  // Turns the land plan on or off; returns whether it is on.
+  setLandMap(on: boolean): boolean {
+    this.landMap = on;
+    this.drawLandMap();
+    return on;
+  }
+
+  // Who holds which ground: each family's fields in its own colour (the crown's and the unclaimed
+  // pale), the common grazing green, a noble's enclosed pasture violet, homes orange, the public
+  // buildings and the crown's works gold, the town line red.
+  private drawLandMap(): void {
+    if (this.landLayer?.active) this.landLayer.destroy();
+    this.landLayer = null;
+    const w = this.world;
+    if (!this.landMap || !w) return;
+    const g = this.add.graphics().setDepth(MAP_H * TILE + 50);
+    const box = (x: number, y: number, wd: number, h: number, color: number, alpha = 0.45) => {
+      g.fillStyle(color, alpha).fillRect(x * TILE, y * TILE, wd * TILE, h * TILE);
+      g.lineStyle(2, color, 0.95).strokeRect(x * TILE + 1, y * TILE + 1, wd * TILE - 2, h * TILE - 2);
+    };
+    const FAMILY = [0xe8503a, 0x4a86e0, 0xf582b8, 0x9a66e0, 0x7fd8f8, 0xc47a32, 0xffd23f, 0x56a832];
+    for (const p of w.parcels ?? []) {
+      if (p.kind === 'pasture') box(p.x, p.y, p.w, p.h, p.ownerId === undefined ? 0x56a832 : 0x9a66e0);
+      else box(p.x, p.y, p.w, p.h, p.ownerId === undefined ? 0xfff4d6 : FAMILY[p.ownerId % FAMILY.length]);
+    }
+    for (const h of w.homes ?? []) {
+      const at = lotXY(h.lot);
+      box(at.x, at.y, 2, 2, 0xf5902e, 0.35);
+    }
+    for (const [k, p] of Object.entries(w.plots ?? {})) if (p) box(p.x, p.y, footprint(k).w, footprint(k).h, 0xffd23f, 0.4);
+    if (w.ring && (w.founded === undefined || w.founded.walls !== undefined || w.founded.palisade !== undefined)) {
+      const m = ringMask(w.ring);
+      g.fillStyle(0xe8503a, 0.55);
+      for (let i = 0; i < m.length; i++) if (m[i] === ON_WALL) g.fillRect((i % MAP_W) * TILE, Math.floor(i / MAP_W) * TILE, TILE, TILE);
+    }
+    this.landLayer = g;
   }
 
   // The mills on the old pasture, scaffolded while they go up; coal smoke from a working mill's

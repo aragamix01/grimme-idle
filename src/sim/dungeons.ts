@@ -3,6 +3,7 @@
 // hunts, worn down over several tries. A slain boss leaves a relic and a long calm, then
 // something new crawls up to take its place.
 import { chance, int, pick, type Rng } from './rng';
+import { darkWoods } from './wilds';
 import { log } from './core';
 import { legend } from './quests';
 import { DUNGEON_NAMES } from './names';
@@ -56,7 +57,7 @@ export function dungeonsDay(world: WorldState): void {
 
 // An adventurer back from a delve may have stumbled on somewhere new.
 export function maybeDiscover(world: WorldState, finder: Npc, rng: Rng, odds = FIND_CHANCE): void {
-  if (world.dungeons.length >= MAX_DUNGEONS || world.day < FIND_AFTER || !chance(rng, odds)) return;
+  if (world.dungeons.length >= MAX_DUNGEONS || world.day < FIND_AFTER || !chance(rng, odds * darkWoods(world))) return; // the deeper the woods, the more there is to stumble on
   const used = new Set(world.dungeons.map(kindOf));
   const kinds = (Object.keys(DUNGEON_KINDS) as DungeonKind[]).filter((k) => !used.has(k));
   const spot = dungeonSpot(world, rng);

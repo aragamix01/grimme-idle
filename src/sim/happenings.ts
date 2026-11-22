@@ -16,7 +16,7 @@ import { addTie } from './ties';
 import { basePrice, ensureMarket, levelOf, priceRatio, target } from './market';
 import { traveller } from './world';
 import { capacity, inShack } from './housing';
-import { claimField } from './landplan';
+import { claimField, highStreet } from './landplan';
 import { AFFAIRS } from './affairs';
 import { SAGA_DEFS } from './sagas';
 import { MILL_AFFAIRS } from './millaffairs';
@@ -679,6 +679,66 @@ const DEFS: Record<HappeningKind, Def> = {
           w.treasury += Math.round(60 * levelOf(w));
           for (const n of [a, b]) if (n) loyaltyNudge(n, -8);
           return 'ทางการยึดนาเป็นที่หลวงแล้วเก็บค่าเช่า คลังได้เงิน แต่ทั้งสองฝ่ายต่างไม่พอใจ';
+        },
+      },
+    ],
+  },
+  roadthrough: {
+    title: 'ตัดถนนผ่านบ้าน',
+    mtth: 720,
+    gap: 1800,
+    can: (w) => (w.rank ?? 2) >= 2 && !w.street && !!ruler(w) && highStreet(w).homes.length > 0 && highStreet(w).homes.length <= 4,
+    decider: ruler,
+    text: (w) => `เกวียนและคาราวานติดกันแน่นในตรอกคดเคี้ยว ทางการอยากตัดถนนสายหลักตรงจากลานกลางถึงทางเข้าเมือง แต่มีบ้าน ${highStreet(w).homes.length} หลังขวางแนวถนนอยู่`,
+    options: [
+      {
+        key: 'clear',
+        label: 'รื้อบ้านที่ขวาง จ่ายค่าชดเชย',
+        likes: { greedy: 1.5, brave: 1.4, kind: 0.4 },
+        can: (w) => w.treasury >= highStreet(w).homes.length * Math.round(60 * levelOf(w)),
+        act: (w) => {
+          const { tiles, homes } = highStreet(w);
+          const each = Math.round(60 * levelOf(w));
+          const lots = new Set(homes.map((h) => h.lot));
+          const evicted = w.npcs.filter((n) => n.alive && n.home !== undefined && lots.has(n.home));
+          // The compensation goes to whoever paid for each home, else to the eldest who lived there.
+          for (const h of homes) {
+            const owner = w.npcs.find((n) => n.id === h.ownerId && n.alive) ?? evicted.filter((n) => n.home === h.lot && n.age >= 16).sort((a, b) => b.age - a.age)[0];
+            w.treasury -= each;
+            if (owner) owner.gold += each;
+          }
+          for (const n of evicted) {
+            n.home = undefined;
+            loyaltyNudge(n, -15);
+          }
+          w.homes = (w.homes ?? []).filter((h) => !lots.has(h.lot));
+          w.street = tiles;
+          w.buildRev = (w.buildRev ?? 0) + 1;
+          addMod(w, 'arrivals', 0.1, 720, 'ถนนสายหลักตัดตรงถึงลานกลาง');
+          return `บ้าน ${homes.length} หลังถูกรื้อ เจ้าของได้ค่าชดเชยหลังละ ${each} ทอง ถนนสายหลักตัดตรงถึงลานกลาง คาราวานเข้าเมืองสะดวก แต่ ${evicted.length} คนไม่มีบ้านและโกรธเคือง`;
+        },
+      },
+      {
+        key: 'around',
+        label: 'สร้างถนนอ้อมบ้านเหล่านั้น',
+        likes: { kind: 1.6, loyal: 1.2, coward: 1.2 },
+        can: (w) => w.treasury >= Math.round(220 * levelOf(w)),
+        act: (w) => {
+          const cost = Math.round(220 * levelOf(w));
+          w.treasury -= cost;
+          w.street = highStreet(w).tiles; // where a home stands, the street bends round it (the layout steps aside)
+          w.buildRev = (w.buildRev ?? 0) + 1;
+          addMod(w, 'arrivals', 0.05, 720, 'ถนนสายหลักสายใหม่');
+          return `ทางการทุ่ม ${cost} ทองสร้างถนนอ้อมบ้านชาวเมือง ทุกคนได้อยู่ที่เดิม แต่คลังหลวงเบาไปมาก`;
+        },
+      },
+      {
+        key: 'leave',
+        label: 'ปล่อยตรอกไว้อย่างเดิม',
+        likes: { coward: 1.4, greedy: 1.2, kind: 1.1 },
+        act: (w) => {
+          nudgeAll(ofJob(w, 'merchant'), -5);
+          return 'ตรอกยังคดเคี้ยวเหมือนเดิม ชาวบ้านโล่งใจ พ่อค้าบ่นว่าเกวียนเข้าเมืองลำบาก';
         },
       },
     ],

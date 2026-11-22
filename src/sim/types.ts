@@ -535,7 +535,7 @@ export type HappeningKind =
   // the steam age's troubles (affairs.ts)
   | 'millfire' | 'millstrike' | 'factoryact' | 'minecollapse' | 'estatesale'
   // the land (happenings.ts)
-  | 'enclosure' | 'sacredgrove' | 'landclaim';
+  | 'enclosure' | 'sacredgrove' | 'landclaim' | 'roadthrough';
 // A great matter that runs over months: a gold rush, a comet, a stolen royal child, the black death.
 export type SagaKind = 'goldrush' | 'comet' | 'ransom' | 'pestilence' | 'luddites';
 export interface Saga {
@@ -677,7 +677,8 @@ export interface WorldState {
   shacks?: number[]; // the shanty's shacks, by tile (y * MAP_W + x)
   plots?: Partial<Record<string, { x: number; y: number }>>; // where each public building and royal work stands (top-left tile), chosen when it is begun
   parcels?: Parcel[]; // fields and pastures
-  ring?: { x0: number; y0: number; x1: number; y1: number }; // the line of the town walls, set when they are begun
+  ring?: { x0: number; y0: number; x1: number; y1: number; rows?: number[] }; // the line of the town walls, set when they are begun: its bounds, and the span inside it on each row (x0, x1 for y0..y1; missing: the whole box)
+  street?: number[]; // the high street the crown cut straight from the square to the road in, by tile (happening roadthrough)
   trails?: number[]; // tiles trodden bare into footpaths, by tile; redrawn monthly from where people walk (paths.ts)
   wild?: { burnt?: { i: number; day: number }[]; planted?: number[]; springs?: number[] }; // the wild country changed since the seed: woods burnt, woods grown by the god, springs opened (wilds.ts)
   slum?: number; // townsfolk living in them, as of the last count

@@ -10,7 +10,10 @@ import { WATER, terrainOf } from '../../src/sim/terrain';
 import { millSite, placeBuilding } from '../../src/sim/landplan';
 import { RING_REF, claimField, drawRing, dungeonSpot, enclosed as enclosedTown, entryOf, fieldYield, homeSpot, landDay, planStyle, plotDoor, ringLength, siteOf, trampled, treesOn } from '../../src/sim/landplan';
 import { WEAR_PATH, trod } from '../../src/sim/paths';
-import { REGROW_DAYS, randomWoods, wildfireAt, wildsOf } from '../../src/sim/wilds';
+import { REGROW_DAYS, darkWoods, randomWoods, wildfireAt, wildsOf } from '../../src/sim/wilds';
+import { IN_WALLS, MAP_H, ringMask } from '../../src/sim/town';
+import { TREE, homeKind, type HomeKind } from '../../src/sim/terrain';
+import { highStreet, ringFor } from '../../src/sim/landplan';
 import { gameCap } from '../../src/sim/livestock';
 import { miracle, miracleBlocked } from '../../src/sim/divine';
 import { walkable } from '../../src/sim/nav';
@@ -1273,11 +1276,16 @@ test('the god can harden a crowd\'s resolve or cool its anger, for faith', () =>
 test('a long reign wears on the town: the same ruler after twenty years has a sourer people', () => {
   const fresh = world();
   const old = world();
-  old.crown!.since = old.day - 365 * 25;
-  run(fresh, 120);
-  run(old, 120);
+  const since = (old.crown!.since = old.day - 365 * 25);
+  // Day by day, until the tired reign falls (a coup or a rising is the strongest sign of all).
+  let fell = false;
+  for (let d = 0; d < 120 && !fell; d++) {
+    tick(fresh);
+    tick(old);
+    fell = old.crown!.since !== since;
+  }
   const avg = (w: WorldState) => grown(w).reduce((s, n) => s + (n.loyalty ?? 50), 0) / grown(w).length;
-  ok(avg(old) < avg(fresh) - 3, `twenty-five years in, loyalty ${avg(old).toFixed(1)} vs a new reign's ${avg(fresh).toFixed(1)}`);
+  ok(fell || avg(old) < avg(fresh) - 3, `twenty-five years in, loyalty ${avg(old).toFixed(1)} vs a new reign's ${avg(fresh).toFixed(1)} (since ${old.crown!.since}, day ${old.day}, regime ${old.regime}/${fresh.regime}, kings ${old.kingId}/${fresh.kingId})`);
 });
 
 test('a dead king\'s child heir takes the throne with a regent, and is handed it back at sixteen', () => {
@@ -2069,4 +2077,79 @@ test('a broke swordsman fed by the crown for two months takes up the plough; one
   m.price.grain = 1;
   for (let k = 0; k < 400; k++) considerTrade(w, c, rng);
   ok(c.job === 'mage', 'with grain glutting the market, a mage on alms went to farm anyway');
+});
+
+// ---------- the home country, dark woods, the high street, the town line ----------
+
+test("the home land's kind shapes the country: woods thicker, a shore with the sea along one edge", () => {
+  const bySeed = (k: HomeKind) => {
+    for (let s = 1; s < 400; s++) if (homeKind(s) === k) return s;
+    throw new Error(`no seed gives ${k}`);
+  };
+  const trees = (seed: number) => terrainOf(seed).cover.filter((c) => c === TREE).length;
+  const woods = bySeed('woods');
+  const plain = bySeed('plain');
+  ok(trees(woods) > trees(plain) * 1.3, `woods ${trees(woods)} trees, plain ${trees(plain)}`);
+  const shore = terrainOf(bySeed('shore'));
+  const edges = [0, MAP_W - 1].map((x) => [...Array(MAP_H).keys()].filter((y) => shore.cover[y * MAP_W + x] === WATER).length);
+  const rows = [0, MAP_H - 1].map((y) => [...Array(MAP_W).keys()].filter((x) => shore.cover[y * MAP_W + x] === WATER).length);
+  ok(Math.max(...edges.map((n) => n / MAP_H), ...rows.map((n) => n / MAP_W)) > 0.9, 'a shore has no sea along any edge');
+  ok(shore.cover[shore.site.y * MAP_W + shore.site.x] !== WATER, 'the square is in the sea');
+  const w = createWorld(bySeed('hills'));
+  ok(w.regions![0].kind === 'hills', `the home region is ${w.regions![0].kind}, not the country's kind`);
+});
+
+test('thick woods stir the monsters; cleared woods are safer', () => {
+  const w = world();
+  const before = darkWoods(w);
+  wildfireAt(w, rngOf(w), randomWoods(w, rngOf(w))!);
+  for (let k = 0; k < 6; k++) {
+    const r = { state: w.rng + k * 977 };
+    const at = randomWoods(w, r);
+    if (at !== undefined) wildfireAt(w, r, at);
+  }
+  ok(darkWoods(w) < before, `the woods are as dark after the fires: ${before} -> ${darkWoods(w)}`);
+});
+
+test('the crown cuts a high street from the square to the road in; the homes in the way come down, paid for', () => {
+  const w = world();
+  const { tiles } = highStreet(w);
+  // Two homes squarely in the way.
+  const free = tiles.filter((i) => !(w.homes ?? []).some((h) => h.lot === i));
+  const lots = [free[Math.floor(free.length / 2)], free[Math.floor(free.length / 2) + 4]];
+  const folk = grown(w).filter((n) => n.job !== 'king').slice(0, 2);
+  lots.forEach((lot, k) => {
+    w.homes!.push({ lot, tier: 1, built: 0 });
+    folk[k].home = lot;
+  });
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  w.treasury = 2000;
+  ok(highStreet(w).homes.length >= 2, 'the homes are not in the street\'s way');
+  const r = rngOf(w);
+  ok(raise(w, 'roadthrough', r), 'the high street did not come up');
+  const gold = folk.map((n) => n.gold);
+  decide(w, r, 'clear');
+  ok(!w.homes!.some((h) => lots.includes(h.lot)), 'the homes still stand');
+  ok(folk.every((n) => !lots.includes(n.home!)), 'the evicted still live in the rubble');
+  ok(folk.some((n, k) => n.gold > gold[k]), 'nobody was paid for their home');
+  const lay = townLayout(w);
+  ok(tiles.filter((i) => lay.ground[i] === 'road' || lay.ground[i] === 'paved').length >= tiles.length * 0.7, 'the high street is not a road');
+});
+
+test('the town line follows the town: inside it every core home, and less ground than its box', () => {
+  const w = world(5);
+  const r = ringFor(w);
+  ok(r.rows && r.rows.length === (r.y1 - r.y0 + 1) * 2, 'the line has no rows');
+  w.ring = r;
+  const m = ringMask(r);
+  const s = siteOf(w);
+  for (const h of w.homes ?? []) {
+    const { x, y } = lotXY(h.lot);
+    if (Math.hypot(x - s.x, (y - s.y) * 1.2) > 16) continue;
+    ok(m[y * MAP_W + x] === IN_WALLS, `a home at ${x},${y} by the square is left outside the walls`);
+  }
+  const inside = m.filter((v) => v !== 0).length;
+  const box = (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1);
+  ok(inside <= box, `the line takes in ${inside} tiles of a ${box}-tile box`);
+  ok(ringLength(r) > 0, 'a line with no wall');
 });

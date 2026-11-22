@@ -66,8 +66,21 @@ export function terrainOf(seed: number): Terrain {
   return t;
 }
 
+// What kind of country the town's home land is (its region on the world map, lands.ts): thick
+// woods, rolling hills full of rock, a shore with the sea along one edge, or open plain.
+export type HomeKind = 'plain' | 'woods' | 'hills' | 'shore';
+const HOME_KINDS: readonly HomeKind[] = ['plain', 'woods', 'hills', 'shore'];
+export const homeKind = (seed: number): HomeKind => HOME_KINDS[Math.floor(tileHash(seed, 7, 7, 61) * HOME_KINDS.length)];
+// Which edge the sea lies along, on a shore.
+const seaSide = (seed: number) => Math.floor(tileHash(seed, 8, 8, 62) * 4); // 0 west, 1 east, 2 north, 3 south
+
 function makeTerrain(seed: number): Terrain {
   const cover = new Uint8Array(MAP_W * MAP_H);
+  const kind = homeKind(seed);
+  // How thick the woods grow and how much rock breaks the ground, by the kind of country.
+  const woods = kind === 'woods' ? -0.08 : kind === 'plain' ? 0.07 : 0;
+  const scattered = kind === 'woods' ? 0.05 : kind === 'plain' ? 0.012 : 0.025;
+  const rocky = kind === 'hills' ? 0.7 : 0.78;
   // Woods: two layers of noise, broad stands and smaller copses, thickening toward the map's edges.
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++) {
@@ -75,10 +88,10 @@ function makeTerrain(seed: number): Terrain {
       const d = 0.62 * noise(seed, x, y, 15, 11) + 0.38 * noise(seed, x, y, 6, 12) + (edge < 8 ? (8 - edge) * 0.02 : 0);
       const r = tileHash(seed, x, y, 13);
       let c: Cover = MEADOW;
-      if (d > 0.6) c = r < 0.72 ? TREE : r < 0.9 ? BRUSH : MEADOW;
-      else if (d > 0.47) c = r < 0.38 ? TREE : r < 0.58 ? BRUSH : MEADOW;
-      else c = r < 0.025 ? TREE : r < 0.06 ? BRUSH : MEADOW;
-      if (noise(seed, x, y, 8, 14) > 0.78 && tileHash(seed, x, y, 15) < 0.45) c = ROCK;
+      if (d > 0.6 + woods) c = r < 0.72 ? TREE : r < 0.9 ? BRUSH : MEADOW;
+      else if (d > 0.47 + woods) c = r < 0.38 ? TREE : r < 0.58 ? BRUSH : MEADOW;
+      else c = r < scattered ? TREE : r < scattered * 2.4 ? BRUSH : MEADOW;
+      if (noise(seed, x, y, 8, 14) > rocky && tileHash(seed, x, y, 15) < (kind === 'hills' ? 0.6 : 0.45)) c = ROCK;
       cover[at(x, y)] = c;
     }
   // A river winding across the map, top to bottom or side to side.
@@ -94,6 +107,16 @@ function makeTerrain(seed: number): Terrain {
       const [x, y] = across ? [i, p + k] : [p + k, i];
       cover[at(x, y)] = WATER;
     }
+  }
+  // On a shore, the sea along one edge, its line wavering.
+  if (kind === 'shore') {
+    const side = seaSide(seed);
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const along = side < 2 ? y : x;
+        const depth = side === 0 ? x : side === 1 ? MAP_W - 1 - x : side === 2 ? y : MAP_H - 1 - y;
+        if (depth < 5 + Math.round(noise(seed, along, 0, 10, 63) * 5)) cover[at(x, y)] = WATER;
+      }
   }
   // A few ponds.
   for (let k = 0; k < 3; k++) {
@@ -171,7 +194,11 @@ function pickEntry(cover: Uint8Array, site: Spot): Spot {
   for (const s of sides) {
     const x = site.x + s.dx * ENTRY_DIST;
     const y = site.y + s.dy * Math.round(ENTRY_DIST * 0.7);
-    if (inMap(x, y) && cover[at(x, y)] !== WATER) return { x, y };
+    if (!inMap(x, y) || cover[at(x, y)] === WATER) continue;
+    // The road runs on from here to the edge of the map: not out across the sea.
+    let wet = 0;
+    for (let i = 1; inMap(x + s.dx * i, y + s.dy * i); i++) if (cover[at(x + s.dx * i, y + s.dy * i)] === WATER) wet++;
+    if (wet <= 2) return { x, y }; // a ford over a river is fine
   }
   return { x: Math.max(0, site.x - ENTRY_DIST), y: site.y };
 }

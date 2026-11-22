@@ -663,7 +663,12 @@ html:has(dialog[open]) { overflow: hidden; }
   .map { height: min(62.5vw, 45dvh); border-right: 0; } /* no animation: a tap must land where the map is drawn */
   #game { inset: auto 0; top: 50%; aspect-ratio: 8 / 5; transform: translateY(-50%); }
   .map-menu { top: 6px; right: 6px; width: 40px; height: 40px; }
-  .map-tools { top: 52px; right: 6px; }
+  /* Two columns on a phone: five items in one column ran past the bottom of the map, under the sheet. */
+  .map-tools { top: 52px; right: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(340px, calc(100vw - 12px)); min-width: 0; }
+  .map-tools button { min-height: 42px; padding: 0 8px; gap: 6px; font-size: 13px; border-bottom: 2px solid var(--paper-edge); }
+  .map-tools button + button { border-top: 0; }
+  .map-tools button:nth-child(odd) { border-right: 2px solid var(--paper-edge); }
+  .map-tools__state { padding: 0 4px; }
   #app:not([data-section="town"]):not([data-section="world"]) .map-note { display: none; }
   .sheet { margin-top: -12px; position: relative; z-index: 4; border-top: 3px solid var(--outline); box-shadow: 0 -3px 0 rgb(20 40 16 / 0.3); }
   #side .panel { padding-bottom: 88px; } /* room to scroll the last row out from under the floating button */

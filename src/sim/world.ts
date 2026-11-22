@@ -55,7 +55,7 @@ import { capacity, foundHomes, homeSite, housingDay, settle, townPop } from './h
 import { CIVIC_ORDER, founded, growthDay } from './growth';
 import { fire, shantyCrime, slumsDay } from './slums';
 import { pathsDay } from './paths';
-import { homeInFlames, woodsDay } from './wilds';
+import { darkWoods, homeInFlames, woodsDay } from './wilds';
 import { isHolyDay, proclaim, religionDay, religionOf, tenetCost, worship } from './religion';
 import { churchDay, judgeSect, sectCost } from './church';
 import { abroadPrayers, missionCost, missionsDay, sendMission } from './missions';
@@ -279,8 +279,9 @@ export function tick(world: WorldState, commands: Command[] = []): WorldState {
   const warded = 1 - ward(world); // the mages' wards slow the monsters' return
   // The monsters stir as the town grows: a camp's smell of smoke draws few, a city's many.
   const drawn = Math.min(1, Math.max(0.35, townPop(world) / 100));
+  const dark = darkWoods(world);
   for (const d of world.dungeons) {
-    if (!calm(world, d)) d.power += 0.2 * warded * drawn;
+    if (!calm(world, d)) d.power += 0.2 * warded * drawn * dark; // thick woods hide the monsters' comings and goings
     // Under the demon lord the monsters are his garrison: they hold their dens instead of
     // breaking out, and the keep's raids and tribute are the town's burden.
     if (occupied(world)) d.power = Math.min(d.power, STAMPEDE_POWER - 1);

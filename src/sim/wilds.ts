@@ -231,6 +231,10 @@ export const randomWoods = (world: WorldState, rng: Rng) => {
   return undefined;
 };
 
+// How dark the woods about the town are: wolves at the fields, the monsters in the deep places
+// stirring faster, new lairs found. Untouched woods 1.05; cleared back to half, 0.85.
+export const darkWoods = (world: WorldState) => 0.6 + 0.5 * Math.min(1, woodsShare(world));
+
 // How much of the woods around the town still stand, against the seed's (1 = untouched): the deer
 // the woods can hold goes by it, so every field cleared and every fire leaves fewer.
 const HUNT_R = 32;

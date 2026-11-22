@@ -9,6 +9,7 @@ import { chance, createRng, int, next, pick, type Rng } from './rng';
 import { clamp, decreeActive, log, occupied } from './core';
 import { ensureMarket, levelOf as priceLevel, priceRatio } from './market';
 import { HOME, WORLD_H as MAP_H, WORLD_W as MAP_W } from './realms';
+import { homeKind } from './terrain';
 import { canSend, changeHands, keepOf, labour, sendFamily } from './villages';
 import { landQuestOpen, postLandQuest } from './quests';
 import type { Good, LandKind, LandUse, Realm, Region, WorldState } from './types';
@@ -148,7 +149,8 @@ export function createRegions(world: WorldState): void {
   const realms = world.realms ?? [];
   const names = [...NAMES];
   const name = (kind: LandKind) => PREFIX[kind] + names.splice(int(rng, 0, names.length - 1), 1)[0];
-  const regions: Region[] = [{ id: world.nextId++, name: 'แผ่นดินของเรา', kind: 'plain', x: HOME.x, y: HOME.y, owner: 'us', seat: true }];
+  // Our own country is whatever kind of land the town stands on (terrain.ts homeKind).
+  const regions: Region[] = [{ id: world.nextId++, name: 'แผ่นดินของเรา', kind: homeKind(world.seed), x: HOME.x, y: HOME.y, owner: 'us', seat: true }];
   for (const r of realms) {
     const kind = FROM_TERRAIN[r.terrain][0];
     regions.push({ id: world.nextId++, name: `แดนหลวง${r.name}`, kind, x: r.x, y: r.y, owner: r.id, seat: true });

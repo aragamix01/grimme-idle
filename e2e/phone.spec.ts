@@ -197,6 +197,7 @@ test('every tab in every section, then a tap on the map', async ({ page }) => {
 });
 
 test('every map menu item works and leaves the map tappable', async ({ page }) => {
+  test.setTimeout(60_000); // four items, each on and off with a tap on the map between
   await expect(page.locator('#map-tools')).toBeHidden();
   // Open and close the menu by its own button, and by a tap elsewhere.
   await page.locator('#map-menu').tap();
@@ -207,7 +208,7 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
   await page.locator('#urgent').tap({ position: { x: 10, y: 10 } });
   await expect(page.locator('#map-tools')).toBeHidden();
 
-  for (const id of ['#daynight', '#sound', '#zoom']) {
+  for (const id of ['#daynight', '#sound', '#landmap', '#zoom']) {
     const before = await page.locator(id).getAttribute('aria-pressed');
     await mapTool(page, id);
     await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);

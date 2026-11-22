@@ -59,6 +59,25 @@ const ICONS = {
     '................',
     '................',
   ],
+  // The land plan: a map of coloured plots, a field, a pasture and a home.
+  landmap: [
+    '................',
+    '.oooooooooooooo.',
+    '.oNNNNoggggggoo.',
+    '.oNYNYoggGgggo..',
+    '.oNNNNoggggGgo..',
+    '.oNYNYoooooooo..',
+    '.ooooooOOOoaao..',
+    '.oggGgoOOOoaao..',
+    '.ogggGoOcOoaao..',
+    '.oGgggooooooooo.',
+    '.ooooooyyyyyyyo.',
+    '.oNNNNoyyyyyyyo.',
+    '.oNYNYoyyRRyyyo.',
+    '.oNNNNoyyyyyyyo.',
+    '.oooooooooooooo.',
+    '................',
+  ],
   // Day and night turning: half sun, half moon.
   daynight: [
     '................',
