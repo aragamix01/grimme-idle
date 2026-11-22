@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { REGIMES, SEASON_TH, regimeOf, seasonOf, townRankName, weatherOf, type WorldState } from './sim';
 import { TILE, WorldScene } from './game/scenes/WorldScene';
+import type { ZoomStep } from './game/scenes/WorldScene';
 import { WorldMapScene } from './game/scenes/WorldMapScene';
 import { RegionScene } from './game/scenes/RegionScene';
 import { initLands, pickLand, pickVillager, renderLands, viewLand } from './ui/lands';
@@ -289,7 +290,7 @@ function followLife(w: WorldState): void {
   lifeId = id;
   if (id === undefined) return;
   select(id);
-  if (zoom.getAttribute('aria-pressed') !== 'true') showState(zoom, scene.toggleZoom());
+  while (scene.zoomed !== 'close') showZoom(scene.toggleZoom()); // close in on the life below
 }
 initLife({
   onBorn: () => send({ type: 'command', command: { type: 'incarnate' } }),
@@ -321,9 +322,19 @@ const showState = (b: HTMLElement, on: boolean) => {
   b.setAttribute('aria-pressed', String(on));
   b.querySelector('.map-tools__state')!.textContent = on ? 'เปิด' : 'ปิด';
 };
+// The zoom button steps round three views and says which one the map is on: the town (1x), a
+// close-up (2x, following whoever is picked), and the whole country (fit to the width).
 const zoom = document.getElementById('zoom')!;
-showState(zoom, false);
-zoom.onclick = () => showState(zoom, scene.toggleZoom());
+const ZOOM_TH: Record<ZoomStep, string> = { town: 'เมือง', close: 'ใกล้', country: 'ทั้งผืน' };
+const ZOOM_NEXT: Record<ZoomStep, ZoomStep> = { town: 'close', close: 'country', country: 'town' };
+const showZoom = (step: ZoomStep) => {
+  zoom.setAttribute('aria-pressed', String(step !== 'town'));
+  zoom.dataset.step = step;
+  zoom.querySelector('.map-tools__state')!.textContent = ZOOM_TH[step];
+  zoom.title = `ตอนนี้: ${ZOOM_TH[step]} · แตะเพื่อดู${ZOOM_TH[ZOOM_NEXT[step]]}`;
+};
+showZoom('town');
+zoom.onclick = () => showZoom(scene.toggleZoom());
 // Who holds which ground, coloured over the town: the families' fields, the commons, the homes.
 const landmap = document.getElementById('landmap')!;
 showState(landmap, false);

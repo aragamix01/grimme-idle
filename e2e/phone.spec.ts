@@ -215,7 +215,9 @@ test('every map menu item works and leaves the map tappable', async ({ page }) =
     await tapNpc(page);
     await closeCard(page);
     if (id === '#zoom') {
+      await expect(page.locator('#zoom .map-tools__state')).toHaveText('ใกล้');
       await mapTool(page, id); // the close-up, then the whole country
+      await expect(page.locator('#zoom .map-tools__state')).toHaveText('ทั้งผืน');
       await expect(page.locator(id)).not.toHaveAttribute('aria-pressed', before!);
       await tapNpc(page, undefined, false); // the whole country is small: neighbours may stand on one spot
       await closeCard(page);

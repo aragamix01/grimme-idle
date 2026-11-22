@@ -59,6 +59,7 @@ const LAIRS: Record<DungeonKind, { sprite: string; residents: [string, string]; 
 const PER_PEN = 6; // beasts drawn in one pasture
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
+export type ZoomStep = 'town' | 'close' | 'country';
 const ZOOMS = [1, 2, 0] as const; // the zoom button's steps: the town, a close-up, the whole country (0: fit the map's width)
 const BEAST_SPEED = 10; // pixels a second
 const FLEE_AT = 40; // pixels: how close a hunter gets before a deer bolts
@@ -196,20 +197,25 @@ export class WorldScene extends Phaser.Scene {
 
   // Step through the zooms: the town, a 2x close-up centred on whoever is selected (and following
   // them), the whole country, and back. True while the view is anything but the plain town view.
-  toggleZoom(): boolean {
+  // The zoom button's next step; returns the step it is on now.
+  toggleZoom(): ZoomStep {
     const cam = this.cameras.main;
     this.zoomStep = (this.zoomStep + 1) % ZOOMS.length;
     const z = ZOOMS[this.zoomStep];
     cam.stopFollow();
     if (z === 0) {
       cam.setZoom(this.scale.gameSize.width / (MAP_W * TILE)).centerOn((MAP_W * TILE) / 2, (MAP_H * TILE) / 2);
-      return true;
+      return 'country';
     }
     cam.setZoom(z);
     const s = this.selectedId === null ? undefined : this.npcSprites.get(this.selectedId);
     if (z > 1 && s?.visible) cam.startFollow(s, true, 0.15, 0.15, 0, 10);
     else this.centreOnTown();
-    return z !== 1;
+    return z === 1 ? 'town' : 'close';
+  }
+  get zoomed(): ZoomStep {
+    const z = ZOOMS[this.zoomStep];
+    return z === 0 ? 'country' : z === 1 ? 'town' : 'close';
   }
 
   // The camera on the town square, where every game opens.
