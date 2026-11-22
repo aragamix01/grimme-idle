@@ -2,6 +2,7 @@
 // the king sets taxes by temperament and purse; knights, festivals and the army prop
 // the crown up, and when it weakens, ambitious nobles plot and the hungry rise.
 import { chance, pick, type Rng } from './rng';
+import { suburbFeel } from './districts';
 import { amenityJoy } from './amenities';
 import { clamp, decreeActive, kill, log } from './core';
 import { getTie, FRIEND } from './ties';
@@ -89,7 +90,7 @@ function drift(world: WorldState, k: Npc): void {
     // The palace pleases the court and galls the poor.
     if (world.works?.palace !== undefined) by += n.job === 'noble' ? 1 : n.gold < 15 ? -0.5 : 0;
     by += regimeFeeling(world, n) + Math.min(5, world.monument ?? 0) * 0.2; // pride in the monument
-    by += amenityJoy(world, n); // the parks, the square, the baths and the theatre
+    by += amenityJoy(world, n) + suburbFeel(world, n); // the parks, the square, the baths and the theatre; a suburb left outside the walls
     if (world.charter?.emergency && world.regime !== 'junta' && literate(n)) by -= 0.4; // readers chafe under emergency rule
     nudge(n, by);
   }

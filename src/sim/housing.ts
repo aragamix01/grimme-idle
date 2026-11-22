@@ -13,7 +13,7 @@ import { ageOf } from './ages';
 import { payrollReserve } from './society';
 import { rankOf } from './growth';
 import { MAP_W, SHACK_BASE, TOWN_SIZE, lotXY } from './town';
-import { homeSpot, lotOutside, shackSpot, siteOf, treesOn } from './landplan';
+import { CORE_HOMES, QUARTER_HOMES, heartOf, homeSpot, lotOutside, quarterOf, shackSpot, siteOf, treesOn } from './landplan';
 import { AWAY, type Home, type Npc, type WorldState } from './types';
 
 export const ROOMS = [4, 8, 11] as const; // by tier: a hut, a house, a townhouse a storey up
@@ -23,7 +23,6 @@ const HOUSE_TIMBER = [3, 8, 10] as const; // from the market's stock
 const BUILD_DAYS = 60; // with nobody but the family to build it; builders make it quicker
 const MAX_SITES = 1; // homes going up at once
 const WALK_LIMIT = 14; // tiles from the square past which the town would rather build up than out
-const MAX_HOMES = 27; // homes the town will spread to before it only builds up: the rest of the country stays fields and woods
 const SPARE_ROOMS = 2; // the town starts building just before it is quite full
 const CROWN_SPARE = 300; // gold the crown keeps back beyond the payroll before it builds homes itself
 const SETTLE_EVERY = 10; // days between sorting out who lives where
@@ -189,6 +188,33 @@ function payer(world: WorldState, cost: number): Npc | 'crown' | undefined {
   return world.treasury >= cost + payrollReserve(world) + (modOf(world, 'building') > 0 ? 0 : CROWN_SPARE) ? 'crown' : undefined;
 }
 
+// Ground for a new home, as its lot: in the old town within an easy walk of the square while it has
+// room for more homes; else in a quarter with room (districts.ts); else out past the walk, which is
+// `far`: there a storey on an old home beats a new one in the wilds. The rest of the country stays
+// fields and woods.
+export function newHomeLot(world: WorldState, family: Npc[], rich: boolean): { lot: number; far: boolean } {
+  const site = siteOf(world);
+  const homes = world.homes ?? [];
+  const ds = world.districts ?? [];
+  const count = (i: number) => (ds.length ? homes.filter((h) => quarterOf(world, h.lot) === i).length : i < 0 ? homes.length : 0);
+  let fallback = -1;
+  if (count(-1) < CORE_HOMES) {
+    const lot = homeSpot(world, family, rich);
+    if (lot >= 0) {
+      const q = quarterOf(world, lot);
+      const { x, y } = lotXY(lot);
+      if (q >= 0 ? count(q) < QUARTER_HOMES : Math.hypot(x - site.x, y - site.y) <= WALK_LIMIT) return { lot, far: false };
+      if (q < 0) fallback = lot;
+    }
+  }
+  const open = ds.map((_, i) => i).filter((i) => count(i) < QUARTER_HOMES).sort((a, b) => count(a) - count(b));
+  for (const i of open) {
+    const lot = homeSpot(world, family, rich, heartOf(ds[i]));
+    if (lot >= 0 && quarterOf(world, lot) === i) return { lot, far: false };
+  }
+  return { lot: fallback, far: fallback >= 0 };
+}
+
 // When homes run short and someone can pay, a new one goes up, or an old one a storey higher.
 function build(world: WorldState): void {
   const underway = sites(world).length;
@@ -207,9 +233,7 @@ function build(world: WorldState): void {
   if (!who) return;
   // A new home goes up for the biggest family without a roof, near their kin and work.
   const family = hut ? [] : (households(world).filter((g) => g[0].home === undefined || inShack(g[0])).sort((a, b) => b.length - a.length)[0] ?? []);
-  const lot = hut || (world.homes?.length ?? 0) >= MAX_HOMES ? -1 : homeSpot(world, family, who !== 'crown');
-  // Out past an easy walk from the square, a storey on an old home beats a new one in the wilds.
-  const far = lot >= 0 && Math.hypot(lotXY(lot).x - siteOf(world).x, lotXY(lot).y - siteOf(world).y) > WALK_LIMIT;
+  const { lot, far } = hut ? { lot: -1, far: false } : newHomeLot(world, family, who !== 'crown');
   const old = hut ?? (lot < 0 || far ? raise(1) : undefined);
   if (lot < 0 && !old) return; // nowhere left to build, nor anything to build up
   const tier = old ? old.tier + 1 : fresh;

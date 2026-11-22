@@ -524,6 +524,17 @@ export interface Home {
 }
 
 // Land worked in the open: a family's field, or grazing for the flocks (see landplan.ts).
+// A quarter of the town the crown laid out once the old town was full (districts.ts): a little square
+// with a well, by the top-left tile of its 3x3 patch, and the homes built round it.
+export interface District {
+  x: number;
+  y: number;
+  name: string;
+  since: number; // day it was laid out
+  walled?: boolean; // the town walls have been taken round it
+  walling?: number; // the walls are going round it: the day they are done
+}
+
 export interface Parcel {
   kind: 'field' | 'pasture';
   x: number; // top-left tile
@@ -675,6 +686,7 @@ export interface WorldState {
   knowledge?: number;
   monument?: number; // tiers of the kingdom's monument raised so far
   parks?: number[]; // the parks the crown laid out, by the lot of their top-left tile (amenities.ts)
+  districts?: District[]; // the quarters laid out beyond the old town (districts.ts)
   bathsCold?: boolean; // the bathhouse had no firewood this month
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest

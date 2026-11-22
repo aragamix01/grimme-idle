@@ -125,7 +125,7 @@ const BRUSH_COST = 6;
 
 // What the layout is drawn from. buildRev counts every change to it, so a layout is only laid out
 // again then.
-export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs' | 'street' | 'parks'>;
+export type TownView = Pick<WorldState, 'seed' | 'dungeons' | 'homes' | 'founded' | 'buildRev' | 'plots' | 'parcels' | 'ring' | 'trails' | 'wild' | 'works' | 'mills' | 'techs' | 'street' | 'parks' | 'districts'>;
 // Plots that are open ground people walk across, not buildings: the grand square.
 export const OPEN_PLOTS = new Set(['plaza']);
 
@@ -153,6 +153,7 @@ export function townLayout(view: TownView): Layout {
     view.works?.paving !== undefined ? 'paved' : '',
     (view.mills ?? []).map((m) => m.plot).join(','),
     (view.parks ?? []).join(','),
+    (view.districts ?? []).map((d) => `${d.x},${d.y}`).join(','),
     ['station', 'boulevard', 'powerplant'].map((k) => (view.works?.[k as keyof typeof view.works] !== undefined ? k[0] : '')).join(''),
     ['steam', 'electricity'].map((k) => (view.techs?.[k as keyof typeof view.techs] !== undefined ? k[0] : '')).join(''),
   ].join('|');
@@ -231,6 +232,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
     const { x, y } = lotXY(lot);
     rect(x, y, 3, 3, (i) => (cleared[i] = 1));
     doors.push({ x: x + 1, y: y + 3 });
+  }
+  // The quarters' little squares: a well in the middle, a lane out to the streets.
+  for (const d of view.districts ?? []) {
+    rect(d.x, d.y, 3, 3, (i) => (cleared[i] = 1));
+    doors.push({ x: d.x + 1, y: d.y + 3 });
+    props.push({ key: 'well', x: d.x + 1, y: d.y + 1, anchor: 'bottom' });
   }
   // Dungeons: their mound blocks, and the ground about them is trampled bare.
   for (const d of view.dungeons) {
@@ -346,6 +353,12 @@ function layOut(view: TownView, homes: NonNullable<TownView['homes']>, plots: [s
         if (ground[i] !== 'water') ground[i] = 'paved';
       });
     }
+
+  // ...and the quarters' squares.
+  for (const d of view.districts ?? [])
+    rect(d.x, d.y, 3, 3, (i) => {
+      if (ground[i] !== 'water') ground[i] = 'paved';
+    });
 
   // Gas lamps (electric once the power station runs) along the streets near the square, once the town knows steam.
   if (view.techs?.steam !== undefined) {

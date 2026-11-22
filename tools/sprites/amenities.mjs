@@ -113,6 +113,22 @@ function bench() {
   return finish(g);
 }
 
+// A quarter's well: a round stone kerb, a little shingled roof on two posts, the bucket on its rope.
+function well() {
+  const g = new Grid(16, 24);
+  g.tri(7.5, 1, 7, 5, 'r');
+  g.hline(1, 6, 14, 'R');
+  for (const x of [2, 12]) g.vline(x, 7, 9, 'N').vline(x + 1, 7, 9, 'M');
+  g.hline(4, 9, 8, 'N'); // the windlass
+  g.vline(8, 10, 4, 'k');
+  g.rect(7, 13, 3, 3, 'n').hline(7, 13, 3, 'N');
+  g.ellipse(8, 18, 7, 3, 'x');
+  g.ellipse(8, 18, 5, 1, 'a');
+  g.rect(1, 18, 15, 4, 'x').hline(1, 21, 15, 'X');
+  for (const x of [3, 8, 12]) g.set(x, 19, 'z');
+  return finish(g);
+}
+
 // For the works list: a corner of lawn, a walk, a tree and a bench.
 function park() {
   const g = new Grid(32, 32);
@@ -133,5 +149,6 @@ export function amenities() {
     { name: 'park-walk', group: 'tiles', frames: [walk(false), walk(true)] },
     { name: 'park-bed', group: 'tiles', frames: [bed()] },
     { name: 'bench', group: 'props', frames: [bench()] },
+    { name: 'well', group: 'props', frames: [well()] },
   ];
 }

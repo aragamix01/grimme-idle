@@ -57,6 +57,7 @@ function greens(world: WorldState): Spot[] {
   const sq = world.works?.plaza !== undefined ? world.plots?.plaza : undefined;
   if (sq) out.push({ x: sq.x + 1, y: sq.y + 2 }, { x: sq.x + 2, y: sq.y + 1 });
   for (const lot of world.parks ?? []) out.push({ x: (lot % MAP_W) + 1, y: Math.floor(lot / MAP_W) + 2 });
+  for (const d of world.districts ?? []) out.push({ x: d.x + 1, y: d.y + 2 }); // round the quarters' wells
   return out;
 }
 

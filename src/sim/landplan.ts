@@ -9,7 +9,7 @@ import { log } from './core';
 import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, terrainOf, tileHash, type Spot } from './terrain';
 import { wildsOf } from './wilds';
 import { IN_WALLS, MILL, ON_WALL, SHACK_BASE, doorOf, dungeonDoor, footprint, lotXY, plaza, ringMask, tileOf, townLayout } from './town';
-import type { Npc, Parcel, WorldState } from './types';
+import type { District, Npc, Parcel, WorldState } from './types';
 
 const FREE = 0;
 const WORKED = 1; // a field or a pasture
@@ -47,6 +47,7 @@ function occupancy(world: WorldState): Uint8Array {
   for (const s of world.shacks ?? []) mark(s % MAP_W, Math.floor(s / MAP_W), 1, 1, BUILT);
   for (const d of world.dungeons) mark(d.x - 1, d.y, 4, 3, BUILT);
   for (const lot of world.parks ?? []) mark(lot % MAP_W, Math.floor(lot / MAP_W), 3, 3, BUILT);
+  for (const d of world.districts ?? []) mark(d.x, d.y, 3, 3, BUILT);
   for (const m of world.mills ?? []) mark(m.plot % MAP_W, Math.floor(m.plot / MAP_W), MILL.w, MILL.h, BUILT);
   for (const p of world.parcels ?? []) mark(p.x, p.y, p.w, p.h, WORKED);
   if (world.ring) {
@@ -268,7 +269,7 @@ export function plotDoor(world: WorldState, key: string): Spot | undefined {
 
 // Where a new home goes, as its lot number: near the family's kin and work, or for the well-off,
 // near the castle. -1 when the town has no ground left within reach.
-export function homeSpot(world: WorldState, family: Npc[], rich: boolean): number {
+export function homeSpot(world: WorldState, family: Npc[], rich: boolean, heart?: Spot): number {
   const t = wildsOf(world);
   const aims: Spot[] = [];
   if (rich) aims.push(plotDoor(world, 'castle') ?? t.site);
@@ -285,10 +286,13 @@ export function homeSpot(world: WorldState, family: Npc[], rich: boolean): numbe
     const work = workplace(world, n);
     if (work) aims.push(work);
   }
-  const target = aims.length ? { x: Math.round(aims.reduce((s, a) => s + a.x, 0) / aims.length), y: Math.round(aims.reduce((s, a) => s + a.y, 0) / aims.length) } : t.site;
+  const target = aims.length ? { x: Math.round(aims.reduce((s, a) => s + a.x, 0) / aims.length), y: Math.round(aims.reduce((s, a) => s + a.y, 0) / aims.length) } : (heart ?? t.site);
   // Pulled a little toward the square: nobody builds out in the wilds while there is room nearer.
-  const pull = { x: Math.round(target.x * 0.75 + t.site.x * 0.25), y: Math.round(target.y * 0.75 + t.site.y * 0.25) };
-  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: 30, style: planStyle(world) });
+  // In a quarter, it is the quarter's own square that pulls.
+  const to = heart ?? t.site;
+  const w = heart ? 0.7 : 0.25;
+  const pull = { x: Math.round(target.x * (1 - w) + to.x * w), y: Math.round(target.y * (1 - w) + to.y * w) };
+  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: heart ? QUARTER_R - 2 : 30, style: planStyle(world) });
   return spot ? tileOf(spot.x, spot.y) : -1;
 }
 
@@ -307,7 +311,7 @@ function workplace(world: WorldState, n: Npc): Spot | undefined {
 // Whether a home stands outside the town walls (there are none before the town builds them).
 export function outsideWalls(world: WorldState, x: number, y: number): boolean {
   const r = world.ring;
-  return !!r && (world.founded?.walls !== undefined || world.founded?.palisade !== undefined) && world.works?.boulevard === undefined && ringMask(r)[y * MAP_W + x] !== IN_WALLS;
+  return !!r && enclosed(world) && world.works?.boulevard === undefined && ringMask(r)[y * MAP_W + x] !== IN_WALLS;
 }
 export const lotOutside = (world: WorldState, lot: number) => {
   const { x, y } = lotXY(lot);
@@ -504,7 +508,10 @@ export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
   const take = (x: number, y: number, w: number, h: number) => boxes.push({ x0: x - 2, y0: y - 2, x1: x + w + 1, y1: y + h + 2 });
   // Homes and buildings far out by the fields and pastures stay outside: the walls go round the
   // town, not the farms.
-  const core = (x: number, y: number) => Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16;
+  // So do the quarters, until the crown takes the walls round them (districts.ts).
+  const walled = (world.districts ?? []).filter((d) => d.walled).map(heartOf);
+  const core = (x: number, y: number) => Math.hypot(x - t.site.x, (y - t.site.y) * 1.2) <= 16 || walled.some((h) => Math.hypot(x - h.x, y - h.y) <= QUARTER_R);
+  for (const d of world.districts ?? []) if (d.walled) take(d.x, d.y, 3, 3);
   for (const [k, p] of Object.entries(world.plots ?? {})) if (p && core(p.x, p.y)) take(p.x, p.y, footprint(k).w, footprint(k).h);
   for (const h of world.homes ?? []) {
     const { x, y } = lotXY(h.lot);
@@ -530,6 +537,87 @@ export function ringFor(world: WorldState): NonNullable<WorldState['ring']> {
   const xs = rows.filter((_, i) => i % 2 === 0);
   const xe = rows.filter((_, i) => i % 2 === 1);
   return { x0: Math.min(...xs), y0, x1: Math.max(...xe), y1, rows };
+}
+
+// ---------- quarters ----------
+
+export const CORE_HOMES = 27; // homes the old town spreads to round the square before it only builds up
+export const QUARTER_HOMES = 5; // homes round each quarter's square
+export const QUARTER_R = 9; // tiles from a quarter's well a home counts as in it
+export const heartOf = (d: Pick<District, 'x' | 'y'>): Spot => ({ x: d.x + 1, y: d.y + 1 });
+
+// Which quarter a home stands in, by its lot: -1 for the old town round the square.
+export function quarterOf(world: WorldState, lot: number): number {
+  const ds = world.districts;
+  if (!ds?.length) return -1;
+  const { x, y } = lotXY(lot);
+  const site = siteOf(world);
+  let best = -1;
+  let bestD = Math.hypot(x + 1 - site.x, y + 1 - site.y);
+  ds.forEach((d, i) => {
+    const h = heartOf(d);
+    const dd = Math.hypot(x + 1 - h.x, y + 1 - h.y);
+    if (dd <= QUARTER_R && dd < bestD) {
+      best = i;
+      bestD = dd;
+    }
+  });
+  return best;
+}
+
+// Where the crown lays out a new quarter: the widest open ground a fair walk out from the square and
+// from the other quarters, as the top-left tile of its 3x3 square, with a name for it.
+export function districtSpot(world: WorldState): (Spot & { name: string }) | undefined {
+  const t = wildsOf(world);
+  const occ = occupancy(world);
+  const hearts = [t.site, ...(world.districts ?? []).map(heartOf)];
+  let best: Spot | undefined;
+  let bestScore = -Infinity;
+  for (let a = 0; a < 24; a++)
+    for (const r of [15, 18, 21]) {
+      const ang = (a / 24) * Math.PI * 2;
+      const cx = Math.round(t.site.x + Math.cos(ang) * r * 1.3);
+      const cy = Math.round(t.site.y + Math.sin(ang) * r * 0.8);
+      if (cx < 9 || cy < 8 || cx > MAP_W - 10 || cy > MAP_H - 9) continue;
+      if (hearts.some((h) => Math.hypot(h.x - cx, (h.y - cy) * 1.3) < 15)) continue;
+      let room = 0;
+      for (let dy = -5; dy <= 5; dy++)
+        for (let dx = -6; dx <= 6; dx++) {
+          const i = (cy + dy) * MAP_W + cx + dx;
+          if (occ[i] === FREE) room += t.cover[i] === TREE ? 0.6 : 1;
+          else if (occ[i] === ROAD) room += 0.5;
+        }
+      if (room < 70) continue;
+      const score = room - r * 1.5 + tileHash(world.seed, cx, cy, 63) * 4;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { x: cx, y: cy };
+      }
+    }
+  if (!best) return undefined;
+  const spot = findSpot(world, occ, { w: 3, h: 3, target: best, maxR: 5, style: planStyle(world) });
+  return spot && { ...spot, name: quarterName(world, spot) };
+}
+
+// A quarter is named for what lies about it (the water, the woods, the road in), else its side of town.
+function quarterName(world: WorldState, p: Spot): string {
+  const t = wildsOf(world);
+  const c = heartOf(p);
+  const taken = new Set((world.districts ?? []).map((d) => d.name));
+  const dx = c.x - t.site.x;
+  const dy = c.y - t.site.y;
+  const side = Math.abs(dx) * 0.8 > Math.abs(dy) ? (dx > 0 ? 'ตะวันออก' : 'ตะวันตก') : dy > 0 ? 'ใต้' : 'เหนือ';
+  let trees = 0;
+  let wet = 99;
+  for (let y = c.y - 4; y <= c.y + 4; y++)
+    for (let x = c.x - 4; x <= c.x + 4; x++) {
+      const i = y * MAP_W + x;
+      if (t.cover[i] === TREE) trees++;
+      wet = Math.min(wet, t.wet[i]);
+    }
+  const feature = wet <= 2 ? 'ริมน้ำ' : Math.hypot(c.x - t.entry.x, c.y - t.entry.y) < 12 ? 'หน้าด่าน' : trees >= 20 ? 'ชายป่า' : undefined;
+  for (const n of [feature && `ย่าน${feature}`, `ย่าน${side}`, feature && `ย่าน${feature}${side}`, `ย่านใหม่${side}`]) if (n && !taken.has(n)) return n;
+  return `ย่านที่ ${(world.districts?.length ?? 0) + 2}`;
 }
 
 // ---------- the high street ----------

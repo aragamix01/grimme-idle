@@ -142,6 +142,8 @@ const EVENTS: Record<string, RegExp> = {
   homelessLeft: /จึงทิ้งเมืองไปหาที่อยู่ใหม่/,
   founded: /สร้างเสร็จแล้ว! /,
   rankUp: /เติบโตขึ้นแล้ว!/,
+  quarter: /ราชสำนักเปิดย่านใหม่/,
+  wallsOut: /สั่งขยายกำแพงเมืองไปล้อม/,
 };
 
 export interface TownReport {

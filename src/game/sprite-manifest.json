@@ -1728,6 +1728,13 @@
     "frameHeight": 16,
     "frames": 1
   },
+  "well": {
+    "file": "assets/sprites/props/well.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
   "dungeon-den": {
     "file": "assets/sprites/buildings/dungeon-den.png",
     "group": "buildings",

@@ -35,6 +35,9 @@ import { begin as beginSaga, sagasDay } from '../../src/sim/sagas';
 import { log as logLine } from '../../src/sim/core';
 import { ourForces } from '../../src/sim/war';
 import { places } from '../../src/sim/places';
+import { districtsDay, isSuburb, suburbFeel } from '../../src/sim/districts';
+import { foundHomes, newHomeLot } from '../../src/sim/housing';
+import { CORE_HOMES, districtSpot, heartOf, quarterOf } from '../../src/sim/landplan';
 import { decide, raise, whisperCost } from '../../src/sim/happenings';
 import { addMod, modOf } from '../../src/sim/core';
 import { payrollReserve } from '../../src/sim/society';
@@ -2419,4 +2422,69 @@ test('the fountain waits for the grand square, which is open paving people walk 
   const p = w.plots!.plaza!;
   const lay = townLayout(w);
   ok(lay.ground[(p.y + 1) * MAP_W + p.x + 1] === 'paved' && lay.cost[(p.y + 1) * MAP_W + p.x + 1] > 0, 'the grand square is not open paving');
+});
+
+// ---------- the town's quarters ----------
+
+test('a full old town opens a new quarter; new homes go round its well, which can be walked to', () => {
+  const w = world();
+  w.treasury = 20000;
+  foundHomes(w, CORE_HOMES);
+  ok((w.homes?.length ?? 0) >= CORE_HOMES - 2, `only ${w.homes?.length} homes in the old town`);
+  w.homeless = 12;
+  while (w.day % 30 !== 23) w.day++;
+  districtsDay(w);
+  ok(w.districts?.length === 1, `quarters: ${w.districts?.length}`);
+  ok(w.chronicle.some((e) => e.text.includes('เปิดย่านใหม่') && e.major), 'no headline for the new quarter');
+  const d = w.districts![0];
+  const h = heartOf(d);
+  ok(fromSite(w, h.x, h.y) >= 12, `the quarter is in the old town: ${fromSite(w, h.x, h.y)}`);
+  const { lot, far } = newHomeLot(w, [grown(w)[0]], false);
+  ok(lot >= 0 && !far && quarterOf(w, lot) === 0, `a new home is not put in the quarter: ${lot} ${far} ${lot >= 0 ? quarterOf(w, lot) : ''}`);
+  const lay = townLayout(w);
+  ok(lay.cost[(d.y + 3) * MAP_W + d.x + 1] > 0 && lay.cost[h.y * MAP_W + h.x] > 0, 'the quarter cannot be walked to');
+  ok(lay.ground[h.y * MAP_W + h.x] === 'paved', 'the quarter has no square');
+  ok(places(w).hangouts.some((s) => s.x === h.x && s.y === h.y + 1), 'the idle never go to the well');
+  // A town lays out only one.
+  w.homeless = 12;
+  for (let k = 0; k < 5; k++) {
+    const l = newHomeLot(w, [], false).lot;
+    if (l >= 0) w.homes!.push({ lot: l, tier: 1, built: w.day });
+  }
+  w.day += 30;
+  districtsDay(w);
+  ok(w.districts!.length === 1, 'a town of 120 laid out a second quarter');
+});
+
+test('a suburb outside the walls likes the crown less, until the crown takes the walls round it', () => {
+  const w = world();
+  w.treasury = 50000;
+  const spot = districtSpot(w)!;
+  ok(!!spot, 'nowhere for a quarter');
+  // Walls drawn tight round the square, as they were when the town was smaller.
+  const s0 = siteOf(w);
+  w.ring = { x0: s0.x - 9, y0: s0.y - 7, x1: s0.x + 9, y1: s0.y + 7 };
+  w.districts = [{ x: spot.x, y: spot.y, name: spot.name, since: w.day }];
+  const d = w.districts[0];
+  ok(isSuburb(w, d), 'the quarter is inside the walls already');
+  const lots: number[] = [];
+  for (let k = 0; k < 4; k++) {
+    const l = homeSpot(w, [], false, heartOf(d));
+    ok(l >= 0 && quarterOf(w, l) === 0, 'no room in the quarter');
+    w.homes!.push({ lot: l, tier: 1, built: w.day });
+    w.buildRev = (w.buildRev ?? 0) + 1;
+    lots.push(l);
+  }
+  const n = grown(w)[0];
+  n.home = lots[0];
+  ok(suburbFeel(w, n) < 0, 'the suburb does not mind the walls');
+  while (w.day % 30 !== 23) w.day++;
+  const gold = w.treasury;
+  districtsDay(w);
+  ok(d.walling !== undefined && w.treasury < gold, 'the crown never set about walling the suburb');
+  while (w.day < d.walling! || w.day % 30 !== 23) w.day++;
+  districtsDay(w);
+  const h = heartOf(d);
+  ok(d.walled && ringMask(w.ring!)[h.y * MAP_W + h.x] === IN_WALLS, 'the walls do not go round the quarter');
+  ok(suburbFeel(w, n) === 0, 'still feels left outside');
 });

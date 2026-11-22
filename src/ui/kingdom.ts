@@ -1,5 +1,7 @@
 import { PLAN_TH, planStyle, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, IDEOLOGY_TH, partiesOf, partyOf, partyMembers, hasParliament, constitutional, governor, inGovernment, isCommune, reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, type Npc, type WorldState } from '../sim';
 import { greenery } from '../sim/amenities';
+import { SHACK_BASE } from '../sim/town';
+import { CORE_HOMES, QUARTER_HOMES, homesIn, isSuburb, maxQuarters, quarterOf, quartersOf } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -503,11 +505,13 @@ function housingSection(world: WorldState): HTMLElement {
       { className: 'market-head' },
       el('span', { className: `chip${people > rooms ? ' chip--danger' : ''}` }, icon('heart', 16), `คน ${people} / ห้อง ${rooms}`),
       el('span', { className: 'chip' }, `บ้าน ${up.length} หลัง${outside ? ` (นอกกำแพง ${outside})` : ''}`),
+      ...(quartersOf(world).length ? [el('span', { className: 'chip' }, `ย่าน ${quartersOf(world).length}/${maxQuarters(world)}`)] : []),
       ...(world.homeless ? [el('span', { className: 'chip chip--danger' }, `ไร้บ้าน ${world.homeless} คน`)] : []),
       ...(world.shacks?.length ? [el('span', { className: 'chip chip--danger', title: 'คนในชุมชนแออัดมักลักขโมย และโรคระบาดลามจากที่นั่นได้' }, `ชุมชนแออัด ${world.shacks.length} เพิง · ${world.slum ?? 0} คน`)] : []),
       el('span', { className: 'chip', title: 'ชาวนาสามคนต่อนาหนึ่งแปลง ชาวนาที่ไม่มีนาทำได้ผลน้อยลง' }, `นา ${land('field')} แปลง · ทุ่งหญ้า ${land('pasture')}`),
     ),
     el('li', { className: 'realm-king__meta', textContent: tiers.map(([n, c]) => `${n} ${c}`).join(' · ') + ` · ห้องต่อหลัง ${ROOMS.join('/')} คน` }),
+    ...quarterRows(world),
     ...going.map((h) =>
       el(
         'li',
@@ -518,6 +522,30 @@ function housingSection(world: WorldState): HTMLElement {
     ),
   ];
   return section('บ้านเรือน', rows, going.length ? 'กำลังสร้าง' : '');
+}
+
+// The old town and the quarters laid out beyond it: how full each is, who lives there, and whether
+// the walls go round it.
+function quarterRows(world: WorldState): HTMLElement[] {
+  const ds = quartersOf(world);
+  const old = homesIn(world, -1);
+  const head = el('li', { className: 'realm-king__meta', textContent: `เมืองเก่ารอบลานกลาง บ้าน ${old}/${CORE_HOMES} หลัง${ds.length ? '' : rankOf(world) >= 2 ? ` · เมื่อเมืองเก่าเต็มและคนยังล้น ราชสำนักจะเปิดย่านใหม่ (เมือง 1 ย่าน นคร 3 ย่าน)` : ''}` });
+  return [
+    head,
+    ...ds.map((d, i) => {
+      const folk = world.npcs.filter((n) => n.alive && n.home !== undefined && n.home < SHACK_BASE && quarterOf(world, n.home) === i);
+      const jobs = new Map<Npc['job'], number>();
+      for (const n of folk) if (n.age >= 16) jobs.set(n.job, (jobs.get(n.job) ?? 0) + 1);
+      const top = [...jobs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      const where = d.walled ? 'ในกำแพงเมือง' : d.walling !== undefined ? `กำลังขยายกำแพงมาล้อม อีก ${Math.max(0, d.walling - world.day)} วัน` : isSuburb(world, d) ? 'ชานเมืองนอกกำแพง ชาวย่านรู้สึกถูกทิ้งไว้ข้างนอก' : '';
+      return el(
+        'li',
+        { className: 'work work--done' },
+        el('img', { src: '/assets/sprites/props/well.png', alt: '', className: 'work__art' }),
+        el('div', {}, el('b', { textContent: d.name }), el('p', { className: 'realm-king__meta', textContent: `บ้าน ${homesIn(world, i)}/${QUARTER_HOMES} หลัง · ${folk.length} คน${top ? ` ส่วนใหญ่เป็น${jobName(world, top)}` : ''}${where ? ` · ${where}` : ''}` })),
+      );
+    }),
+  ];
 }
 
 function worksSection(world: WorldState): HTMLElement {
