@@ -951,6 +951,69 @@
     "frameHeight": 8,
     "frames": 1
   },
+  "flax": {
+    "file": "assets/sprites/tiles/flax.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "vines": {
+    "file": "assets/sprites/tiles/vines.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "herbs": {
+    "file": "assets/sprites/tiles/herbs.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "fallow": {
+    "file": "assets/sprites/tiles/fallow.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "reeds": {
+    "file": "assets/sprites/tiles/reeds.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "mushrooms": {
+    "file": "assets/sprites/tiles/mushrooms.png",
+    "group": "tiles",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frames": 2
+  },
+  "pine": {
+    "file": "assets/sprites/props/pine.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "birch": {
+    "file": "assets/sprites/props/birch.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
+  "fruit-tree": {
+    "file": "assets/sprites/props/fruit-tree.png",
+    "group": "props",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frames": 1
+  },
   "grass": {
     "file": "assets/sprites/tiles/grass.png",
     "group": "tiles",

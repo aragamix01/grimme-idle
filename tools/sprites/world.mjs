@@ -68,6 +68,97 @@ function crops(ripe) {
   return g;
 }
 
+// The cash crops and the resting field (farms.ts), each on its own tilled rows.
+// Flax: tall green stems with sky-blue flowers.
+function flax(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'G');
+  for (let y = 0; y < 16; y += 4) {
+    g.hline(0, y + 3, 16, 'M');
+    for (let x = 0; x < 16; x++) g.set(x, y + 2, r() < 0.5 ? 'F' : 'G');
+    for (let x = (y / 4) % 2 ? 0 : 1; x < 16; x += 2) {
+      g.set(x, y + 1, 'j');
+      if (r() < 0.8) g.set(x, y, 'i').set(x, y + 1, r() < 0.5 ? 'b' : 'j');
+    }
+  }
+  return g;
+}
+
+// Vines: rows of posts and a wire, the leaves along it, purple grapes hanging.
+function vines(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'N');
+  for (let y = 0; y < 16; y += 8) {
+    g.hline(0, y + 7, 16, 'M');
+    g.hline(0, y + 1, 16, 'n');
+    for (const x of [1, 9]) g.vline(x, y, 6, 'M');
+    for (let x = 0; x < 16; x++) {
+      if (x === 1 || x === 9) continue;
+      g.set(x, y + 2, 'G').set(x, y + 3, r() < 0.5 ? 'G' : 'F');
+      if (r() < 0.4) g.set(x, y, 'j');
+      if (r() < 0.25) g.set(x, y + 4, 'v').set(x, y + 5, 'V');
+    }
+  }
+  return g;
+}
+
+// Herbs: low clumps of many greens, dotted with their flowers.
+function herbs(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'N');
+  for (let y = 0; y < 16; y += 4) g.hline(0, y + 3, 16, 'M');
+  for (let y = 0; y < 16; y += 4)
+    for (let x = (y / 4) % 2 ? 1 : 3; x < 16; x += 4) {
+      const leaf = ['G', 'F', 'j', 'g'][Math.floor(r() * 4)];
+      g.rect(x - 1, y, 3, 2, leaf).set(x, y + 2, 'F');
+      g.set(x, y, ['p', 'y', 'w', 'v'][Math.floor(r() * 4)]);
+    }
+  return g;
+}
+
+// A field resting a year: ploughed earth gone to weeds and the odd wild flower.
+function fallow(seed) {
+  const r = rng(seed);
+  const g = new Grid(16, 16, 'N');
+  for (let y = 0; y < 16; y += 4) g.hline(0, y + 3, 16, 'M');
+  for (let i = 0; i < 9; i++) {
+    const x = Math.floor(r() * 15);
+    const y = Math.floor(r() * 15);
+    g.set(x, y, 'g').set(x + 1, y, 'j').set(x, y + 1, 'G');
+  }
+  g.set(Math.floor(r() * 16), Math.floor(r() * 16), 'y');
+  return g;
+}
+
+// Reeds by the water: tall stalks and brown cattails over the grass.
+function reeds(seed) {
+  const r = rng(seed);
+  const g = grass(seed);
+  for (let i = 0; i < 6; i++) {
+    const x = 1 + Math.floor(r() * 14);
+    const h = 5 + Math.floor(r() * 5);
+    g.vline(x, 15 - h, h, r() < 0.5 ? 'G' : 'F');
+    if (r() < 0.6) g.rect(x, 15 - h - 2, 1, 3, 'M').set(x, 15 - h - 3, 'G');
+    else g.set(x - 1, 15 - h, 'G');
+  }
+  return g;
+}
+
+// Toadstools at the wood's edge.
+function mushrooms(seed) {
+  const r = rng(seed);
+  const g = grass(seed);
+  for (let i = 0; i < 3; i++) {
+    const x = 2 + Math.floor(r() * 11);
+    const y = 4 + Math.floor(r() * 9);
+    const cap = r() < 0.7 ? 'r' : 'n';
+    g.rect(x, y + 2, 2, 2, 'z').set(x + 1, y + 3, 'x');
+    g.rect(x - 1, y, 4, 2, cap).set(x - 1, y + 1, cap === 'r' ? 'R' : 'N').set(x + 2, y + 1, cap === 'r' ? 'R' : 'N');
+    g.set(x, y, 'w').set(x + 2, y, cap === 'r' ? 'w' : 'c');
+  }
+  return g;
+}
+
 // A footpath trodden through the grass: bare earth down the middle, grass at the edges.
 function trail(seed) {
   const r = rng(seed);
@@ -179,6 +270,69 @@ const TREE = [
   '.....NNNNNN.....',
 ];
 
+// Pines on the hills and in the deep woods.
+const PINE = [
+  '.......FF.......',
+  '......FGGF......',
+  '.....FGGGGF.....',
+  '....FGjGGGGF....',
+  '......FGGF......',
+  '.....FGGGGF.....',
+  '....FGjGGGGF....',
+  '...FGGGGGGGGF...',
+  '.....FGGGGF.....',
+  '....FGjGGGGF....',
+  '...FGGGGGGFGF...',
+  '..FGGGGGGGGGGF..',
+  '....FGGGGGGF....',
+  '...FGjGGGGGGF...',
+  '..FGGGGGGGFGGF..',
+  '.FGGGGGGGGGGGGF.',
+  '.......NN.......',
+  '.......NN.......',
+  '......NNNN......',
+];
+
+// Birches: white bark with black marks under light leaves.
+const BIRCH = [
+  '................',
+  '......jjjj......',
+  '....jjggjjjg....',
+  '...jggjjggggj...',
+  '..jgggggjggGgg..',
+  '..ggjggggggGgg..',
+  '..gggGggjgggGg..',
+  '...ggggGgggggg..',
+  '...gjggggGggg...',
+  '....gggGgggg....',
+  '.....ggggzg.....',
+  '.......zz.......',
+  '.......zk.......',
+  '.......zz.......',
+  '.......kz.......',
+  '.......zz.......',
+  '......zzzz......',
+];
+
+// Fruit trees near the homes: a round crown hung with apples.
+const FRUIT = [
+  '................',
+  '.....GGGGGG.....',
+  '...GGjjGGrGGG...',
+  '..GGjGGGGGGGGG..',
+  '.GGGGrGGGGGGrGG.',
+  '.GGGGGGGFGGGGGG.',
+  '.GrGGGGGGGGrGGG.',
+  '.GGGGGFGGGGGGGG.',
+  '..GGGGGGrGGFGG..',
+  '...GGrGGGGGGG...',
+  '.....GGGGGG.....',
+  '......NNNN......',
+  '......NNNN......',
+  '......NNNN......',
+  '.....NNNNNN.....',
+];
+
 const BUSH = [
   '................',
   '................',
@@ -240,7 +394,21 @@ const prop = (rows, name) => Grid.from(rows, name).shade(SHADE).outline('o');
 
 export function tiles() {
   const tree = new Grid(16, 24).layer(prop(TREE, 'tree'), 0, 4);
+  // Every tree stands on the same 16x24 frame, its foot on the bottom row.
+  const tall = (rows, name) => {
+    const p = prop(rows, name);
+    return new Grid(16, 24).layer(p, 0, 24 - p.h);
+  };
   return [
+    { name: 'flax', group: 'tiles', frames: [flax(21), flax(22)] },
+    { name: 'vines', group: 'tiles', frames: [vines(23), vines(24)] },
+    { name: 'herbs', group: 'tiles', frames: [herbs(25), herbs(26)] },
+    { name: 'fallow', group: 'tiles', frames: [fallow(27), fallow(28)] },
+    { name: 'reeds', group: 'tiles', frames: [reeds(29), reeds(30)] },
+    { name: 'mushrooms', group: 'tiles', frames: [mushrooms(31), mushrooms(32)] },
+    { name: 'pine', group: 'props', frames: [tall(PINE, 'pine')] },
+    { name: 'birch', group: 'props', frames: [tall(BIRCH, 'birch')] },
+    { name: 'fruit-tree', group: 'props', frames: [tall(FRUIT, 'fruit-tree')] },
     { name: 'grass', group: 'tiles', frames: [grass(1), grass(2), grass(3)] },
     { name: 'path', group: 'tiles', frames: [path(4), path(5)] },
     { name: 'trail', group: 'tiles', frames: [trail(6), trail(7)] },

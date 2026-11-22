@@ -3,7 +3,8 @@ import { portentOf, ADULT_AGE, WORKS, WORK_ORDER, statueHero, weatherOf, flooded
 import { places } from '../../sim/places';
 import { MAP_H, MAP_W, ON_WALL, dungeonDoor, footprint, lotXY, railway, ringMask, townLayout, type Placed } from '../../sim/town';
 import { entryOf, siteOf } from '../../sim/landplan';
-import { WATER, TREE, terrainOf } from '../../sim/terrain';
+import { WATER, TREE, homeKind, terrainOf, type HomeKind } from '../../sim/terrain';
+import { cropOf } from '../../sim/farms';
 import { wildsOf } from '../../sim/wilds';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
@@ -60,6 +61,10 @@ const PER_PEN = 6; // beasts drawn in one pasture
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
 export type ZoomStep = 'town' | 'close' | 'country';
+// How each crop looks on its field (sprites in tools/sprites/world.mjs).
+const CROP_ART: Record<string, string> = { grain: 'crops', flax: 'flax', vines: 'vines', herbs: 'herbs', fallow: 'fallow' };
+// The share of trees that are pines, by the lie of the home country.
+const PINE_SHARE: Record<HomeKind, number> = { plain: 0.1, woods: 0.35, hills: 0.6, shore: 0.2 };
 const MAX_ZOOM = 3; // closest a pinch goes
 const ZOOMS = [1, 2, 0] as const; // the zoom button's steps: the town, a close-up, the whole country (0: fit the map's width)
 const BEAST_SPEED = 10; // pixels a second
@@ -571,6 +576,11 @@ export class WorldScene extends Phaser.Scene {
     // Only the water moves, so it stays as sprites.
     const rt = this.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0).setDepth(-1);
     const flat = { originX: 0, originY: 0 };
+    // What each field tile is sown with, so the cash crops and the resting fields show.
+    const sown = new Map<number, string>();
+    for (const p of w.parcels ?? [])
+      if (p.kind === 'field') for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) sown.set(y * MAP_W + x, CROP_ART[cropOf(p)]);
+    const near = (x: number, y: number, c: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => t.cover[(y + dy) * MAP_W + x + dx] === c);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const g = town.ground[y * MAP_W + x];
@@ -578,8 +588,13 @@ export class WorldScene extends Phaser.Scene {
         const py = y * TILE;
         if (g === 'water') this.add.sprite(px, py, 'water').setOrigin(0).setDepth(-1).play('water-flow');
         else if (g === 'road') rt.stamp('path', Math.floor(rand() * 2), px, py, flat);
-        else if (g === 'crops') rt.stamp('crops', (x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0, px, py, flat);
+        else if (g === 'crops') {
+          const art = sown.get(y * MAP_W + x) ?? 'crops';
+          rt.stamp(art, art === 'crops' ? ((x + Math.floor(y / 2)) % 5 === 0 ? 1 : 0) : (x + y) % 2, px, py, flat);
+        }
         else if (g === 'trail' || g === 'paved' || g === 'ash') rt.stamp(g, Math.floor(rand() * 2), px, py, flat);
+        else if (x > 0 && y > 0 && x < MAP_W - 1 && y < MAP_H - 1 && near(x, y, WATER) && rand() < 0.35) rt.stamp('reeds', Math.floor(rand() * 2), px, py, flat);
+        else if (x > 0 && y > 0 && x < MAP_W - 1 && y < MAP_H - 1 && near(x, y, TREE) && rand() < 0.07) rt.stamp('mushrooms', Math.floor(rand() * 2), px, py, flat);
         else if (rand() < 0.06) rt.stamp('flowers', undefined, px, py, flat);
         else rt.stamp('grass', Math.floor(rand() * 3), px, py, flat);
       }
@@ -590,10 +605,12 @@ export class WorldScene extends Phaser.Scene {
     const wild = this.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0).setDepth(-0.5);
     const open = (x: number, y: number) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && town.cost[y * MAP_W + x] > 0;
     const baked = new Set<Placed>();
+    const kind = homeKind(w.seed);
+    const homes = (w.homes ?? []).map((h) => lotXY(h.lot));
     for (const p of town.props) {
       const deep = p.key === 'tree' && !open(p.x - 1, p.y) && !open(p.x + 1, p.y) && !open(p.x, p.y - 1) && !open(p.x, p.y + 1);
       if (!deep && p.key !== 'bush' && p.key !== 'rock') continue;
-      wild.stamp(p.key, undefined, p.x * TILE, (p.y + 1) * TILE, { originX: 0, originY: 1 });
+      wild.stamp(p.key === 'tree' ? this.treeArt(w, p.x, p.y, kind, homes) : p.key, undefined, p.x * TILE, (p.y + 1) * TILE, { originX: 0, originY: 1 });
       baked.add(p);
     }
     wild.render();
@@ -624,6 +641,10 @@ export class WorldScene extends Phaser.Scene {
       if (baked.has(p)) continue;
       const home = /^(house|townhouse|hut)/.test(p.key);
       const shell = home && (ruined(w, p.x, p.y) ? 'rubble' : goingUp.has(`${p.x},${p.y}`) ? 'scaffold' : undefined);
+      if (p.key === 'tree') {
+        this.placeProp({ ...p, key: this.treeArt(w, p.x, p.y, kind, homes) });
+        continue;
+      }
       const img = this.placeProp(upgrade[p.key] ? { ...p, key: upgrade[p.key] } : home ? { ...p, key: shell || (p.key === 'hut' ? p.key : this.aged(p.key)) } : { ...p, key: this.aged(p.key) });
       if (p.key === 'lamp') this.glow.fillStyle(0xffd27a, 0.28).fillCircle(img.x + 8, img.y - 18, 14).fillStyle(0xfff2b0, 1).fillRect(img.x + 6, img.y - 21, 4, 4);
       if (p.key === 'elamp') this.glow.fillStyle(0xeaf6ff, 0.32).fillCircle(img.x + 12, img.y - 14, 20).fillStyle(0xffffff, 1).fillRect(img.x + 10, img.y - 17, 4, 4); // electric light: whiter and wider
@@ -674,6 +695,17 @@ export class WorldScene extends Phaser.Scene {
     }
     this.drawLandMap();
     this.townBuilt = true;
+  }
+
+  // Which tree stands on a tile: pines on the hills and in the woods, birches here and there,
+  // fruit trees by the homes, broad oaks everywhere else. Fixed by the tile, so a redraw keeps them.
+  private treeArt(w: WorldState, x: number, y: number, kind: HomeKind, homes: { x: number; y: number }[]): string {
+    const h = (((x * 73856093) ^ (y * 19349663) ^ w.seed) >>> 0) % 1000 / 1000;
+    if (h < 0.45 && homes.some((p) => Math.abs(p.x - x) <= 4 && Math.abs(p.y - y) <= 4)) return 'fruit-tree';
+    const pines = PINE_SHARE[kind];
+    if (h < pines) return 'pine';
+    if (h < pines + 0.15) return 'birch';
+    return 'tree';
   }
 
   // Turns the land plan on or off; returns whether it is on.
