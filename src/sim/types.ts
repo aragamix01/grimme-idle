@@ -687,6 +687,7 @@ export interface WorldState {
   monument?: number; // tiers of the kingdom's monument raised so far
   parks?: number[]; // the parks the crown laid out, by the lot of their top-left tile (amenities.ts)
   districts?: District[]; // the quarters laid out beyond the old town (districts.ts)
+  zoning?: { cells: string; since: number; by: Ideology }; // the town plan: a zone letter per 4x4 block, when it was drawn and by what platform (zoning.ts)
   bathsCold?: boolean; // the bathhouse had no firewood this month
   alms?: number; // gold in the church's larder for feeding the hungry // what the scholars have worked out, for research to spend; missing before scholars
   game?: number; // deer left in the forest

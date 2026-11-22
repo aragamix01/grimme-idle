@@ -39,6 +39,7 @@ export { ROOMS, TIER_TH, capacity, maxTier, sites as homeSites, standing as home
 export { lotXY } from './town';
 export { homesIn, isSuburb, maxQuarters, quartersOf, CORE_HOMES, QUARTER_HOMES } from './districts';
 export { quarterOf } from './landplan';
+export { PLAN, ZONES, ZONE_TH, ZONE_COLOR, offPlan, millsZoned, zoneAt, zoneCells, type Zone } from './zoning';
 export { lotOutside, outsideWalls, PLAN_TH, planStyle, trampled } from './landplan';
 export { wildsOf, ashOf } from './wilds';
 export { CALLING_TH, MAX_DEPTH, WEAK_TO, depthOf } from './callings';

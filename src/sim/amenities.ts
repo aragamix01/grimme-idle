@@ -6,6 +6,7 @@
 // gather (places.ts hangouts). What a place gives is shared out among the people, so a town that
 // grows without building more gets less from each.
 import { chance, type Rng } from './rng';
+import { amendPlan } from './zones';
 import { log } from './core';
 import { ensureMarket, levelOf } from './market';
 import { TOWN_RANK, rankOf } from './growth';
@@ -89,6 +90,7 @@ export function amenitiesDay(world: WorldState): void {
   world.treasury -= cost;
   ensureMarket(world).till += cost; // the gardeners and the masons are paid
   (world.parks ??= []).push(lot);
+  amendPlan(world, lotXY(lot).x + 1, lotXY(lot).y + 1, 0, 'green', 'any');
   world.buildRev = (world.buildRev ?? 0) + 1;
   const royal = world.parks.length === 1 && world.regime === 'monarchy' ? 'สวนหลวง' : 'สวนสาธารณะ';
   log(world, 'world', `ราชสำนักจัด${royal}แห่งที่ ${world.parks.length} ให้ชาวเมืองได้พักผ่อน`);

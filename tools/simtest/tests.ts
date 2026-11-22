@@ -35,6 +35,7 @@ import { begin as beginSaga, sagasDay } from '../../src/sim/sagas';
 import { log as logLine } from '../../src/sim/core';
 import { ourForces } from '../../src/sim/war';
 import { places } from '../../src/sim/places';
+import { ZONES, drawPlan, offPlan, zoneAt, zoneCells, zoningDay } from '../../src/sim/zoning';
 import { districtsDay, isSuburb, suburbFeel } from '../../src/sim/districts';
 import { foundHomes, newHomeLot } from '../../src/sim/housing';
 import { CORE_HOMES, districtSpot, heartOf, quarterOf } from '../../src/sim/landplan';
@@ -392,6 +393,8 @@ test('a reading town breeds a sect, led by a lettered believer', () => {
   w.crown!.fear = Infinity; // a crown that keeps its streets quiet, so the town stays as it is
   for (let m = 0; m < 240 && !religionOf(w).sect; m++) {
     toMonthDay(w, 5);
+    // It stays a reading town: the newcomers and the children grown up learn their letters too.
+    for (const n of grown(w)) n.lettered = true;
     tick(w);
   }
   const sect = religionOf(w).sect;
@@ -2487,4 +2490,72 @@ test('a suburb outside the walls likes the crown less, until the crown takes the
   const h = heartOf(d);
   ok(d.walled && ringMask(w.ring!)[h.y * MAP_W + h.x] === IN_WALLS, 'the walls do not go round the quarter');
   ok(suburbFeel(w, n) === 0, 'still feels left outside');
+});
+
+// ---------- the town plan ----------
+
+test('a town gets a plan from whoever governs it, and each kind of thing keeps to its zone', () => {
+  const w = world();
+  // A town with room left: half its homes, so the plan has open ground to keep green.
+  w.homes = w.homes!.slice(0, 8);
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  while (w.day % 30 !== 25) w.day++;
+  zoningDay(w);
+  ok(!!w.zoning, 'no plan for a town of 120');
+  ok(w.chronicle.some((e) => e.text.includes('ผังเมือง')), 'no word of the plan');
+  for (const z of ZONES) ok(zoneCells(w, z).length > 0, `no ground set aside for ${z}`);
+  const at = (lot: number, dx = 1, dy = 1) => zoneAt(w, lotXY(lot).x + dx, lotXY(lot).y + dy);
+  let homes = 0;
+  for (let k = 0; k < 6; k++) {
+    const lot = homeSpot(w, [grown(w)[k]], false);
+    ok(lot >= 0 && at(lot) !== 'green', 'a home went on green ground');
+    if (at(lot) === 'home') homes++;
+  }
+  ok(homes >= 4, `only ${homes} of 6 new homes in the homes zone`);
+  const mill = millSite(w);
+  ok(mill >= 0 && at(mill) === 'works', `a mill outside the works zone: ${mill >= 0 ? at(mill) : 'nowhere'}`);
+  const park = parkSpot(w);
+  ok(park >= 0 && at(park) === 'green', `a park outside the green ground: ${park >= 0 ? at(park) : 'nowhere'}`);
+  // Once laid out, the plan stays for the same government.
+  const cells = w.zoning!.cells;
+  w.day += 30;
+  zoningDay(w);
+  ok(w.zoning!.cells === cells, 'the same government redrew its plan');
+});
+
+test('each platform draws its own plan; another government redraws it, but not too often', () => {
+  const w = world();
+  // A town with room left: half its homes, so the plan has open ground to keep green.
+  w.homes = w.homes!.slice(0, 8);
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  const n = (plan: string, c: string) => [...plan].filter((k) => k === c).length;
+  const trade = drawPlan(w, 'trade');
+  const old = drawPlan(w, 'old');
+  const labour = drawPlan(w, 'labour');
+  ok(n(trade, 't') > n(old, 't'), `free trade gives the market no more room: ${n(trade, 't')} vs ${n(old, 't')}`);
+  ok(n(labour, 'w') > n(old, 'w'), 'labour gives the works no more room');
+  ok(n(labour, 'g') > n(trade, 'g'), 'labour lays out no more green');
+  while (w.day % 30 !== 25) w.day++;
+  w.zoning = { cells: old, since: w.day - 360, by: 'old' };
+  w.regime = 'oligarchy'; // a merchants' council governs by free trade
+  zoningDay(w);
+  ok(w.zoning.by === 'old', 'redrawn within a year');
+  w.day += 5 * 360;
+  zoningDay(w);
+  ok(w.zoning!.by === 'trade', `not redrawn by the new government: ${w.zoning!.by}`);
+});
+
+test('homes on ground the plan keeps for the works or the parks, and shacks on planned ground, stand against it', () => {
+  const w = world();
+  // A town with room left: half its homes, so the plan has open ground to keep green.
+  w.homes = w.homes!.slice(0, 8);
+  w.buildRev = (w.buildRev ?? 0) + 1;
+  w.zoning = { cells: drawPlan(w, 'labour'), since: w.day, by: 'labour' };
+  const g = zoneCells(w, 'green')[0];
+  const before = offPlan(w).homes.length;
+  w.homes!.push({ lot: (g.y - 1) * MAP_W + g.x - 1, tier: 1, built: w.day });
+  ok(offPlan(w).homes.length === before + 1, 'a home on green ground is not against the plan');
+  const h = zoneCells(w, 'home')[0];
+  w.shacks = [...(w.shacks ?? []), h.y * MAP_W + h.x];
+  ok(offPlan(w).shacks.includes(h.y * MAP_W + h.x), 'a shack on ground for homes is not against the plan');
 });

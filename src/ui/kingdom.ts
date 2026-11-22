@@ -1,7 +1,7 @@
 import { PLAN_TH, planStyle, CIVICS, CIVIC_ORDER, TOWN_RANKS, founded, rankOf, lotOutside, ROOMS, TIER_TH, capacity, homeSites, homeStanding, townPop, CRIME_TH, auditorOf, jailed, DEMON_KINDS, demonTitle, PORTENTS, portentOf, charterOf, clauses, AGES, ageOf, reformers, literacy, REGIMES, council, councilName, regimeOf, rulerLook, rulerTitle, DECREES, DECREE_ORDER, decreeActive, WORKS, WORK_ORDER, workCost, TECHS, TECH_ORDER, FIELDS, FIELD_ORDER, mastery, masteryCost, masteryLevel, known, troubleChance, WAR_COST, enemyOf, ourForces, perkLevel, theirStrength, relationWord, costOf, DREAD_TO_RISE, MAX_POWER, SIEGES_TO_FALL, trainDays, bestHero, fighter, heroOf, jobName, TAX_TH, TRAIT_TH, approval, balanceOf, crownPower, cultists, loyaltyOf, IDEOLOGY_TH, partiesOf, partyOf, partyMembers, hasParliament, constitutional, governor, inGovernment, isCommune, reignYears, CAUSE_TH, STAGE_TH, members as movementMembers, movementCost, grievances, type Npc, type WorldState } from '../sim';
 import { greenery } from '../sim/amenities';
 import { SHACK_BASE } from '../sim/town';
-import { CORE_HOMES, QUARTER_HOMES, homesIn, isSuburb, maxQuarters, quarterOf, quartersOf } from '../sim';
+import { CORE_HOMES, QUARTER_HOMES, homesIn, isSuburb, maxQuarters, quarterOf, quartersOf, lotXY, PLAN, ZONES, ZONE_TH, ZONE_COLOR, offPlan, zoneAt } from '../sim';
 import { el, icon } from './icons';
 import { localize } from './lexicon';
 
@@ -147,6 +147,7 @@ export function renderKingdom(world: WorldState): void {
     g('threat', cultSection(world)),
     g('works', foundingSection(world)),
     g('works', housingSection(world)),
+    g('works', planSection(world)),
     g('works', worksSection(world)),
     g('research', researchSection(world)),
     g('war', warSection(world)),
@@ -546,6 +547,30 @@ function quarterRows(world: WorldState): HTMLElement[] {
       );
     }),
   ];
+}
+
+// The town plan: which platform drew it, how much ground each zone has, and what stands against it.
+function planSection(world: WorldState): HTMLElement {
+  const z = world.zoning;
+  if (!z) return section('ผังเมือง', [el('li', { className: 'realm-king__meta', textContent: 'ยังไม่มีผังเมือง · ผู้ปกครองจะวางผังเมื่อขึ้นเป็นเมือง (80 คน) กันที่ไว้ให้บ้าน ร้านค้า โรงงาน สวน และนา' })], '');
+  const count = (k: string) => [...z.cells].filter((c) => c === k[0]).length;
+  const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
+  const chips = ZONES.map((k) => {
+    const c = el('span', { className: 'chip', title: `พื้นที่${ZONE_TH[k]}` }, `${ZONE_TH[k]} ${count(k)}`);
+    c.style.borderLeft = `8px solid ${hex(ZONE_COLOR[k])}`;
+    return c;
+  });
+  const off = offPlan(world);
+  const mills = world.mills ?? [];
+  const zoned = mills.filter((m) => zoneAt(world, lotXY(m.plot).x + 1, lotXY(m.plot).y + 1) === 'works').length;
+  const rows: HTMLElement[] = [
+    el('li', { className: 'realm-king__meta', textContent: `ฉบับปีที่ ${Math.floor(z.since / 360) + 1} ตามนโยบาย${IDEOLOGY_TH[z.by].name}: ${PLAN[z.by].text}` }),
+    el('li', { className: 'market-head' }, ...chips),
+    el('li', { className: 'realm-king__meta', textContent: `ตัวเลขคือจำนวนแปลง (แปลงละ 4×4 ช่อง) · สร้างอะไรทับพื้นที่สีเขียวไม่ได้ นอกนั้นสร้างนอกเขตได้แต่ไม่มีใครอยากสร้าง · ดูโซนบนแผนที่ได้จาก ผังที่ดิน ในเมนูแผนที่` }),
+  ];
+  if (mills.length) rows.push(el('li', { className: 'realm-king__meta', textContent: `โรงงานในเขตโรงงาน ${zoned}/${mills.length} แห่ง · ควันจากโรงงานในเขตถึงบ้านคนน้อยลงครึ่งหนึ่ง` }));
+  if (off.homes.length || off.shacks.length) rows.push(el('li', { className: 'realm-king__meta', textContent: `ขวางผัง: บ้าน ${off.homes.length} หลังอยู่ในเขตโรงงานหรือพื้นที่สีเขียว · เพิง ${off.shacks.length} หลังบุกรุกที่ที่กันไว้` }));
+  return section('ผังเมือง', rows, IDEOLOGY_TH[z.by].name);
 }
 
 function worksSection(world: WorldState): HTMLElement {

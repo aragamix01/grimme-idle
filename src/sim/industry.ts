@@ -8,6 +8,7 @@
 // Engines go out to the farms, where a field worked with one yields more until it wears out.
 // Coal and crystal come from our mines out on the lands, and from the dungeons' depths.
 import { chance, type Rng } from './rng';
+import { millsZoned } from './zones';
 import { addMod, clamp, headline, known, log, loyaltyNudge, occupied } from './core';
 import { charterOf } from './charter';
 import { ensureMarket, levelOf, target } from './market';
@@ -96,7 +97,8 @@ export function industryDay(world: WorldState, rng: Rng): void {
 function smog(world: WorldState): void {
   world.smog = clamp(burnt / SMOG_COAL, 0, 1);
   burnt = 0;
-  if (world.smog > 0.05) addMod(world, 'sickness', SMOG_SICK * world.smog, 31, 'ควันถ่านหินจากโรงงาน');
+  // Mills in the works zone of the town plan keep half their smoke off the homes.
+  if (world.smog > 0.05) addMod(world, 'sickness', SMOG_SICK * world.smog * (1 - 0.5 * millsZoned(world)), 31, 'ควันถ่านหินจากโรงงาน');
 }
 
 // Enough hands, and they band together; too few, and the union fades away.

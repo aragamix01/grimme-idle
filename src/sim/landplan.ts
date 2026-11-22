@@ -5,6 +5,7 @@
 // with no room anywhere knock up shacks on the town's edge. Ground under the woods has to be cleared
 // first, which takes longer and brings in timber, and leaves the deer fewer places to hide.
 import { int, pick, type Rng } from './rng';
+import { zoneAt, zoneCells, type Zone } from './zones';
 import { log } from './core';
 import { BRUSH, MAP_H, MAP_W, ROCK, TREE, WATER, terrainOf, tileHash, type Spot } from './terrain';
 import { wildsOf } from './wilds';
@@ -96,6 +97,7 @@ interface Want {
   inside?: boolean; // within the walls, if the town has them
   style?: PlanStyle; // the rulers' plan: a grid lines things up, rings keep them at one distance
   ringR?: number; // for a radial plan: how far out from the heart
+  zone?: Zone; // the zone of the town plan it belongs in (zoning.ts)
 }
 
 // Whether a patch lies wholly within the town line.
@@ -152,14 +154,30 @@ function findSpot(world: WorldState, occ: Uint8Array, want: Want): Spot | undefi
         if (door === WORKED) ok = false;
       }
       if (!ok) continue;
+      const zoned = zoneFit(world, want, x, y);
+      if (zoned < 0) continue;
       const wet = want.wet === undefined ? 0 : Math.abs(t.wet[(y + (want.h >> 1)) * MAP_W + x + (want.w >> 1)] - want.wet) * 0.35;
-      const score = near + clear * 1.5 + wet + (want.land || road ? 0 : 1.5) + tileHash(world.seed, x, y, 77) * 0.8 + planned(world, want, x, y);
+      const score = near + clear * 1.5 + wet + (want.land || road ? 0 : 1.5) + tileHash(world.seed, x, y, 77) * 0.8 + planned(world, want, x, y) + zoned;
       if (score < bestScore) {
         bestScore = score;
         best = { x, y };
       }
     }
   return best;
+}
+
+// What the town plan (zoning.ts) makes of a spot: -1 where nothing but a park may go (green ground),
+// else what being out of its zone costs. Fields mind it less, except on ground kept for homes or trade.
+const ZONE_OFF = 5;
+function zoneFit(world: WorldState, want: Want, x: number, y: number): number {
+  if (!world.zoning) return 0;
+  if (want.zone !== 'green')
+    for (const [dx, dy] of [[0, 0], [want.w - 1, 0], [0, want.h - 1], [want.w - 1, want.h - 1]]) if (zoneAt(world, x + dx, y + dy) === 'green') return -1;
+  const z = zoneAt(world, x + (want.w >> 1), y + (want.h >> 1));
+  if (!want.zone || !z || z === want.zone) return 0;
+  if (want.land) return z === 'home' || z === 'trade' ? 6 : 2;
+  if (want.zone === 'green') return 12; // a park belongs on the green ground above all
+  return ZONE_OFF;
 }
 
 // What the rulers' plan makes of a spot: a grid town wants it squared to the blocks, a radial town
@@ -203,6 +221,14 @@ const CIVIC_AIM: Record<string, [dx: number, dy: number]> = {
   theatre: [8, -8],
 };
 
+// The zone of the town plan each building belongs in; those not listed (the castle, the church, the
+// barracks, the school...) go where they always have.
+const ZONE_OF: Record<string, Zone> = {
+  shop: 'trade', inn: 'trade', brothel: 'trade', guild: 'trade', market: 'trade', theatre: 'trade', bathhouse: 'trade', press: 'trade', clocktower: 'trade',
+  forge: 'works', factory: 'works', powerplant: 'works', station: 'works',
+  barn: 'farm', plaza: 'green',
+};
+
 // Where the crown or the chief puts a new building; false when there is nowhere to put it.
 export function placeBuilding(world: WorldState, key: string): boolean {
   if (world.plots?.[key]) return true;
@@ -225,7 +251,7 @@ export function placeBuilding(world: WorldState, key: string): boolean {
   const door = doorOf(key, 0, 0);
   // Inside the walls if there is room (the crown's works were always built outside them), else
   // wherever there is ground.
-  const want = { w: fp.w, h: fp.h, target, doorX: door.x, maxR: key === 'castle' ? 8 : 24, style: key === 'castle' ? undefined : planStyle(world) };
+  const want = { w: fp.w, h: fp.h, target, doorX: door.x, maxR: key === 'castle' ? 8 : 24, style: key === 'castle' ? undefined : planStyle(world), zone: ZONE_OF[key] };
   const occ = occupancy(world);
   const spot = (CIVIC_AIM[key] ? findSpot(world, occ, { ...want, inside: true }) : undefined) ?? findSpot(world, occ, { ...want, maxR: 30 });
   if (!spot) return false;
@@ -253,7 +279,10 @@ export function parkSpot(world: WorldState): number {
       }
     }
   }
-  const want = { w: 3, h: 3, target, maxR: 12, style: planStyle(world) };
+  // The plan's green ground comes first: the nearest block of it with no park yet.
+  const open = zoneCells(world, 'green').filter((c) => !parks.some((p) => Math.abs(p.x - c.x) <= 2 && Math.abs(p.y - c.y) <= 2));
+  if (open.length) target = open.sort((a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y))[0];
+  const want = { w: 3, h: 3, target, maxR: 12, style: planStyle(world), zone: 'green' as const };
   const occ = occupancy(world);
   const spot = findSpot(world, occ, { ...want, inside: true }) ?? findSpot(world, occ, want);
   return spot ? tileOf(spot.x, spot.y) : -1;
@@ -292,7 +321,7 @@ export function homeSpot(world: WorldState, family: Npc[], rich: boolean, heart?
   const to = heart ?? t.site;
   const w = heart ? 0.7 : 0.25;
   const pull = { x: Math.round(target.x * (1 - w) + to.x * w), y: Math.round(target.y * (1 - w) + to.y * w) };
-  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: heart ? QUARTER_R - 2 : 30, style: planStyle(world) });
+  const spot = findSpot(world, occupancy(world), { w: 2, h: 2, target: pull, maxR: heart ? QUARTER_R - 2 : 30, style: planStyle(world), zone: 'home' });
   return spot ? tileOf(spot.x, spot.y) : -1;
 }
 
@@ -384,7 +413,7 @@ function claim(world: WorldState, kind: Parcel['kind'], ownerId: number | undefi
     }
     target = { x: wx, y: wy };
   }
-  const spot = findSpot(world, occupancy(world), { ...size, target, land: true, minFromSite: 6, wet: kind === 'field' ? 2 : undefined, maxR: 30 });
+  const spot = findSpot(world, occupancy(world), { ...size, target, land: true, minFromSite: 6, wet: kind === 'field' ? 2 : undefined, maxR: 30, zone: 'farm' });
   if (!spot) return undefined;
   const trees = treesOn(world, spot.x, spot.y, size.w, size.h);
   const p: Parcel = { kind, ...spot, ...size, ownerId, ready: ready ? world.day : world.day + 8 + trees * 3 };
@@ -588,7 +617,9 @@ export function districtSpot(world: WorldState): (Spot & { name: string }) | und
           else if (occ[i] === ROAD) room += 0.5;
         }
       if (room < 70) continue;
-      const score = room - r * 1.5 + tileHash(world.seed, cx, cy, 63) * 4;
+      const z = zoneAt(world, cx, cy);
+      if (z === 'works' || z === 'green') continue;
+      const score = room - r * 1.5 + tileHash(world.seed, cx, cy, 63) * 4 + (z === 'home' ? 15 : 0);
       if (score > bestScore) {
         bestScore = score;
         best = { x: cx, y: cy };
@@ -650,8 +681,12 @@ export function millSite(world: WorldState): number {
   const t = wildsOf(world);
   const st = plotDoor(world, 'station');
   const pasture = (world.parcels ?? []).find((p) => p.kind === 'pasture');
-  const target = st ?? (pasture ? { x: pasture.x + pasture.w + 2, y: pasture.y } : { x: t.site.x + 12, y: t.site.y + 8 });
-  const spot = findSpot(world, occupancy(world), { w: MILL.w, h: MILL.h, target, doorX: 1, maxR: 30, minFromSite: 10 });
+  let target = st ?? (pasture ? { x: pasture.x + pasture.w + 2, y: pasture.y } : { x: t.site.x + 12, y: t.site.y + 8 });
+  // The works zone of the town plan, the block of it nearest the station (or the square).
+  const works = zoneCells(world, 'works');
+  const from = st ?? t.site;
+  if (works.length) target = works.sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))[0];
+  const spot = findSpot(world, occupancy(world), { w: MILL.w, h: MILL.h, target, doorX: 1, maxR: 30, minFromSite: 10, zone: 'works' });
   return spot ? tileOf(spot.x, spot.y) : -1;
 }
 

@@ -6,6 +6,7 @@ import { entryOf, siteOf } from '../../sim/landplan';
 import { WATER, TREE, homeKind, terrainOf, type HomeKind } from '../../sim/terrain';
 import { cropOf } from '../../sim/farms';
 import { parkTiles } from '../../sim/amenities';
+import { CELL, ZONE_COLOR, zoneAt } from '../../sim/zones';
 import { wildsOf } from '../../sim/wilds';
 import { founded } from '../../sim/growth';
 import { snap, walk } from '../../sim/nav';
@@ -750,6 +751,15 @@ export class WorldScene extends Phaser.Scene {
       g.fillStyle(color, alpha).fillRect(x * TILE, y * TILE, wd * TILE, h * TILE);
       g.lineStyle(2, color, 0.95).strokeRect(x * TILE + 1, y * TILE + 1, wd * TILE - 2, h * TILE - 2);
     };
+    // The town plan's zones underneath, block by block (zoning.ts).
+    if (w.zoning)
+      for (let y = 0; y < MAP_H; y += CELL)
+        for (let x = 0; x < MAP_W; x += CELL) {
+          const z = zoneAt(w, x, y);
+          if (!z) continue;
+          g.fillStyle(ZONE_COLOR[z], z === 'farm' ? 0.2 : 0.38).fillRect(x * TILE, y * TILE, CELL * TILE, CELL * TILE);
+          g.lineStyle(1, ZONE_COLOR[z], 0.8).strokeRect(x * TILE + 0.5, y * TILE + 0.5, CELL * TILE - 1, CELL * TILE - 1);
+        }
     const FAMILY = [0xe8503a, 0x4a86e0, 0xf582b8, 0x9a66e0, 0x7fd8f8, 0xc47a32, 0xffd23f, 0x56a832];
     for (const p of w.parcels ?? []) {
       if (p.kind === 'pasture') box(p.x, p.y, p.w, p.h, p.ownerId === undefined ? 0x56a832 : 0x9a66e0);

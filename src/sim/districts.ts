@@ -6,11 +6,12 @@
 // the crown pays to take the walls round it (the dearer the further the line has to go). Which quarter
 // a home is in is worked out from where it stands (landplan.ts quarterOf), not stored on it.
 import { log } from './core';
+import { amendPlan } from './zones';
 import { ensureMarket, levelOf } from './market';
 import { TOWN_RANK, rankOf } from './growth';
 import { freeRooms, homeless } from './housing';
 import { SHACK_BASE } from './town';
-import { CORE_HOMES, QUARTER_HOMES, RING_REF, districtSpot, drawRing, heartOf, outsideWalls, quarterOf, ringFor, ringLength } from './landplan';
+import { CORE_HOMES, QUARTER_HOMES, QUARTER_R, RING_REF, districtSpot, drawRing, heartOf, outsideWalls, quarterOf, ringFor, ringLength } from './landplan';
 import { king, payrollReserve } from './society';
 import type { District, Npc, WorldState } from './types';
 
@@ -68,6 +69,7 @@ export function districtsDay(world: WorldState): void {
       world.treasury -= cost;
       m.till += cost; // the diggers and the masons are paid
       (world.districts ??= []).push({ x: spot.x, y: spot.y, name: spot.name, since: world.day });
+      amendPlan(world, spot.x + 1, spot.y + 1, QUARTER_R - 2, 'home', ['farm']); // the town plan takes the new quarter in
       world.buildRev = (world.buildRev ?? 0) + 1;
       const out = outsideWalls(world, spot.x + 1, spot.y + 1);
       log(world, 'world', `ราชสำนักเปิดย่านใหม่ "${spot.name}"${out ? 'นอกกำแพงเมือง' : ''} ขุดบ่อน้ำ ปูลาน ตัดทางเชื่อมกับลานกลาง ให้ครอบครัวที่ไม่มีที่อยู่ได้สร้างบ้าน`, undefined, 'major');
