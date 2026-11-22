@@ -60,6 +60,7 @@ const PER_PEN = 6; // beasts drawn in one pasture
 const HERD_MIX = ['cow', 'sheep', 'chicken', 'sheep', 'pig', 'chicken', 'cow', 'sheep'];
 const MAX_DEER = 6;
 export type ZoomStep = 'town' | 'close' | 'country';
+const MAX_ZOOM = 3; // closest a pinch goes
 const ZOOMS = [1, 2, 0] as const; // the zoom button's steps: the town, a close-up, the whole country (0: fit the map's width)
 const BEAST_SPEED = 10; // pixels a second
 const FLEE_AT = 40; // pixels: how close a hunter gets before a deer bolts
@@ -96,6 +97,7 @@ export class WorldScene extends Phaser.Scene {
   private clock = -1; // eased copy of world.day, so the sky turns smoothly between ticks
   private seenSeq = -1; // last chronicle entry the scene has reacted to
   private drag: { sx: number; sy: number } | null = null;
+  private pinch: { z: number; x: number; y: number } | null = null; // zoom and ground under the fingers when a pinch began
   private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blight!: Phaser.GameObjects.Graphics;
   private blightColor = -1;
@@ -168,6 +170,41 @@ export class WorldScene extends Phaser.Scene {
     if (!this.drag) return;
     cam.stopFollow();
     cam.setScroll(this.drag.sx - dx / cam.zoom, this.drag.sy - dy / cam.zoom);
+  }
+
+  // Two fingers pinching (or a wheel on a desktop): the zoom follows the spread of the fingers,
+  // anywhere between the whole country and 3x, and the ground that was under their midpoint
+  // stays under it, so the map can be pinched and panned at once. sx, sy are game pixels on the
+  // canvas; spread is the fingers' distance now over their distance when the pinch began.
+  pinchStart(sx: number, sy: number): void {
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    this.pinch = { z: cam.zoom, ...this.groundAt(sx, sy) };
+  }
+
+  pinchTo(sx: number, sy: number, spread: number): void {
+    const cam = this.cameras.main;
+    if (!this.pinch) return;
+    const fit = this.scale.gameSize.width / (MAP_W * TILE);
+    const z = Phaser.Math.Clamp(this.pinch.z * spread, fit, MAX_ZOOM);
+    cam.setZoom(z);
+    // Phaser zooms about the camera's middle: put the held ground back under the fingers.
+    const hw = cam.width / 2;
+    const hh = cam.height / 2;
+    cam.setScroll(this.pinch.x - hw - (sx - hw) / z, this.pinch.y - hh - (sy - hh) / z);
+    // The zoom button names the step nearest the pinch.
+    this.zoomStep = z <= fit * 1.1 ? 2 : z < 1.5 ? 0 : 1;
+  }
+
+  pinchEnd(): void {
+    this.pinch = null;
+  }
+
+  private groundAt(sx: number, sy: number): { x: number; y: number } {
+    const cam = this.cameras.main;
+    const hw = cam.width / 2;
+    const hh = cam.height / 2;
+    return { x: cam.scrollX + hw + (sx - hw) / cam.zoom, y: cam.scrollY + hh + (sy - hh) / cam.zoom };
   }
 
   // A tap picks the living NPC nearest the finger: a tap anywhere on a body is a hit, and a

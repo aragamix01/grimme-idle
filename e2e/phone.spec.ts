@@ -265,6 +265,53 @@ test('zoomed in, the map drags and taps still pick people, again and again', asy
   await pageStill(page);
 });
 
+test('two fingers pinch the map in and out about their midpoint, and the zoom button follows', async ({ page }) => {
+  // Pointer events made in the page: WebKit has no way to drive two real fingers.
+  const pinch = (from: number, to: number, lift = true) =>
+    page.evaluate(
+      ({ from, to, lift }) => {
+        const c = document.querySelector('#game canvas') as HTMLCanvasElement;
+        const r = c.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const fire = (type: string, id: number, x: number) =>
+          c.dispatchEvent(new PointerEvent(type, { pointerId: id, isPrimary: id === 1, pointerType: 'touch', clientX: x, clientY: cy, bubbles: true }));
+        const s = (window as any).__grimm.scene;
+        fire('pointerdown', 1, cx - from / 2);
+        fire('pointerdown', 2, cx + from / 2);
+        const g = s.scale.gameSize.width / r.width;
+        const held = s.groundAt((cx - r.left) * g, (cy - r.top) * g);
+        for (let k = 1; k <= 4; k++) {
+          const d = from + ((to - from) * k) / 4;
+          fire('pointermove', 1, cx - d / 2);
+          fire('pointermove', 2, cx + d / 2);
+        }
+        const now = s.groundAt((cx - r.left) * g, (cy - r.top) * g); // before the frame clamps the camera
+        if (lift) {
+          fire('pointerup', 2, cx + to / 2);
+          fire('pointerup', 1, cx - to / 2);
+        }
+        return { zoom: s.cameras.main.zoom as number, drift: Math.hypot(now.x - held.x, now.y - held.y) };
+      },
+      { from, to, lift },
+    );
+  expect((await camera(page)).zoom).toBe(1);
+  const out = await pinch(80, 160);
+  expect(out.zoom).toBeCloseTo(2, 1);
+  expect(out.drift).toBeLessThan(1); // the ground between the fingers stayed between them
+  await expect(page.locator('#zoom .map-tools__state')).toHaveText('ใกล้');
+  await expect(card(page)).toBeHidden(); // lifting the fingers is no tap
+  expect((await pinch(80, 400)).zoom).toBe(3); // no closer than 3x
+  const wide = await pinch(300, 20);
+  expect(wide.zoom).toBeLessThan(1); // out to the whole country, and no further
+  await expect(page.locator('#zoom .map-tools__state')).toHaveText('ทั้งผืน');
+  await mapTool(page, '#zoom'); // the button carries on from there: back to the town
+  expect((await camera(page)).zoom).toBe(1);
+  await tapNpc(page);
+  await closeCard(page);
+  await pageStill(page);
+});
+
 test('the country is bigger than the screen: at the town view a drag pans it, and a tap after it still lands', async ({ page, browserName }) => {
   chromeOnly(browserName);
   const box = (await page.locator('#game canvas').boundingBox())!;

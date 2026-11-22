@@ -46,7 +46,21 @@ const game = new Phaser.Game({
 // Taps and drags go to whichever map is up: the town, the world map, or a land up close.
 game.events.once(Phaser.Core.Events.READY, () =>
   bindMapInput(game.canvas, game, () => {
-    if (section !== 'world') return scene.sys.isActive() ? { scene, tap: (x, y, k, t) => scene.tap(x, y, k, t), grab: () => scene.grab(), dragBy: (dx, dy) => scene.dragBy(dx, dy) } : null;
+    if (section !== 'world')
+      return scene.sys.isActive()
+        ? {
+            scene,
+            tap: (x, y, k, t) => scene.tap(x, y, k, t),
+            grab: () => scene.grab(),
+            dragBy: (dx, dy) => scene.dragBy(dx, dy),
+            pinchStart: (x, y) => scene.pinchStart(x, y),
+            pinchTo: (x, y, s) => {
+              scene.pinchTo(x, y, s);
+              showZoom(scene.zoomed);
+            },
+            pinchEnd: () => scene.pinchEnd(),
+          }
+        : null;
     const up = viewing !== null ? regionScene : mapScene;
     return up.sys.isActive() ? { scene: up, tap: (x, y, k, t) => up.tap(x, y, k, t) } : null;
   }),
